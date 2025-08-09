@@ -1,0 +1,14 @@
+LAN1: UP
+  IP Address: 192.168.1.254/24
+  MAC Address: 00:A0:DE:12:34:56
+LAN2: DOWN
+  IP Address: Not configured
+  MAC Address: 00:A0:DE:12:34:57
+WAN1: UP
+  IP Address: 203.0.113.1/30
+  MAC Address: 00:A0:DE:12:34:58
+PP1: UP
+  IP Address: PPPoE
+VLAN10: UP
+  IP Address: 10.10.10.1/24
+  MAC Address: 00:A0:DE:12:34:59

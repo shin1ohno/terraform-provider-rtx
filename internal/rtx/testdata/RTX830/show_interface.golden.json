@@ -1,0 +1,39 @@
+[
+  {
+    "name": "LAN1",
+    "kind": "lan",
+    "admin_up": true,
+    "link_up": true,
+    "mac": "00:A0:DE:12:34:56",
+    "ipv4": "192.168.1.254/24"
+  },
+  {
+    "name": "LAN2",
+    "kind": "lan",
+    "admin_up": false,
+    "link_up": false,
+    "mac": "00:A0:DE:12:34:57"
+  },
+  {
+    "name": "WAN1",
+    "kind": "wan",
+    "admin_up": true,
+    "link_up": true,
+    "mac": "00:A0:DE:12:34:58",
+    "ipv4": "203.0.113.1/30"
+  },
+  {
+    "name": "PP1",
+    "kind": "pp",
+    "admin_up": true,
+    "link_up": true
+  },
+  {
+    "name": "VLAN10",
+    "kind": "vlan",
+    "admin_up": true,
+    "link_up": true,
+    "mac": "00:A0:DE:12:34:59",
+    "ipv4": "10.10.10.1/24"
+  }
+]

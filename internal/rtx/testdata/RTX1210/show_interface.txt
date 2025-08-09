@@ -1,0 +1,31 @@
+Interface LAN1
+  Status: up
+  IPv4: 192.168.1.254/24
+  IPv6: Not configured
+  Ethernet address: 00:A0:DE:AB:CD:01
+  MTU: 1500
+
+Interface LAN2
+  Status: down
+  IPv4: Not configured
+  IPv6: Not configured
+  Ethernet address: 00:A0:DE:AB:CD:02
+  MTU: 1500
+
+Interface WAN1
+  Status: up
+  IPv4: 203.0.113.1/30
+  IPv6: 2001:db8::1/64
+  Ethernet address: 00:A0:DE:AB:CD:03
+  MTU: 1500
+
+Interface PP1
+  Status: up
+  Type: PPPoE
+  MTU: 1454
+
+Interface VLAN10
+  Status: up
+  IPv4: 10.10.10.1/24
+  Ethernet address: 00:A0:DE:AB:CD:04
+  MTU: 1500

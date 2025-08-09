@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 // rtxClient is the concrete implementation of the Client interface
@@ -192,6 +194,70 @@ func (c *rtxClient) Run(ctx context.Context, cmd Command) (Result, error) {
 	}
 	
 	return result, nil
+}
+
+// GetInterfaces retrieves interface information from the router
+func (c *rtxClient) GetInterfaces(ctx context.Context) ([]Interface, error) {
+	// First get system information to determine model
+	systemInfo, err := c.GetSystemInfo(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get system info for parser selection: %w", err)
+	}
+
+	// Execute interface command based on model
+	var cmdPayload string
+	switch {
+	case systemInfo.Model == "RTX830":
+		cmdPayload = "show interface"
+	default:
+		cmdPayload = "show interface"
+	}
+
+	cmd := Command{
+		Key:     "interfaces",
+		Payload: cmdPayload,
+	}
+
+	result, err := c.Run(ctx, cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	// Use the parser registry to parse interfaces
+	parser, err := parsers.Get("interfaces", systemInfo.Model)
+	if err != nil {
+		return nil, fmt.Errorf("no parser available for model %s: %w", systemInfo.Model, err)
+	}
+
+	// Cast to InterfacesParser to access ParseInterfaces method
+	interfacesParser, ok := parser.(parsers.InterfacesParser)
+	if !ok {
+		return nil, fmt.Errorf("parser for %s does not implement InterfacesParser", systemInfo.Model)
+	}
+
+	parsedInterfaces, err := interfacesParser.ParseInterfaces(string(result.Raw))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse interfaces: %w", err)
+	}
+
+	// Convert parsers.Interface to client.Interface
+	interfaces := make([]Interface, len(parsedInterfaces))
+	for i, pi := range parsedInterfaces {
+		interfaces[i] = Interface{
+			Name:        pi.Name,
+			Kind:        pi.Kind,
+			AdminUp:     pi.AdminUp,
+			LinkUp:      pi.LinkUp,
+			MAC:         pi.MAC,
+			IPv4:        pi.IPv4,
+			IPv6:        pi.IPv6,
+			MTU:         pi.MTU,
+			Description: pi.Description,
+			Attributes:  pi.Attributes,
+		}
+	}
+
+	return interfaces, nil
 }
 
 // validateConfig checks if the configuration is valid

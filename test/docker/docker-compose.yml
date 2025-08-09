@@ -8,6 +8,7 @@ services:
       - "2222:22"
     environment:
       - SSH_HOST_KEY_FILE=/etc/ssh/ssh_host_rsa_key
+      - RTX_MODEL=${RTX_MODEL:-RTX1210}
     volumes:
       - ./test_host_keys:/etc/ssh/host_keys:ro
     healthcheck:
