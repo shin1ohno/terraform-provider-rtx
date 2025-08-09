@@ -84,7 +84,7 @@ func New(version string) *schema.Provider {
 			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
-			// Resources will be added here
+			"rtx_dhcp_binding": resourceRTXDHCPBinding(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
 			"rtx_system_info": dataSourceRTXSystemInfo(),

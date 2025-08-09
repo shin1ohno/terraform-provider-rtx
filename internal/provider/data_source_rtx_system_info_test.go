@@ -55,6 +55,21 @@ func (m *MockClient) GetRoutes(ctx context.Context) ([]client.Route, error) {
 	return args.Get(0).([]client.Route), args.Error(1)
 }
 
+func (m *MockClient) GetDHCPBindings(ctx context.Context, scopeID int) ([]client.DHCPBinding, error) {
+	args := m.Called(ctx, scopeID)
+	return args.Get(0).([]client.DHCPBinding), args.Error(1)
+}
+
+func (m *MockClient) CreateDHCPBinding(ctx context.Context, binding client.DHCPBinding) error {
+	args := m.Called(ctx, binding)
+	return args.Error(0)
+}
+
+func (m *MockClient) DeleteDHCPBinding(ctx context.Context, scopeID int, ipAddress string) error {
+	args := m.Called(ctx, scopeID, ipAddress)
+	return args.Error(0)
+}
+
 func TestRTXSystemInfoDataSourceSchema(t *testing.T) {
 	dataSource := dataSourceRTXSystemInfo()
 	
