@@ -34,6 +34,11 @@ func (m *MockClientForInterfaces) GetSystemInfo(ctx context.Context) (*client.Sy
 	return args.Get(0).(*client.SystemInfo), args.Error(1)
 }
 
+func (m *MockClientForInterfaces) GetRoutes(ctx context.Context) ([]client.Route, error) {
+	args := m.Called(ctx)
+	return args.Get(0).([]client.Route), args.Error(1)
+}
+
 func TestRTXInterfacesDataSourceSchema(t *testing.T) {
 	dataSource := dataSourceRTXInterfaces()
 	

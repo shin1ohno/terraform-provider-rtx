@@ -45,6 +45,20 @@ ip lan1 address 192.168.1.254/24
 dns server 8.8.8.8 8.8.4.4
 EOF
             ;;
+        "show ip route")
+            # Simulate routing table output
+            cat << EOF
+Codes: C - connected, S - static, R - RIP, O - OSPF,
+       B - BGP, D - DHCP, I - Implicit-gateway
+
+Destination         Gateway          Interface        Type
+default             203.0.113.1      WAN1             S
+10.10.10.0/24       *                VLAN10           C
+172.16.0.0/24       10.10.10.5       VLAN10           S
+192.168.1.0/24      *                LAN1             C
+203.0.113.0/30      *                WAN1             C
+EOF
+            ;;
         "show interface")
             # Different output based on model
             case "$RTX_MODEL" in
