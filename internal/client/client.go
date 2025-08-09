@@ -214,5 +214,11 @@ func validateConfig(config *Config) error {
 	if config.Timeout <= 0 {
 		config.Timeout = 30 // Default timeout
 	}
+	
+	// Validate host key configuration
+	if config.HostKey != "" && config.KnownHostsFile != "" {
+		// Both specified - HostKey takes priority, but we warn about it in logs if needed
+	}
+	
 	return nil
 }

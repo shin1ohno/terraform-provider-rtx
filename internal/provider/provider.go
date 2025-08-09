@@ -3,6 +3,9 @@ package provider
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -59,12 +62,32 @@ func New(version string) *schema.Provider {
 				Default:     30,
 				Description: "Connection timeout in seconds. Defaults to 30.",
 			},
+			"ssh_host_key": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				DefaultFunc: schema.EnvDefaultFunc("RTX_SSH_HOST_KEY", nil),
+				Description: "SSH host public key for verification (base64 encoded). If unset, uses known_hosts_file. Can be set with RTX_SSH_HOST_KEY environment variable.",
+			},
+			"known_hosts_file": {
+				Type:          schema.TypeString,
+				Optional:      true,
+				ConflictsWith: []string{"ssh_host_key"},
+				DefaultFunc:   schema.EnvDefaultFunc("RTX_KNOWN_HOSTS_FILE", "~/.ssh/known_hosts"),
+				Description:   "Path to known_hosts file for SSH host key verification. Defaults to ~/.ssh/known_hosts. Can be set with RTX_KNOWN_HOSTS_FILE environment variable.",
+			},
+			"skip_host_key_check": {
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+				DefaultFunc: schema.EnvDefaultFunc("RTX_SKIP_HOST_KEY_CHECK", false),
+				Description: "Skip SSH host key verification. WARNING: This is insecure and should only be used for testing. Can be set with RTX_SKIP_HOST_KEY_CHECK environment variable.",
+			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
 			// Resources will be added here
 		},
 		DataSourcesMap: map[string]*schema.Resource{
-			// Data sources will be added here
+			"rtx_system_info": dataSourceRTXSystemInfo(),
 		},
 		ConfigureContextFunc: providerConfigure,
 	}
@@ -80,16 +103,29 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	password := d.Get("password").(string)
 	port := d.Get("port").(int)
 	timeout := d.Get("timeout").(int)
+	sshHostKey := d.Get("ssh_host_key").(string)
+	knownHostsFile := d.Get("known_hosts_file").(string)
+	skipHostKeyCheck := d.Get("skip_host_key_check").(bool)
 
 	var diags diag.Diagnostics
 
+	// Expand ~ in known_hosts_file path
+	if strings.HasPrefix(knownHostsFile, "~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			knownHostsFile = filepath.Join(home, knownHostsFile[2:])
+		}
+	}
+
 	// Create client configuration
 	config := &client.Config{
-		Host:     host,
-		Port:     port,
-		Username: username,
-		Password: password,
-		Timeout:  timeout,
+		Host:             host,
+		Port:             port,
+		Username:         username,
+		Password:         password,
+		Timeout:          timeout,
+		HostKey:          sshHostKey,
+		KnownHostsFile:   knownHostsFile,
+		SkipHostKeyCheck: skipHostKeyCheck,
 	}
 
 	// Create SSH client with default options

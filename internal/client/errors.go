@@ -21,4 +21,7 @@ var (
 	
 	// ErrCommandFailed indicates the command execution failed on the router
 	ErrCommandFailed = errors.New("command failed")
+	
+	// ErrHostKeyMismatch indicates SSH host key verification failed
+	ErrHostKeyMismatch = errors.New("host key verification failed")
 )
