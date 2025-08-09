@@ -24,6 +24,15 @@ type Client interface {
 	
 	// GetRoutes retrieves routing table information from the router
 	GetRoutes(ctx context.Context) ([]Route, error)
+	
+	// GetDHCPBindings retrieves DHCP bindings for a scope
+	GetDHCPBindings(ctx context.Context, scopeID int) ([]DHCPBinding, error)
+	
+	// CreateDHCPBinding creates a new DHCP binding
+	CreateDHCPBinding(ctx context.Context, binding DHCPBinding) error
+	
+	// DeleteDHCPBinding removes a DHCP binding
+	DeleteDHCPBinding(ctx context.Context, scopeID int, ipAddress string) error
 }
 
 // Interface represents a network interface on an RTX router
@@ -47,6 +56,14 @@ type Route struct {
 	Interface   string `json:"interface"`          // Outgoing interface
 	Protocol    string `json:"protocol"`           // S=static, C=connected, R=RIP, O=OSPF, B=BGP, D=DHCP
 	Metric      *int   `json:"metric,omitempty"`   // Route metric (optional)
+}
+
+// DHCPBinding represents a DHCP static lease binding
+type DHCPBinding struct {
+	ScopeID             int    `json:"scope_id"`
+	IPAddress           string `json:"ip_address"`
+	MACAddress          string `json:"mac_address"`
+	UseClientIdentifier bool   `json:"use_client_identifier"`
 }
 
 // Command represents a command to be executed on the router

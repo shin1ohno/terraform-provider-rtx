@@ -17,10 +17,11 @@ type rtxClient struct {
 	parsers        map[string]Parser
 	retryStrategy  RetryStrategy
 	
-	mu       sync.Mutex
-	session  Session
-	executor Executor
-	active   bool
+	mu          sync.Mutex
+	session     Session
+	executor    Executor
+	active      bool
+	dhcpService *DHCPService
 }
 
 // NewClient creates a new RTX client instance
@@ -96,6 +97,7 @@ func (c *rtxClient) Dial(ctx context.Context) error {
 	
 	c.session = session
 	c.executor = NewSSHExecutor(session, c.promptDetector, c.retryStrategy)
+	c.dhcpService = NewDHCPService(c.executor)
 	c.active = true
 	return nil
 }
@@ -113,6 +115,7 @@ func (c *rtxClient) Close() error {
 	c.active = false
 	c.session = nil
 	c.executor = nil
+	c.dhcpService = nil
 	
 	if err != nil {
 		return fmt.Errorf("failed to close session: %w", err)
@@ -271,6 +274,57 @@ func (c *rtxClient) GetRoutes(ctx context.Context) ([]Route, error) {
 	}
 
 	return routes, nil
+}
+
+// GetDHCPBindings retrieves DHCP bindings for a scope
+func (c *rtxClient) GetDHCPBindings(ctx context.Context, scopeID int) ([]DHCPBinding, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	dhcpService := c.dhcpService
+	c.mu.Unlock()
+	
+	if dhcpService == nil {
+		return nil, fmt.Errorf("DHCP service not initialized")
+	}
+	
+	return dhcpService.ListBindings(ctx, scopeID)
+}
+
+// CreateDHCPBinding creates a new DHCP binding
+func (c *rtxClient) CreateDHCPBinding(ctx context.Context, binding DHCPBinding) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	dhcpService := c.dhcpService
+	c.mu.Unlock()
+	
+	if dhcpService == nil {
+		return fmt.Errorf("DHCP service not initialized")
+	}
+	
+	return dhcpService.CreateBinding(ctx, binding)
+}
+
+// DeleteDHCPBinding removes a DHCP binding
+func (c *rtxClient) DeleteDHCPBinding(ctx context.Context, scopeID int, ipAddress string) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	dhcpService := c.dhcpService
+	c.mu.Unlock()
+	
+	if dhcpService == nil {
+		return fmt.Errorf("DHCP service not initialized")
+	}
+	
+	return dhcpService.DeleteBinding(ctx, scopeID, ipAddress)
 }
 
 // validateConfig checks if the configuration is valid

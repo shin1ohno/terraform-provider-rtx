@@ -120,6 +120,40 @@ EOF
                     ;;
             esac
             ;;
+        "show dhcp scope bind 1")
+            # DHCP binding output based on model
+            case "$RTX_MODEL" in
+                "RTX830")
+                    cat << EOF
+192.168.1.50   00:a0:de:11:22:33
+192.168.1.51   ethernet 00:a0:de:44:55:66
+192.168.1.100  00:a0:de:77:88:99
+EOF
+                    ;;
+                "RTX1210"|"RTX1220")
+                    cat << EOF
+192.168.1.50   00:a0:de:11:22:33   MAC
+192.168.1.51   00:a0:de:44:55:66   ethernet
+192.168.1.100  00:a0:de:77:88:99   MAC
+EOF
+                    ;;
+                *)
+                    echo "Error: Unknown model $RTX_MODEL"
+                    ;;
+            esac
+            ;;
+        "show dhcp scope bind 2")
+            echo "No bindings found for scope 2"
+            ;;
+        "dhcp scope bind "*" "*" "*|"dhcp scope bind "*" "*" ethernet "*")
+            echo "Binding created successfully"
+            ;;
+        "no dhcp scope bind "*" "*")
+            echo "Binding removed successfully"
+            ;;
+        "save")
+            echo "Configuration saved successfully"
+            ;;
         "exit"|"quit")
             exit 0
             ;;

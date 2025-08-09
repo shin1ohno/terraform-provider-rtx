@@ -18,7 +18,22 @@ import (
 
 // MockClientForInterfaces extends MockClient for interfaces testing
 type MockClientForInterfaces struct {
-	MockClient
+	mock.Mock
+}
+
+func (m *MockClientForInterfaces) Dial(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+
+func (m *MockClientForInterfaces) Run(ctx context.Context, cmd client.Command) (client.Result, error) {
+	args := m.Called(ctx, cmd)
+	return args.Get(0).(client.Result), args.Error(1)
+}
+
+func (m *MockClientForInterfaces) Close() error {
+	args := m.Called()
+	return args.Error(0)
 }
 
 func (m *MockClientForInterfaces) GetInterfaces(ctx context.Context) ([]client.Interface, error) {
@@ -37,6 +52,21 @@ func (m *MockClientForInterfaces) GetSystemInfo(ctx context.Context) (*client.Sy
 func (m *MockClientForInterfaces) GetRoutes(ctx context.Context) ([]client.Route, error) {
 	args := m.Called(ctx)
 	return args.Get(0).([]client.Route), args.Error(1)
+}
+
+func (m *MockClientForInterfaces) GetDHCPBindings(ctx context.Context, scopeID int) ([]client.DHCPBinding, error) {
+	args := m.Called(ctx, scopeID)
+	return args.Get(0).([]client.DHCPBinding), args.Error(1)
+}
+
+func (m *MockClientForInterfaces) CreateDHCPBinding(ctx context.Context, binding client.DHCPBinding) error {
+	args := m.Called(ctx, binding)
+	return args.Error(0)
+}
+
+func (m *MockClientForInterfaces) DeleteDHCPBinding(ctx context.Context, scopeID int, ipAddress string) error {
+	args := m.Called(ctx, scopeID, ipAddress)
+	return args.Error(0)
 }
 
 func TestRTXInterfacesDataSourceSchema(t *testing.T) {
