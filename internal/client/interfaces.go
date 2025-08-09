@@ -21,6 +21,9 @@ type Client interface {
 	
 	// GetInterfaces retrieves interface information from the router
 	GetInterfaces(ctx context.Context) ([]Interface, error)
+	
+	// GetRoutes retrieves routing table information from the router
+	GetRoutes(ctx context.Context) ([]Route, error)
 }
 
 // Interface represents a network interface on an RTX router
@@ -35,6 +38,15 @@ type Interface struct {
 	MTU         int               `json:"mtu,omitempty"`
 	Description string            `json:"description,omitempty"`
 	Attributes  map[string]string `json:"attributes,omitempty"` // For model-specific fields
+}
+
+// Route represents a routing table entry on an RTX router
+type Route struct {
+	Destination string `json:"destination"`         // Network prefix (e.g., "192.168.1.0/24", "0.0.0.0/0")
+	Gateway     string `json:"gateway"`            // Next hop gateway ("*" for directly connected routes)
+	Interface   string `json:"interface"`          // Outgoing interface
+	Protocol    string `json:"protocol"`           // S=static, C=connected, R=RIP, O=OSPF, B=BGP, D=DHCP
+	Metric      *int   `json:"metric,omitempty"`   // Route metric (optional)
 }
 
 // Command represents a command to be executed on the router

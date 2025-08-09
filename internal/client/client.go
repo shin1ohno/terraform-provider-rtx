@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
@@ -18,9 +17,10 @@ type rtxClient struct {
 	parsers        map[string]Parser
 	retryStrategy  RetryStrategy
 	
-	mu      sync.Mutex
-	session Session
-	active  bool
+	mu       sync.Mutex
+	session  Session
+	executor Executor
+	active   bool
 }
 
 // NewClient creates a new RTX client instance
@@ -95,6 +95,7 @@ func (c *rtxClient) Dial(ctx context.Context) error {
 	}
 	
 	c.session = session
+	c.executor = NewSSHExecutor(session, c.promptDetector, c.retryStrategy)
 	c.active = true
 	return nil
 }
@@ -111,6 +112,7 @@ func (c *rtxClient) Close() error {
 	err := c.session.Close()
 	c.active = false
 	c.session = nil
+	c.executor = nil
 	
 	if err != nil {
 		return fmt.Errorf("failed to close session: %w", err)
@@ -125,61 +127,13 @@ func (c *rtxClient) Run(ctx context.Context, cmd Command) (Result, error) {
 		c.mu.Unlock()
 		return Result{}, fmt.Errorf("client not connected")
 	}
-	session := c.session
+	executor := c.executor
 	c.mu.Unlock()
 	
-	// Execute with retry logic
-	var raw []byte
-	var err error
-	
-	for retry := 0; ; retry++ {
-		select {
-		case <-ctx.Done():
-			return Result{}, fmt.Errorf("%w: %v", ErrTimeout, ctx.Err())
-		default:
-		}
-		
-		// Execute Send operation with context timeout handling
-		type sendResult struct {
-			data []byte
-			err  error
-		}
-		
-		sendCh := make(chan sendResult, 1)
-		go func() {
-			data, sendErr := session.Send(cmd.Payload)
-			sendCh <- sendResult{data: data, err: sendErr}
-		}()
-		
-		select {
-		case <-ctx.Done():
-			return Result{}, fmt.Errorf("%w: %v", ErrTimeout, ctx.Err())
-		case result := <-sendCh:
-			raw, err = result.data, result.err
-		}
-		
-		if err == nil {
-			break
-		}
-		
-		// Check if we should retry
-		delay, giveUp := c.retryStrategy.Next(retry)
-		if giveUp {
-			return Result{}, fmt.Errorf("command execution failed: %w", err)
-		}
-		
-		select {
-		case <-ctx.Done():
-			return Result{}, fmt.Errorf("%w: %v", ErrTimeout, ctx.Err())
-		case <-time.After(delay):
-			// Continue to retry
-		}
-	}
-	
-	// Check for prompt
-	matched, _ := c.promptDetector.DetectPrompt(raw)
-	if !matched {
-		return Result{}, fmt.Errorf("%w: output does not contain expected prompt", ErrPrompt)
+	// Execute command via executor
+	raw, err := executor.Run(ctx, cmd.Payload)
+	if err != nil {
+		return Result{}, err
 	}
 	
 	result := Result{Raw: raw}
@@ -258,6 +212,65 @@ func (c *rtxClient) GetInterfaces(ctx context.Context) ([]Interface, error) {
 	}
 
 	return interfaces, nil
+}
+
+// GetRoutes retrieves routing table information from the router
+func (c *rtxClient) GetRoutes(ctx context.Context) ([]Route, error) {
+	// First get system information to determine model
+	systemInfo, err := c.GetSystemInfo(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get system info for parser selection: %w", err)
+	}
+
+	// Execute route command based on model
+	var cmdPayload string
+	switch {
+	case systemInfo.Model == "RTX830":
+		cmdPayload = "show ip route"
+	default:
+		cmdPayload = "show ip route"
+	}
+
+	cmd := Command{
+		Key:     "routes",
+		Payload: cmdPayload,
+	}
+
+	result, err := c.Run(ctx, cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	// Use the parser registry to parse routes
+	parser, err := parsers.Get("routes", systemInfo.Model)
+	if err != nil {
+		return nil, fmt.Errorf("no parser available for model %s: %w", systemInfo.Model, err)
+	}
+
+	// Cast to RoutesParser to access ParseRoutes method
+	routesParser, ok := parser.(parsers.RoutesParser)
+	if !ok {
+		return nil, fmt.Errorf("parser for %s does not implement RoutesParser", systemInfo.Model)
+	}
+
+	parsedRoutes, err := routesParser.ParseRoutes(string(result.Raw))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse routes: %w", err)
+	}
+
+	// Convert parsers.Route to client.Route
+	routes := make([]Route, len(parsedRoutes))
+	for i, pr := range parsedRoutes {
+		routes[i] = Route{
+			Destination: pr.Destination,
+			Gateway:     pr.Gateway,
+			Interface:   pr.Interface,
+			Protocol:    pr.Protocol,
+			Metric:      pr.Metric,
+		}
+	}
+
+	return routes, nil
 }
 
 // validateConfig checks if the configuration is valid

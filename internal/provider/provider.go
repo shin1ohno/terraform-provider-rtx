@@ -89,6 +89,7 @@ func New(version string) *schema.Provider {
 		DataSourcesMap: map[string]*schema.Resource{
 			"rtx_system_info": dataSourceRTXSystemInfo(),
 			"rtx_interfaces":  dataSourceRTXInterfaces(),
+			"rtx_routes":      dataSourceRTXRoutes(),
 		},
 		ConfigureContextFunc: providerConfigure,
 	}

@@ -354,6 +354,8 @@ func TestClient_Run(t *testing.T) {
 				retryStrategy:  &MockRetryStrategy{},
 				active:         true, // Set as connected for testing
 			}
+			// Initialize executor for the test
+			client.executor = NewSSHExecutor(tt.session, tt.detector, &MockRetryStrategy{})
 
 			timeout := 5 * time.Second
 			if tt.name == "context timeout during command" {
@@ -664,6 +666,8 @@ func TestClientTimeoutHandling(t *testing.T) {
 			retryStrategy:  &MockRetryStrategy{},
 			active:         true, // Set as connected for testing
 		}
+		// Initialize executor for the test
+		client.executor = NewSSHExecutor(session, detector, &MockRetryStrategy{})
 
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()

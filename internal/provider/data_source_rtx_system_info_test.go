@@ -50,6 +50,11 @@ func (m *MockClient) GetSystemInfo(ctx context.Context) (*client.SystemInfo, err
 	return args.Get(0).(*client.SystemInfo), args.Error(1)
 }
 
+func (m *MockClient) GetRoutes(ctx context.Context) ([]client.Route, error) {
+	args := m.Called(ctx)
+	return args.Get(0).([]client.Route), args.Error(1)
+}
+
 func TestRTXSystemInfoDataSourceSchema(t *testing.T) {
 	dataSource := dataSourceRTXSystemInfo()
 	
