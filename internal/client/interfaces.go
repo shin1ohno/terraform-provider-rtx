@@ -18,6 +18,23 @@ type Client interface {
 	
 	// GetSystemInfo retrieves system information from the router
 	GetSystemInfo(ctx context.Context) (*SystemInfo, error)
+	
+	// GetInterfaces retrieves interface information from the router
+	GetInterfaces(ctx context.Context) ([]Interface, error)
+}
+
+// Interface represents a network interface on an RTX router
+type Interface struct {
+	Name        string            `json:"name"`
+	Kind        string            `json:"kind"`        // lan, wan, pp, vlan
+	AdminUp     bool              `json:"admin_up"`
+	LinkUp      bool              `json:"link_up"`
+	MAC         string            `json:"mac,omitempty"`
+	IPv4        string            `json:"ipv4,omitempty"`
+	IPv6        string            `json:"ipv6,omitempty"`
+	MTU         int               `json:"mtu,omitempty"`
+	Description string            `json:"description,omitempty"`
+	Attributes  map[string]string `json:"attributes,omitempty"` // For model-specific fields
 }
 
 // Command represents a command to be executed on the router

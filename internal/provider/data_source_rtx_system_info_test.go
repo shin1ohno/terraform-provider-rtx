@@ -37,6 +37,19 @@ func (m *MockClient) Close() error {
 	return args.Error(0)
 }
 
+func (m *MockClient) GetInterfaces(ctx context.Context) ([]client.Interface, error) {
+	args := m.Called(ctx)
+	return args.Get(0).([]client.Interface), args.Error(1)
+}
+
+func (m *MockClient) GetSystemInfo(ctx context.Context) (*client.SystemInfo, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*client.SystemInfo), args.Error(1)
+}
+
 func TestRTXSystemInfoDataSourceSchema(t *testing.T) {
 	dataSource := dataSourceRTXSystemInfo()
 	
@@ -65,19 +78,16 @@ func TestRTXSystemInfoDataSourceSchema(t *testing.T) {
 func TestRTXSystemInfoDataSourceRead_Success(t *testing.T) {
 	mockClient := &MockClient{}
 	
-	// Mock successful show environment command
-	expectedResponse := client.Result{
-		Raw: []byte(`Model: RTX1210
-Firmware Version: Rev.14.01.27
-Serial Number: ABC123456789
-MAC Address: 00:a0:de:12:34:56
-Uptime: 15 days, 10:30:25`),
-		Parsed: nil,
+	// Mock successful system info retrieval
+	expectedSystemInfo := &client.SystemInfo{
+		Model:           "RTX1210",
+		FirmwareVersion: "Rev.14.01.27",
+		SerialNumber:    "ABC123456789",
+		MACAddress:      "00:a0:de:12:34:56",
+		Uptime:          "15 days, 10:30:25",
 	}
 
-	mockClient.On("Run", mock.Anything, mock.MatchedBy(func(cmd client.Command) bool {
-		return cmd.Key == "show environment" && cmd.Payload == "show environment"
-	})).Return(expectedResponse, nil)
+	mockClient.On("GetSystemInfo", mock.Anything).Return(expectedSystemInfo, nil)
 
 	// Create a resource data mock
 	d := schema.TestResourceDataRaw(t, dataSourceRTXSystemInfo().Schema, map[string]interface{}{})
@@ -108,7 +118,7 @@ func TestRTXSystemInfoDataSourceRead_ClientError(t *testing.T) {
 	
 	// Mock client error
 	expectedError := errors.New("SSH connection failed")
-	mockClient.On("Run", mock.Anything, mock.AnythingOfType("client.Command")).Return(client.Result{}, expectedError)
+	mockClient.On("GetSystemInfo", mock.Anything).Return((*client.SystemInfo)(nil), expectedError)
 
 	// Create a resource data mock
 	d := schema.TestResourceDataRaw(t, dataSourceRTXSystemInfo().Schema, map[string]interface{}{})
@@ -124,38 +134,14 @@ func TestRTXSystemInfoDataSourceRead_ClientError(t *testing.T) {
 	assert.NotEmpty(t, diags)
 	assert.True(t, diags.HasError())
 	assert.Contains(t, diags[0].Summary, "Failed to retrieve system information")
+	assert.Contains(t, diags[0].Summary, "SSH connection failed")
 
 	mockClient.AssertExpectations(t)
 }
 
-func TestRTXSystemInfoDataSourceRead_ParseError(t *testing.T) {
-	mockClient := &MockClient{}
-	
-	// Mock response with unparseable output
-	expectedResponse := client.Result{
-		Raw:    []byte("Invalid output format"),
-		Parsed: nil,
-	}
-
-	mockClient.On("Run", mock.Anything, mock.AnythingOfType("client.Command")).Return(expectedResponse, nil)
-
-	// Create a resource data mock
-	d := schema.TestResourceDataRaw(t, dataSourceRTXSystemInfo().Schema, map[string]interface{}{})
-	
-	// Create mock API client
-	apiClient := &apiClient{client: mockClient}
-
-	// Call the read function
-	ctx := context.Background()
-	diags := dataSourceRTXSystemInfoRead(ctx, d, apiClient)
-
-	// Assert error occurred
-	assert.NotEmpty(t, diags)
-	assert.True(t, diags.HasError())
-	assert.Contains(t, diags[0].Summary, "Failed to parse system information")
-
-	mockClient.AssertExpectations(t)
-}
+// Note: Parse error test removed as GetSystemInfo now handles parsing internally
+// and parseSystemInfo doesn't return errors - it returns a SystemInfo struct with empty fields
+// if parsing fails, which is still valid for the data source.
 
 // TestRTXSystemInfoDataSourceRead_CommandError removed since client.Result doesn't have Error field
 
@@ -385,22 +371,13 @@ var testAccProviderFactories = map[string]func() (*schema.Provider, error){
 	},
 }
 
-// SystemInfo represents parsed system information
-type SystemInfo struct {
-	Model           string
-	FirmwareVersion string
-	SerialNumber    string
-	MACAddress      string
-	Uptime          string
-}
-
 // parseSystemInfo parses RTX system information from command output
-func parseSystemInfo(output string) (*SystemInfo, error) {
+func parseSystemInfo(output string) (*client.SystemInfo, error) {
 	if strings.TrimSpace(output) == "" {
 		return nil, errors.New("empty output")
 	}
 
-	info := &SystemInfo{}
+	info := &client.SystemInfo{}
 	lines := strings.Split(output, "\n")
 	
 	for _, line := range lines {
