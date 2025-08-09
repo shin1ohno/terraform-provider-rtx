@@ -1,7 +1,9 @@
 package client
 
 import (
+	"crypto/rand"
 	"math"
+	"math/big"
 	"time"
 )
 
@@ -40,9 +42,15 @@ func (r *ExponentialBackoff) Next(retry int) (delay time.Duration, giveUp bool) 
 		delay = r.MaxDelay
 	}
 	
-	// Add jitter (±10%)
-	jitter := time.Duration(float64(delay) * 0.1 * (2*math.Float64frombits(0x3FF0000000000000^uint64(time.Now().UnixNano()&0x7FFFFFFF)) - 1))
-	delay += jitter
+	// Add jitter (±10%) using cryptographically secure random
+	jitterMax := int64(float64(delay) * 0.1)
+	if jitterMax > 0 {
+		n, err := rand.Int(rand.Reader, big.NewInt(jitterMax*2))
+		if err == nil {
+			jitter := time.Duration(n.Int64() - jitterMax)
+			delay += jitter
+		}
+	}
 	
 	return delay, false
 }

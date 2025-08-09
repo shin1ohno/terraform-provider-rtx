@@ -76,28 +76,51 @@
 - メトリクス監視機能（運用性向上）
 - より詳細な設定検証
 
+## セキュリティ修正とデータソース実装（セッション3）
+
+### 実装完了項目
+
+1. **セキュリティ修正** ✅
+   - SSHホストキー検証の実装（FixedHostKey, KnownHosts, Skip設定）
+   - DialContextによるゴルーチンリーク修正
+   - パスワードセキュリティのドキュメント化
+   - 疑似乱数生成をcrypto/randに修正
+
+2. **テスト環境構築** ✅
+   - DockerベースのRTXシミュレータ作成
+   - docker-composeによるテスト環境設定
+   - CI/CD対応のテストキー生成スクリプト
+
+3. **rtx_system_infoデータソース** ✅
+   - TDDによるテスト作成（ユニット7個、受け入れ2個）
+   - データソース実装（model, firmware_version, serial_number, mac_address, uptime）
+   - 複数RTXモデル対応のパーサー実装
+
+### コードレビュー結果（セッション3）
+
+#### 修正完了
+- SSH InsecureIgnoreHostKey → 適切なホストキー検証実装
+- ゴルーチンリーク → DialContextによる適切な管理
+- 疑似乱数生成 → crypto/randに修正
+
+#### 残課題
+- パスワードのメモリからの安全な消去（低優先度）
+- 構造化ログの追加（低優先度）
+
 ### 次のステップ
 
-1. **セキュリティ修正**（最優先）
-   - ホストキー検証の実装
-   - パスワード管理の改善
-   - リソース管理の修正
-
-2. **データソース実装**
-   - システム情報取得（data.rtx_system_info）
+1. **追加データソース実装**
    - インターフェース一覧（data.rtx_interfaces）
    - ルーティングテーブル（data.rtx_routes）
 
-3. **リソース実装**
+2. **リソース実装**
+   - 静的DNSレコード（resource.rtx_dns_host）
    - インターフェース設定（resource.rtx_interface）
    - 静的ルート（resource.rtx_static_route）
-   - ファイアウォールルール（resource.rtx_firewall_rule）
-   - NAT設定（resource.rtx_nat）
 
-4. **テスト拡充**
-   - セキュリティテスト
-   - パフォーマンステスト
-   - 統合テスト
+3. **ドキュメント生成**
+   - tfplugindocsによる自動ドキュメント生成
+   - 使用例の充実
 
 ### 学習と振り返り
 
@@ -115,3 +138,71 @@
 - セキュリティ面の考慮を初期段階から組み込む必要
 - パフォーマンス要件を早期に定義すべき
 - ドキュメント生成を並行して進める
+
+## RTX System Info Data Source Test Implementation (セッション3)
+
+### 実装完了項目 ✅
+
+1. **TDDテストスイート作成**
+   - `internal/provider/data_source_rtx_system_info_test.go` 作成
+   - 包括的なテストカバレッジを実装
+
+2. **テスト構造** 
+   - **ユニットテスト**:
+     - `TestRTXSystemInfoDataSourceSchema` - スキーマ定義検証
+     - `TestRTXSystemInfoDataSourceRead_Success` - データ読み込み成功
+     - `TestRTXSystemInfoDataSourceRead_ClientError` - クライアントエラー処理
+     - `TestRTXSystemInfoDataSourceRead_ParseError` - パースエラー処理
+     - `TestParseSystemInfo` - 各種RTX出力フォーマットパース
+
+   - **受け入れテスト**:
+     - `TestAccRTXSystemInfoDataSource_basic` - 基本統合テスト
+     - `TestAccRTXSystemInfoDataSource_attributes` - 属性検証テスト
+
+3. **モック実装**
+   - MockClientを適切なインターフェース実装で作成
+   - testify/mockを使用した堅牢なモック機能
+
+4. **データソース実装**
+   - `internal/provider/data_source_rtx_system_info.go` 作成
+   - 必須フィールドでスキーマ実装: model, firmware_version, serial_number, mac_address, uptime
+   - 適切なエラーハンドリングとパース処理追加
+
+5. **プロバイダー統合**
+   - データソースをプロバイダーのDataSourceMapに登録
+   - 必要な依存関係追加（testify, terraform-exec）
+
+6. **テストカバレッジ**
+   - スキーマ検証
+   - モックデータでの成功シナリオ
+   - エラーハンドリング（クライアントエラー、パースエラー）
+   - 複数のRTX出力フォーマットパース
+   - Dockerテスト環境対応の受け入れテストフレームワーク
+
+### テスト結果
+
+- **ユニットテスト**: 全て成功 (7/7)
+- **受け入れテスト**: 環境変数なしで適切にスキップされる設定
+- **コードカバレッジ**: データソース機能の包括的カバレッジ
+
+### 実装された主要機能
+
+1. **TDDアプローチ**: テストファースト、実装が後
+2. **堅牢なエラーハンドリング**: クライアントエラー、パースエラー、検証
+3. **複数フォーマット対応**: RTX1200, RTX1210, RTX830出力フォーマット
+4. **Dockerテスト環境**: テストコンテナとの統合準備完了
+5. **Terraform SDK v2**: 最新パターンとベストプラクティスを使用
+
+### 受け入れテスト用環境変数
+
+```bash
+export TF_ACC=1
+export RTX_HOST=localhost
+export RTX_USERNAME=admin
+export RTX_PASSWORD=password
+```
+
+### ファイル構成
+
+- `/Users/sh1/ManagedProjects/terraform-provider-rtx/internal/provider/data_source_rtx_system_info.go`
+- `/Users/sh1/ManagedProjects/terraform-provider-rtx/internal/provider/data_source_rtx_system_info_test.go`

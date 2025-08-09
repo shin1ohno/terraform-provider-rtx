@@ -15,6 +15,9 @@ type Client interface {
 	
 	// Run executes a command and returns the result
 	Run(ctx context.Context, cmd Command) (Result, error)
+	
+	// GetSystemInfo retrieves system information from the router
+	GetSystemInfo(ctx context.Context) (*SystemInfo, error)
 }
 
 // Command represents a command to be executed on the router
@@ -57,9 +60,12 @@ type ConnDialer interface {
 
 // Config holds the SSH connection configuration
 type Config struct {
-	Host     string
-	Port     int
-	Username string
-	Password string
-	Timeout  int // seconds
+	Host            string
+	Port            int
+	Username        string
+	Password        string
+	Timeout         int    // seconds
+	HostKey         string // Fixed host key for verification (base64 encoded)
+	KnownHostsFile  string // Path to known_hosts file
+	SkipHostKeyCheck bool  // Skip host key verification (insecure)
 }
