@@ -1,0 +1,7 @@
+# RTX router connection settings
+rtx_host     = "192.168.1.253"
+rtx_username = "admin"
+rtx_password = "your-password-here"
+
+# Skip host key check for test environments only
+skip_host_key_check = false
