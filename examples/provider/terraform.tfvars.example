@@ -1,0 +1,6 @@
+# RTX router connection settings
+rtx_host     = "192.168.1.253"
+rtx_username = "admin"
+rtx_password = "your-password-here"
+rtx_port     = 22
+rtx_timeout  = 30

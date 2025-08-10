@@ -1,23 +1,26 @@
 terraform {
+  required_version = ">= 1.0"
   required_providers {
     rtx = {
-      source = "sh1/rtx"
+      source  = "sh1/rtx"
+      version = "0.1.0"
     }
   }
 }
 
-# Configure the RTX Provider
 provider "rtx" {
   host     = var.rtx_host
   username = var.rtx_username
   password = var.rtx_password
-  port     = var.rtx_port
-  timeout  = var.rtx_timeout
+  
+  # テスト環境の場合
+  skip_host_key_check = var.skip_host_key_check
 }
 
-# RTX router system information
+# RTXルーターのシステム情報を取得
 data "rtx_system_info" "router" {}
 
+# 出力
 output "router_info" {
   value = {
     model            = data.rtx_system_info.router.model
