@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -49,6 +50,13 @@ func New(version string) *schema.Provider {
 				Sensitive:   true,
 				DefaultFunc: schema.EnvDefaultFunc("RTX_PASSWORD", nil),
 				Description: "Password for RTX router authentication. Can be set with RTX_PASSWORD environment variable.",
+			},
+			"admin_password": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Sensitive:   true,
+				DefaultFunc: schema.EnvDefaultFunc("RTX_ADMIN_PASSWORD", nil),
+				Description: "Administrator password for RTX router configuration changes. If not set, uses the same as password. Can be set with RTX_ADMIN_PASSWORD environment variable.",
 			},
 			"port": {
 				Type:        schema.TypeInt,
@@ -103,11 +111,17 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	host := d.Get("host").(string)
 	username := d.Get("username").(string)
 	password := d.Get("password").(string)
+	adminPassword := d.Get("admin_password").(string)
 	port := d.Get("port").(int)
 	timeout := d.Get("timeout").(int)
 	sshHostKey := d.Get("ssh_host_key").(string)
 	knownHostsFile := d.Get("known_hosts_file").(string)
 	skipHostKeyCheck := d.Get("skip_host_key_check").(bool)
+	
+	// If admin_password is not set, use the same as password
+	if adminPassword == "" {
+		adminPassword = password
+	}
 
 	var diags diag.Diagnostics
 
@@ -124,6 +138,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		Port:             port,
 		Username:         username,
 		Password:         password,
+		AdminPassword:    adminPassword,
 		Timeout:          timeout,
 		HostKey:          sshHostKey,
 		KnownHostsFile:   knownHostsFile,
@@ -161,6 +176,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		Payload: "show environment",
 	}
 	
+	log.Printf("[DEBUG] Provider: Running test command")
 	if _, err := sshClient.Run(ctx, testCmd); err != nil {
 		// Close the connection if test fails
 		sshClient.Close()
@@ -171,6 +187,10 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		})
 		return nil, diags
 	}
+	log.Printf("[DEBUG] Provider: Test command successful")
+	
+	// Important: Do NOT close the connection here!
+	// The connection must remain open for subsequent operations
 
 	c := &apiClient{
 		client: sshClient,

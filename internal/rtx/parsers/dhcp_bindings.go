@@ -22,7 +22,7 @@ type DHCPBindingsParser interface {
 // dhcpBindingsParser handles parsing of DHCP binding output
 type dhcpBindingsParser struct{}
 
-// ParseBindings parses the output of "show dhcp scope bind {scope_id}" command
+// ParseBindings parses the output of "show status dhcp {scope_id}" command
 func (p *dhcpBindingsParser) ParseBindings(raw string, scopeID int) ([]DHCPBinding, error) {
 	var bindings []DHCPBinding
 	lines := strings.Split(raw, "\n")
@@ -32,6 +32,20 @@ func (p *dhcpBindingsParser) ParseBindings(raw string, scopeID int) ([]DHCPBindi
 	rtx830Pattern := regexp.MustCompile(`^\s*([0-9.]+)\s+(ethernet\s+([0-9a-fA-F:.-]+)|([0-9a-fA-F:.-]+))\s*$`)
 	// RTX1210 format: IP MAC Type (Type appears after MAC)
 	rtx1210Pattern := regexp.MustCompile(`^([0-9.]+)\s+([0-9a-fA-F:.-]+)\s+(MAC|ethernet)\s*$`)
+	// show status dhcp format patterns for RTX1210
+	// Line 1: 予約済みアドレス: IP
+	// Line 2: (タイプ) クライアントID: (01) MAC
+	staticIPPattern := regexp.MustCompile(`^\s*予約済みアドレス:\s*([0-9.]+)\s*$`)
+	dynamicIPPattern := regexp.MustCompile(`^\s*割り当て中アドレス:\s*([0-9.]+)\s*$`)
+	clientIDPattern := regexp.MustCompile(`^\s*\(タイプ\)\s*クライアントID:\s*\(01\)\s*([0-9a-fA-F\s]+)\s*$`)
+	// show config format: dhcp scope bind SCOPE IP [01] MAC (with spaces or colons)
+	// Example: dhcp scope bind 1 192.168.1.20 01 00 30 93 11 0e 33
+	// Example: dhcp scope bind 1 192.168.1.28 24:59:e5:54:5e:5a
+	configPattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+bind\s+\d+\s+([0-9.]+)\s+(?:01\s+)?([0-9a-fA-F:\s]+)\s*$`)
+	
+	// For multi-line parsing
+	var currentIP string
+	var isStatic bool
 	
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -40,16 +54,98 @@ func (p *dhcpBindingsParser) ParseBindings(raw string, scopeID int) ([]DHCPBindi
 		}
 		
 		// Skip header lines
-		if strings.Contains(line, "Scope") || strings.Contains(line, "Bindings") || 
-		   strings.Contains(line, "IP Address") || strings.Contains(line, "MAC Address") ||
+		if strings.Contains(line, "DHCPスコープ番号") || strings.Contains(line, "ネットワークアドレス") || 
+		   strings.Contains(line, "ホスト名:") || strings.Contains(line, "リース残時間:") ||
 		   strings.Contains(line, "No bindings found") {
+			continue
+		}
+		
+		// Check for static IP pattern (予約済みアドレス)
+		if matches := staticIPPattern.FindStringSubmatch(line); len(matches) >= 2 {
+			currentIP = matches[1]
+			isStatic = true
+			continue
+		}
+		
+		// Check for dynamic IP pattern (割り当て中アドレス) - skip these
+		if matches := dynamicIPPattern.FindStringSubmatch(line); len(matches) >= 2 {
+			currentIP = ""
+			isStatic = false
+			continue
+		}
+		
+		// Check for client ID pattern - if we have a static IP, create binding
+		if currentIP != "" && isStatic {
+			if matches := clientIDPattern.FindStringSubmatch(line); len(matches) >= 2 {
+				// Extract MAC address from client ID (remove spaces)
+				macStr := strings.ReplaceAll(matches[1], " ", "")
+				
+				// Convert to standard format with colons
+				var macParts []string
+				for i := 0; i < len(macStr); i += 2 {
+					if i+2 <= len(macStr) {
+						macParts = append(macParts, macStr[i:i+2])
+					}
+				}
+				macAddress := strings.Join(macParts, ":")
+				
+				binding := DHCPBinding{
+					ScopeID:             scopeID,
+					IPAddress:           currentIP,
+					MACAddress:          macAddress,
+					UseClientIdentifier: true, // Client ID format implies ethernet type
+				}
+				
+				// Normalize MAC address
+				normalizedMAC, err := NormalizeMACAddress(binding.MACAddress)
+				if err != nil {
+					return nil, fmt.Errorf("invalid MAC address %s: %w", binding.MACAddress, err)
+				}
+				binding.MACAddress = normalizedMAC
+				
+				bindings = append(bindings, binding)
+				currentIP = ""
+				isStatic = false
+				continue
+			}
+		}
+		
+		// Try show config format first
+		if matches := configPattern.FindStringSubmatch(line); len(matches) >= 3 {
+			// Extract MAC address, handling both space-separated and colon-separated formats
+			macStr := strings.TrimSpace(matches[2])
+			
+			// Check if it's prefixed with "01" (client identifier type)
+			useClientID := strings.Contains(line, " 01 ")
+			
+			// If MAC is space-separated, convert to colon format
+			if strings.Contains(macStr, " ") {
+				macParts := strings.Fields(macStr)
+				macStr = strings.Join(macParts, ":")
+			}
+			
+			binding := DHCPBinding{
+				ScopeID:             scopeID,
+				IPAddress:           matches[1],
+				MACAddress:          macStr,
+				UseClientIdentifier: useClientID,
+			}
+			
+			// Normalize MAC address
+			normalizedMAC, err := NormalizeMACAddress(binding.MACAddress)
+			if err != nil {
+				return nil, fmt.Errorf("invalid MAC address %s: %w", binding.MACAddress, err)
+			}
+			binding.MACAddress = normalizedMAC
+			
+			bindings = append(bindings, binding)
 			continue
 		}
 		
 		var binding DHCPBinding
 		binding.ScopeID = scopeID
 		
-		// Try RTX830 format first
+		// Try RTX830 format
 		if matches := rtx830Pattern.FindStringSubmatch(line); len(matches) >= 3 {
 			binding.IPAddress = matches[1]
 			
@@ -124,8 +220,11 @@ func NewDHCPBindingsParser() DHCPBindingsParser {
 // BuildDHCPBindCommand builds a command to create a DHCP binding
 func BuildDHCPBindCommand(binding DHCPBinding) string {
 	if binding.UseClientIdentifier {
-		return fmt.Sprintf("dhcp scope bind %d %s ethernet %s",
-			binding.ScopeID, binding.IPAddress, binding.MACAddress)
+		// For RTX1210, use "01" prefix for client identifier
+		// Convert colon-separated MAC to space-separated format
+		mac := strings.ReplaceAll(binding.MACAddress, ":", " ")
+		return fmt.Sprintf("dhcp scope bind %d %s 01 %s",
+			binding.ScopeID, binding.IPAddress, mac)
 	}
 	return fmt.Sprintf("dhcp scope bind %d %s %s",
 		binding.ScopeID, binding.IPAddress, binding.MACAddress)
@@ -138,5 +237,6 @@ func BuildDHCPUnbindCommand(scopeID int, ipAddress string) string {
 
 // BuildShowDHCPBindingsCommand builds a command to show DHCP bindings for a scope
 func BuildShowDHCPBindingsCommand(scopeID int) string {
-	return fmt.Sprintf("show dhcp scope bind %d", scopeID)
+	// Try show config first - it might be more reliable
+	return fmt.Sprintf("show config | grep \"dhcp scope bind %d\"", scopeID)
 }

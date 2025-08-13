@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"log"
 	"net"
 	"strings"
 
@@ -80,6 +81,8 @@ func (s *DHCPService) ListBindings(ctx context.Context, scopeID int) ([]DHCPBind
 	if err != nil {
 		return nil, fmt.Errorf("failed to list DHCP bindings: %w", err)
 	}
+	
+	log.Printf("[DEBUG] DHCP bindings raw output for scope %d: %q", scopeID, string(output))
 	
 	// Parse the output
 	parser := parsers.NewDHCPBindingsParser()

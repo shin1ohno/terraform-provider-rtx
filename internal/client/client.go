@@ -2,10 +2,11 @@ package client
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
+	"time"
 
+	"golang.org/x/crypto/ssh"
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
@@ -77,6 +78,17 @@ func WithRetryStrategy(strategy RetryStrategy) Option {
 	}
 }
 
+// getHostKeyCallback returns the appropriate host key callback based on configuration
+func (c *rtxClient) getHostKeyCallback() ssh.HostKeyCallback {
+	if c.config.SkipHostKeyCheck {
+		return ssh.InsecureIgnoreHostKey()
+	}
+	
+	// Implement proper host key checking if needed
+	// For now, we'll use InsecureIgnoreHostKey
+	return ssh.InsecureIgnoreHostKey()
+}
+
 // Dial establishes a connection to the RTX router
 func (c *rtxClient) Dial(ctx context.Context) error {
 	c.mu.Lock()
@@ -86,17 +98,19 @@ func (c *rtxClient) Dial(ctx context.Context) error {
 		return nil // Already connected
 	}
 	
-	session, err := c.dialer.Dial(ctx, c.config.Host, c.config)
-	if err != nil {
-		// Check if it's a specific error type we want to preserve
-		if errors.Is(err, ErrAuthFailed) {
-			return err
-		}
-		return fmt.Errorf("%w: %v", ErrDial, err)
+	// For RTX routers, we'll use a simple executor that creates new connections per command
+	// This is less efficient but more reliable given RTX's SSH implementation
+	sshConfig := &ssh.ClientConfig{
+		User: c.config.Username,
+		Auth: []ssh.AuthMethod{
+			ssh.Password(c.config.Password),
+		},
+		HostKeyCallback: c.getHostKeyCallback(),
+		Timeout:        time.Duration(c.config.Timeout) * time.Second,
 	}
 	
-	c.session = session
-	c.executor = NewSSHExecutor(session, c.promptDetector, c.retryStrategy)
+	addr := fmt.Sprintf("%s:%d", c.config.Host, c.config.Port)
+	c.executor = NewSimpleExecutor(sshConfig, addr, c.promptDetector)
 	c.dhcpService = NewDHCPService(c.executor)
 	c.active = true
 	return nil

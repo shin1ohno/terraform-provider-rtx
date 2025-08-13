@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"log"
 	"net"
 	"strings"
-	"sync"
 	"time"
 	
 	"golang.org/x/crypto/ssh"
@@ -21,9 +21,18 @@ func (d *sshDialer) Dial(ctx context.Context, host string, config *Config) (Sess
 	hostKeyCallback := d.getHostKeyCallback(config)
 	
 	sshConfig := &ssh.ClientConfig{
-		User:            config.Username,
+		User: config.Username,
 		Auth: []ssh.AuthMethod{
 			ssh.Password(config.Password),
+			ssh.KeyboardInteractive(func(user, instruction string, questions []string, echos []bool) ([]string, error) {
+				// RTXルーターは通常パスワードプロンプトに対して単一の応答を期待
+				answers := make([]string, len(questions))
+				for i := range questions {
+					log.Printf("[DEBUG] Keyboard interactive question %d: %s", i, questions[i])
+					answers[i] = config.Password
+				}
+				return answers, nil
+			}),
 		},
 		HostKeyCallback: hostKeyCallback,
 		Timeout:         time.Duration(config.Timeout) * time.Second,
@@ -32,6 +41,7 @@ func (d *sshDialer) Dial(ctx context.Context, host string, config *Config) (Sess
 	addr := fmt.Sprintf("%s:%d", config.Host, config.Port)
 	
 	// Use DialContext to prevent goroutine leaks
+	log.Printf("[DEBUG] Dialing SSH to %s", addr)
 	client, err := DialContext(ctx, "tcp", addr, sshConfig)
 	if err != nil {
 		// Check if it's an authentication error by examining the error message
@@ -41,44 +51,18 @@ func (d *sshDialer) Dial(ctx context.Context, host string, config *Config) (Sess
 		}
 		return nil, err
 	}
+	log.Printf("[DEBUG] SSH connection established")
 	
-	return &sshSession{
-		client: client,
-		ctx:    ctx,
-	}, nil
-}
-
-// sshSession wraps an SSH client to implement the Session interface
-type sshSession struct {
-	client *ssh.Client
-	ctx    context.Context
-	mu     sync.Mutex
-}
-
-// Send executes a command and returns the output
-func (s *sshSession) Send(cmd string) ([]byte, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	
-	// Use RunCommandContext to prevent goroutine leaks
-	output, err := RunCommandContext(s.ctx, s.client, cmd)
+	// Use the working session implementation that matches our successful test
+	session, err := newWorkingSession(client)
 	if err != nil {
-		// Check if it's a command execution error vs other errors
-		if strings.Contains(err.Error(), "command execution failed") {
-			// Still return the output even if there's an error
-			// RTX routers might return non-zero exit codes for valid commands
-			return output, fmt.Errorf("%w: %v", ErrCommandFailed, err)
-		}
-		return output, err
+		client.Close()
+		return nil, fmt.Errorf("failed to create RTX session: %w", err)
 	}
 	
-	return output, nil
+	return session, nil
 }
 
-// Close closes the SSH connection
-func (s *sshSession) Close() error {
-	return s.client.Close()
-}
 
 // getHostKeyCallback returns the appropriate host key callback based on configuration
 func (d *sshDialer) getHostKeyCallback(config *Config) ssh.HostKeyCallback {
