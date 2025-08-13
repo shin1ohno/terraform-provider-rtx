@@ -13,8 +13,8 @@ type defaultPromptDetector struct {
 // NewDefaultPromptDetector creates a new prompt detector with default RTX patterns
 func NewDefaultPromptDetector() PromptDetector {
 	// RTX routers typically end with hostname# or hostname> 
-	// This pattern matches the common RTX prompt formats
-	pattern := regexp.MustCompile(`(?m)^[^\n\r]+[#>]\s*$`)
+	// Based on Ansible RTX terminal plugin: [>#]\s*$
+	pattern := regexp.MustCompile(`[>#]\s*$`)
 	return &defaultPromptDetector{pattern: pattern}
 }
 

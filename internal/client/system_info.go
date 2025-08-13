@@ -17,9 +17,10 @@ type SystemInfo struct {
 
 // GetSystemInfo retrieves system information from the router
 func (c *rtxClient) GetSystemInfo(ctx context.Context) (*SystemInfo, error) {
+	// RTX routers use "show environment" instead of "show system information"
 	cmd := Command{
-		Key:     "show system information",
-		Payload: "show system information",
+		Key:     "show environment",
+		Payload: "show environment",
 	}
 	
 	result, err := c.Run(ctx, cmd)
@@ -32,33 +33,32 @@ func (c *rtxClient) GetSystemInfo(ctx context.Context) (*SystemInfo, error) {
 	return info, nil
 }
 
-// parseSystemInfo parses the output of "show system information" command
+// parseSystemInfo parses the output of "show environment" command
 func parseSystemInfo(output string) *SystemInfo {
 	info := &SystemInfo{}
 	
-	// Model extraction (e.g., "RTX1210" or "Model: RTX1210")
-	if match := regexp.MustCompile(`(?:Model:\s*)?RTX\d+`).FindString(output); match != "" {
-		info.Model = strings.TrimPrefix(match, "Model: ")
-		info.Model = strings.TrimSpace(info.Model)
+	// Model extraction (e.g., "RTX1210 Rev.14.01.42")
+	if match := regexp.MustCompile(`(RTX\d+)\s+Rev\.`).FindStringSubmatch(output); len(match) > 1 {
+		info.Model = match[1]
 	}
 	
-	// Firmware version extraction
-	if match := regexp.MustCompile(`(?:Firmware Version:|Rev\.)\s*([\d.]+)`).FindStringSubmatch(output); len(match) > 1 {
+	// Firmware version extraction (e.g., "RTX1210 Rev.14.01.42")
+	if match := regexp.MustCompile(`RTX\d+\s+Rev\.([\d.]+)`).FindStringSubmatch(output); len(match) > 1 {
 		info.FirmwareVersion = match[1]
 	}
 	
-	// Serial number extraction
-	if match := regexp.MustCompile(`(?:Serial Number:|serial=)([A-Z0-9]+)`).FindStringSubmatch(output); len(match) > 1 {
+	// Serial number extraction (e.g., "serial=S4H104289")
+	if match := regexp.MustCompile(`serial=([A-Z0-9]+)`).FindStringSubmatch(output); len(match) > 1 {
 		info.SerialNumber = match[1]
 	}
 	
-	// MAC address extraction
-	if match := regexp.MustCompile(`(?:MAC Address:|MAC-Address=)([0-9A-Fa-f:]+)`).FindStringSubmatch(output); len(match) > 1 {
-		info.MACAddress = strings.ToUpper(match[1])
+	// MAC address extraction - take the first one (e.g., "MAC-Address=ac:44:f2:3a:2a:fd")
+	if match := regexp.MustCompile(`MAC-Address=([0-9a-fA-F:]+)`).FindStringSubmatch(output); len(match) > 1 {
+		info.MACAddress = strings.ToLower(match[1])
 	}
 	
-	// Uptime extraction
-	if match := regexp.MustCompile(`Uptime:\s*(.+)`).FindStringSubmatch(output); len(match) > 1 {
+	// Uptime extraction (e.g., "Elapsed time from boot: 14days 12:18:49")
+	if match := regexp.MustCompile(`Elapsed time from boot:\s*(.+)`).FindStringSubmatch(output); len(match) > 1 {
 		info.Uptime = strings.TrimSpace(match[1])
 	}
 	

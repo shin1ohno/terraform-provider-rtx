@@ -110,6 +110,7 @@ type Config struct {
 	Port            int
 	Username        string
 	Password        string
+	AdminPassword   string // Administrator password for configuration changes
 	Timeout         int    // seconds
 	HostKey         string // Fixed host key for verification (base64 encoded)
 	KnownHostsFile  string // Path to known_hosts file

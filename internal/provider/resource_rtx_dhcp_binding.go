@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 
@@ -77,22 +78,29 @@ func resourceRTXDHCPBindingCreate(ctx context.Context, d *schema.ResourceData, m
 
 func resourceRTXDHCPBindingRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	
+	log.Printf("[DEBUG] resourceRTXDHCPBindingRead: Starting with ID=%s", d.Id())
 
 	// Parse the composite ID
 	scopeID, ipAddress, err := parseDHCPBindingID(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid resource ID: %v", err)
 	}
+	
+	log.Printf("[DEBUG] resourceRTXDHCPBindingRead: Parsed scopeID=%d, ipAddress=%s", scopeID, ipAddress)
 
 	// Get all bindings for the scope
 	bindings, err := apiClient.client.GetDHCPBindings(ctx, scopeID)
 	if err != nil {
 		return diag.Errorf("Failed to retrieve DHCP bindings: %v", err)
 	}
+	
+	log.Printf("[DEBUG] resourceRTXDHCPBindingRead: Retrieved %d bindings", len(bindings))
 
 	// Find our specific binding
 	var found *client.DHCPBinding
 	for _, binding := range bindings {
+		log.Printf("[DEBUG] resourceRTXDHCPBindingRead: Checking binding IP=%s against target=%s", binding.IPAddress, ipAddress)
 		if binding.IPAddress == ipAddress {
 			found = &binding
 			break
@@ -100,10 +108,13 @@ func resourceRTXDHCPBindingRead(ctx context.Context, d *schema.ResourceData, met
 	}
 
 	if found == nil {
+		log.Printf("[DEBUG] resourceRTXDHCPBindingRead: Binding not found, clearing ID")
 		// Resource no longer exists
 		d.SetId("")
 		return nil
 	}
+	
+	log.Printf("[DEBUG] resourceRTXDHCPBindingRead: Found binding: %+v", found)
 
 	// Update the state
 	if err := d.Set("scope_id", found.ScopeID); err != nil {
@@ -118,6 +129,10 @@ func resourceRTXDHCPBindingRead(ctx context.Context, d *schema.ResourceData, met
 	if err := d.Set("use_client_identifier", found.UseClientIdentifier); err != nil {
 		return diag.FromErr(err)
 	}
+	
+	// IMPORTANT: Always set the ID at the end of Read function
+	d.SetId(fmt.Sprintf("%d:%s", found.ScopeID, found.IPAddress))
+	log.Printf("[DEBUG] resourceRTXDHCPBindingRead: Set ID to %s", d.Id())
 
 	return nil
 }
@@ -145,7 +160,8 @@ func resourceRTXDHCPBindingDelete(ctx context.Context, d *schema.ResourceData, m
 
 func resourceRTXDHCPBindingImport(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
 	// Expected format: "scope_id:ip_address"
-	scopeID, ipAddress, err := parseDHCPBindingID(d.Id())
+	importID := d.Id()
+	scopeID, ipAddress, err := parseDHCPBindingID(importID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid import ID format, expected 'scope_id:ip_address': %v", err)
 	}
@@ -153,11 +169,20 @@ func resourceRTXDHCPBindingImport(ctx context.Context, d *schema.ResourceData, m
 	// Set the parsed values
 	d.Set("scope_id", scopeID)
 	d.Set("ip_address", ipAddress)
+	
+	// IMPORTANT: Keep the original ID for the Read function to use
+	// The Read function expects the ID to be in the format "scope_id:ip_address"
+	d.SetId(importID)
 
 	// The Read function will populate the rest
 	diags := resourceRTXDHCPBindingRead(ctx, d, meta)
 	if diags.HasError() {
 		return nil, fmt.Errorf("failed to import DHCP binding: %v", diags[0].Summary)
+	}
+
+	// Check if the resource was found
+	if d.Id() == "" {
+		return nil, fmt.Errorf("DHCP binding with scope_id=%d and ip_address=%s not found", scopeID, ipAddress)
 	}
 
 	return []*schema.ResourceData{d}, nil

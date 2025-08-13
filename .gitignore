@@ -63,3 +63,4 @@ Thumbs.db
 # Build artifacts
 dist/
 build/
+.serena/cache/go

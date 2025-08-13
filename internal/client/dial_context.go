@@ -32,7 +32,7 @@ func DialContext(ctx context.Context, network, addr string, config *ssh.ClientCo
 	// Step 2: Upgrade the raw net.Conn to an SSH client connection
 	c, chans, reqs, err := ssh.NewClientConn(conn, addr, config)
 	if err != nil {
-		return nil, fmt.Errorf("SSH handshake failed: %w", err)
+		return nil, fmt.Errorf("SSH handshake failed (addr: %s): %w", addr, err)
 	}
 	
 	sshClient = ssh.NewClient(c, chans, reqs)
@@ -47,42 +47,6 @@ func DialContext(ctx context.Context, network, addr string, config *ssh.ClientCo
 	return sshClient, nil
 }
 
-// RunCommandContext executes a command with context support
-func RunCommandContext(ctx context.Context, client *ssh.Client, cmd string) ([]byte, error) {
-	session, err := client.NewSession()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create session: %w", err)
-	}
-	
-	// Set up a channel to receive the command result
-	type result struct {
-		output []byte
-		err    error
-	}
-	resultCh := make(chan result, 1)
-	
-	// Run the command in a goroutine
-	go func() {
-		output, err := session.CombinedOutput(cmd)
-		resultCh <- result{output: output, err: err}
-		session.Close()
-	}()
-	
-	// Wait for either the command to complete or context to be cancelled
-	select {
-	case <-ctx.Done():
-		// Context cancelled, close the session
-		session.Close()
-		return nil, fmt.Errorf("command cancelled: %w", ctx.Err())
-	case res := <-resultCh:
-		if res.err != nil {
-			// Still return output even on error
-			// RTX routers might return non-zero exit codes for valid commands
-			return res.output, fmt.Errorf("command execution failed: %w", res.err)
-		}
-		return res.output, nil
-	}
-}
 
 // WithTimeout creates a context with timeout from seconds
 func WithTimeout(ctx context.Context, timeoutSeconds int) (context.Context, context.CancelFunc) {

@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 )
 
@@ -77,10 +78,12 @@ func (e *sshExecutor) Run(ctx context.Context, cmd string) ([]byte, error) {
 	}
 
 	// Check for prompt
-	matched, _ := e.promptDetector.DetectPrompt(raw)
+	matched, prompt := e.promptDetector.DetectPrompt(raw)
 	if !matched {
+		log.Printf("[DEBUG] Prompt detection failed. Output: %q", string(raw))
 		return nil, fmt.Errorf("%w: output does not contain expected prompt", ErrPrompt)
 	}
+	log.Printf("[DEBUG] Prompt detected: %q", prompt)
 
 	return raw, nil
 }

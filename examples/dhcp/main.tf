@@ -26,10 +26,25 @@ data "rtx_system_info" "router" {}
 # data "rtx_routes" "routing_table" {}
 
 # DHCP静的割り当て設定
-resource "rtx_dhcp_binding" "printer" {
+resource "rtx_dhcp_binding" "pro-0" {
   scope_id    = 1
-  ip_address  = "192.168.1.100"
-  mac_address = "00:11:22:33:44:55"
+  ip_address  = "192.168.1.20"
+  mac_address = "00:30:93:11:0e:33"
+  use_client_identifier = true
+}
+
+resource "rtx_dhcp_binding" "pro-1" {
+  scope_id    = 1
+  ip_address  = "192.168.1.21"
+  mac_address = "00:3e:e1:c3:54:b4"
+  use_client_identifier = true
+}
+
+resource "rtx_dhcp_binding" "pro-2" {
+  scope_id    = 1
+  ip_address  = "192.168.1.22"
+  mac_address = "00:3e:e1:c3:54:b5"
+  use_client_identifier = true
 }
 
 resource "rtx_dhcp_binding" "server" {
