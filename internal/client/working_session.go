@@ -203,6 +203,45 @@ func (s *workingSession) readUntilPrompt(timeout time.Duration) ([]byte, error) 
 	}
 }
 
+// readUntilString reads from stdout until the specified string appears
+func (s *workingSession) readUntilString(target string, timeout time.Duration) ([]byte, error) {
+	var buffer bytes.Buffer
+	start := time.Now()
+
+	for time.Since(start) < timeout {
+		// Read some data
+		chunk := make([]byte, 1024)
+		
+		// Set read deadline if possible
+		if conn, ok := s.stdout.(interface{ SetReadDeadline(time.Time) error }); ok {
+			conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+		}
+		
+		n, err := s.stdout.Read(chunk)
+		if err != nil && err != io.EOF {
+			// Timeout is expected, continue
+			if strings.Contains(err.Error(), "timeout") || strings.Contains(err.Error(), "deadline") {
+				time.Sleep(10 * time.Millisecond)
+				continue
+			}
+			return buffer.Bytes(), fmt.Errorf("read error: %w", err)
+		}
+
+		if n > 0 {
+			buffer.Write(chunk[:n])
+			// Check if target string appears in buffer
+			if strings.Contains(buffer.String(), target) {
+				return buffer.Bytes(), nil
+			}
+		}
+
+		// Small delay to avoid busy loop
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	return buffer.Bytes(), fmt.Errorf("timeout waiting for %q (got: %q)", target, buffer.String())
+}
+
 // cleanOutput removes command echo and prompt from output
 func (s *workingSession) cleanOutput(output, cmd string) string {
 	lines := strings.Split(output, "\n")
