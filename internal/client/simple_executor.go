@@ -52,6 +52,9 @@ func (e *simpleExecutor) Run(ctx context.Context, cmd string) ([]byte, error) {
 		if err := e.authenticateAsAdmin(session); err != nil {
 			return nil, fmt.Errorf("failed to authenticate as administrator: %w", err)
 		}
+		
+		// Mark session as being in administrator mode
+		session.SetAdminMode(true)
 	}
 	
 	// Execute the command
@@ -75,8 +78,13 @@ func (e *simpleExecutor) Run(ctx context.Context, cmd string) ([]byte, error) {
 func (e *simpleExecutor) requiresAdminPrivileges(cmd string) bool {
 	adminCommands := []string{
 		"dhcp scope bind",
-		"dhcp scope unbind",
+		"dhcp scope unbind", 
 		"no dhcp scope bind",
+		"show config",
+		"show dhcp scope bind",
+		// NOTE: "show environment" typically does NOT require admin privileges
+		// Temporarily removing it to test if this was the cause of the hang
+		// "show environment",
 		"ip host",
 		"no ip host",
 		"ip route",
@@ -140,7 +148,7 @@ func (e *simpleExecutor) sendAdministratorCommand(ws *workingSession) error {
 		return fmt.Errorf("failed to send password: %w", err)
 	}
 	
-	// Read response after password
+	// Read response after password - look for administrator prompt (# instead of >)
 	response, err := ws.readUntilPrompt(10 * time.Second)
 	if err != nil {
 		return fmt.Errorf("failed to read password response: %w", err)
