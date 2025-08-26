@@ -33,6 +33,9 @@ type Client interface {
 	
 	// DeleteDHCPBinding removes a DHCP binding
 	DeleteDHCPBinding(ctx context.Context, scopeID int, ipAddress string) error
+	
+	// SaveConfig saves the current configuration to persistent memory
+	SaveConfig(ctx context.Context) error
 }
 
 // Interface represents a network interface on an RTX router

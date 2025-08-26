@@ -341,6 +341,25 @@ func (c *rtxClient) DeleteDHCPBinding(ctx context.Context, scopeID int, ipAddres
 	return dhcpService.DeleteBinding(ctx, scopeID, ipAddress)
 }
 
+// SaveConfig saves the current configuration to persistent memory
+func (c *rtxClient) SaveConfig(ctx context.Context) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	executor := c.executor
+	c.mu.Unlock()
+	
+	// Execute save command
+	_, err := executor.Run(ctx, "save")
+	if err != nil {
+		return fmt.Errorf("failed to save configuration: %w", err)
+	}
+	
+	return nil
+}
+
 // validateConfig checks if the configuration is valid
 func validateConfig(config *Config) error {
 	if config == nil {
