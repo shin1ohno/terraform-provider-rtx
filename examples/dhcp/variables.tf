@@ -14,6 +14,12 @@ variable "rtx_password" {
   sensitive   = true
 }
 
+variable "admin_password" {
+  description = "RTX router administrator password"
+  type        = string
+  sensitive   = true
+}
+
 variable "skip_host_key_check" {
   description = "Skip SSH host key checking (use only in test environments)"
   type        = bool
