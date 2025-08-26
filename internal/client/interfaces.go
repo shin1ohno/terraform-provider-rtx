@@ -97,6 +97,7 @@ type RetryStrategy interface {
 type Session interface {
 	Send(cmd string) ([]byte, error)
 	Close() error
+	SetAdminMode(bool) // Track if session is in administrator mode
 }
 
 // ConnDialer abstracts SSH connection creation

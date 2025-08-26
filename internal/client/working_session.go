@@ -15,12 +15,13 @@ import (
 // workingSession implements a working SSH session for RTX routers
 // This is based on the successful expect script test
 type workingSession struct {
-	client   *ssh.Client
-	session  *ssh.Session
-	stdin    io.WriteCloser
-	stdout   io.Reader
-	mu       sync.Mutex
-	closed   bool
+	client     *ssh.Client
+	session    *ssh.Session
+	stdin      io.WriteCloser
+	stdout     io.Reader
+	mu         sync.Mutex
+	closed     bool
+	adminMode  bool // Track if we're in administrator mode
 }
 
 // newWorkingSession creates a new working session
@@ -103,10 +104,12 @@ func (s *workingSession) Send(cmd string) ([]byte, error) {
 
 	// The executor expects the raw output including the prompt
 	// So we return the raw output without cleaning
-	// Use longer timeout for commands that may have large output like "show status dhcp"
-	timeout := 30 * time.Second
+	// Use reasonable timeout for commands
+	timeout := 15 * time.Second
 	if strings.Contains(cmd, "show status dhcp") {
-		timeout = 60 * time.Second
+		timeout = 30 * time.Second
+	} else if strings.Contains(cmd, "show environment") {
+		timeout = 20 * time.Second // Reduced from 60s to 20s
 	}
 	output, err := s.executeCommandRaw(cmd, timeout)
 	if err != nil {
@@ -166,6 +169,7 @@ func (s *workingSession) readUntilPrompt(timeout time.Duration) ([]byte, error) 
 
 	for {
 		if time.Now().After(deadline) {
+			log.Printf("[DEBUG] readUntilPrompt: Timeout waiting for prompt. Buffer content: %q", buffer.String())
 			return buffer.Bytes(), fmt.Errorf("timeout waiting for prompt")
 		}
 
@@ -184,15 +188,20 @@ func (s *workingSession) readUntilPrompt(timeout time.Duration) ([]byte, error) 
 			if len(lines) > 0 {
 				lastLine := lines[len(lines)-1]
 				// Check for prompt at end of line (> or # with optional space after)
-				// Also check for RTX format like "[RTX1210] >"
+				// RTX format: "[RTX1210] >" for user mode or "[RTX1210] # " for admin mode
 				if len(lastLine) > 0 {
 					trimmed := strings.TrimSpace(lastLine)
+					// Check for user mode prompt: "[RTX1210] >"
+					if strings.Contains(lastLine, "] >") || strings.HasSuffix(lastLine, "> ") {
+						return buffer.Bytes(), nil
+					}
+					// Check for admin mode prompt: "[RTX1210] # "
+					if strings.Contains(lastLine, "] # ") || strings.HasSuffix(lastLine, "# ") {
+						return buffer.Bytes(), nil
+					}
+					// Fallback: check if line ends with > or # (with possible trailing spaces)
 					if strings.HasSuffix(trimmed, ">") || strings.HasSuffix(trimmed, "#") {
-						// Also check if it looks like RTX prompt format
-						if strings.Contains(lastLine, "] >") || strings.HasSuffix(lastLine, "> ") {
-							// Found prompt
-							return buffer.Bytes(), nil
-						}
+						return buffer.Bytes(), nil
 					}
 				}
 			}
@@ -287,9 +296,30 @@ func (s *workingSession) Close() error {
 
 	s.closed = true
 
-	// Send exit command
-	fmt.Fprintln(s.stdin, "exit")
-	time.Sleep(100 * time.Millisecond)
+	// Send appropriate exit commands based on current mode
+	if s.adminMode {
+		log.Printf("[DEBUG] Session is in administrator mode, sending two exit commands")
+		// First exit: leave administrator mode (back to user mode)
+		if err := s.exitAdminMode(); err != nil {
+			log.Printf("[WARN] Failed to exit administrator mode properly: %v", err)
+		}
+		s.adminMode = false
+		
+		// Small delay before second exit
+		time.Sleep(500 * time.Millisecond)
+		
+		// Second exit: disconnect from router
+		if _, err := fmt.Fprintf(s.stdin, "exit\r"); err != nil {
+			log.Printf("[WARN] Failed to send second exit command: %v", err)
+		}
+		time.Sleep(300 * time.Millisecond)
+	} else {
+		log.Printf("[DEBUG] Session is in user mode, sending one exit command")
+		if _, err := fmt.Fprintf(s.stdin, "exit\r"); err != nil {
+			log.Printf("[WARN] Failed to send exit command: %v", err)
+		}
+		time.Sleep(300 * time.Millisecond)
+	}
 
 	// Close session
 	if s.session != nil {
@@ -298,4 +328,130 @@ func (s *workingSession) Close() error {
 	}
 
 	return nil
+}
+
+// SetAdminMode sets the administrator mode flag
+func (s *workingSession) SetAdminMode(admin bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.adminMode = admin
+}
+
+// exitAdminMode safely exits administrator mode handling configuration save prompts
+func (s *workingSession) exitAdminMode() error {
+	log.Printf("[DEBUG] Exiting administrator mode")
+	
+	// Send exit command
+	if _, err := fmt.Fprintf(s.stdin, "exit\r"); err != nil {
+		return fmt.Errorf("failed to send exit command: %w", err)
+	}
+	
+	// Read response and check for configuration save prompt
+	response, err := s.readUntilPromptOrSaveConfirmation(5 * time.Second)
+	if err != nil {
+		log.Printf("[WARN] Error reading response after exit: %v", err)
+		return err
+	}
+	
+	responseStr := string(response)
+	log.Printf("[DEBUG] Exit response: %q", responseStr)
+	
+	// Check if we got a configuration save confirmation prompt
+	if s.isSaveConfigurationPrompt(responseStr) {
+		log.Printf("[DEBUG] Configuration save prompt detected, responding with 'N'")
+		// Respond with 'N' to not save configuration
+		if _, err := fmt.Fprintf(s.stdin, "N\r"); err != nil {
+			return fmt.Errorf("failed to respond to save prompt: %w", err)
+		}
+		
+		// Read final response after save confirmation
+		finalResponse, err := s.readUntilPrompt(3 * time.Second)
+		if err != nil {
+			log.Printf("[WARN] Error reading final response: %v", err)
+			return err
+		}
+		log.Printf("[DEBUG] Final exit response: %q", string(finalResponse))
+	}
+	
+	return nil
+}
+
+// readUntilPromptOrSaveConfirmation reads until we see a prompt or save confirmation
+func (s *workingSession) readUntilPromptOrSaveConfirmation(timeout time.Duration) ([]byte, error) {
+	var buffer bytes.Buffer
+	deadline := time.Now().Add(timeout)
+	buf := make([]byte, 1)
+
+	for {
+		if time.Now().After(deadline) {
+			log.Printf("[DEBUG] readUntilPromptOrSaveConfirmation: Timeout. Buffer content: %q", buffer.String())
+			return buffer.Bytes(), fmt.Errorf("timeout waiting for prompt or save confirmation")
+		}
+
+		// Read one byte at a time
+		n, err := s.stdout.Read(buf)
+		if err != nil && err != io.EOF {
+			return buffer.Bytes(), fmt.Errorf("read error: %w", err)
+		}
+
+		if n > 0 {
+			buffer.WriteByte(buf[0])
+			
+			content := buffer.String()
+			
+			// Check for save configuration prompt
+			if s.isSaveConfigurationPrompt(content) {
+				return buffer.Bytes(), nil
+			}
+			
+			// Check for normal prompt (user mode or admin mode)
+			lines := strings.Split(content, "\n")
+			if len(lines) > 0 {
+				lastLine := lines[len(lines)-1]
+				if len(lastLine) > 0 {
+					trimmed := strings.TrimSpace(lastLine)
+					// Check for user mode prompt: "[RTX1210] >"
+					if strings.Contains(lastLine, "] >") || strings.HasSuffix(lastLine, "> ") {
+						return buffer.Bytes(), nil
+					}
+					// Check for admin mode prompt: "[RTX1210] # "
+					if strings.Contains(lastLine, "] # ") || strings.HasSuffix(lastLine, "# ") {
+						return buffer.Bytes(), nil
+					}
+					// Fallback: check if line ends with > or # (with possible trailing spaces)
+					if strings.HasSuffix(trimmed, ">") || strings.HasSuffix(trimmed, "#") {
+						return buffer.Bytes(), nil
+					}
+				}
+			}
+		}
+
+		// Small delay to avoid busy loop
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// isSaveConfigurationPrompt checks if the text contains a configuration save prompt
+func (s *workingSession) isSaveConfigurationPrompt(text string) bool {
+	lowerText := strings.ToLower(text)
+	
+	// Common RTX router save configuration prompts
+	savePrompts := []string{
+		"save configuration?",
+		"設定を保存しますか",
+		"save config?",
+		"(y/n)",
+		"(y/n):",
+		"(yes/no)",
+		"save changes?",
+		"保存しますか",
+	}
+	
+	for _, prompt := range savePrompts {
+		if strings.Contains(lowerText, prompt) {
+			return true
+		}
+	}
+	
+	return false
 }
