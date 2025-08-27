@@ -13,12 +13,14 @@ import (
 // DHCPService handles DHCP-related operations
 type DHCPService struct {
 	executor Executor
+	client   *rtxClient // Reference to the main client for save functionality
 }
 
 // NewDHCPService creates a new DHCP service instance
-func NewDHCPService(executor Executor) *DHCPService {
+func NewDHCPService(executor Executor, client *rtxClient) *DHCPService {
 	return &DHCPService{
 		executor: executor,
+		client:   client,
 	}
 }
 
@@ -55,6 +57,13 @@ func (s *DHCPService) CreateBinding(ctx context.Context, binding DHCPBinding) er
 		return fmt.Errorf("command failed: %s", string(output))
 	}
 	
+	// Save configuration after successful creation
+	if s.client != nil {
+		if err := s.client.SaveConfig(ctx); err != nil {
+			return fmt.Errorf("binding created but failed to save configuration: %w", err)
+		}
+	}
+	
 	return nil
 }
 
@@ -69,6 +78,13 @@ func (s *DHCPService) DeleteBinding(ctx context.Context, scopeID int, ipAddress 
 	// Check if there's an error in the output
 	if len(output) > 0 && containsError(string(output)) {
 		return fmt.Errorf("command failed: %s", string(output))
+	}
+	
+	// Save configuration after successful deletion
+	if s.client != nil {
+		if err := s.client.SaveConfig(ctx); err != nil {
+			return fmt.Errorf("binding deleted but failed to save configuration: %w", err)
+		}
 	}
 	
 	return nil
