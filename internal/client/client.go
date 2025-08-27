@@ -290,6 +290,68 @@ func (c *rtxClient) GetRoutes(ctx context.Context) ([]Route, error) {
 	return routes, nil
 }
 
+// GetDHCPScopes retrieves DHCP scope configurations from the router
+func (c *rtxClient) GetDHCPScopes(ctx context.Context) ([]DHCPScope, error) {
+	// First get system information to determine model
+	systemInfo, err := c.GetSystemInfo(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get system info for parser selection: %w", err)
+	}
+
+	// Execute DHCP scope command based on model
+	var cmdPayload string
+	switch {
+	case systemInfo.Model == "RTX830":
+		cmdPayload = "show running-config | grep \"dhcp scope\""
+	default:
+		cmdPayload = "show running-config | grep \"dhcp scope\""
+	}
+
+	cmd := Command{
+		Key:     "dhcp_scope",
+		Payload: cmdPayload,
+	}
+
+	result, err := c.Run(ctx, cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	// Use the parser registry to parse DHCP scopes
+	parser, err := parsers.Get("dhcp_scope", systemInfo.Model)
+	if err != nil {
+		return nil, fmt.Errorf("no parser available for model %s: %w", systemInfo.Model, err)
+	}
+
+	// Cast to DhcpScopeParser to access ParseDhcpScopes method
+	dhcpScopeParser, ok := parser.(parsers.DhcpScopeParser)
+	if !ok {
+		return nil, fmt.Errorf("parser for %s does not implement DhcpScopeParser", systemInfo.Model)
+	}
+
+	parsedScopes, err := dhcpScopeParser.ParseDhcpScopes(string(result.Raw))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse DHCP scopes: %w", err)
+	}
+
+	// Convert parsers.DhcpScope to client.DHCPScope
+	scopes := make([]DHCPScope, len(parsedScopes))
+	for i, ps := range parsedScopes {
+		scopes[i] = DHCPScope{
+			ID:          ps.ID,
+			RangeStart:  ps.RangeStart,
+			RangeEnd:    ps.RangeEnd,
+			Prefix:      ps.Prefix,
+			Gateway:     ps.Gateway,
+			DNSServers:  ps.DNSServers,
+			Lease:       ps.Lease,
+			DomainName:  ps.DomainName,
+		}
+	}
+
+	return scopes, nil
+}
+
 // GetDHCPBindings retrieves DHCP bindings for a scope
 func (c *rtxClient) GetDHCPBindings(ctx context.Context, scopeID int) ([]DHCPBinding, error) {
 	c.mu.Lock()

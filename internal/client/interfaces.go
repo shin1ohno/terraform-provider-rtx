@@ -25,6 +25,9 @@ type Client interface {
 	// GetRoutes retrieves routing table information from the router
 	GetRoutes(ctx context.Context) ([]Route, error)
 	
+	// GetDHCPScopes retrieves DHCP scope configurations from the router
+	GetDHCPScopes(ctx context.Context) ([]DHCPScope, error)
+	
 	// GetDHCPBindings retrieves DHCP bindings for a scope
 	GetDHCPBindings(ctx context.Context, scopeID int) ([]DHCPBinding, error)
 	
@@ -59,6 +62,18 @@ type Route struct {
 	Interface   string `json:"interface"`          // Outgoing interface
 	Protocol    string `json:"protocol"`           // S=static, C=connected, R=RIP, O=OSPF, B=BGP, D=DHCP
 	Metric      *int   `json:"metric,omitempty"`   // Route metric (optional)
+}
+
+// DHCPScope represents a DHCP scope configuration
+type DHCPScope struct {
+	ID          int      `json:"id"`
+	RangeStart  string   `json:"range_start"`
+	RangeEnd    string   `json:"range_end"`
+	Prefix      int      `json:"prefix"`
+	Gateway     string   `json:"gateway,omitempty"`
+	DNSServers  []string `json:"dns_servers,omitempty"`
+	Lease       int      `json:"lease,omitempty"`
+	DomainName  string   `json:"domain_name,omitempty"`
 }
 
 // DHCPBinding represents a DHCP static lease binding

@@ -70,6 +70,11 @@ func (m *MockClient) DeleteDHCPBinding(ctx context.Context, scopeID int, ipAddre
 	return args.Error(0)
 }
 
+func (m *MockClient) GetDHCPScopes(ctx context.Context) ([]client.DHCPScope, error) {
+	args := m.Called(ctx)
+	return args.Get(0).([]client.DHCPScope), args.Error(1)
+}
+
 func (m *MockClient) SaveConfig(ctx context.Context) error {
 	args := m.Called(ctx)
 	return args.Error(0)

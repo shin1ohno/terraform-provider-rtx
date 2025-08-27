@@ -68,6 +68,11 @@ func (m *MockClientForRoutes) DeleteDHCPBinding(ctx context.Context, scopeID int
 	return args.Error(0)
 }
 
+func (m *MockClientForRoutes) GetDHCPScopes(ctx context.Context) ([]client.DHCPScope, error) {
+	args := m.Called(ctx)
+	return args.Get(0).([]client.DHCPScope), args.Error(1)
+}
+
 func (m *MockClientForRoutes) SaveConfig(ctx context.Context) error {
 	args := m.Called(ctx)
 	return args.Error(0)

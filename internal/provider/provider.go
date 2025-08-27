@@ -98,6 +98,7 @@ func New(version string) *schema.Provider {
 			"rtx_system_info": dataSourceRTXSystemInfo(),
 			"rtx_interfaces":  dataSourceRTXInterfaces(),
 			"rtx_routes":      dataSourceRTXRoutes(),
+			"rtx_dhcp_scope":  dataSourceRTXDHCPScope(),
 		},
 		ConfigureContextFunc: providerConfigure,
 	}
