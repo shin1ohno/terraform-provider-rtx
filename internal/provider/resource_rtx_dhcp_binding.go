@@ -200,7 +200,7 @@ func resourceRTXDHCPBindingRead(ctx context.Context, d *schema.ResourceData, met
 	if err := d.Set("mac_address", found.MACAddress); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set("use_client_identifier", found.UseClientIdentifier); err != nil {
+	if err := d.Set("use_mac_as_client_id", found.UseClientIdentifier); err != nil {
 		return diag.FromErr(err)
 	}
 	
@@ -265,30 +265,82 @@ func resourceRTXDHCPBindingDelete(ctx context.Context, d *schema.ResourceData, m
 }
 
 func resourceRTXDHCPBindingImport(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
-	// Expected format: "scope_id:mac_address"
+	apiClient := meta.(*apiClient)
 	importID := d.Id()
-	scopeID, macAddress, err := parseDHCPBindingID(importID)
+	
+	// Parse the import ID - can be either "scope_id:mac_address" or "scope_id:ip_address"
+	scopeID, identifier, err := parseDHCPBindingID(importID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid import ID format, expected 'scope_id:mac_address': %v", err)
+		return nil, fmt.Errorf("invalid import ID format, expected 'scope_id:mac_address' or 'scope_id:ip_address': %v", err)
 	}
+
+	log.Printf("[DEBUG] resourceRTXDHCPBindingImport: ImportID=%s, ScopeID=%d, Identifier=%s", importID, scopeID, identifier)
+
+	// Get all bindings for the scope to find the requested binding
+	bindings, err := apiClient.client.GetDHCPBindings(ctx, scopeID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve DHCP bindings for scope %d: %v", scopeID, err)
+	}
+
+	log.Printf("[DEBUG] resourceRTXDHCPBindingImport: Retrieved %d bindings for scope %d", len(bindings), scopeID)
+
+	// Determine if identifier is MAC address or IP address and find the binding
+	var targetBinding *client.DHCPBinding
+	
+	// Check if identifier looks like a MAC address
+	if _, err := normalizeMACAddressParser(identifier); err == nil {
+		// It's a MAC address - search by MAC
+		log.Printf("[DEBUG] resourceRTXDHCPBindingImport: Identifier appears to be MAC address")
+		for _, binding := range bindings {
+			normalizedBindingMAC, _ := normalizeMACAddressParser(binding.MACAddress)
+			normalizedIdentifier, _ := normalizeMACAddressParser(identifier)
+			if normalizedBindingMAC == normalizedIdentifier {
+				targetBinding = &binding
+				break
+			}
+		}
+	} else {
+		// It's likely an IP address - search by IP
+		log.Printf("[DEBUG] resourceRTXDHCPBindingImport: Identifier appears to be IP address")
+		for _, binding := range bindings {
+			if binding.IPAddress == identifier {
+				targetBinding = &binding
+				break
+			}
+		}
+	}
+
+	if targetBinding == nil {
+		return nil, fmt.Errorf("DHCP binding with scope_id=%d and identifier=%s not found", scopeID, identifier)
+	}
+
+	log.Printf("[DEBUG] resourceRTXDHCPBindingImport: Found binding: %+v", targetBinding)
 
 	// Set the parsed values
 	d.Set("scope_id", scopeID)
-	d.Set("mac_address", macAddress)
+	d.Set("ip_address", targetBinding.IPAddress)
+	d.Set("mac_address", targetBinding.MACAddress)
+	d.Set("use_mac_as_client_id", targetBinding.UseClientIdentifier)
 	
-	// IMPORTANT: Keep the original ID for the Read function to use
-	// The Read function expects the ID to be in the format "scope_id:mac_address"
-	d.SetId(importID)
+	// Always use the MAC-based ID format for consistency
+	normalizedMAC, err := normalizeMACAddressParser(targetBinding.MACAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to normalize MAC address: %v", err)
+	}
+	finalID := fmt.Sprintf("%d:%s", scopeID, normalizedMAC)
+	d.SetId(finalID)
 
-	// The Read function will populate the rest
+	log.Printf("[DEBUG] resourceRTXDHCPBindingImport: Set final ID to %s", finalID)
+
+	// The Read function will populate the rest and validate consistency
 	diags := resourceRTXDHCPBindingRead(ctx, d, meta)
 	if diags.HasError() {
 		return nil, fmt.Errorf("failed to import DHCP binding: %v", diags[0].Summary)
 	}
 
-	// Check if the resource was found
+	// Check if the resource was found after read
 	if d.Id() == "" {
-		return nil, fmt.Errorf("DHCP binding with scope_id=%d and mac_address=%s not found", scopeID, macAddress)
+		return nil, fmt.Errorf("DHCP binding validation failed after import")
 	}
 
 	return []*schema.ResourceData{d}, nil
