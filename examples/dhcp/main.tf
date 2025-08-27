@@ -26,6 +26,9 @@ data "rtx_system_info" "router" {}
 # ルーティングテーブル情報を取得
 # data "rtx_routes" "routing_table" {}
 
+# DHCPスコープ情報を取得（新機能）
+data "rtx_dhcp_scope" "all" {}
+
 # DHCP静的割り当て設定
 resource "rtx_dhcp_binding" "pro-0" {
   scope_id             = 1
@@ -69,6 +72,10 @@ output "router_info" {
     firmware_version = data.rtx_system_info.router.firmware_version
     uptime           = data.rtx_system_info.router.uptime
   }
+}
+
+output "dhcp_scopes" {
+  value = data.rtx_dhcp_scope.all.scopes
 }
 
 # output "lan_interfaces" {

@@ -125,7 +125,11 @@ func (c *rtxClient) Close() error {
 		return nil
 	}
 	
-	err := c.session.Close()
+	var err error
+	if c.session != nil {
+		err = c.session.Close()
+	}
+	
 	c.active = false
 	c.session = nil
 	c.executor = nil
