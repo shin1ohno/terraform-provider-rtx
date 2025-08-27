@@ -26,12 +26,19 @@ func TestAccRTXDHCPBinding_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet("rtx_dhcp_binding.test", "id"),
 				),
 			},
-			// Test import
+			// Test import with MAC address
 			{
 				ResourceName:      "rtx_dhcp_binding.test",
 				ImportState:       true,
 				ImportStateVerify: true,
 				ImportStateId:     "1:00:11:22:33:44:55",
+			},
+			// Test import with IP address (backward compatibility)
+			{
+				ResourceName:      "rtx_dhcp_binding.test",
+				ImportState:       true,
+				ImportStateVerify: true,
+				ImportStateId:     "1:192.168.1.100",
 			},
 		},
 	})
@@ -152,6 +159,40 @@ func TestAccRTXDHCPBinding_multipleBindings(t *testing.T) {
 					resource.TestCheckResourceAttr("rtx_dhcp_binding.test3", "ip_address", "192.168.2.100"),
 					resource.TestCheckResourceAttr("rtx_dhcp_binding.test3", "mac_address", "aa:bb:cc:dd:ee:03"),
 				),
+			},
+		},
+	})
+}
+
+func TestAccRTXDHCPBinding_import(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck: func() {
+			testAccPreCheck(t)
+		},
+		ProviderFactories: testAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccRTXDHCPBindingConfig_import(),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("rtx_dhcp_binding.import_test", "scope_id", "1"),
+					resource.TestCheckResourceAttr("rtx_dhcp_binding.import_test", "ip_address", "192.168.1.150"),
+					resource.TestCheckResourceAttr("rtx_dhcp_binding.import_test", "mac_address", "aa:bb:cc:dd:ee:ff"),
+					resource.TestCheckResourceAttrSet("rtx_dhcp_binding.import_test", "id"),
+				),
+			},
+			// Test import with MAC address format
+			{
+				ResourceName:      "rtx_dhcp_binding.import_test",
+				ImportState:       true,
+				ImportStateVerify: true,
+				ImportStateId:     "1:aa:bb:cc:dd:ee:ff",
+			},
+			// Test import with IP address format (backward compatibility)
+			{
+				ResourceName:      "rtx_dhcp_binding.import_test",
+				ImportState:       true,
+				ImportStateVerify: true,
+				ImportStateId:     "1:192.168.1.150",
 			},
 		},
 	})
@@ -391,6 +432,24 @@ resource "rtx_dhcp_binding" "test_conflict" {
   ip_address        = "192.168.1.58"
   mac_address       = "00:11:22:33:44:55"
   client_identifier = "01:00:11:22:33:44:55"
+}
+`
+}
+
+func testAccRTXDHCPBindingConfig_import() string {
+	return `
+provider "rtx" {
+  host                 = "localhost"
+  port                 = 2222
+  username             = "testuser"
+  password             = "testpass"
+  skip_host_key_check  = true
+}
+
+resource "rtx_dhcp_binding" "import_test" {
+  scope_id    = 1
+  ip_address  = "192.168.1.150"
+  mac_address = "aa:bb:cc:dd:ee:ff"
 }
 `
 }
