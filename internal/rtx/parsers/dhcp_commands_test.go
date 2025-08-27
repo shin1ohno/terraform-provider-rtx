@@ -200,12 +200,12 @@ func TestBuildShowDHCPBindingsCommand(t *testing.T) {
 		{
 			name:     "Scope 1",
 			scopeID:  1,
-			expected: "show dhcp scope bind 1",
+			expected: `show config | grep "dhcp scope bind 1"`,
 		},
 		{
 			name:     "Scope 2",
 			scopeID:  2,
-			expected: "show dhcp scope bind 2",
+			expected: `show config | grep "dhcp scope bind 2"`,
 		},
 	}
 

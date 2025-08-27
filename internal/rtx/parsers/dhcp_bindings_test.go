@@ -112,6 +112,48 @@ IP Address       MAC Address         Type
 			},
 			wantErr: false,
 		},
+		{
+			name:    "Config format - ethernet prefix",
+			scopeID: 1,
+			input:   "dhcp scope bind 1 192.168.1.23 ethernet b6:1a:27:ea:28:29",
+			expected: []DHCPBinding{
+				{
+					ScopeID:             1,
+					IPAddress:           "192.168.1.23",
+					MACAddress:          "b6:1a:27:ea:28:29",
+					UseClientIdentifier: true, // ethernet prefix implies client identifier
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name:    "Config format - space-separated MAC",
+			scopeID: 1,
+			input:   "dhcp scope bind 1 192.168.1.20 01 00 30 93 11 0e 33",
+			expected: []DHCPBinding{
+				{
+					ScopeID:             1,
+					IPAddress:           "192.168.1.20",
+					MACAddress:          "00:30:93:11:0e:33",
+					UseClientIdentifier: true, // 01 prefix implies client identifier
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name:    "Config format - colon-separated MAC",
+			scopeID: 1,
+			input:   "dhcp scope bind 1 192.168.1.28 24:59:e5:54:5e:5a",
+			expected: []DHCPBinding{
+				{
+					ScopeID:             1,
+					IPAddress:           "192.168.1.28",
+					MACAddress:          "24:59:e5:54:5e:5a",
+					UseClientIdentifier: false, // no ethernet or 01 prefix
+				},
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {

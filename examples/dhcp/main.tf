@@ -28,31 +28,38 @@ data "rtx_system_info" "router" {}
 
 # DHCP静的割り当て設定
 resource "rtx_dhcp_binding" "pro-0" {
-  scope_id    = 1
-  ip_address  = "192.168.1.20"
-  mac_address = "00:30:93:11:0e:33"
-  use_client_identifier = true
+  scope_id             = 1
+  ip_address           = "192.168.1.20"
+  mac_address          = "00:30:93:11:0e:33"
+  use_mac_as_client_id = true
 }
 
 resource "rtx_dhcp_binding" "pro-1" {
-  scope_id    = 1
-  ip_address  = "192.168.1.21"
-  mac_address = "00:3e:e1:c3:54:b4"
-  use_client_identifier = true
+  scope_id             = 1
+  ip_address           = "192.168.1.21"
+  mac_address          = "00:3e:e1:c3:54:b4"
+  use_mac_as_client_id = true
 }
 
 resource "rtx_dhcp_binding" "pro-2" {
-  scope_id    = 1
-  ip_address  = "192.168.1.22"
-  mac_address = "00:3e:e1:c3:54:b5"
-  use_client_identifier = true
+  scope_id             = 1
+  ip_address           = "192.168.1.22"
+  mac_address          = "00:3e:e1:c3:54:b5"
+  use_mac_as_client_id = true
+}
+
+resource "rtx_dhcp_binding" "pro-3" {
+  scope_id = 1
+  ip_address = "192.168.1.23"
+  mac_address = "b6:1a:27:ea:28:29"  # User's actual MAC from router config
+  use_mac_as_client_id = true  # Use correct field name
 }
 
 resource "rtx_dhcp_binding" "server" {
-  scope_id              = 1
-  ip_address            = "192.168.1.51"  # IP変更テスト
-  mac_address           = "aa:bb:cc:dd:ee:ff"
-  use_client_identifier = true
+  scope_id             = 1
+  ip_address           = "192.168.1.51"  # IP変更テスト
+  mac_address          = "aa:bb:cc:dd:ee:ff"
+  use_mac_as_client_id = true
 }
 
 # 出力

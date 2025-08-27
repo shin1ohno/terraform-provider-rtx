@@ -70,11 +70,13 @@ func resourceRTXDHCPBinding() *schema.Resource {
 			"hostname": {
 				Type:        schema.TypeString,
 				Optional:    true,
+				ForceNew:    true,
 				Description: "Hostname for the device (for documentation purposes)",
 			},
 			"description": {
 				Type:        schema.TypeString,
 				Optional:    true,
+				ForceNew:    true,
 				Description: "Description of the DHCP binding (for documentation purposes)",
 			},
 		},
