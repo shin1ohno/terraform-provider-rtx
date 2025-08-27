@@ -592,3 +592,120 @@ export RTX_PASSWORD=password
 ### 次の実装ステップ
 
 実RTXルーターでのterraform applyが可能になったため、rtx_dhcp_scope実装に進む準備完了。
+
+## セッション8：Save機能実装とDHCP ID設計問題分析（2025-08-26）
+
+### Save機能実装完了 ✅
+
+**背景**: terraform applyを実行しても差分が残る問題が発生。RTXルーターではsaveコマンドを実行しないと設定が永続化されないため、変更が反映されない状況でした。
+
+**実装内容**:
+1. **Clientインターフェースにsave機能追加**
+   - `SaveConfig(ctx context.Context) error` メソッド追加
+   - RTXルーター設定の永続化機能実装
+
+2. **クライアント実装修正**
+   - `rtxClient.SaveConfig()` 実装：saveコマンド実行機能
+   - DHCPServiceのコンストラクタ修正：クライアント参照を追加
+
+3. **DHCP操作への統合**
+   - `CreateBinding` 成功後に自動save実行
+   - `DeleteBinding` 成功後に自動save実行
+   - エラーハンドリング：「バインディング操作は成功したがsave失敗」の明確なメッセージ
+
+**テスト結果**:
+- terraform apply：DHCPバインディング作成成功、save実行確認
+- terraform destroy：DHCPバインディング削除成功、save実行確認  
+- terraform plan：リソース差分なし（uptimeのみ変化、これは正常）
+
+**修正されたファイル**:
+- `internal/client/interfaces.go`：SaveConfigメソッド追加
+- `internal/client/client.go`：SaveConfig実装
+- `internal/client/dhcp_service.go`：create/delete後の自動save追加
+
+### DHCP ID設計問題の包括的分析 ✅
+
+**問題発見**: 既存のDHCPバインディングリソースで、Terraform resource IDが `scope_id:ip_address` 形式で実装されているが、実際のDHCPバインディングの一意性はMACアドレスに基づいている設計ミスマッチを特定。
+
+#### 3つのAI（o3-high、Gemini、Opus）による分析
+
+**共通認識された問題点**:
+1. **Terraformリソース一意性の違反**：IPアドレス変更時にdestroy→createが発生
+2. **実機との識別子乖離**：DHCPの真の一意キーはMACアドレス
+3. **運用面での混乱**：外部変更への脆弱性、state管理の困難
+
+#### o3-highの評価（総合スコア方式）
+- **重点**: 運用安定性とインフラ整合性
+- **推奨**: `scope_id:mac_address` 形式への段階的移行
+- **強み**: エンタープライズ運用での影響度を重視
+- **評価**: ★★★★★ （運用観点での包括的分析）
+
+#### Geminiの評価（詳細技術分析）  
+- **重点**: 具体的な実装方法とコード修正
+- **推奨**: Breaking changeによる即座の修正も選択肢として提示
+- **強み**: コードレベルでの詳細な修正手順を提供
+- **評価**: ★★★★★ （技術実装の具体性）
+
+#### Opusの評価（総合判断）
+- **重点**: 技術的正しさと実用性のバランス
+- **推奨**: 段階的マイグレーション（新リソース作成 → 旧リソースdeprecated）
+- **判定**: 3つの選択肢を優劣順で整理
+
+### 修正選択肢と推奨順位
+
+#### 🥇 選択肢A：段階的マイグレーション（全AI推奨）
+**実装概要**:
+- `rtx_dhcp_binding_v2` リソース新規作成
+- 新ID形式：`scope_id:mac_address`  
+- 旧リソースをdeprecated化
+- State migration tool提供
+
+**メリット**:
+- ✅ 技術的正しさと既存ユーザー保護を両立
+- ✅ 段階的移行で運用リスク最小化
+- ✅ 将来の拡張性確保
+
+**デメリット**:
+- ❌ 実装コストが高い（2-3セッション必要）
+- ❌ 一時的にリソースが2系統並存
+
+#### 🥈 選択肢B：Breaking Change実装  
+**メリット**:
+- ✅ シンプルで理解しやすい
+- ✅ 実装コスト低（1セッション）
+
+**デメリット**:
+- ❌ 既存ユーザーに破壊的影響
+- ❌ 手動でのstate移行が必要
+
+#### 🥉 選択肢C：他機能優先・現状維持
+**現状**: save機能でterraform apply問題は解決済み
+**メリット**: 即座に他機能（rtx_dhcp_scope、rtx_dns_host）開発可能
+**デメリット**: 根本的なアーキテクチャ問題が技術負債として残存
+
+### 技術負債の影響度
+
+**影響レベル**: 🔥🔥🔥 （高）
+- 将来のDHCP関連機能拡張時に設計制約となる
+- 運用時のトラブルシューティングが困難
+- Terraform best practiceからの逸脱
+
+### 決定待ち事項
+
+ユーザーによる以下の方針決定が必要：
+1. DHCP ID問題の修正優先度
+2. 段階的 vs Breaking change vs 現状維持の選択
+3. 次期実装機能の優先順位
+
+### セッション8の技術的成果
+
+**解決された問題**:
+- ✅ RTX設定の永続化問題（save機能実装）
+- ✅ terraform apply後の差分残存問題
+
+**特定された技術負債**:
+- ❌ DHCP binding IDの設計問題（修正方針決定待ち）
+
+**品質向上**:
+- ✅ 自動化されたsave実行により運用安全性向上
+- ✅ 3つのAIによる多角的な問題分析完了

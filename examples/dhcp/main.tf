@@ -50,7 +50,7 @@ resource "rtx_dhcp_binding" "pro-2" {
 
 resource "rtx_dhcp_binding" "server" {
   scope_id              = 1
-  ip_address            = "192.168.1.50"
+  ip_address            = "192.168.1.51"  # IP変更テスト
   mac_address           = "aa:bb:cc:dd:ee:ff"
   use_client_identifier = true
 }

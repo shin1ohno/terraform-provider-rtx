@@ -30,7 +30,7 @@ func TestAccRTXDHCPBinding_basic(t *testing.T) {
 				ResourceName:      "rtx_dhcp_binding.test",
 				ImportState:       true,
 				ImportStateVerify: true,
-				ImportStateId:     "1:192.168.1.100",
+				ImportStateId:     "1:00:11:22:33:44:55",
 			},
 		},
 	})

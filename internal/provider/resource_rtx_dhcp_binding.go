@@ -69,8 +69,12 @@ func resourceRTXDHCPBindingCreate(ctx context.Context, d *schema.ResourceData, m
 		return diag.Errorf("Failed to create DHCP binding: %v", err)
 	}
 
-	// Set the ID as composite of scope_id and ip_address
-	d.SetId(fmt.Sprintf("%d:%s", binding.ScopeID, binding.IPAddress))
+	// Set the ID as composite of scope_id and mac_address
+	normalizedMAC, err := normalizeMACAddressParser(binding.MACAddress)
+	if err != nil {
+		return diag.Errorf("Failed to normalize MAC address: %v", err)
+	}
+	d.SetId(fmt.Sprintf("%d:%s", binding.ScopeID, normalizedMAC))
 
 	// Read back to ensure consistency
 	return resourceRTXDHCPBindingRead(ctx, d, meta)
@@ -82,12 +86,20 @@ func resourceRTXDHCPBindingRead(ctx context.Context, d *schema.ResourceData, met
 	log.Printf("[DEBUG] resourceRTXDHCPBindingRead: Starting with ID=%s", d.Id())
 
 	// Parse the composite ID
-	scopeID, ipAddress, err := parseDHCPBindingID(d.Id())
+	scopeID, identifier, err := parseDHCPBindingID(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid resource ID: %v", err)
 	}
 	
-	log.Printf("[DEBUG] resourceRTXDHCPBindingRead: Parsed scopeID=%d, ipAddress=%s", scopeID, ipAddress)
+	// Check if identifier is MAC address or IP address (for backward compatibility)
+	isOldFormat := false
+	if _, err := normalizeMACAddressParser(identifier); err != nil {
+		// It's likely an old format with IP address
+		isOldFormat = true
+		log.Printf("[DEBUG] resourceRTXDHCPBindingRead: Detected old format ID with IP address: %s", identifier)
+	}
+	
+	log.Printf("[DEBUG] resourceRTXDHCPBindingRead: Starting with ID=%s (scopeID=%d, identifier=%s, oldFormat=%v)", d.Id(), scopeID, identifier, isOldFormat)
 
 	// Get all bindings for the scope
 	bindings, err := apiClient.client.GetDHCPBindings(ctx, scopeID)
@@ -99,11 +111,24 @@ func resourceRTXDHCPBindingRead(ctx context.Context, d *schema.ResourceData, met
 
 	// Find our specific binding
 	var found *client.DHCPBinding
-	for _, binding := range bindings {
-		log.Printf("[DEBUG] resourceRTXDHCPBindingRead: Checking binding IP=%s against target=%s", binding.IPAddress, ipAddress)
-		if binding.IPAddress == ipAddress {
-			found = &binding
-			break
+	if isOldFormat {
+		// Search by IP address for old format IDs
+		for _, binding := range bindings {
+			log.Printf("[DEBUG] resourceRTXDHCPBindingRead: Checking binding IP=%s against target=%s (old format)", binding.IPAddress, identifier)
+			if binding.IPAddress == identifier {
+				found = &binding
+				break
+			}
+		}
+	} else {
+		// Search by MAC address for new format IDs
+		for _, binding := range bindings {
+			normalizedBindingMAC, _ := normalizeMACAddressParser(binding.MACAddress)
+			log.Printf("[DEBUG] resourceRTXDHCPBindingRead: Checking binding MAC=%s (normalized=%s) against target=%s", binding.MACAddress, normalizedBindingMAC, identifier)
+			if normalizedBindingMAC == identifier {
+				found = &binding
+				break
+			}
 		}
 	}
 
@@ -131,7 +156,18 @@ func resourceRTXDHCPBindingRead(ctx context.Context, d *schema.ResourceData, met
 	}
 	
 	// IMPORTANT: Always set the ID at the end of Read function
-	d.SetId(fmt.Sprintf("%d:%s", found.ScopeID, found.IPAddress))
+	// Always use MAC address format, even if we found the resource via old IP format
+	normalizedMAC, err := normalizeMACAddressParser(found.MACAddress)
+	if err != nil {
+		return diag.Errorf("Failed to normalize MAC address: %v", err)
+	}
+	newID := fmt.Sprintf("%d:%s", found.ScopeID, normalizedMAC)
+	
+	if isOldFormat {
+		log.Printf("[DEBUG] resourceRTXDHCPBindingRead: Migrating ID from old format %s to new format %s", d.Id(), newID)
+	}
+	
+	d.SetId(newID)
 	log.Printf("[DEBUG] resourceRTXDHCPBindingRead: Set ID to %s", d.Id())
 
 	return nil
@@ -141,12 +177,33 @@ func resourceRTXDHCPBindingDelete(ctx context.Context, d *schema.ResourceData, m
 	apiClient := meta.(*apiClient)
 
 	// Parse the composite ID
-	scopeID, ipAddress, err := parseDHCPBindingID(d.Id())
+	scopeID, macAddress, err := parseDHCPBindingID(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid resource ID: %v", err)
 	}
 
-	err = apiClient.client.DeleteDHCPBinding(ctx, scopeID, ipAddress)
+	// Get all bindings to find the IP address for this MAC address
+	bindings, err := apiClient.client.GetDHCPBindings(ctx, scopeID)
+	if err != nil {
+		return diag.Errorf("Failed to retrieve DHCP bindings: %v", err)
+	}
+
+	// Find the binding with matching MAC address to get its IP address
+	var ipToDelete string
+	for _, binding := range bindings {
+		normalizedBindingMAC, _ := normalizeMACAddressParser(binding.MACAddress)
+		if normalizedBindingMAC == macAddress {
+			ipToDelete = binding.IPAddress
+			break
+		}
+	}
+
+	if ipToDelete == "" {
+		// Binding already doesn't exist, consider this success
+		return nil
+	}
+
+	err = apiClient.client.DeleteDHCPBinding(ctx, scopeID, ipToDelete)
 	if err != nil {
 		// Check if it's already gone
 		if strings.Contains(err.Error(), "not found") {
@@ -159,19 +216,19 @@ func resourceRTXDHCPBindingDelete(ctx context.Context, d *schema.ResourceData, m
 }
 
 func resourceRTXDHCPBindingImport(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
-	// Expected format: "scope_id:ip_address"
+	// Expected format: "scope_id:mac_address"
 	importID := d.Id()
-	scopeID, ipAddress, err := parseDHCPBindingID(importID)
+	scopeID, macAddress, err := parseDHCPBindingID(importID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid import ID format, expected 'scope_id:ip_address': %v", err)
+		return nil, fmt.Errorf("invalid import ID format, expected 'scope_id:mac_address': %v", err)
 	}
 
 	// Set the parsed values
 	d.Set("scope_id", scopeID)
-	d.Set("ip_address", ipAddress)
+	d.Set("mac_address", macAddress)
 	
 	// IMPORTANT: Keep the original ID for the Read function to use
-	// The Read function expects the ID to be in the format "scope_id:ip_address"
+	// The Read function expects the ID to be in the format "scope_id:mac_address"
 	d.SetId(importID)
 
 	// The Read function will populate the rest
@@ -182,29 +239,35 @@ func resourceRTXDHCPBindingImport(ctx context.Context, d *schema.ResourceData, m
 
 	// Check if the resource was found
 	if d.Id() == "" {
-		return nil, fmt.Errorf("DHCP binding with scope_id=%d and ip_address=%s not found", scopeID, ipAddress)
+		return nil, fmt.Errorf("DHCP binding with scope_id=%d and mac_address=%s not found", scopeID, macAddress)
 	}
 
 	return []*schema.ResourceData{d}, nil
 }
 
-// parseDHCPBindingID parses the composite ID into scope_id and ip_address
+// parseDHCPBindingID parses the composite ID into scope_id and mac_address
 func parseDHCPBindingID(id string) (int, string, error) {
-	// Use LastIndex to handle potential colons in IPv6 addresses
-	lastColon := strings.LastIndex(id, ":")
-	if lastColon == -1 {
-		return 0, "", fmt.Errorf("expected format 'scope_id:ip_address', got %s", id)
+	// Handle both old format (scope_id:ip_address) and new format (scope_id:mac_address)
+	parts := strings.SplitN(id, ":", 2)
+	if len(parts) != 2 {
+		return 0, "", fmt.Errorf("expected format 'scope_id:mac_address', got %s", id)
 	}
 	
-	scopeIDStr := id[:lastColon]
-	ipAddress := id[lastColon+1:]
-	
-	scopeID, err := strconv.Atoi(scopeIDStr)
+	scopeID, err := strconv.Atoi(parts[0])
 	if err != nil {
 		return 0, "", fmt.Errorf("invalid scope_id: %v", err)
 	}
 	
-	return scopeID, ipAddress, nil
+	identifier := parts[1]
+	
+	// Check if it's a MAC address format (new format)
+	if _, err := normalizeMACAddressParser(identifier); err == nil {
+		return scopeID, identifier, nil
+	}
+	
+	// It's likely an old format with IP address - we need to convert to MAC
+	// This is for backwards compatibility during migration
+	return scopeID, identifier, nil
 }
 
 // normalizeIPAddress normalizes IP address format
