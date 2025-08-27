@@ -24,7 +24,7 @@ type DHCPBindingsParser interface {
 // dhcpBindingsParser handles parsing of DHCP binding output
 type dhcpBindingsParser struct{}
 
-// ParseBindings parses the output of "show status dhcp {scope_id}" command
+// ParseBindings parses the output of "show config | grep 'dhcp scope bind'" command
 func (p *dhcpBindingsParser) ParseBindings(raw string, scopeID int) ([]DHCPBinding, error) {
 	var bindings []DHCPBinding
 	lines := strings.Split(raw, "\n")
@@ -40,10 +40,11 @@ func (p *dhcpBindingsParser) ParseBindings(raw string, scopeID int) ([]DHCPBindi
 	staticIPPattern := regexp.MustCompile(`^\s*予約済みアドレス:\s*([0-9.]+)\s*$`)
 	dynamicIPPattern := regexp.MustCompile(`^\s*割り当て中アドレス:\s*([0-9.]+)\s*$`)
 	clientIDPattern := regexp.MustCompile(`^\s*\(タイプ\)\s*クライアントID:\s*\(01\)\s*([0-9a-fA-F\s]+)\s*$`)
-	// show config format: dhcp scope bind SCOPE IP [01] MAC (with spaces or colons)
+	// show config format: dhcp scope bind SCOPE IP [01|ethernet] MAC (with spaces or colons)
 	// Example: dhcp scope bind 1 192.168.1.20 01 00 30 93 11 0e 33
 	// Example: dhcp scope bind 1 192.168.1.28 24:59:e5:54:5e:5a
-	configPattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+bind\s+\d+\s+([0-9.]+)\s+(?:01\s+)?([0-9a-fA-F:\s]+)\s*$`)
+	// Example: dhcp scope bind 1 192.168.1.23 ethernet b6:1a:27:ea:28:29
+	configPattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+bind\s+\d+\s+([0-9.]+)\s+(?:(01\s+)|ethernet\s+)?([0-9a-fA-F:\s]+)\s*$`)
 	
 	// For multi-line parsing
 	var currentIP string
@@ -113,12 +114,12 @@ func (p *dhcpBindingsParser) ParseBindings(raw string, scopeID int) ([]DHCPBindi
 		}
 		
 		// Try show config format first
-		if matches := configPattern.FindStringSubmatch(line); len(matches) >= 3 {
+		if matches := configPattern.FindStringSubmatch(line); len(matches) >= 4 {
 			// Extract MAC address, handling both space-separated and colon-separated formats
-			macStr := strings.TrimSpace(matches[2])
+			macStr := strings.TrimSpace(matches[3])
 			
-			// Check if it's prefixed with "01" (client identifier type)
-			useClientID := strings.Contains(line, " 01 ")
+			// Check if it's prefixed with "01" or "ethernet" (client identifier types)
+			useClientID := matches[2] != "" || strings.Contains(line, " ethernet ")
 			
 			// If MAC is space-separated, convert to colon format
 			if strings.Contains(macStr, " ") {
@@ -249,7 +250,7 @@ func BuildDHCPUnbindCommand(scopeID int, ipAddress string) string {
 
 // BuildShowDHCPBindingsCommand builds a command to show DHCP bindings for a scope
 func BuildShowDHCPBindingsCommand(scopeID int) string {
-	return fmt.Sprintf("show dhcp scope bind %d", scopeID)
+	return fmt.Sprintf("show config | grep \"dhcp scope bind %d\"", scopeID)
 }
 
 // BuildDHCPBindCommandWithValidation builds a DHCP bind command with validation
