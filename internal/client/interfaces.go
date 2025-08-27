@@ -28,6 +28,18 @@ type Client interface {
 	// GetDHCPScopes retrieves DHCP scope configurations from the router
 	GetDHCPScopes(ctx context.Context) ([]DHCPScope, error)
 	
+	// GetDHCPScope retrieves a specific DHCP scope by ID
+	GetDHCPScope(ctx context.Context, scopeID int) (*DHCPScope, error)
+	
+	// CreateDHCPScope creates a new DHCP scope
+	CreateDHCPScope(ctx context.Context, scope DHCPScope) error
+	
+	// UpdateDHCPScope updates an existing DHCP scope
+	UpdateDHCPScope(ctx context.Context, scope DHCPScope) error
+	
+	// DeleteDHCPScope removes a DHCP scope
+	DeleteDHCPScope(ctx context.Context, scopeID int) error
+	
 	// GetDHCPBindings retrieves DHCP bindings for a scope
 	GetDHCPBindings(ctx context.Context, scopeID int) ([]DHCPBinding, error)
 	

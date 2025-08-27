@@ -319,10 +319,18 @@ func resourceRTXDHCPBindingImport(ctx context.Context, d *schema.ResourceData, m
 	log.Printf("[DEBUG] resourceRTXDHCPBindingImport: Found binding: %+v", targetBinding)
 
 	// Set the parsed values
-	d.Set("scope_id", scopeID)
-	d.Set("ip_address", targetBinding.IPAddress)
-	d.Set("mac_address", targetBinding.MACAddress)
-	d.Set("use_mac_as_client_id", targetBinding.UseClientIdentifier)
+	if err := d.Set("scope_id", scopeID); err != nil {
+		return nil, fmt.Errorf("failed to set scope_id: %w", err)
+	}
+	if err := d.Set("ip_address", targetBinding.IPAddress); err != nil {
+		return nil, fmt.Errorf("failed to set ip_address: %w", err)
+	}
+	if err := d.Set("mac_address", targetBinding.MACAddress); err != nil {
+		return nil, fmt.Errorf("failed to set mac_address: %w", err)
+	}
+	if err := d.Set("use_mac_as_client_id", targetBinding.UseClientIdentifier); err != nil {
+		return nil, fmt.Errorf("failed to set use_mac_as_client_id: %w", err)
+	}
 	
 	// Always use the MAC-based ID format for consistency
 	normalizedMAC, err := normalizeMACAddressParser(targetBinding.MACAddress)
@@ -473,7 +481,7 @@ func validateClientIdentification(ctx context.Context, d *schema.ResourceDiff, m
 	
 	// Validate client_identifier format if present
 	if clientIdentifier != "" {
-		if _, errs := validateClientIdentifierFormat(clientIdentifier, "client_identifier"); errs != nil && len(errs) > 0 {
+		if _, errs := validateClientIdentifierFormat(clientIdentifier, "client_identifier"); len(errs) > 0 {
 			return errs[0]
 		}
 	}

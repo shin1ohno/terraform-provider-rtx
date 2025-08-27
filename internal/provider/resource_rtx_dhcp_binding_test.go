@@ -115,7 +115,7 @@ func TestAccRTXDHCPBinding_clientIdentifierValidationErrors(t *testing.T) {
 			// Test invalid prefix
 			{
 				Config:      testAccRTXDHCPBindingConfig_clientIdentifierInvalidPrefix(),
-				ExpectError: regexp.MustCompile("client identifier prefix must be 01 \\(MAC\\), 02 \\(ASCII\\), or ff \\(vendor-specific\\)"),
+				ExpectError: regexp.MustCompile(`client identifier prefix must be 01 \(MAC\), 02 \(ASCII\), or ff \(vendor-specific\)`),
 			},
 			// Test invalid hex characters
 			{

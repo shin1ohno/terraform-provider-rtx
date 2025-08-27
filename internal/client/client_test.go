@@ -642,10 +642,8 @@ func TestClientTimeoutHandling(t *testing.T) {
 	t.Run("command timeout", func(t *testing.T) {
 		session := &MockSession{
 			SendFunc: func(cmd string) ([]byte, error) {
-				select {
-				case <-time.After(1 * time.Second):
-					return []byte("RTX1200>"), nil
-				}
+				time.Sleep(1 * time.Second)
+				return []byte("RTX1200>"), nil
 			},
 		}
 
@@ -681,4 +679,218 @@ func TestClientTimeoutHandling(t *testing.T) {
 			t.Error("Expected timeout error, got nil")
 		}
 	})
+}
+
+// MockClient for GetDHCPScope testing
+type MockClientForDHCPScope struct {
+	GetDHCPScopesFunc func(ctx context.Context) ([]DHCPScope, error)
+}
+
+func (m *MockClientForDHCPScope) GetDHCPScopes(ctx context.Context) ([]DHCPScope, error) {
+	if m.GetDHCPScopesFunc != nil {
+		return m.GetDHCPScopesFunc(ctx)
+	}
+	return nil, errors.New("not implemented")
+}
+
+func (m *MockClientForDHCPScope) GetDHCPScope(ctx context.Context, scopeID int) (*DHCPScope, error) {
+	if scopeID <= 0 || scopeID > 255 {
+		return nil, fmt.Errorf("scope_id must be between 1 and 255")
+	}
+
+	scopes, err := m.GetDHCPScopes(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve DHCP scopes: %w", err)
+	}
+
+	// Find the specific scope
+	for _, scope := range scopes {
+		if scope.ID == scopeID {
+			return &scope, nil
+		}
+	}
+
+	// Return ErrNotFound if scope doesn't exist
+	return nil, ErrNotFound
+}
+
+// Implement other Client interface methods with stubs
+func (m *MockClientForDHCPScope) Dial(ctx context.Context) error { return nil }
+func (m *MockClientForDHCPScope) Close() error { return nil }
+func (m *MockClientForDHCPScope) Run(ctx context.Context, cmd Command) (Result, error) { return Result{}, nil }
+func (m *MockClientForDHCPScope) GetSystemInfo(ctx context.Context) (*SystemInfo, error) { return nil, nil }
+func (m *MockClientForDHCPScope) GetInterfaces(ctx context.Context) ([]Interface, error) { return nil, nil }
+func (m *MockClientForDHCPScope) GetRoutes(ctx context.Context) ([]Route, error) { return nil, nil }
+func (m *MockClientForDHCPScope) CreateDHCPScope(ctx context.Context, scope DHCPScope) error { return nil }
+func (m *MockClientForDHCPScope) UpdateDHCPScope(ctx context.Context, scope DHCPScope) error { return nil }
+func (m *MockClientForDHCPScope) DeleteDHCPScope(ctx context.Context, scopeID int) error { return nil }
+func (m *MockClientForDHCPScope) GetDHCPBindings(ctx context.Context, scopeID int) ([]DHCPBinding, error) { return nil, nil }
+func (m *MockClientForDHCPScope) CreateDHCPBinding(ctx context.Context, binding DHCPBinding) error { return nil }
+func (m *MockClientForDHCPScope) DeleteDHCPBinding(ctx context.Context, scopeID int, ipAddress string) error { return nil }
+func (m *MockClientForDHCPScope) SaveConfig(ctx context.Context) error { return nil }
+
+func TestGetDHCPScope(t *testing.T) {
+	tests := []struct {
+		name         string
+		scopeID      int
+		setupClient  func() Client
+		expectError  bool
+		expectedScope *DHCPScope
+		errorContains string
+	}{
+		{
+			name:    "valid scope found",
+			scopeID: 1,
+			setupClient: func() Client {
+				return &MockClientForDHCPScope{
+					GetDHCPScopesFunc: func(ctx context.Context) ([]DHCPScope, error) {
+						return []DHCPScope{
+							{
+								ID:          1,
+								RangeStart:  "192.168.1.100",
+								RangeEnd:    "192.168.1.200",
+								Prefix:      24,
+								Gateway:     "192.168.1.1",
+								DNSServers:  []string{"8.8.8.8", "8.8.4.4"},
+								Lease:       86400,
+								DomainName:  "example.com",
+							},
+						}, nil
+					},
+				}
+			},
+			expectError: false,
+			expectedScope: &DHCPScope{
+				ID:          1,
+				RangeStart:  "192.168.1.100",
+				RangeEnd:    "192.168.1.200",
+				Prefix:      24,
+				Gateway:     "192.168.1.1",
+				DNSServers:  []string{"8.8.8.8", "8.8.4.4"},
+				Lease:       86400,
+				DomainName:  "example.com",
+			},
+		},
+		{
+			name:    "scope not found",
+			scopeID: 2,
+			setupClient: func() Client {
+				return &MockClientForDHCPScope{
+					GetDHCPScopesFunc: func(ctx context.Context) ([]DHCPScope, error) {
+						return []DHCPScope{
+							{ID: 1, RangeStart: "192.168.1.100", RangeEnd: "192.168.1.200", Prefix: 24},
+						}, nil
+					},
+				}
+			},
+			expectError:   true,
+			errorContains: "resource not found",
+		},
+		{
+			name:    "invalid scope ID - zero",
+			scopeID: 0,
+			setupClient: func() Client {
+				return &MockClientForDHCPScope{}
+			},
+			expectError:   true,
+			errorContains: "scope_id must be between 1 and 255",
+		},
+		{
+			name:    "invalid scope ID - too large",
+			scopeID: 256,
+			setupClient: func() Client {
+				return &MockClientForDHCPScope{}
+			},
+			expectError:   true,
+			errorContains: "scope_id must be between 1 and 255",
+		},
+		{
+			name:    "GetDHCPScopes returns error",
+			scopeID: 1,
+			setupClient: func() Client {
+				return &MockClientForDHCPScope{
+					GetDHCPScopesFunc: func(ctx context.Context) ([]DHCPScope, error) {
+						return nil, errors.New("connection failed")
+					},
+				}
+			},
+			expectError:   true,
+			errorContains: "failed to retrieve DHCP scopes",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := tt.setupClient()
+			ctx := context.Background()
+
+			scope, err := client.GetDHCPScope(ctx, tt.scopeID)
+
+			if tt.expectError {
+				if err == nil {
+					t.Fatalf("Expected error but got none")
+				}
+				if tt.errorContains != "" && !containsString(err.Error(), tt.errorContains) {
+					t.Errorf("Expected error to contain %q, got %q", tt.errorContains, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("Unexpected error: %v", err)
+				}
+				if scope == nil {
+					t.Fatal("Expected scope but got nil")
+				}
+				
+				// Compare expected scope
+				if scope.ID != tt.expectedScope.ID {
+					t.Errorf("Expected scope ID %d, got %d", tt.expectedScope.ID, scope.ID)
+				}
+				if scope.RangeStart != tt.expectedScope.RangeStart {
+					t.Errorf("Expected range start %s, got %s", tt.expectedScope.RangeStart, scope.RangeStart)
+				}
+				if scope.RangeEnd != tt.expectedScope.RangeEnd {
+					t.Errorf("Expected range end %s, got %s", tt.expectedScope.RangeEnd, scope.RangeEnd)
+				}
+				if scope.Prefix != tt.expectedScope.Prefix {
+					t.Errorf("Expected prefix %d, got %d", tt.expectedScope.Prefix, scope.Prefix)
+				}
+				if scope.Gateway != tt.expectedScope.Gateway {
+					t.Errorf("Expected gateway %s, got %s", tt.expectedScope.Gateway, scope.Gateway)
+				}
+				if scope.Lease != tt.expectedScope.Lease {
+					t.Errorf("Expected lease %d, got %d", tt.expectedScope.Lease, scope.Lease)
+				}
+				if scope.DomainName != tt.expectedScope.DomainName {
+					t.Errorf("Expected domain name %s, got %s", tt.expectedScope.DomainName, scope.DomainName)
+				}
+				
+				// Compare DNS servers slice
+				if len(scope.DNSServers) != len(tt.expectedScope.DNSServers) {
+					t.Errorf("Expected %d DNS servers, got %d", len(tt.expectedScope.DNSServers), len(scope.DNSServers))
+				} else {
+					for i, expected := range tt.expectedScope.DNSServers {
+						if scope.DNSServers[i] != expected {
+							t.Errorf("Expected DNS server %d to be %s, got %s", i, expected, scope.DNSServers[i])
+						}
+					}
+				}
+			}
+		})
+	}
+}
+
+// containsString checks if a string contains a substring
+func containsString(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && 
+		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || 
+		 containsSubstring(s, substr)))
+}
+
+func containsSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }

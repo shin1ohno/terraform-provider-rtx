@@ -54,6 +54,14 @@ func (m *MockClientForDHCPScope) GetDHCPScopes(ctx context.Context) ([]client.DH
 	return args.Get(0).([]client.DHCPScope), args.Error(1)
 }
 
+func (m *MockClientForDHCPScope) GetDHCPScope(ctx context.Context, scopeID int) (*client.DHCPScope, error) {
+	args := m.Called(ctx, scopeID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*client.DHCPScope), args.Error(1)
+}
+
 func (m *MockClientForDHCPScope) GetDHCPBindings(ctx context.Context, scopeID int) ([]client.DHCPBinding, error) {
 	args := m.Called(ctx, scopeID)
 	return args.Get(0).([]client.DHCPBinding), args.Error(1)
@@ -71,6 +79,21 @@ func (m *MockClientForDHCPScope) DeleteDHCPBinding(ctx context.Context, scopeID 
 
 func (m *MockClientForDHCPScope) SaveConfig(ctx context.Context) error {
 	args := m.Called(ctx)
+	return args.Error(0)
+}
+
+func (m *MockClientForDHCPScope) CreateDHCPScope(ctx context.Context, scope client.DHCPScope) error {
+	args := m.Called(ctx, scope)
+	return args.Error(0)
+}
+
+func (m *MockClientForDHCPScope) UpdateDHCPScope(ctx context.Context, scope client.DHCPScope) error {
+	args := m.Called(ctx, scope)
+	return args.Error(0)
+}
+
+func (m *MockClientForDHCPScope) DeleteDHCPScope(ctx context.Context, scopeID int) error {
+	args := m.Called(ctx, scopeID)
 	return args.Error(0)
 }
 

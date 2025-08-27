@@ -183,7 +183,7 @@ func TestDHCPService_ListBindings(t *testing.T) {
   192.168.1.100    00:11:22:33:44:55
   192.168.1.101    ethernet 00:aa:bb:cc:dd:ee
 `
-				m.On("Run", mock.Anything, "show dhcp scope bind 1").
+				m.On("Run", mock.Anything, `show config | grep "dhcp scope bind 1"`).
 					Return([]byte(output), nil)
 			},
 			expected: []DHCPBinding{
@@ -206,7 +206,7 @@ func TestDHCPService_ListBindings(t *testing.T) {
 			name:    "Empty bindings",
 			scopeID: 1,
 			mockSetup: func(m *MockExecutor) {
-				m.On("Run", mock.Anything, "show dhcp scope bind 1").
+				m.On("Run", mock.Anything, `show config | grep "dhcp scope bind 1"`).
 					Return([]byte("No bindings found for scope 1"), nil)
 			},
 			expected:    []DHCPBinding{},
@@ -216,7 +216,7 @@ func TestDHCPService_ListBindings(t *testing.T) {
 			name:    "Execution error",
 			scopeID: 1,
 			mockSetup: func(m *MockExecutor) {
-				m.On("Run", mock.Anything, "show dhcp scope bind 1").
+				m.On("Run", mock.Anything, `show config | grep "dhcp scope bind 1"`).
 					Return(nil, errors.New("connection failed"))
 			},
 			expected:    nil,

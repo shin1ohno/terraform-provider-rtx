@@ -73,8 +73,31 @@ func (m *MockClientForRoutes) GetDHCPScopes(ctx context.Context) ([]client.DHCPS
 	return args.Get(0).([]client.DHCPScope), args.Error(1)
 }
 
+func (m *MockClientForRoutes) GetDHCPScope(ctx context.Context, scopeID int) (*client.DHCPScope, error) {
+	args := m.Called(ctx, scopeID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*client.DHCPScope), args.Error(1)
+}
+
 func (m *MockClientForRoutes) SaveConfig(ctx context.Context) error {
 	args := m.Called(ctx)
+	return args.Error(0)
+}
+
+func (m *MockClientForRoutes) CreateDHCPScope(ctx context.Context, scope client.DHCPScope) error {
+	args := m.Called(ctx, scope)
+	return args.Error(0)
+}
+
+func (m *MockClientForRoutes) UpdateDHCPScope(ctx context.Context, scope client.DHCPScope) error {
+	args := m.Called(ctx, scope)
+	return args.Error(0)
+}
+
+func (m *MockClientForRoutes) DeleteDHCPScope(ctx context.Context, scopeID int) error {
+	args := m.Called(ctx, scopeID)
 	return args.Error(0)
 }
 

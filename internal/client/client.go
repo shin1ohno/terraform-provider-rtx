@@ -356,6 +356,79 @@ func (c *rtxClient) GetDHCPScopes(ctx context.Context) ([]DHCPScope, error) {
 	return scopes, nil
 }
 
+// GetDHCPScope retrieves a specific DHCP scope by ID
+func (c *rtxClient) GetDHCPScope(ctx context.Context, scopeID int) (*DHCPScope, error) {
+	if scopeID <= 0 || scopeID > 255 {
+		return nil, fmt.Errorf("scope_id must be between 1 and 255")
+	}
+
+	scopes, err := c.GetDHCPScopes(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve DHCP scopes: %w", err)
+	}
+
+	// Find the specific scope
+	for _, scope := range scopes {
+		if scope.ID == scopeID {
+			return &scope, nil
+		}
+	}
+
+	// Return ErrNotFound if scope doesn't exist
+	return nil, ErrNotFound
+}
+
+// CreateDHCPScope creates a new DHCP scope
+func (c *rtxClient) CreateDHCPScope(ctx context.Context, scope DHCPScope) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	dhcpService := c.dhcpService
+	c.mu.Unlock()
+	
+	if dhcpService == nil {
+		return fmt.Errorf("DHCP service not initialized")
+	}
+	
+	return dhcpService.CreateScope(ctx, scope)
+}
+
+// UpdateDHCPScope updates an existing DHCP scope
+func (c *rtxClient) UpdateDHCPScope(ctx context.Context, scope DHCPScope) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	dhcpService := c.dhcpService
+	c.mu.Unlock()
+	
+	if dhcpService == nil {
+		return fmt.Errorf("DHCP service not initialized")
+	}
+	
+	return dhcpService.UpdateScope(ctx, scope)
+}
+
+// DeleteDHCPScope removes a DHCP scope
+func (c *rtxClient) DeleteDHCPScope(ctx context.Context, scopeID int) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	dhcpService := c.dhcpService
+	c.mu.Unlock()
+	
+	if dhcpService == nil {
+		return fmt.Errorf("DHCP service not initialized")
+	}
+	
+	return dhcpService.DeleteScope(ctx, scopeID)
+}
+
 // GetDHCPBindings retrieves DHCP bindings for a scope
 func (c *rtxClient) GetDHCPBindings(ctx context.Context, scopeID int) ([]DHCPBinding, error) {
 	c.mu.Lock()
@@ -447,10 +520,8 @@ func validateConfig(config *Config) error {
 		config.Timeout = 30 // Default timeout
 	}
 	
-	// Validate host key configuration
-	if config.HostKey != "" && config.KnownHostsFile != "" {
-		// Both specified - HostKey takes priority, but we warn about it in logs if needed
-	}
+	// Validate host key configuration - both can be specified
+	// HostKey takes priority over KnownHostsFile when both are provided
 	
 	return nil
 }

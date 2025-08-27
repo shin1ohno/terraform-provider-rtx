@@ -29,6 +29,18 @@ data "rtx_system_info" "router" {}
 # DHCPスコープ情報を取得（新機能）
 data "rtx_dhcp_scope" "all" {}
 
+# DHCPスコープ設定（リソース）- テスト用
+resource "rtx_dhcp_scope" "test_scope" {
+  scope_id    = 2
+  range_start = "192.168.2.100"
+  range_end   = "192.168.2.200"
+  prefix      = 24
+  gateway     = "192.168.2.1"
+  dns_servers = ["8.8.8.8", "8.8.4.4"]
+  lease_time  = 86400
+  domain_name = "test.local"
+}
+
 # DHCP静的割り当て設定
 resource "rtx_dhcp_binding" "pro-0" {
   scope_id             = 1

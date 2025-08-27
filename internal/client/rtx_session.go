@@ -149,9 +149,7 @@ func (r *rtxShellSession) executeCommand(cmd string) ([]byte, error) {
 	} else {
 		// Try with just \n
 		cmdEcho = []byte(cmd + "\n")
-		if bytes.HasPrefix(output, cmdEcho) {
-			output = output[len(cmdEcho):]
-		}
+		output = bytes.TrimPrefix(output, cmdEcho)
 	}
 
 	// The output includes the prompt at the end, which we keep
