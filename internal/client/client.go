@@ -111,7 +111,7 @@ func (c *rtxClient) Dial(ctx context.Context) error {
 	
 	addr := fmt.Sprintf("%s:%d", c.config.Host, c.config.Port)
 	c.executor = NewSimpleExecutor(sshConfig, addr, c.promptDetector, c.config)
-	c.dhcpService = NewDHCPService(c.executor)
+	c.dhcpService = NewDHCPService(c.executor, c)
 	c.active = true
 	return nil
 }
