@@ -2,6 +2,7 @@ package provider
 
 import (
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
@@ -51,6 +52,78 @@ func TestAccRTXDHCPBinding_clientIdentifier(t *testing.T) {
 					resource.TestCheckResourceAttr("rtx_dhcp_binding.test", "mac_address", "00:a0:de:44:55:66"),
 					resource.TestCheckResourceAttr("rtx_dhcp_binding.test", "use_client_identifier", "true"),
 				),
+			},
+		},
+	})
+}
+
+func TestAccRTXDHCPBinding_clientIdentifierCustom(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck: func() {
+			testAccPreCheck(t)
+		},
+		ProviderFactories: testAccProviderFactories,
+		Steps: []resource.TestStep{
+			// Test MAC-based client identifier (01 prefix)
+			{
+				Config: testAccRTXDHCPBindingConfig_clientIdentifierMAC(),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("rtx_dhcp_binding.test_mac", "scope_id", "1"),
+					resource.TestCheckResourceAttr("rtx_dhcp_binding.test_mac", "ip_address", "192.168.1.52"),
+					resource.TestCheckResourceAttr("rtx_dhcp_binding.test_mac", "client_identifier", "01:00:11:22:33:44:55"),
+					resource.TestCheckResourceAttr("rtx_dhcp_binding.test_mac", "mac_address", ""),
+				),
+			},
+			// Test ASCII-based client identifier (02 prefix)
+			{
+				Config: testAccRTXDHCPBindingConfig_clientIdentifierASCII(),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("rtx_dhcp_binding.test_ascii", "scope_id", "1"),
+					resource.TestCheckResourceAttr("rtx_dhcp_binding.test_ascii", "ip_address", "192.168.1.53"),
+					resource.TestCheckResourceAttr("rtx_dhcp_binding.test_ascii", "client_identifier", "02:68:6f:73:74:6e:61:6d:65"),
+					resource.TestCheckResourceAttr("rtx_dhcp_binding.test_ascii", "mac_address", ""),
+				),
+			},
+			// Test vendor-specific client identifier (FF prefix)
+			{
+				Config: testAccRTXDHCPBindingConfig_clientIdentifierVendor(),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("rtx_dhcp_binding.test_vendor", "scope_id", "1"),
+					resource.TestCheckResourceAttr("rtx_dhcp_binding.test_vendor", "ip_address", "192.168.1.54"),
+					resource.TestCheckResourceAttr("rtx_dhcp_binding.test_vendor", "client_identifier", "ff:00:01:02:03:04:05"),
+					resource.TestCheckResourceAttr("rtx_dhcp_binding.test_vendor", "mac_address", ""),
+				),
+			},
+		},
+	})
+}
+
+func TestAccRTXDHCPBinding_clientIdentifierValidationErrors(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck: func() {
+			testAccPreCheck(t)
+		},
+		ProviderFactories: testAccProviderFactories,
+		Steps: []resource.TestStep{
+			// Test invalid prefix
+			{
+				Config:      testAccRTXDHCPBindingConfig_clientIdentifierInvalidPrefix(),
+				ExpectError: regexp.MustCompile("client identifier prefix must be 01 \\(MAC\\), 02 \\(ASCII\\), or ff \\(vendor-specific\\)"),
+			},
+			// Test invalid hex characters
+			{
+				Config:      testAccRTXDHCPBindingConfig_clientIdentifierInvalidHex(),
+				ExpectError: regexp.MustCompile("client identifier contains invalid hex characters"),
+			},
+			// Test no data after prefix
+			{
+				Config:      testAccRTXDHCPBindingConfig_clientIdentifierNoData(),
+				ExpectError: regexp.MustCompile("client identifier must have data after type prefix"),
+			},
+			// Test both mac_address and client_identifier specified
+			{
+				Config:      testAccRTXDHCPBindingConfig_clientIdentifierConflict(),
+				ExpectError: regexp.MustCompile("\"client_identifier\": conflicts with mac_address"),
 			},
 		},
 	})
@@ -191,6 +264,133 @@ resource "rtx_dhcp_binding" "test3" {
   scope_id    = 2
   ip_address  = "192.168.2.100"
   mac_address = "aa:bb:cc:dd:ee:03"
+}
+`
+}
+
+func testAccRTXDHCPBindingConfig_clientIdentifierMAC() string {
+	return `
+provider "rtx" {
+  host                 = "localhost"
+  port                 = 2222
+  username             = "testuser"
+  password             = "testpass"
+  skip_host_key_check  = true
+}
+
+resource "rtx_dhcp_binding" "test_mac" {
+  scope_id          = 1
+  ip_address        = "192.168.1.52"
+  client_identifier = "01:00:11:22:33:44:55"
+}
+`
+}
+
+func testAccRTXDHCPBindingConfig_clientIdentifierASCII() string {
+	return `
+provider "rtx" {
+  host                 = "localhost"
+  port                 = 2222
+  username             = "testuser"
+  password             = "testpass"
+  skip_host_key_check  = true
+}
+
+resource "rtx_dhcp_binding" "test_ascii" {
+  scope_id          = 1
+  ip_address        = "192.168.1.53"
+  client_identifier = "02:68:6f:73:74:6e:61:6d:65"
+}
+`
+}
+
+func testAccRTXDHCPBindingConfig_clientIdentifierVendor() string {
+	return `
+provider "rtx" {
+  host                 = "localhost"
+  port                 = 2222
+  username             = "testuser"
+  password             = "testpass"
+  skip_host_key_check  = true
+}
+
+resource "rtx_dhcp_binding" "test_vendor" {
+  scope_id          = 1
+  ip_address        = "192.168.1.54"
+  client_identifier = "ff:00:01:02:03:04:05"
+}
+`
+}
+
+func testAccRTXDHCPBindingConfig_clientIdentifierInvalidPrefix() string {
+	return `
+provider "rtx" {
+  host                 = "localhost"
+  port                 = 2222
+  username             = "testuser"
+  password             = "testpass"
+  skip_host_key_check  = true
+}
+
+resource "rtx_dhcp_binding" "test_invalid" {
+  scope_id          = 1
+  ip_address        = "192.168.1.55"
+  client_identifier = "03:00:11:22:33:44:55"
+}
+`
+}
+
+func testAccRTXDHCPBindingConfig_clientIdentifierInvalidHex() string {
+	return `
+provider "rtx" {
+  host                 = "localhost"
+  port                 = 2222
+  username             = "testuser"
+  password             = "testpass"
+  skip_host_key_check  = true
+}
+
+resource "rtx_dhcp_binding" "test_invalid" {
+  scope_id          = 1
+  ip_address        = "192.168.1.56"
+  client_identifier = "01:zz:11:22:33:44:55"
+}
+`
+}
+
+func testAccRTXDHCPBindingConfig_clientIdentifierNoData() string {
+	return `
+provider "rtx" {
+  host                 = "localhost"
+  port                 = 2222
+  username             = "testuser"
+  password             = "testpass"
+  skip_host_key_check  = true
+}
+
+resource "rtx_dhcp_binding" "test_invalid" {
+  scope_id          = 1
+  ip_address        = "192.168.1.57"
+  client_identifier = "01:"
+}
+`
+}
+
+func testAccRTXDHCPBindingConfig_clientIdentifierConflict() string {
+	return `
+provider "rtx" {
+  host                 = "localhost"
+  port                 = 2222
+  username             = "testuser"
+  password             = "testpass"
+  skip_host_key_check  = true
+}
+
+resource "rtx_dhcp_binding" "test_conflict" {
+  scope_id          = 1
+  ip_address        = "192.168.1.58"
+  mac_address       = "00:11:22:33:44:55"
+  client_identifier = "01:00:11:22:33:44:55"
 }
 `
 }

@@ -33,6 +33,10 @@ func (m *MockSession) Close() error {
 	return nil
 }
 
+func (m *MockSession) SetAdminMode(enabled bool) {
+	// Mock implementation - do nothing
+}
+
 // MockConnDialer implements the ConnDialer interface for testing
 type MockConnDialer struct {
 	DialFunc func(ctx context.Context, host string, config *Config) (Session, error)

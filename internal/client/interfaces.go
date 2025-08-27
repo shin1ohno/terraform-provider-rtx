@@ -66,6 +66,7 @@ type DHCPBinding struct {
 	ScopeID             int    `json:"scope_id"`
 	IPAddress           string `json:"ip_address"`
 	MACAddress          string `json:"mac_address"`
+	ClientIdentifier    string `json:"client_identifier,omitempty"`
 	UseClientIdentifier bool   `json:"use_client_identifier"`
 }
 
