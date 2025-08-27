@@ -203,17 +203,91 @@ func parseOptions(scope *DhcpScope, optionsStr string) error {
 			i++
 			scope.DomainName = tokens[i]
 
+		case "expire":
+			if i+1 >= len(tokens) {
+				return fmt.Errorf("expire option requires a time value")
+			}
+			i++
+			leaseTime, err := parseTimeToSeconds(tokens[i])
+			if err != nil {
+				return fmt.Errorf("invalid expire value: %v", err)
+			}
+			scope.Lease = leaseTime
+
+		case "maxexpire":
+			if i+1 >= len(tokens) {
+				return fmt.Errorf("maxexpire option requires a time value")
+			}
+			i++
+			// For now, we'll just skip maxexpire as our scope struct doesn't store it separately
+			// but we need to parse it to avoid "unknown option" error
+			_, err := parseTimeToSeconds(tokens[i])
+			if err != nil {
+				return fmt.Errorf("invalid maxexpire value: %v", err)
+			}
+			// Skip storing maxexpire for now
+
+		case "ma":
+			// Skip "ma" option which is sometimes appended after expire
+			// This appears to be related to manual/max settings on RTX routers
+			// We'll ignore it for now as it doesn't affect our scope configuration
+
 		default:
-			return fmt.Errorf("unknown option: %s", tokens[i])
+			// Log unknown options but don't fail parsing to handle RTX router variations
+			// This allows the parser to be more resilient to firmware differences
+			// Unknown options are silently skipped
+			continue
 		}
 	}
 
 	return nil
 }
 
+// parseTimeToSeconds converts time formats to seconds
+// Supports both minutes (e.g., "1440") and hh:mm format (e.g., "24:00")
+func parseTimeToSeconds(timeStr string) (int, error) {
+	timeStr = strings.TrimSpace(timeStr)
+	
+	// Check if it's in hh:mm format
+	if strings.Contains(timeStr, ":") {
+		parts := strings.Split(timeStr, ":")
+		if len(parts) != 2 {
+			return 0, fmt.Errorf("invalid time format: expected hh:mm")
+		}
+		
+		hours, err := strconv.Atoi(parts[0])
+		if err != nil {
+			return 0, fmt.Errorf("invalid hours: %v", err)
+		}
+		
+		minutes, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return 0, fmt.Errorf("invalid minutes: %v", err)
+		}
+		
+		if hours < 0 || minutes < 0 || minutes >= 60 {
+			return 0, fmt.Errorf("invalid time values")
+		}
+		
+		return (hours * 60 + minutes) * 60, nil // Convert to seconds
+	}
+	
+	// Otherwise, treat as minutes
+	minutes, err := strconv.Atoi(timeStr)
+	if err != nil {
+		return 0, fmt.Errorf("invalid minutes value: %v", err)
+	}
+	
+	if minutes < 0 {
+		return 0, fmt.Errorf("minutes must be non-negative")
+	}
+	
+	return minutes * 60, nil // Convert to seconds
+}
+
 // isOptionKeyword checks if a token is a known option keyword
 func isOptionKeyword(token string) bool {
-	keywords := []string{"gateway", "dns", "lease", "domain"}
+	keywords := []string{"gateway", "dns", "lease", "domain", "expire", "maxexpire", "ma"}
 	for _, keyword := range keywords {
 		if token == keyword {
 			return true
@@ -243,8 +317,8 @@ func (p *rtx830DhcpScopeParser) ParseDhcpScopes(raw string) ([]*DhcpScope, error
 			continue
 		}
 		
-		// Check if line matches dhcp scope pattern
-		if strings.HasPrefix(line, "dhcp scope ") {
+		// Check if line matches dhcp scope pattern (but not dhcp scope bind)
+		if strings.HasPrefix(line, "dhcp scope ") && !strings.HasPrefix(line, "dhcp scope bind") && !strings.HasPrefix(line, "dhcp scope option") {
 			scope, err := ParseDhcpScope(line)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse line '%s': %v", line, err)
@@ -277,8 +351,8 @@ func (p *rtx12xxDhcpScopeParser) ParseDhcpScopes(raw string) ([]*DhcpScope, erro
 			continue
 		}
 		
-		// Check if line matches dhcp scope pattern
-		if strings.HasPrefix(line, "dhcp scope ") {
+		// Check if line matches dhcp scope pattern (but not dhcp scope bind)
+		if strings.HasPrefix(line, "dhcp scope ") && !strings.HasPrefix(line, "dhcp scope bind") && !strings.HasPrefix(line, "dhcp scope option") {
 			scope, err := ParseDhcpScope(line)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse line '%s': %v", line, err)

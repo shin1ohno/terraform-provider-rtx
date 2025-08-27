@@ -308,7 +308,8 @@ func (c *rtxClient) GetDHCPScopes(ctx context.Context) ([]DHCPScope, error) {
 	case systemInfo.Model == "RTX830":
 		cmdPayload = "show running-config | grep \"dhcp scope\""
 	default:
-		cmdPayload = "show running-config | grep \"dhcp scope\""
+		// RTX1210 and other RTX series use 'show config'
+		cmdPayload = "show config | grep \"dhcp scope\""
 	}
 
 	cmd := Command{

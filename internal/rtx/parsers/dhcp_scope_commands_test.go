@@ -332,8 +332,8 @@ func TestBuildDHCPScopeCreateCommandWithValidation(t *testing.T) {
 				if err != nil {
 					t.Errorf("Expected no error but got: %v", err)
 				}
-				if result == "" {
-					t.Errorf("Expected command result but got empty string")
+				if len(result) == 0 {
+					t.Errorf("Expected command result but got empty slice")
 				}
 			}
 		})

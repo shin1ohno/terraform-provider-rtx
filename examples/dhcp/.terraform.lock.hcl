@@ -5,6 +5,6 @@ provider "registry.terraform.io/sh1/rtx" {
   version     = "0.1.0"
   constraints = "0.1.0"
   hashes = [
-    "h1:zd1pBMA42xWvXOOOfDODyjS+4kxE4Pr1OQM3jHlI+P4=",
+    "h1:qA7shMN28VaTorcKFPqkSHEsKOxig3CX+gRXGxU+rvY=",
   ]
 }

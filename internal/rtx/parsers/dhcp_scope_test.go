@@ -103,6 +103,50 @@ func TestDhcpScopeParsers(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		// 正常系: expire with hh:mm format (実機出力形式)
+		{
+			name:       "RTX830 expire with time format",
+			model:      "RTX830",
+			configLine: "dhcp scope 1 192.168.1.20-192.168.1.99/24 gateway 192.168.1.253 expire 12:00",
+			want: &DhcpScope{
+				ID:         1,
+				RangeStart: "192.168.1.20",
+				RangeEnd:   "192.168.1.99",
+				Prefix:     24,
+				Gateway:    "192.168.1.253",
+				Lease:      43200, // 12:00 = 12*60*60 seconds
+			},
+			wantErr: false,
+		},
+		// 正常系: expire with ma option (実機出力形式)
+		{
+			name:       "RTX830 expire with ma option",
+			model:      "RTX830",
+			configLine: "dhcp scope 1 192.168.1.20-192.168.1.99/16 gateway 192.168.1.253 expire 12:00 ma",
+			want: &DhcpScope{
+				ID:         1,
+				RangeStart: "192.168.1.20",
+				RangeEnd:   "192.168.1.99",
+				Prefix:     16,
+				Gateway:    "192.168.1.253",
+				Lease:      43200, // 12:00 = 12*60*60 seconds
+			},
+			wantErr: false,
+		},
+		// 正常系: maxexpire option
+		{
+			name:       "RTX830 with maxexpire",
+			model:      "RTX830",
+			configLine: "dhcp scope 2 10.0.0.10-10.0.0.50/24 expire 60 maxexpire 1440",
+			want: &DhcpScope{
+				ID:         2,
+				RangeStart: "10.0.0.10",
+				RangeEnd:   "10.0.0.50",
+				Prefix:     24,
+				Lease:      3600, // 60 minutes = 3600 seconds
+			},
+			wantErr: false,
+		},
 		// 異常系: 不正な設定行フォーマット
 		{
 			name:       "invalid format - missing dhcp keyword",

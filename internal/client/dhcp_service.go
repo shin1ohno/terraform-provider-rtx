@@ -136,6 +136,12 @@ func containsError(output string) bool {
 		"Connection timeout",
 		"already exists",
 		"not found",
+		"Administrator use only", // Add this critical error pattern
+		"Illegal keyword",        // RTX command syntax errors
+		"Syntax error",
+		"Unknown command",
+		"Parameter error",
+		"Configuration error",
 	}
 	
 	outputLower := strings.ToLower(output)
@@ -216,59 +222,74 @@ func (s *DHCPService) CreateScope(ctx context.Context, scope DHCPScope) error {
 		DomainName:  scope.DomainName,
 	}
 	
-	// Build command with validation
-	cmd, err := parsers.BuildDHCPScopeCreateCommandWithValidation(parserScope)
+	// Build commands with validation
+	cmds, err := parsers.BuildDHCPScopeCreateCommandWithValidation(parserScope)
 	if err != nil {
 		return fmt.Errorf("invalid scope configuration: %w", err)
 	}
 	
-	// Execute command with retry for conflict scenarios
+	// Execute commands with retry for conflict scenarios
 	retryStrategy := NewExponentialBackoff()
 	
 	for attempt := 0; ; attempt++ {
-		output, err := s.executor.Run(ctx, cmd)
+		// Execute all commands in sequence
+		allSuccess := true
+		var lastError error
+		var lastOutput string
 		
-		// If command succeeded, check output for errors
-		if err == nil {
+		for i, cmdStr := range cmds {
+			output, err := s.executor.Run(ctx, cmdStr)
+			
+			// If command failed to execute
+			if err != nil {
+				lastError = err
+				allSuccess = false
+				break
+			}
+			
+			// Check output for errors
 			if len(output) > 0 && containsError(string(output)) {
 				outputStr := string(output)
+				lastOutput = outputStr
+				lastError = fmt.Errorf("command %d failed: %s", i+1, outputStr)
+				allSuccess = false
+				
 				// Check for conflict scenarios that should be retried
 				if strings.Contains(strings.ToLower(outputStr), "already exists") ||
 				   strings.Contains(strings.ToLower(outputStr), "conflict") ||
 				   strings.Contains(strings.ToLower(outputStr), "busy") {
-					
-					delay, giveUp := retryStrategy.Next(attempt)
-					if giveUp {
-						return fmt.Errorf("command failed after %d attempts: %s", attempt+1, outputStr)
-					}
-					
-					log.Printf("[DEBUG] DHCP scope creation attempt %d failed with conflict, retrying in %v: %s", 
-						attempt+1, delay, outputStr)
-					
-					select {
-					case <-time.After(delay):
-						continue
-					case <-ctx.Done():
-						return ctx.Err()
-					}
+					break // Will retry the whole sequence
 				}
-				return fmt.Errorf("command failed: %s", outputStr)
+				
+				// Non-retryable error
+				return fmt.Errorf("scope creation failed: %w", lastError)
 			}
+		}
+		
+		// If all commands succeeded, break
+		if allSuccess {
 			break
 		}
 		
 		// If execution failed, check if it's retryable
-		if !IsRetryable(err) {
-			return fmt.Errorf("failed to create DHCP scope: %w", err)
+		if lastError != nil && !IsRetryable(lastError) {
+			// Check for specific error patterns that suggest retry is needed
+			if lastOutput != "" && (strings.Contains(strings.ToLower(lastOutput), "already exists") ||
+				strings.Contains(strings.ToLower(lastOutput), "conflict") ||
+				strings.Contains(strings.ToLower(lastOutput), "busy")) {
+				// This is retryable despite IsRetryable returning false
+			} else {
+				return fmt.Errorf("failed to create DHCP scope: %w", lastError)
+			}
 		}
 		
 		delay, giveUp := retryStrategy.Next(attempt)
 		if giveUp {
-			return fmt.Errorf("failed to create DHCP scope after %d attempts: %w", attempt+1, err)
+			return fmt.Errorf("failed to create DHCP scope after %d attempts: %w", attempt+1, lastError)
 		}
 		
 		log.Printf("[DEBUG] DHCP scope creation attempt %d failed, retrying in %v: %v", 
-			attempt+1, delay, err)
+			attempt+1, delay, lastError)
 		
 		select {
 		case <-time.After(delay):
