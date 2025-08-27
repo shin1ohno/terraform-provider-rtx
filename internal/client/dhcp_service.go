@@ -43,6 +43,7 @@ func (s *DHCPService) CreateBinding(ctx context.Context, binding DHCPBinding) er
 		ScopeID:             binding.ScopeID,
 		IPAddress:           binding.IPAddress,
 		MACAddress:          binding.MACAddress,
+		ClientIdentifier:    binding.ClientIdentifier,
 		UseClientIdentifier: binding.UseClientIdentifier,
 	}
 	
@@ -114,6 +115,7 @@ func (s *DHCPService) ListBindings(ctx context.Context, scopeID int) ([]DHCPBind
 			ScopeID:             pb.ScopeID,
 			IPAddress:           pb.IPAddress,
 			MACAddress:          pb.MACAddress,
+			ClientIdentifier:    pb.ClientIdentifier,
 			UseClientIdentifier: pb.UseClientIdentifier,
 		}
 	}
@@ -154,10 +156,34 @@ func validateDHCPBinding(binding DHCPBinding) error {
 		return fmt.Errorf("invalid IP address: %s", binding.IPAddress)
 	}
 	
-	// Validate MAC address
-	_, err := parsers.NormalizeMACAddress(binding.MACAddress)
-	if err != nil {
-		return fmt.Errorf("invalid MAC address: %w", err)
+	// Validate either MAC address or client identifier
+	if binding.ClientIdentifier != "" {
+		// Validate client identifier format
+		parts := strings.Split(binding.ClientIdentifier, ":")
+		if len(parts) < 2 {
+			return fmt.Errorf("client_identifier must be in format 'type:data' (e.g., '01:aa:bb:cc:dd:ee:ff')")
+		}
+		
+		// Validate each part is valid hex
+		for i, part := range parts {
+			if len(part) != 2 {
+				return fmt.Errorf("client_identifier must contain 2-character hex octets at position %d, got %q", i, part)
+			}
+			
+			for _, c := range part {
+				if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+					return fmt.Errorf("client_identifier contains invalid hex character '%c' at position %d", c, i)
+				}
+			}
+		}
+	} else if binding.MACAddress != "" {
+		// Validate MAC address
+		_, err := parsers.NormalizeMACAddress(binding.MACAddress)
+		if err != nil {
+			return fmt.Errorf("invalid MAC address: %w", err)
+		}
+	} else {
+		return fmt.Errorf("either mac_address or client_identifier must be specified")
 	}
 	
 	return nil

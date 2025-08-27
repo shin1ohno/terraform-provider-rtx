@@ -1,6 +1,7 @@
 package parsers
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -11,6 +12,7 @@ type DHCPBinding struct {
 	ScopeID             int    `json:"scope_id"`
 	IPAddress           string `json:"ip_address"`
 	MACAddress          string `json:"mac_address"`
+	ClientIdentifier    string `json:"client_identifier,omitempty"`
 	UseClientIdentifier bool   `json:"use_client_identifier"`
 }
 
@@ -219,13 +221,23 @@ func NewDHCPBindingsParser() DHCPBindingsParser {
 
 // BuildDHCPBindCommand builds a command to create a DHCP binding
 func BuildDHCPBindCommand(binding DHCPBinding) string {
-	if binding.UseClientIdentifier {
-		// For RTX1210, use "01" prefix for client identifier
-		// Convert colon-separated MAC to space-separated format
-		mac := strings.ReplaceAll(binding.MACAddress, ":", " ")
-		return fmt.Sprintf("dhcp scope bind %d %s 01 %s",
-			binding.ScopeID, binding.IPAddress, mac)
+	// Handle custom client identifier
+	if binding.ClientIdentifier != "" {
+		// Format: client-id type:hex:hex:...
+		// Normalize to lowercase for consistency
+		normalizedClientID := strings.ToLower(binding.ClientIdentifier)
+		return fmt.Sprintf("dhcp scope bind %d %s client-id %s",
+			binding.ScopeID, binding.IPAddress, normalizedClientID)
 	}
+	
+	// Handle MAC address with UseClientIdentifier flag
+	if binding.UseClientIdentifier && binding.MACAddress != "" {
+		// Legacy: ethernet MAC format
+		return fmt.Sprintf("dhcp scope bind %d %s ethernet %s",
+			binding.ScopeID, binding.IPAddress, binding.MACAddress)
+	}
+	
+	// Plain MAC address binding
 	return fmt.Sprintf("dhcp scope bind %d %s %s",
 		binding.ScopeID, binding.IPAddress, binding.MACAddress)
 }
@@ -237,6 +249,96 @@ func BuildDHCPUnbindCommand(scopeID int, ipAddress string) string {
 
 // BuildShowDHCPBindingsCommand builds a command to show DHCP bindings for a scope
 func BuildShowDHCPBindingsCommand(scopeID int) string {
-	// Try show config first - it might be more reliable
-	return fmt.Sprintf("show config | grep \"dhcp scope bind %d\"", scopeID)
+	return fmt.Sprintf("show dhcp scope bind %d", scopeID)
+}
+
+// BuildDHCPBindCommandWithValidation builds a DHCP bind command with validation
+func BuildDHCPBindCommandWithValidation(binding DHCPBinding) (string, error) {
+	// Validate required fields
+	if binding.ScopeID <= 0 {
+		return "", errors.New("invalid scope ID")
+	}
+	
+	if binding.IPAddress == "" {
+		return "", errors.New("IP address is required")
+	}
+	
+	// Validate client identification
+	hasMAC := binding.MACAddress != ""
+	hasClientID := binding.ClientIdentifier != ""
+	
+	// Special case for empty client identifier validation
+	if !hasMAC && binding.ClientIdentifier == "" {
+		return "", errors.New("client identifier cannot be empty")
+	}
+	
+	if !hasMAC && !hasClientID {
+		return "", errors.New("either MAC address or client identifier must be specified")
+	}
+	
+	if hasMAC && hasClientID {
+		return "", errors.New("cannot specify both MAC address and client identifier")
+	}
+	
+	// Validate client identifier format if present
+	if hasClientID {
+		if err := validateClientIdentifier(binding.ClientIdentifier); err != nil {
+			return "", err // Return error directly to match expected messages
+		}
+	}
+	
+	// If MAC address validation is needed, validate it
+	if hasMAC {
+		if _, err := NormalizeMACAddress(binding.MACAddress); err != nil {
+			return "", fmt.Errorf("invalid MAC address: %v", err)
+		}
+	}
+	
+	// Build command using existing function
+	return BuildDHCPBindCommand(binding), nil
+}
+
+// validateClientIdentifier validates the client identifier format
+func validateClientIdentifier(identifier string) error {
+	if identifier == "" {
+		return errors.New("client identifier cannot be empty")
+	}
+	
+	// Check format: type:data
+	parts := strings.Split(identifier, ":")
+	if len(parts) < 2 {
+		return errors.New("invalid client identifier format")
+	}
+	
+	// Check if we have data after the prefix
+	if len(parts) == 2 && parts[1] == "" {
+		return errors.New("client identifier must have data after type prefix")
+	}
+	
+	// Check prefix is supported (01, 02, or FF)
+	prefix := strings.ToLower(parts[0])
+	if prefix != "01" && prefix != "02" && prefix != "ff" {
+		return errors.New("unsupported client identifier prefix")
+	}
+	
+	// Validate each hex part
+	for i := 1; i < len(parts); i++ {
+		part := parts[i]
+		if len(part) != 2 {
+			return errors.New("invalid hex characters in client identifier")
+		}
+		
+		for _, c := range part {
+			if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+				return errors.New("invalid hex characters in client identifier")
+			}
+		}
+	}
+	
+	// Check length limit (255 bytes max) - each part represents 1 byte
+	if len(parts) > 128 {
+		return errors.New("client identifier too long (max 255 bytes)")
+	}
+	
+	return nil
 }

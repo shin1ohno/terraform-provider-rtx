@@ -69,6 +69,11 @@ func (m *MockClientForInterfaces) DeleteDHCPBinding(ctx context.Context, scopeID
 	return args.Error(0)
 }
 
+func (m *MockClientForInterfaces) SaveConfig(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+
 func TestRTXInterfacesDataSourceSchema(t *testing.T) {
 	dataSource := dataSourceRTXInterfaces()
 	

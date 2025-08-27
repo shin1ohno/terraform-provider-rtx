@@ -40,6 +40,43 @@ func TestBuildDHCPBindCommand(t *testing.T) {
 			},
 			expected: "dhcp scope bind 2 10.0.0.50 11:22:33:44:55:66",
 		},
+		// New client identifier test cases
+		{
+			name: "MAC-based client identifier (01 prefix)",
+			binding: DHCPBinding{
+				ScopeID:          1,
+				IPAddress:        "192.168.1.102",
+				ClientIdentifier: "01:00:11:22:33:44:55",
+			},
+			expected: "dhcp scope bind 1 192.168.1.102 client-id 01:00:11:22:33:44:55",
+		},
+		{
+			name: "ASCII-based client identifier (02 prefix)",
+			binding: DHCPBinding{
+				ScopeID:          1,
+				IPAddress:        "192.168.1.103",
+				ClientIdentifier: "02:68:6f:73:74:6e:61:6d:65", // "hostname" in hex
+			},
+			expected: "dhcp scope bind 1 192.168.1.103 client-id 02:68:6f:73:74:6e:61:6d:65",
+		},
+		{
+			name: "Vendor-specific client identifier (FF prefix)",
+			binding: DHCPBinding{
+				ScopeID:          2,
+				IPAddress:        "10.0.0.51",
+				ClientIdentifier: "ff:00:01:02:03:04:05",
+			},
+			expected: "dhcp scope bind 2 10.0.0.51 client-id ff:00:01:02:03:04:05",
+		},
+		{
+			name: "Custom client identifier with mixed case",
+			binding: DHCPBinding{
+				ScopeID:          1,
+				IPAddress:        "192.168.1.104",
+				ClientIdentifier: "01:AA:BB:CC:DD:EE:FF",
+			},
+			expected: "dhcp scope bind 1 192.168.1.104 client-id 01:aa:bb:cc:dd:ee:ff",
+		},
 	}
 
 	for _, tt := range tests {
@@ -47,6 +84,77 @@ func TestBuildDHCPBindCommand(t *testing.T) {
 			result := BuildDHCPBindCommand(tt.binding)
 			if result != tt.expected {
 				t.Errorf("BuildDHCPBindCommand() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestBuildDHCPBindCommandClientIdentifierValidation(t *testing.T) {
+	tests := []struct {
+		name        string
+		binding     DHCPBinding
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "Invalid client identifier format - no colon",
+			binding: DHCPBinding{
+				ScopeID:          1,
+				IPAddress:        "192.168.1.100",
+				ClientIdentifier: "0100112233445566",
+			},
+			expectError: true,
+			errorMsg:    "invalid client identifier format",
+		},
+		{
+			name: "Invalid client identifier format - invalid hex",
+			binding: DHCPBinding{
+				ScopeID:          1,
+				IPAddress:        "192.168.1.100",
+				ClientIdentifier: "01:zz:11:22:33:44:55",
+			},
+			expectError: true,
+			errorMsg:    "invalid hex characters in client identifier",
+		},
+		{
+			name: "Invalid client identifier format - unsupported prefix",
+			binding: DHCPBinding{
+				ScopeID:          1,
+				IPAddress:        "192.168.1.100",
+				ClientIdentifier: "03:00:11:22:33:44:55",
+			},
+			expectError: true,
+			errorMsg:    "unsupported client identifier prefix",
+		},
+		{
+			name: "Empty client identifier",
+			binding: DHCPBinding{
+				ScopeID:          1,
+				IPAddress:        "192.168.1.100",
+				ClientIdentifier: "",
+			},
+			expectError: true,
+			errorMsg:    "client identifier cannot be empty",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := BuildDHCPBindCommandWithValidation(tt.binding)
+			
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("Expected error but got none")
+				} else if tt.errorMsg != "" && err.Error() != tt.errorMsg {
+					t.Errorf("Expected error message '%s', got '%s'", tt.errorMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error but got: %v", err)
+				}
+				if result == "" {
+					t.Errorf("Expected command result but got empty string")
+				}
 			}
 		})
 	}

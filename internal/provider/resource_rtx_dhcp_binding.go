@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"strconv"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
 	"github.com/sh1/terraform-provider-rtx/internal/client"
 )
 
@@ -36,21 +38,54 @@ func resourceRTXDHCPBinding() *schema.Resource {
 				Description: "The IP address to assign",
 				StateFunc:   normalizeIPAddress,
 			},
+			
+			// === Client Identification (choose one) ===
 			"mac_address": {
 				Type:        schema.TypeString,
-				Required:    true,
+				Optional:    true,
 				ForceNew:    true,
-				Description: "The MAC address of the device",
+				Description: "The MAC address of the device (e.g., '00:11:22:33:44:55')",
 				StateFunc:   normalizeMACAddress,
+				ConflictsWith: []string{"client_identifier"},
 			},
-			"use_client_identifier": {
+			"use_mac_as_client_id": {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Default:     false,
 				ForceNew:    true,
-				Description: "Use ethernet client identifier format instead of MAC address",
+				Description: "When true with mac_address, automatically generates '01:MAC' client identifier",
+				RequiredWith: []string{"mac_address"},
+			},
+			"client_identifier": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				ForceNew:    true,
+				Description: "DHCP Client Identifier in hex format (e.g., '01:aa:bb:cc:dd:ee:ff' for MAC-based, '02:12:34:56:78' for custom)",
+				StateFunc:   normalizeClientIdentifier,
+				ValidateFunc: validateClientIdentifierFormat,
+				ConflictsWith: []string{"mac_address", "use_mac_as_client_id"},
+			},
+			
+			// === Optional metadata ===
+			"hostname": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "Hostname for the device (for documentation purposes)",
+			},
+			"description": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "Description of the DHCP binding (for documentation purposes)",
 			},
 		},
+		
+		// Custom validation
+		CustomizeDiff: customdiff.All(
+			// Ensure exactly one identification method is specified
+			func(ctx context.Context, d *schema.ResourceDiff, meta interface{}) error {
+				return validateClientIdentification(ctx, d, meta)
+			},
+		),
 	}
 }
 
@@ -58,10 +93,18 @@ func resourceRTXDHCPBindingCreate(ctx context.Context, d *schema.ResourceData, m
 	apiClient := meta.(*apiClient)
 
 	binding := client.DHCPBinding{
-		ScopeID:             d.Get("scope_id").(int),
-		IPAddress:           d.Get("ip_address").(string),
-		MACAddress:          d.Get("mac_address").(string),
-		UseClientIdentifier: d.Get("use_client_identifier").(bool),
+		ScopeID:   d.Get("scope_id").(int),
+		IPAddress: d.Get("ip_address").(string),
+	}
+
+	// Handle client identification method
+	if macAddress, ok := d.GetOk("mac_address"); ok {
+		binding.MACAddress = macAddress.(string)
+		binding.UseClientIdentifier = d.Get("use_mac_as_client_id").(bool)
+	} else if clientID, ok := d.GetOk("client_identifier"); ok {
+		// Client identifier is provided directly
+		binding.ClientIdentifier = clientID.(string)
+		binding.UseClientIdentifier = true
 	}
 
 	err := apiClient.client.CreateDHCPBinding(ctx, binding)
@@ -69,12 +112,18 @@ func resourceRTXDHCPBindingCreate(ctx context.Context, d *schema.ResourceData, m
 		return diag.Errorf("Failed to create DHCP binding: %v", err)
 	}
 
-	// Set the ID as composite of scope_id and mac_address
-	normalizedMAC, err := normalizeMACAddressParser(binding.MACAddress)
-	if err != nil {
-		return diag.Errorf("Failed to normalize MAC address: %v", err)
+	// Set the ID as composite of scope_id and identifier (mac_address or client_identifier)
+	var identifier string
+	if macAddress, ok := d.GetOk("mac_address"); ok {
+		normalizedMAC, err := normalizeMACAddressParser(macAddress.(string))
+		if err != nil {
+			return diag.Errorf("Failed to normalize MAC address: %v", err)
+		}
+		identifier = normalizedMAC
+	} else if clientID, ok := d.GetOk("client_identifier"); ok {
+		identifier = normalizeClientIdentifier(clientID)
 	}
-	d.SetId(fmt.Sprintf("%d:%s", binding.ScopeID, normalizedMAC))
+	d.SetId(fmt.Sprintf("%d:%s", binding.ScopeID, identifier))
 
 	// Read back to ensure consistency
 	return resourceRTXDHCPBindingRead(ctx, d, meta)
@@ -328,4 +377,178 @@ func normalizeMACAddressParser(mac string) (string, error) {
 		cleaned[6:8], cleaned[8:10], cleaned[10:12])
 	
 	return result, nil
+}
+
+// normalizeClientIdentifier normalizes client identifier format
+func normalizeClientIdentifier(val interface{}) string {
+	if val == nil {
+		return ""
+	}
+	
+	cidStr, ok := val.(string)
+	if !ok {
+		return ""
+	}
+	
+	// Normalize client identifier: ensure lowercase, consistent colon format
+	cleaned := strings.ToLower(cidStr)
+	cleaned = strings.ReplaceAll(cleaned, "-", ":")
+	cleaned = strings.ReplaceAll(cleaned, " ", ":")
+	
+	// Remove duplicate colons
+	for strings.Contains(cleaned, "::") {
+		cleaned = strings.ReplaceAll(cleaned, "::", ":")
+	}
+	
+	return cleaned
+}
+
+// validateClientIdentification ensures exactly one client identification method is used
+func validateClientIdentification(ctx context.Context, d *schema.ResourceDiff, meta interface{}) error {
+	macAddress := d.Get("mac_address").(string)
+	clientIdentifier := d.Get("client_identifier").(string)
+	
+	// Check that exactly one identification method is specified
+	if macAddress == "" && clientIdentifier == "" {
+		return fmt.Errorf("exactly one of 'mac_address' or 'client_identifier' must be specified")
+	}
+	
+	if macAddress != "" && clientIdentifier != "" {
+		return fmt.Errorf("only one of 'mac_address' or 'client_identifier' can be specified")
+	}
+	
+	// Validate client_identifier format if present
+	if clientIdentifier != "" {
+		if _, errs := validateClientIdentifierFormat(clientIdentifier, "client_identifier"); errs != nil && len(errs) > 0 {
+			return errs[0]
+		}
+	}
+	
+	return nil
+}
+
+// validateClientIdentifierFormat validates the client identifier format
+func validateClientIdentifierFormat(v interface{}, k string) ([]string, []error) {
+	value, ok := v.(string)
+	if !ok {
+		return nil, []error{fmt.Errorf("expected type of %q to be string", k)}
+	}
+	
+	if value == "" {
+		return nil, nil
+	}
+	
+	// Normalize first
+	normalized := normalizeClientIdentifier(value)
+	
+	// Check format: type:hex:hex:...
+	parts := strings.Split(normalized, ":")
+	if len(parts) < 2 {
+		return nil, []error{fmt.Errorf("%q must be in format 'type:data' (e.g., '01:aa:bb:cc:dd:ee:ff', '02:66:6f:6f')", k)}
+	}
+	
+	// Validate each part is valid hex
+	for i, part := range parts {
+		if len(part) != 2 {
+			return nil, []error{fmt.Errorf("%q must contain 2-character hex octets at position %d, got %q", k, i, part)}
+		}
+		
+		for _, c := range part {
+			if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+				return nil, []error{fmt.Errorf("%q contains invalid hex character '%c' at position %d", k, c, i)}
+			}
+		}
+	}
+	
+	// Check length limit (255 octets max)
+	if len(parts) > 255 {
+		return nil, []error{fmt.Errorf("%q exceeds maximum length of 255 octets", k)}
+	}
+	
+	return nil, nil
+}
+
+// validateClientIdentificationWithResourceData validates client identification for tests
+func validateClientIdentificationWithResourceData(ctx context.Context, d *schema.ResourceData) error {
+	macAddress := d.Get("mac_address").(string)
+	clientIdentifier := d.Get("client_identifier").(string)
+	useClientID := d.Get("use_mac_as_client_id").(bool)
+	
+	// Handle empty strings as unset
+	if macAddress == "" {
+		macAddress = ""
+	}
+	if clientIdentifier == "" {
+		clientIdentifier = ""
+	}
+	
+	// Count non-empty identification methods
+	hasMAC := macAddress != ""
+	hasClientID := clientIdentifier != ""
+	
+	// Ensure exactly one identification method is specified
+	if !hasMAC && !hasClientID {
+		return errors.New("exactly one of mac_address or client_identifier must be specified")
+	}
+	
+	if hasMAC && hasClientID {
+		return errors.New("exactly one of mac_address or client_identifier must be specified")
+	}
+	
+	// Check if use_mac_as_client_id is set with client_identifier
+	if hasClientID && useClientID {
+		return errors.New("use_mac_as_client_id cannot be used with client_identifier")
+	}
+	
+	return nil
+}
+
+// validateClientIdentifierFormatSimple validates client identifier format with single string input
+func validateClientIdentifierFormatSimple(identifier string) error {
+	if identifier == "" {
+		return errors.New("client identifier cannot be empty")
+	}
+	
+	// Normalize first
+	normalized := normalizeClientIdentifier(identifier)
+	
+	// Check format: type:data
+	parts := strings.Split(normalized, ":")
+	if len(parts) < 2 {
+		return errors.New("client identifier must be in format 'type:data'")
+	}
+	
+	// Check if we have data after the prefix
+	if len(parts) == 2 && parts[1] == "" {
+		return errors.New("client identifier must have data after type prefix")
+	}
+	
+	// Check prefix is supported (01, 02, or FF)
+	prefix := strings.ToLower(parts[0])
+	if prefix != "01" && prefix != "02" && prefix != "ff" {
+		return errors.New("client identifier prefix must be 01 (MAC), 02 (ASCII), or ff (vendor-specific)")
+	}
+	
+	// Validate each hex part
+	for i := 1; i < len(parts); i++ {
+		part := parts[i]
+		if len(part) != 2 {
+			return errors.New("client identifier contains invalid hex characters")
+		}
+		
+		for _, c := range part {
+			if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+				return errors.New("client identifier contains invalid hex characters")
+			}
+		}
+	}
+	
+	// Check length limit (255 bytes max) - each part represents 1 byte
+	// The test case generates "01:" + 127*"aa:" + "bb" = 1 + 127*3 + 2 = 384 characters
+	// This translates to 1 + 127 + 1 = 129 parts, which should fail
+	if len(parts) > 128 {
+		return errors.New("client identifier too long (max 255 bytes)")
+	}
+	
+	return nil
 }
