@@ -699,6 +699,27 @@ func (m *MockClientForDHCPScope) DeleteDHCPBinding(ctx context.Context, scopeID 
 }
 func (m *MockClientForDHCPScope) SaveConfig(ctx context.Context) error { return nil }
 
+// StaticRoute related methods
+func (m *MockClientForDHCPScope) CreateStaticRoute(ctx context.Context, route StaticRoute) error {
+	return fmt.Errorf("mock not implemented")
+}
+
+func (m *MockClientForDHCPScope) GetStaticRoute(ctx context.Context, destination, gateway, iface string) (*StaticRoute, error) {
+	return nil, fmt.Errorf("mock not implemented")
+}
+
+func (m *MockClientForDHCPScope) GetStaticRoutes(ctx context.Context) ([]StaticRoute, error) {
+	return nil, fmt.Errorf("mock not implemented")
+}
+
+func (m *MockClientForDHCPScope) UpdateStaticRoute(ctx context.Context, route StaticRoute) error {
+	return fmt.Errorf("mock not implemented")
+}
+
+func (m *MockClientForDHCPScope) DeleteStaticRoute(ctx context.Context, destination, gateway, iface string) error {
+	return fmt.Errorf("mock not implemented")
+}
+
 func TestGetDHCPScope(t *testing.T) {
 	tests := []struct {
 		name          string

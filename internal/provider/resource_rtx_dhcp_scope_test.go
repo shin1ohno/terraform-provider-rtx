@@ -450,6 +450,9 @@ func (m *MockClientForDHCPScopeRead) GetInterfaces(ctx context.Context) ([]clien
 func (m *MockClientForDHCPScopeRead) GetRoutes(ctx context.Context) ([]client.Route, error) {
 	return nil, nil
 }
+func (m *MockClientForDHCPScopeRead) GetStaticRoutes(ctx context.Context) ([]client.StaticRoute, error) {
+	return nil, nil
+}
 func (m *MockClientForDHCPScopeRead) GetDHCPScopes(ctx context.Context) ([]client.DHCPScope, error) {
 	return nil, nil
 }
@@ -472,6 +475,22 @@ func (m *MockClientForDHCPScopeRead) DeleteDHCPBinding(ctx context.Context, scop
 	return nil
 }
 func (m *MockClientForDHCPScopeRead) SaveConfig(ctx context.Context) error { return nil }
+
+func (m *MockClientForDHCPScopeRead) CreateStaticRoute(ctx context.Context, route client.StaticRoute) error {
+	return nil
+}
+
+func (m *MockClientForDHCPScopeRead) GetStaticRoute(ctx context.Context, destination, gateway, iface string) (*client.StaticRoute, error) {
+	return nil, nil
+}
+
+func (m *MockClientForDHCPScopeRead) UpdateStaticRoute(ctx context.Context, route client.StaticRoute) error {
+	return nil
+}
+
+func (m *MockClientForDHCPScopeRead) DeleteStaticRoute(ctx context.Context, destination, gateway, iface string) error {
+	return nil
+}
 
 func TestResourceRTXDHCPScopeRead(t *testing.T) {
 	tests := []struct {

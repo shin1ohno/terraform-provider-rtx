@@ -55,6 +55,11 @@ func (m *MockClient) GetRoutes(ctx context.Context) ([]client.Route, error) {
 	return args.Get(0).([]client.Route), args.Error(1)
 }
 
+func (m *MockClient) GetStaticRoutes(ctx context.Context) ([]client.StaticRoute, error) {
+	args := m.Called(ctx)
+	return args.Get(0).([]client.StaticRoute), args.Error(1)
+}
+
 func (m *MockClient) GetDHCPBindings(ctx context.Context, scopeID int) ([]client.DHCPBinding, error) {
 	args := m.Called(ctx, scopeID)
 	return args.Get(0).([]client.DHCPBinding), args.Error(1)
@@ -85,6 +90,30 @@ func (m *MockClient) GetDHCPScope(ctx context.Context, scopeID int) (*client.DHC
 
 func (m *MockClient) SaveConfig(ctx context.Context) error {
 	args := m.Called(ctx)
+	return args.Error(0)
+}
+
+// Static Route methods
+func (m *MockClient) CreateStaticRoute(ctx context.Context, route client.StaticRoute) error {
+	args := m.Called(ctx, route)
+	return args.Error(0)
+}
+
+func (m *MockClient) GetStaticRoute(ctx context.Context, destination, gateway, iface string) (*client.StaticRoute, error) {
+	args := m.Called(ctx, destination, gateway, iface)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*client.StaticRoute), args.Error(1)
+}
+
+func (m *MockClient) UpdateStaticRoute(ctx context.Context, route client.StaticRoute) error {
+	args := m.Called(ctx, route)
+	return args.Error(0)
+}
+
+func (m *MockClient) DeleteStaticRoute(ctx context.Context, destination, gateway, iface string) error {
+	args := m.Called(ctx, destination, gateway, iface)
 	return args.Error(0)
 }
 

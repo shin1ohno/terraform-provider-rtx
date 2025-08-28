@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/sh1/terraform-provider-rtx/internal/client"
@@ -24,6 +23,26 @@ func resourceRTXStaticRoute() *schema.Resource {
 		Importer: &schema.ResourceImporter{
 			StateContext: resourceRTXStaticRouteImport,
 		},
+		
+		// Custom validation to ensure each gateway has exactly one of IP or interface
+		CustomizeDiff: func(ctx context.Context, diff *schema.ResourceDiff, meta interface{}) error {
+			if gatewaysRaw := diff.Get("gateways"); gatewaysRaw != nil {
+				gateways := gatewaysRaw.(*schema.Set)
+				for i, gw := range gateways.List() {
+					gateway := gw.(map[string]interface{})
+					hasIP := gateway["ip"].(string) != ""
+					hasInterface := gateway["interface"].(string) != ""
+					
+					if hasIP && hasInterface {
+						return fmt.Errorf("gateway %d: cannot specify both ip and interface", i)
+					}
+					if !hasIP && !hasInterface {
+						return fmt.Errorf("gateway %d: must specify either ip or interface", i)
+					}
+				}
+			}
+			return nil
+		},
 
 		Schema: map[string]*schema.Schema{
 			"destination": {
@@ -34,22 +53,42 @@ func resourceRTXStaticRoute() *schema.Resource {
 				StateFunc:    normalizeCIDR,
 				ValidateFunc: validateCIDR,
 			},
-			"gateway_ip": {
-				Type:          schema.TypeString,
-				Optional:      true,
-				ForceNew:      true,
-				ExactlyOneOf:  []string{"gateway_ip", "gateway_interface"},
-				Description:   "Next-hop IP address",
-				ValidateFunc:  validation.IsIPAddress,
-				StateFunc:     normalizeIPAddress,
-			},
-			"gateway_interface": {
-				Type:          schema.TypeString,
-				Optional:      true,
-				ForceNew:      true,
-				ExactlyOneOf:  []string{"gateway_ip", "gateway_interface"},
-				Description:   "Next-hop interface name (wan1, lan1, pp1, etc.)",
-				ValidateFunc:  validateInterfaceName,
+			"gateways": {
+				Type:        schema.TypeSet,
+				Required:    true,
+				ForceNew:    true,
+				MinItems:    1,
+				Description: "List of gateways for this route. Each gateway can be an IP address or interface name.",
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"ip": {
+							Type:         schema.TypeString,
+							Optional:     true,
+							Description:  "Gateway IP address",
+							ValidateFunc: validation.IsIPAddress,
+							StateFunc:    normalizeIPAddress,
+						},
+						"interface": {
+							Type:         schema.TypeString,
+							Optional:     true,
+							Description:  "Gateway interface name (wan1, lan1, pp1, dhcp, etc.)",
+							ValidateFunc: validateInterfaceName,
+						},
+						"weight": {
+							Type:             schema.TypeInt,
+							Optional:         true,
+							Description:      "ECMP weight for this gateway (1-255)",
+							ValidateFunc:     validation.IntBetween(1, 255),
+							DiffSuppressFunc: suppressDefault1,
+						},
+						"hide": {
+							Type:        schema.TypeBool,
+							Optional:    true,
+							Default:     false,
+							Description: "Hide this gateway route from 'show ip route'",
+						},
+					},
+				},
 			},
 			"interface": {
 				Type:         schema.TypeString,
@@ -65,54 +104,49 @@ func resourceRTXStaticRoute() *schema.Resource {
 				ValidateFunc:     validation.IntBetween(1, 65535),
 				DiffSuppressFunc: suppressDefault1,
 			},
-			"weight": {
-				Type:             schema.TypeInt,
-				Optional:         true,
-				Description:      "ECMP weight (1-255). Ignored unless multiple routes share the same destination",
-				ValidateFunc:     validation.IntBetween(1, 255),
-				DiffSuppressFunc: suppressDefault1,
-			},
 			"description": {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Description: "Route description",
 			},
-			"hide": {
-				Type:        schema.TypeBool,
-				Optional:    true,
-				Default:     false,
-				Description: "If true, the route is hidden from 'show ip route'",
-			},
 		},
 
-		// Custom validation
-		CustomizeDiff: customdiff.All(
-			// Ensure at least one gateway method is specified
-			func(ctx context.Context, d *schema.ResourceDiff, meta interface{}) error {
-				return validateGatewaySpecification(ctx, d, meta)
-			},
-		),
 	}
 }
 
 func resourceRTXStaticRouteCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
-	route := client.StaticRoute{
-		Destination: d.Get("destination").(string),
-		Metric:      getIntWithDefault(d, "metric", 1),
-		Weight:      getIntWithDefault(d, "weight", 0),
-		Description: d.Get("description").(string),
-		Hide:        d.Get("hide").(bool),
+	destination := d.Get("destination").(string)
+	gatewaysSet := d.Get("gateways").(*schema.Set)
+	gateways := gatewaysSet.List()
+	
+	// Convert gateways to client.Gateway structs
+	var gatewayList []client.Gateway
+	for _, gw := range gateways {
+		gateway := gw.(map[string]interface{})
+		clientGateway := client.Gateway{
+			Weight: getIntWithDefault1(gateway, "weight"),
+			Hide:   gateway["hide"].(bool),
+		}
+		
+		if ip, ok := gateway["ip"]; ok && ip.(string) != "" {
+			clientGateway.IP = ip.(string)
+		}
+		if iface, ok := gateway["interface"]; ok && iface.(string) != "" {
+			clientGateway.Interface = iface.(string)
+		}
+		
+		gatewayList = append(gatewayList, clientGateway)
 	}
 
-	// Set gateway method
-	if v, ok := d.GetOk("gateway_ip"); ok {
-		route.GatewayIP = v.(string)
+	route := client.StaticRoute{
+		Destination: destination,
+		Gateways:    gatewayList,
+		Metric:      getIntWithDefault(d, "metric", 1),
+		Description: d.Get("description").(string),
 	}
-	if v, ok := d.GetOk("gateway_interface"); ok {
-		route.GatewayInterface = v.(string)
-	}
+
 	if v, ok := d.GetOk("interface"); ok {
 		route.Interface = v.(string)
 	}
@@ -122,8 +156,8 @@ func resourceRTXStaticRouteCreate(ctx context.Context, d *schema.ResourceData, m
 		return diag.Errorf("Failed to create static route: %v", err)
 	}
 
-	// Set the composite ID: destination||gateway||interface
-	id := buildStaticRouteID(route)
+	// Set the composite ID: destination with gateway summary
+	id := buildStaticRouteIDWithGateways(route)
 	d.SetId(id)
 
 	// Read back to ensure consistency
@@ -133,7 +167,7 @@ func resourceRTXStaticRouteCreate(ctx context.Context, d *schema.ResourceData, m
 func resourceRTXStaticRouteRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
-	// Parse the composite ID
+	// Parse the composite ID to get destination
 	destination, gateway, iface, err := parseStaticRouteID(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid resource ID: %v", err)
@@ -155,25 +189,76 @@ func resourceRTXStaticRouteRead(ctx context.Context, d *schema.ResourceData, met
 	if err := d.Set("destination", found.Destination); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set("gateway_ip", found.GatewayIP); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("gateway_interface", found.GatewayInterface); err != nil {
-		return diag.FromErr(err)
-	}
 	if err := d.Set("interface", found.Interface); err != nil {
 		return diag.FromErr(err)
 	}
 	if err := d.Set("metric", found.Metric); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set("weight", found.Weight); err != nil {
-		return diag.FromErr(err)
-	}
 	if err := d.Set("description", found.Description); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set("hide", found.Hide); err != nil {
+
+	// Convert gateways to schema format
+	var gateways []map[string]interface{}
+	
+	// If new Gateways field is populated, use it
+	if len(found.Gateways) > 0 {
+		for _, gw := range found.Gateways {
+			gateway := map[string]interface{}{
+				"weight": gw.Weight,
+				"hide":   gw.Hide,
+			}
+			if gw.IP != "" {
+				gateway["ip"] = gw.IP
+			}
+			if gw.Interface != "" {
+				gateway["interface"] = gw.Interface
+			}
+			gateways = append(gateways, gateway)
+		}
+	} else {
+		// Fallback to legacy fields for backwards compatibility
+		gateway := map[string]interface{}{
+			"weight": found.Weight,
+			"hide":   found.Hide,
+		}
+		if found.GatewayIP != "" {
+			gateway["ip"] = found.GatewayIP
+		}
+		if found.GatewayInterface != "" {
+			gateway["interface"] = found.GatewayInterface
+		}
+		gateways = append(gateways, gateway)
+	}
+
+	// Convert to []interface{} for schema.NewSet
+	var gatewaysInterface []interface{}
+	for _, gw := range gateways {
+		gatewaysInterface = append(gatewaysInterface, gw)
+	}
+	
+	gatewaysSet := schema.NewSet(schema.HashResource(&schema.Resource{
+		Schema: map[string]*schema.Schema{
+			"ip": {
+				Type:     schema.TypeString,
+				Optional: true,
+			},
+			"interface": {
+				Type:     schema.TypeString,
+				Optional: true,
+			},
+			"weight": {
+				Type:     schema.TypeInt,
+				Optional: true,
+			},
+			"hide": {
+				Type:     schema.TypeBool,
+				Optional: true,
+			},
+		},
+	}), gatewaysInterface)
+	if err := d.Set("gateways", gatewaysSet); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -183,25 +268,42 @@ func resourceRTXStaticRouteRead(ctx context.Context, d *schema.ResourceData, met
 func resourceRTXStaticRouteUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
-	// Parse the composite ID
-	destination, gateway, iface, err := parseStaticRouteID(d.Id())
-	if err != nil {
-		return diag.Errorf("Invalid resource ID: %v", err)
+	destination := d.Get("destination").(string)
+	gatewaysSet := d.Get("gateways").(*schema.Set)
+	gateways := gatewaysSet.List()
+	
+	// Convert gateways to client.Gateway structs
+	var gatewayList []client.Gateway
+	for _, gw := range gateways {
+		gateway := gw.(map[string]interface{})
+		clientGateway := client.Gateway{
+			Weight: getIntWithDefault1(gateway, "weight"),
+			Hide:   gateway["hide"].(bool),
+		}
+		
+		if ip, ok := gateway["ip"]; ok && ip.(string) != "" {
+			clientGateway.IP = ip.(string)
+		}
+		if iface, ok := gateway["interface"]; ok && iface.(string) != "" {
+			clientGateway.Interface = iface.(string)
+		}
+		
+		gatewayList = append(gatewayList, clientGateway)
 	}
 
 	route := client.StaticRoute{
-		Destination:      destination,
-		GatewayIP:        gateway,
-		GatewayInterface: iface,
-		Interface:        iface,
-		Metric:           getIntWithDefault(d, "metric", 1),
-		Weight:           getIntWithDefault(d, "weight", 0),
-		Description:      d.Get("description").(string),
-		Hide:             d.Get("hide").(bool),
+		Destination: destination,
+		Gateways:    gatewayList,
+		Metric:      getIntWithDefault(d, "metric", 1),
+		Description: d.Get("description").(string),
+	}
+
+	if v, ok := d.GetOk("interface"); ok {
+		route.Interface = v.(string)
 	}
 
 	// Update the route
-	err = apiClient.client.UpdateStaticRoute(ctx, route)
+	err := apiClient.client.UpdateStaticRoute(ctx, route)
 	if err != nil {
 		return diag.Errorf("Failed to update static route: %v", err)
 	}
@@ -247,34 +349,87 @@ func resourceRTXStaticRouteImport(ctx context.Context, d *schema.ResourceData, m
 		return nil, fmt.Errorf("failed to retrieve static route: %v", err)
 	}
 
-	// Set the parsed values
+	// Set destination
 	if err := d.Set("destination", found.Destination); err != nil {
 		return nil, fmt.Errorf("failed to set destination: %w", err)
 	}
-	if err := d.Set("gateway_ip", found.GatewayIP); err != nil {
-		return nil, fmt.Errorf("failed to set gateway_ip: %w", err)
+	
+	// Convert gateways to schema format
+	var gateways []map[string]interface{}
+	
+	// If new Gateways field is populated, use it
+	if len(found.Gateways) > 0 {
+		for _, gw := range found.Gateways {
+			gateway := map[string]interface{}{
+				"weight": gw.Weight,
+				"hide":   gw.Hide,
+			}
+			if gw.IP != "" {
+				gateway["ip"] = gw.IP
+			}
+			if gw.Interface != "" {
+				gateway["interface"] = gw.Interface
+			}
+			gateways = append(gateways, gateway)
+		}
+	} else {
+		// Fallback to legacy fields for backwards compatibility
+		gateway := map[string]interface{}{
+			"weight": found.Weight,
+			"hide":   found.Hide,
+		}
+		if found.GatewayIP != "" {
+			gateway["ip"] = found.GatewayIP
+		}
+		if found.GatewayInterface != "" {
+			gateway["interface"] = found.GatewayInterface
+		}
+		gateways = append(gateways, gateway)
 	}
-	if err := d.Set("gateway_interface", found.GatewayInterface); err != nil {
-		return nil, fmt.Errorf("failed to set gateway_interface: %w", err)
+
+	// Convert to []interface{} for schema.NewSet
+	var gatewaysInterface []interface{}
+	for _, gw := range gateways {
+		gatewaysInterface = append(gatewaysInterface, gw)
 	}
+	
+	gatewaysSet := schema.NewSet(schema.HashResource(&schema.Resource{
+		Schema: map[string]*schema.Schema{
+			"ip": {
+				Type:     schema.TypeString,
+				Optional: true,
+			},
+			"interface": {
+				Type:     schema.TypeString,
+				Optional: true,
+			},
+			"weight": {
+				Type:     schema.TypeInt,
+				Optional: true,
+			},
+			"hide": {
+				Type:     schema.TypeBool,
+				Optional: true,
+			},
+		},
+	}), gatewaysInterface)
+	if err := d.Set("gateways", gatewaysSet); err != nil {
+		return nil, fmt.Errorf("failed to set gateways: %w", err)
+	}
+	
 	if err := d.Set("interface", found.Interface); err != nil {
 		return nil, fmt.Errorf("failed to set interface: %w", err)
 	}
 	if err := d.Set("metric", found.Metric); err != nil {
 		return nil, fmt.Errorf("failed to set metric: %w", err)
 	}
-	if err := d.Set("weight", found.Weight); err != nil {
-		return nil, fmt.Errorf("failed to set weight: %w", err)
-	}
 	if err := d.Set("description", found.Description); err != nil {
 		return nil, fmt.Errorf("failed to set description: %w", err)
 	}
-	if err := d.Set("hide", found.Hide); err != nil {
-		return nil, fmt.Errorf("failed to set hide: %w", err)
-	}
 
 	// Set the canonical ID
-	d.SetId(buildStaticRouteID(*found))
+	id := buildStaticRouteIDWithGateways(*found)
+	d.SetId(id)
 
 	// The Read function will populate the rest and validate consistency
 	diags := resourceRTXStaticRouteRead(ctx, d, meta)
@@ -294,15 +449,38 @@ func resourceRTXStaticRouteImport(ctx context.Context, d *schema.ResourceData, m
 
 // buildStaticRouteID creates a composite ID from route components
 func buildStaticRouteID(route client.StaticRoute) string {
-	gateway := route.GatewayIP
-	if gateway == "" && route.GatewayInterface != "" {
-		gateway = "if:" + route.GatewayInterface
-	}
-	if gateway == "" && route.GatewayIP != "" {
-		gateway = "ip:" + route.GatewayIP
-	}
-	
+	gateway := getGateway(route)
 	return fmt.Sprintf("%s||%s||%s", route.Destination, gateway, route.Interface)
+}
+
+// buildMultiRouteID creates a composite ID from multiple route IDs
+func buildMultiRouteID(routeIDs []string) string {
+	// Use a deterministic hash of the route IDs
+	return fmt.Sprintf("multi:%s", strings.Join(routeIDs, ":"))
+}
+
+// getGateway extracts gateway string from route
+func getGateway(route client.StaticRoute) string {
+	if route.GatewayIP != "" {
+		return route.GatewayIP
+	} else if route.GatewayInterface != "" {
+		return route.GatewayInterface
+	}
+	return ""
+}
+
+// buildStaticRouteIDWithGateways creates ID for multi-gateway routes
+func buildStaticRouteIDWithGateways(route client.StaticRoute) string {
+	var gatewayStrs []string
+	for _, gw := range route.Gateways {
+		if gw.IP != "" {
+			gatewayStrs = append(gatewayStrs, gw.IP)
+		} else if gw.Interface != "" {
+			gatewayStrs = append(gatewayStrs, gw.Interface)
+		}
+	}
+	gatewayStr := strings.Join(gatewayStrs, ",")
+	return fmt.Sprintf("%s||%s||%s", route.Destination, gatewayStr, route.Interface)
 }
 
 // parseStaticRouteID parses the composite ID into components
@@ -316,13 +494,6 @@ func parseStaticRouteID(id string) (destination, gateway, iface string, err erro
 	gateway = parts[1]
 	iface = parts[2]
 
-	// Parse gateway type prefix if present
-	if strings.HasPrefix(gateway, "ip:") {
-		gateway = strings.TrimPrefix(gateway, "ip:")
-	} else if strings.HasPrefix(gateway, "if:") {
-		gateway = strings.TrimPrefix(gateway, "if:")
-	}
-
 	return destination, gateway, iface, nil
 }
 
@@ -332,6 +503,16 @@ func getIntWithDefault(d *schema.ResourceData, key string, defaultValue int) int
 		return v.(int)
 	}
 	return defaultValue
+}
+
+// getIntWithDefault1 gets integer value from map with default 1
+func getIntWithDefault1(m map[string]interface{}, key string) int {
+	if v, ok := m[key]; ok && v != nil {
+		if val, ok := v.(int); ok && val > 0 {
+			return val
+		}
+	}
+	return 1
 }
 
 // Validation functions
@@ -369,14 +550,26 @@ func validateInterfaceName(v interface{}, k string) (warns []string, errs []erro
 		return warns, errs // Empty is allowed for optional fields
 	}
 
-	// RTX interface name pattern: wan1, lan1, pp1, tunnel1, etc.
-	validPattern := regexp.MustCompile(`^(wan|lan|pp|tunnel|loopback)\d+$`)
-	if !validPattern.MatchString(value) {
-		errs = append(errs, fmt.Errorf("%q must be a valid RTX interface name (wan1, lan1, pp1, tunnel1, etc.)", k))
+	// RTX interface name patterns:
+	// - wan1, lan1, pp1, tunnel1, etc.
+	// - dhcp (for gateway dhcp)
+	// - dhcp lan2 (for gateway dhcp lan2)
+	validPatterns := []string{
+		`^(wan|lan|pp|tunnel|loopback)\d+$`,  // Standard interfaces
+		`^dhcp$`,                             // DHCP gateway
+		`^dhcp\s+(wan|lan|pp|tunnel)\d+$`,   // DHCP with specific interface
+	}
+	
+	for _, pattern := range validPatterns {
+		if matched, _ := regexp.MatchString(pattern, value); matched {
+			return warns, errs
+		}
 	}
 
+	errs = append(errs, fmt.Errorf("%q must be a valid RTX interface name (wan1, lan1, pp1, tunnel1, etc.), 'dhcp', or 'dhcp <interface>'", k))
 	return warns, errs
 }
+
 
 // normalizeCIDR normalizes CIDR notation
 func normalizeCIDR(val interface{}) string {
@@ -389,8 +582,12 @@ func normalizeCIDR(val interface{}) string {
 		return ""
 	}
 
+	if cidr == "" {
+		return ""
+	}
+
 	// Parse and reformat to canonical form
-	ip, ipNet, err := net.ParseCIDR(cidr)
+	_, ipNet, err := net.ParseCIDR(cidr)
 	if err != nil {
 		// Return original value if parsing fails
 		return cidr
@@ -399,24 +596,13 @@ func normalizeCIDR(val interface{}) string {
 	// Get prefix length
 	ones, _ := ipNet.Mask.Size()
 
-	// Return canonical form
-	return fmt.Sprintf("%s/%d", ip, ones)
+	// Return canonical form using network address
+	return fmt.Sprintf("%s/%d", ipNet.IP, ones)
 }
+
 
 // suppressDefault1 suppresses diff when default value is 1
 func suppressDefault1(k, old, new string, d *schema.ResourceData) bool {
 	return (old == "" && new == "1") || (old == "1" && new == "")
 }
 
-// validateGatewaySpecification ensures at least one gateway method is specified
-func validateGatewaySpecification(_ context.Context, d *schema.ResourceDiff, _ interface{}) error {
-	gatewayIP := d.Get("gateway_ip").(string)
-	gatewayInterface := d.Get("gateway_interface").(string)
-
-	// Check that at least one gateway method is specified
-	if gatewayIP == "" && gatewayInterface == "" {
-		return fmt.Errorf("exactly one of 'gateway_ip' or 'gateway_interface' must be specified")
-	}
-
-	return nil
-}

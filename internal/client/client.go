@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -514,10 +515,32 @@ func (c *rtxClient) GetStaticRoutes(ctx context.Context) ([]StaticRoute, error) 
 	executor := c.executor
 	c.mu.Unlock()
 
-	// Execute command to get running configuration (static routes)
-	output, err := executor.Run(ctx, "show running-config | grep 'ip route'")
+	// Get system information to determine the correct command
+	systemInfo, err := c.GetSystemInfo(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get system info for parser selection: %w", err)
+	}
+
+	// Execute command to get static route configuration
+	var cmdPayload string
+	switch {
+	case systemInfo.Model == "RTX830":
+		cmdPayload = "show running-config | grep \"ip route\""
+	default:
+		// RTX1210 and other RTX series use 'show config'
+		cmdPayload = "show config | grep \"ip route\""
+	}
+
+	output, err := executor.Run(ctx, cmdPayload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get static routes: %w", err)
+	}
+
+	// Debug: log the actual output we got from router
+	if len(output) == 0 {
+		fmt.Printf("DEBUG: Got empty output from command: %s\n", cmdPayload)
+	} else {
+		fmt.Printf("DEBUG: Got output from router (%d bytes): %q\n", len(output), output)
 	}
 
 	// Parse static routes using parser
@@ -525,6 +548,8 @@ func (c *rtxClient) GetStaticRoutes(ctx context.Context) ([]StaticRoute, error) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse static routes: %w", err)
 	}
+
+	fmt.Printf("DEBUG: Parsed %d routes from output\n", len(parserRoutes))
 
 	// Convert parser StaticRoute to client StaticRoute
 	var routes []StaticRoute
@@ -539,6 +564,20 @@ func (c *rtxClient) GetStaticRoutes(ctx context.Context) ([]StaticRoute, error) 
 			Description:      parserRoute.Description,
 			Hide:             parserRoute.Hide,
 		}
+		
+		// Copy new Gateways array
+		if len(parserRoute.Gateways) > 0 {
+			clientRoute.Gateways = make([]Gateway, len(parserRoute.Gateways))
+			for i, gw := range parserRoute.Gateways {
+				clientRoute.Gateways[i] = Gateway{
+					IP:        gw.IP,
+					Interface: gw.Interface,
+					Weight:    gw.Weight,
+					Hide:      gw.Hide,
+				}
+			}
+		}
+		
 		routes = append(routes, clientRoute)
 	}
 
@@ -557,14 +596,30 @@ func (c *rtxClient) CreateStaticRoute(ctx context.Context, route StaticRoute) er
 
 	// Convert client StaticRoute to parser StaticRoute for command generation
 	parserRoute := parsers.StaticRoute{
-		Destination:      route.Destination,
-		GatewayIP:        route.GatewayIP,
-		GatewayInterface: route.GatewayInterface,
-		Interface:        route.Interface,
-		Metric:           route.Metric,
-		Weight:           route.Weight,
-		Description:      route.Description,
-		Hide:             route.Hide,
+		Destination: route.Destination,
+		Interface:   route.Interface,
+		Metric:      route.Metric,
+		Description: route.Description,
+	}
+
+	// Handle new Gateways array or fallback to legacy fields
+	if len(route.Gateways) > 0 {
+		// Use new Gateways array
+		parserRoute.Gateways = make([]parsers.Gateway, len(route.Gateways))
+		for i, gw := range route.Gateways {
+			parserRoute.Gateways[i] = parsers.Gateway{
+				IP:        gw.IP,
+				Interface: gw.Interface,
+				Weight:    gw.Weight,
+				Hide:      gw.Hide,
+			}
+		}
+	} else {
+		// Fallback to legacy single gateway fields for backward compatibility
+		parserRoute.GatewayIP = route.GatewayIP
+		parserRoute.GatewayInterface = route.GatewayInterface
+		parserRoute.Weight = route.Weight
+		parserRoute.Hide = route.Hide
 	}
 
 	// Validate the route first
@@ -598,16 +653,47 @@ func (c *rtxClient) GetStaticRoute(ctx context.Context, destination, gateway, if
 		return nil, fmt.Errorf("failed to get static routes: %w", err)
 	}
 
+	// Handle multi-gateway case: gateway parameter might be comma-separated
+	gatewayList := strings.Split(gateway, ",")
+
 	for _, route := range routes {
 		// Match by destination and gateway (IP or interface)
 		if route.Destination == destination {
 			gatewayMatches := false
 			
-			// Check gateway match
-			if route.GatewayIP != "" && route.GatewayIP == gateway {
-				gatewayMatches = true
-			} else if route.GatewayInterface != "" && route.GatewayInterface == gateway {
-				gatewayMatches = true
+			// Check gateway match - support both new and legacy formats
+			if len(route.Gateways) > 0 {
+				// For multi-gateway routes, check if all gateways from ID are present
+				if len(gatewayList) > 1 {
+					// Multi-gateway case: check if the route contains all expected gateways
+					matchedGateways := 0
+					for _, expectedGw := range gatewayList {
+						for _, routeGw := range route.Gateways {
+							if (routeGw.IP != "" && routeGw.IP == expectedGw) || 
+							   (routeGw.Interface != "" && routeGw.Interface == expectedGw) {
+								matchedGateways++
+								break
+							}
+						}
+					}
+					gatewayMatches = (matchedGateways == len(gatewayList))
+				} else {
+					// Single gateway case: match any gateway in the list
+					for _, gw := range route.Gateways {
+						if (gw.IP != "" && gw.IP == gateway) || 
+						   (gw.Interface != "" && gw.Interface == gateway) {
+							gatewayMatches = true
+							break
+						}
+					}
+				}
+			} else {
+				// Check legacy format
+				if route.GatewayIP != "" && route.GatewayIP == gateway {
+					gatewayMatches = true
+				} else if route.GatewayInterface != "" && route.GatewayInterface == gateway {
+					gatewayMatches = true
+				}
 			}
 			
 			// Check interface match (empty interface matches empty string)
@@ -628,9 +714,20 @@ func (c *rtxClient) UpdateStaticRoute(ctx context.Context, route StaticRoute) er
 	// since RTX doesn't support in-place updates for route parameters like metric/weight
 	
 	// First, delete the existing route
-	gateway := route.GatewayIP
-	if gateway == "" {
-		gateway = route.GatewayInterface
+	var gateway string
+	if len(route.Gateways) > 0 {
+		// Use first gateway from new array format  
+		if route.Gateways[0].IP != "" {
+			gateway = route.Gateways[0].IP
+		} else {
+			gateway = route.Gateways[0].Interface
+		}
+	} else {
+		// Fallback to legacy fields
+		gateway = route.GatewayIP
+		if gateway == "" {
+			gateway = route.GatewayInterface
+		}
 	}
 	
 	err := c.DeleteStaticRoute(ctx, route.Destination, gateway, route.Interface)
