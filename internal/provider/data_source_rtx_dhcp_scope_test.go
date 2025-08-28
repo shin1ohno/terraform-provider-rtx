@@ -99,7 +99,7 @@ func (m *MockClientForDHCPScope) DeleteDHCPScope(ctx context.Context, scopeID in
 
 func TestRTXDHCPScopeDataSourceSchema(t *testing.T) {
 	dataSource := dataSourceRTXDHCPScope()
-	
+
 	// Test that the data source is properly configured
 	assert.NotNil(t, dataSource)
 	assert.NotNil(t, dataSource.Schema)
@@ -107,7 +107,7 @@ func TestRTXDHCPScopeDataSourceSchema(t *testing.T) {
 
 	// Test schema structure
 	schemaMap := dataSource.Schema
-	
+
 	// Check that id field exists and is computed
 	assert.Contains(t, schemaMap, "id")
 	assert.Equal(t, schema.TypeString, schemaMap["id"].Type)
@@ -122,16 +122,16 @@ func TestRTXDHCPScopeDataSourceSchema(t *testing.T) {
 	// Check scope schema
 	scopeResource, ok := schemaMap["scopes"].Elem.(*schema.Resource)
 	assert.True(t, ok)
-	
+
 	scopeSchema := scopeResource.Schema
-	
+
 	// Check required fields
 	requiredFields := []string{"scope_id", "range_start", "range_end", "prefix"}
 	for _, field := range requiredFields {
 		assert.Contains(t, scopeSchema, field, "Scope schema should contain %s field", field)
 		assert.True(t, scopeSchema[field].Computed, "%s should be computed", field)
 	}
-	
+
 	// Check optional fields
 	optionalFields := []string{"gateway", "dns_servers", "lease", "domain_name"}
 	for _, field := range optionalFields {
@@ -142,18 +142,18 @@ func TestRTXDHCPScopeDataSourceSchema(t *testing.T) {
 
 func TestRTXDHCPScopeDataSourceRead_Success(t *testing.T) {
 	mockClient := &MockClientForDHCPScope{}
-	
+
 	// Mock successful DHCP scopes retrieval
 	expectedScopes := []client.DHCPScope{
 		{
-			ID:          1,
-			RangeStart:  "192.168.100.2",
-			RangeEnd:    "192.168.100.191",
-			Prefix:      24,
-			Gateway:     "192.168.100.1",
-			DNSServers:  []string{"8.8.8.8", "8.8.4.4"},
-			Lease:       7,
-			DomainName:  "example.com",
+			ID:         1,
+			RangeStart: "192.168.100.2",
+			RangeEnd:   "192.168.100.191",
+			Prefix:     24,
+			Gateway:    "192.168.100.1",
+			DNSServers: []string{"8.8.8.8", "8.8.4.4"},
+			Lease:      7,
+			DomainName: "example.com",
 		},
 		{
 			ID:         2,
@@ -167,7 +167,7 @@ func TestRTXDHCPScopeDataSourceRead_Success(t *testing.T) {
 
 	// Create a resource data mock
 	d := schema.TestResourceDataRaw(t, dataSourceRTXDHCPScope().Schema, map[string]interface{}{})
-	
+
 	// Create mock API client
 	apiClient := &apiClient{client: mockClient}
 
@@ -181,7 +181,7 @@ func TestRTXDHCPScopeDataSourceRead_Success(t *testing.T) {
 	// Assert data was set correctly
 	scopes := d.Get("scopes").([]interface{})
 	assert.Len(t, scopes, 2)
-	
+
 	// Check first scope
 	scope1 := scopes[0].(map[string]interface{})
 	assert.Equal(t, 1, scope1["scope_id"])
@@ -192,14 +192,14 @@ func TestRTXDHCPScopeDataSourceRead_Success(t *testing.T) {
 	assert.Equal(t, []interface{}{"8.8.8.8", "8.8.4.4"}, scope1["dns_servers"])
 	assert.Equal(t, 7, scope1["lease"])
 	assert.Equal(t, "example.com", scope1["domain_name"])
-	
+
 	// Check second scope (minimal)
 	scope2 := scopes[1].(map[string]interface{})
 	assert.Equal(t, 2, scope2["scope_id"])
 	assert.Equal(t, "10.0.0.10", scope2["range_start"])
 	assert.Equal(t, "10.0.0.20", scope2["range_end"])
 	assert.Equal(t, 16, scope2["prefix"])
-	
+
 	assert.NotEmpty(t, d.Id())
 
 	mockClient.AssertExpectations(t)

@@ -9,46 +9,46 @@ import (
 type Client interface {
 	// Dial establishes a connection to the RTX router
 	Dial(ctx context.Context) error
-	
+
 	// Close terminates the connection
 	Close() error
-	
+
 	// Run executes a command and returns the result
 	Run(ctx context.Context, cmd Command) (Result, error)
-	
+
 	// GetSystemInfo retrieves system information from the router
 	GetSystemInfo(ctx context.Context) (*SystemInfo, error)
-	
+
 	// GetInterfaces retrieves interface information from the router
 	GetInterfaces(ctx context.Context) ([]Interface, error)
-	
+
 	// GetRoutes retrieves routing table information from the router
 	GetRoutes(ctx context.Context) ([]Route, error)
-	
+
 	// GetDHCPScopes retrieves DHCP scope configurations from the router
 	GetDHCPScopes(ctx context.Context) ([]DHCPScope, error)
-	
+
 	// GetDHCPScope retrieves a specific DHCP scope by ID
 	GetDHCPScope(ctx context.Context, scopeID int) (*DHCPScope, error)
-	
+
 	// CreateDHCPScope creates a new DHCP scope
 	CreateDHCPScope(ctx context.Context, scope DHCPScope) error
-	
+
 	// UpdateDHCPScope updates an existing DHCP scope
 	UpdateDHCPScope(ctx context.Context, scope DHCPScope) error
-	
+
 	// DeleteDHCPScope removes a DHCP scope
 	DeleteDHCPScope(ctx context.Context, scopeID int) error
-	
+
 	// GetDHCPBindings retrieves DHCP bindings for a scope
 	GetDHCPBindings(ctx context.Context, scopeID int) ([]DHCPBinding, error)
-	
+
 	// CreateDHCPBinding creates a new DHCP binding
 	CreateDHCPBinding(ctx context.Context, binding DHCPBinding) error
-	
+
 	// DeleteDHCPBinding removes a DHCP binding
 	DeleteDHCPBinding(ctx context.Context, scopeID int, ipAddress string) error
-	
+
 	// SaveConfig saves the current configuration to persistent memory
 	SaveConfig(ctx context.Context) error
 }
@@ -56,7 +56,7 @@ type Client interface {
 // Interface represents a network interface on an RTX router
 type Interface struct {
 	Name        string            `json:"name"`
-	Kind        string            `json:"kind"`        // lan, wan, pp, vlan
+	Kind        string            `json:"kind"` // lan, wan, pp, vlan
 	AdminUp     bool              `json:"admin_up"`
 	LinkUp      bool              `json:"link_up"`
 	MAC         string            `json:"mac,omitempty"`
@@ -69,23 +69,23 @@ type Interface struct {
 
 // Route represents a routing table entry on an RTX router
 type Route struct {
-	Destination string `json:"destination"`         // Network prefix (e.g., "192.168.1.0/24", "0.0.0.0/0")
-	Gateway     string `json:"gateway"`            // Next hop gateway ("*" for directly connected routes)
-	Interface   string `json:"interface"`          // Outgoing interface
-	Protocol    string `json:"protocol"`           // S=static, C=connected, R=RIP, O=OSPF, B=BGP, D=DHCP
-	Metric      *int   `json:"metric,omitempty"`   // Route metric (optional)
+	Destination string `json:"destination"`      // Network prefix (e.g., "192.168.1.0/24", "0.0.0.0/0")
+	Gateway     string `json:"gateway"`          // Next hop gateway ("*" for directly connected routes)
+	Interface   string `json:"interface"`        // Outgoing interface
+	Protocol    string `json:"protocol"`         // S=static, C=connected, R=RIP, O=OSPF, B=BGP, D=DHCP
+	Metric      *int   `json:"metric,omitempty"` // Route metric (optional)
 }
 
 // DHCPScope represents a DHCP scope configuration
 type DHCPScope struct {
-	ID          int      `json:"id"`
-	RangeStart  string   `json:"range_start"`
-	RangeEnd    string   `json:"range_end"`
-	Prefix      int      `json:"prefix"`
-	Gateway     string   `json:"gateway,omitempty"`
-	DNSServers  []string `json:"dns_servers,omitempty"`
-	Lease       int      `json:"lease,omitempty"`
-	DomainName  string   `json:"domain_name,omitempty"`
+	ID         int      `json:"id"`
+	RangeStart string   `json:"range_start"`
+	RangeEnd   string   `json:"range_end"`
+	Prefix     int      `json:"prefix"`
+	Gateway    string   `json:"gateway,omitempty"`
+	DNSServers []string `json:"dns_servers,omitempty"`
+	Lease      int      `json:"lease,omitempty"`
+	DomainName string   `json:"domain_name,omitempty"`
 }
 
 // DHCPBinding represents a DHCP static lease binding
@@ -138,13 +138,13 @@ type ConnDialer interface {
 
 // Config holds the SSH connection configuration
 type Config struct {
-	Host            string
-	Port            int
-	Username        string
-	Password        string
-	AdminPassword   string // Administrator password for configuration changes
-	Timeout         int    // seconds
-	HostKey         string // Fixed host key for verification (base64 encoded)
-	KnownHostsFile  string // Path to known_hosts file
-	SkipHostKeyCheck bool  // Skip host key verification (insecure)
+	Host             string
+	Port             int
+	Username         string
+	Password         string
+	AdminPassword    string // Administrator password for configuration changes
+	Timeout          int    // seconds
+	HostKey          string // Fixed host key for verification (base64 encoded)
+	KnownHostsFile   string // Path to known_hosts file
+	SkipHostKeyCheck bool   // Skip host key verification (insecure)
 }

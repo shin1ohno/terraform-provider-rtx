@@ -119,7 +119,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	sshHostKey := d.Get("ssh_host_key").(string)
 	knownHostsFile := d.Get("known_hosts_file").(string)
 	skipHostKeyCheck := d.Get("skip_host_key_check").(bool)
-	
+
 	// If admin_password is not set, use the same as password
 	if adminPassword == "" {
 		adminPassword = password
@@ -177,7 +177,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		Key:     "show environment",
 		Payload: "show environment",
 	}
-	
+
 	log.Printf("[DEBUG] Provider: Running test command")
 	if _, err := sshClient.Run(ctx, testCmd); err != nil {
 		// Close the connection if test fails
@@ -190,7 +190,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		return nil, diags
 	}
 	log.Printf("[DEBUG] Provider: Test command successful")
-	
+
 	// Important: Do NOT close the connection here!
 	// The connection must remain open for subsequent operations
 

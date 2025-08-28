@@ -141,7 +141,7 @@ func TestBuildDHCPBindCommandClientIdentifierValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := BuildDHCPBindCommandWithValidation(tt.binding)
-			
+
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("Expected error but got none")

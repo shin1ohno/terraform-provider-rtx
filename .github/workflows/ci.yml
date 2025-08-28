@@ -1,0 +1,153 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+env:
+  GO_VERSION: "1.22"
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      
+      - name: Run go mod download
+        run: go mod download
+      
+      - name: Run tests
+        run: |
+          go test -race -covermode=atomic -coverprofile=coverage.out -coverpkg=./... ./...
+      
+      - name: Generate coverage report
+        run: |
+          go tool cover -html=coverage.out -o coverage.html
+          go tool cover -func=coverage.out | tail -1 | awk '{print "Total coverage: " $3}' > coverage-summary.txt
+          cat coverage-summary.txt
+      
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            coverage.out
+            coverage.html
+            coverage-summary.txt
+      
+      - name: Check coverage threshold
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+          echo "Current coverage: ${COVERAGE}%"
+          
+          # 段階的にカバレッジを向上させる戦略
+          # 現在20.8%なので、まずは20%を目標に設定し、段階的に向上
+          THRESHOLD=20.0
+          
+          if (( $(echo "${COVERAGE} >= ${THRESHOLD}" | bc -l) )); then
+            echo "✅ Coverage ${COVERAGE}% meets threshold ${THRESHOLD}%"
+          else
+            echo "❌ Coverage ${COVERAGE}% is below threshold ${THRESHOLD}%"
+            echo "Please add tests to improve coverage"
+            exit 1
+          fi
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v4
+        with:
+          version: latest
+          args: --timeout=10m
+      
+      - name: Run go fmt check
+        run: |
+          if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+            echo "Code is not formatted. Please run 'make fmt'"
+            gofmt -s -l .
+            exit 1
+          fi
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      
+      - name: Build provider
+        run: |
+          go build -v -o terraform-provider-rtx
+      
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-provider-rtx
+          path: terraform-provider-rtx
+
+  acceptance-test:
+    name: Acceptance Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      
+      - name: Start RTX simulator
+        run: |
+          cd test/docker
+          docker-compose up -d
+          sleep 10
+      
+      - name: Run acceptance tests
+        env:
+          TF_ACC: "1"
+          RTX_HOST: "localhost"
+          RTX_PORT: "2222"
+          RTX_USERNAME: "testuser"
+          RTX_PASSWORD: "testpass"
+        run: |
+          go test -v -timeout 30m ./internal/provider -run TestAcc
+      
+      - name: Stop RTX simulator
+        if: always()
+        run: |
+          cd test/docker
+          docker-compose down

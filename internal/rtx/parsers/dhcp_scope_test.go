@@ -8,21 +8,21 @@ import (
 
 func TestDhcpScopeParsers(t *testing.T) {
 	tests := []struct {
-		name        string
-		model       string
-		configLine  string
-		want        *DhcpScope
-		wantErr     bool
+		name       string
+		model      string
+		configLine string
+		want       *DhcpScope
+		wantErr    bool
 	}{
 		// 正常系: 基本設定（ID、レンジ、プレフィックスのみ）
 		{
 			name:       "RTX830 basic scope",
-			model:      "RTX830", 
+			model:      "RTX830",
 			configLine: "dhcp scope 1 192.168.100.2-192.168.100.191/24",
 			want: &DhcpScope{
 				ID:         1,
 				RangeStart: "192.168.100.2",
-				RangeEnd:   "192.168.100.191", 
+				RangeEnd:   "192.168.100.191",
 				Prefix:     24,
 			},
 			wantErr: false,
@@ -58,7 +58,7 @@ func TestDhcpScopeParsers(t *testing.T) {
 		},
 		{
 			name:       "RTX1210 full options",
-			model:      "RTX1210", 
+			model:      "RTX1210",
 			configLine: "dhcp scope 3 172.16.0.10-172.16.0.50/20 gateway 172.16.0.1 dns 1.1.1.1 lease 24 domain test.local",
 			want: &DhcpScope{
 				ID:         3,
@@ -226,12 +226,12 @@ func TestDhcpScopeParsers(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := ParseDhcpScope(tt.configLine)
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseDhcpScope() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
 				gotJSON, _ := json.MarshalIndent(got, "", "  ")
 				wantJSON, _ := json.MarshalIndent(tt.want, "", "  ")
@@ -253,7 +253,7 @@ func TestDhcpScopeParserCanHandle(t *testing.T) {
 		{&rtx12xxDhcpScopeParser{}, "RTX1220", true},
 		{&rtx12xxDhcpScopeParser{}, "RTX830", false},
 	}
-	
+
 	for _, tt := range tests {
 		name := reflect.TypeOf(tt.parser).Elem().Name() + "/" + tt.model
 		t.Run(name, func(t *testing.T) {
@@ -334,12 +334,12 @@ dhcp scope 2 10.0.0.10-10.0.0.20/16 lease 12`,
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := tt.parser.Parse(tt.raw)
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Parse() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if tt.wantErr {
 				return
 			}
@@ -348,7 +348,7 @@ dhcp scope 2 10.0.0.10-10.0.0.20/16 lease 12`,
 			if !ok {
 				t.Fatalf("expected []*DhcpScope, got %T", result)
 			}
-			
+
 			if !reflect.DeepEqual(scopes, tt.want) {
 				gotJSON, _ := json.MarshalIndent(scopes, "", "  ")
 				wantJSON, _ := json.MarshalIndent(tt.want, "", "  ")

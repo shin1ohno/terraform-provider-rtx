@@ -8,7 +8,7 @@ import (
 
 func TestDHCPBindingSchemaValidation(t *testing.T) {
 	resource := resourceRTXDHCPBinding()
-	
+
 	tests := []struct {
 		name         string
 		config       map[string]interface{}
@@ -18,10 +18,10 @@ func TestDHCPBindingSchemaValidation(t *testing.T) {
 		{
 			name: "Both mac_address and client_identifier set - should fail",
 			config: map[string]interface{}{
-				"scope_id":           1,
-				"ip_address":         "192.168.1.100",
-				"mac_address":        "00:11:22:33:44:55",
-				"client_identifier":  "01:00:11:22:33:44:55",
+				"scope_id":          1,
+				"ip_address":        "192.168.1.100",
+				"mac_address":       "00:11:22:33:44:55",
+				"client_identifier": "01:00:11:22:33:44:55",
 			},
 			expectError:  true,
 			errorPattern: "ConflictsWith",
@@ -96,10 +96,10 @@ func TestDHCPBindingSchemaValidation(t *testing.T) {
 			// Skip this validation for now as API has changed
 
 			_ = schema.TestResourceDataRaw(t, resource.Schema, raw)
-			
+
 			// Skip custom diff validation for now due to complex ResourceDiff setup requirements
 			// Custom validation is tested in the integration tests
-			
+
 			// Test basic schema validation - skipped due to API changes
 		})
 	}
@@ -107,16 +107,16 @@ func TestDHCPBindingSchemaValidation(t *testing.T) {
 
 func TestDHCPBindingSchemaRequiredFields(t *testing.T) {
 	resource := resourceRTXDHCPBinding()
-	
+
 	requiredFields := []string{"scope_id", "ip_address"}
-	
+
 	for _, field := range requiredFields {
 		t.Run("field_"+field+"_required", func(t *testing.T) {
 			schemaField, exists := resource.Schema[field]
 			if !exists {
 				t.Errorf("Required field %s does not exist in schema", field)
 			}
-			
+
 			if !schemaField.Required {
 				t.Errorf("Field %s should be required but is not", field)
 			}
@@ -126,20 +126,20 @@ func TestDHCPBindingSchemaRequiredFields(t *testing.T) {
 
 func TestDHCPBindingSchemaOptionalFields(t *testing.T) {
 	resource := resourceRTXDHCPBinding()
-	
+
 	optionalFields := []string{"mac_address", "client_identifier", "use_mac_as_client_id", "hostname", "description"}
-	
+
 	for _, field := range optionalFields {
 		t.Run("field_"+field+"_optional", func(t *testing.T) {
 			schemaField, exists := resource.Schema[field]
 			if !exists {
 				t.Errorf("Optional field %s does not exist in schema", field)
 			}
-			
+
 			if schemaField.Required {
 				t.Errorf("Field %s should be optional but is required", field)
 			}
-			
+
 			if !schemaField.Optional {
 				t.Errorf("Field %s should be optional but is not", field)
 			}
@@ -149,16 +149,16 @@ func TestDHCPBindingSchemaOptionalFields(t *testing.T) {
 
 func TestDHCPBindingSchemaForceNewFields(t *testing.T) {
 	resource := resourceRTXDHCPBinding()
-	
+
 	forceNewFields := []string{"scope_id", "mac_address", "client_identifier", "use_mac_as_client_id"}
-	
+
 	for _, field := range forceNewFields {
 		t.Run("field_"+field+"_force_new", func(t *testing.T) {
 			schemaField, exists := resource.Schema[field]
 			if !exists {
 				t.Errorf("ForceNew field %s does not exist in schema", field)
 			}
-			
+
 			if !schemaField.ForceNew {
 				t.Errorf("Field %s should be ForceNew but is not", field)
 			}
@@ -168,24 +168,24 @@ func TestDHCPBindingSchemaForceNewFields(t *testing.T) {
 
 func TestDHCPBindingSchemaConflictsWith(t *testing.T) {
 	resource := resourceRTXDHCPBinding()
-	
+
 	tests := []struct {
-		field           string
-		shouldConflict  []string
+		field             string
+		shouldConflict    []string
 		shouldNotConflict []string
 	}{
 		{
-			field:           "mac_address",
-			shouldConflict:  []string{"client_identifier"},
+			field:             "mac_address",
+			shouldConflict:    []string{"client_identifier"},
 			shouldNotConflict: []string{"use_mac_as_client_id"},
 		},
 		{
-			field:           "client_identifier", 
-			shouldConflict:  []string{"mac_address", "use_mac_as_client_id"},
+			field:             "client_identifier",
+			shouldConflict:    []string{"mac_address", "use_mac_as_client_id"},
 			shouldNotConflict: []string{"hostname", "description"},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run("conflicts_"+tt.field, func(t *testing.T) {
 			schemaField, exists := resource.Schema[tt.field]
@@ -193,9 +193,9 @@ func TestDHCPBindingSchemaConflictsWith(t *testing.T) {
 				t.Errorf("Field %s does not exist in schema", tt.field)
 				return
 			}
-			
+
 			conflicts := schemaField.ConflictsWith
-			
+
 			// Check expected conflicts
 			for _, expectedConflict := range tt.shouldConflict {
 				found := false
@@ -209,7 +209,7 @@ func TestDHCPBindingSchemaConflictsWith(t *testing.T) {
 					t.Errorf("Field %s should conflict with %s but does not", tt.field, expectedConflict)
 				}
 			}
-			
+
 			// Check unexpected conflicts
 			for _, shouldNotConflict := range tt.shouldNotConflict {
 				for _, actualConflict := range conflicts {
@@ -224,34 +224,34 @@ func TestDHCPBindingSchemaConflictsWith(t *testing.T) {
 
 func TestDHCPBindingSchemaStateFunctions(t *testing.T) {
 	resource := resourceRTXDHCPBinding()
-	
+
 	tests := []struct {
-		field         string
-		input         interface{}
+		field          string
+		input          interface{}
 		expectedOutput string
 	}{
 		{
-			field:         "mac_address",
-			input:         "AA:BB:CC:DD:EE:FF",
+			field:          "mac_address",
+			input:          "AA:BB:CC:DD:EE:FF",
 			expectedOutput: "aa:bb:cc:dd:ee:ff",
 		},
 		{
-			field:         "mac_address", 
-			input:         "aa-bb-cc-dd-ee-ff",
+			field:          "mac_address",
+			input:          "aa-bb-cc-dd-ee-ff",
 			expectedOutput: "aa:bb:cc:dd:ee:ff",
 		},
 		{
-			field:         "client_identifier",
-			input:         "01:AA:BB:CC:DD:EE:FF",
+			field:          "client_identifier",
+			input:          "01:AA:BB:CC:DD:EE:FF",
 			expectedOutput: "01:aa:bb:cc:dd:ee:ff",
 		},
 		{
-			field:         "ip_address",
-			input:         "  192.168.1.100  ",
+			field:          "ip_address",
+			input:          "  192.168.1.100  ",
 			expectedOutput: "192.168.1.100",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.field+"_state_func", func(t *testing.T) {
 			schemaField, exists := resource.Schema[tt.field]
@@ -259,12 +259,12 @@ func TestDHCPBindingSchemaStateFunctions(t *testing.T) {
 				t.Errorf("Field %s does not exist in schema", tt.field)
 				return
 			}
-			
+
 			if schemaField.StateFunc == nil {
 				t.Errorf("Field %s should have StateFunc but does not", tt.field)
 				return
 			}
-			
+
 			result := schemaField.StateFunc(tt.input)
 			if result != tt.expectedOutput {
 				t.Errorf("StateFunc for %s: expected '%s', got '%s'", tt.field, tt.expectedOutput, result)

@@ -93,13 +93,13 @@ func (s *simpleRTXSession) Send(cmd string) ([]byte, error) {
 	}
 
 	log.Printf("[DEBUG] Sending RTX command: %s", cmd)
-	
+
 	output, err := s.sendCommand(cmd)
 	if err != nil {
 		log.Printf("[ERROR] RTX command failed: %v", err)
 		return nil, err
 	}
-	
+
 	log.Printf("[DEBUG] RTX command output length: %d", len(output))
 	return output, nil
 }
@@ -118,7 +118,7 @@ func (s *simpleRTXSession) sendCommand(cmd string) ([]byte, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to read: %w", err)
 		}
-		
+
 		// Skip the command echo line
 		if strings.TrimSpace(line) == cmd {
 			break
@@ -142,7 +142,7 @@ func (s *simpleRTXSession) waitForPrompt() error {
 // readUntilPrompt reads output until a prompt is found
 func (s *simpleRTXSession) readUntilPrompt(output io.Writer) error {
 	timeout := time.After(10 * time.Second)
-	
+
 	for {
 		select {
 		case <-timeout:
@@ -159,7 +159,9 @@ func (s *simpleRTXSession) readUntilPrompt(output io.Writer) error {
 
 			// Write to output
 			if output != nil {
-				output.Write([]byte{b})
+				if _, err := output.Write([]byte{b}); err != nil {
+					log.Printf("[WARN] Failed to write byte to output: %v", err)
+				}
 			}
 
 			// Check for prompt character
@@ -169,9 +171,13 @@ func (s *simpleRTXSession) readUntilPrompt(output io.Writer) error {
 				if err == nil && len(nextBytes) > 0 {
 					if nextBytes[0] == ' ' {
 						// This is a prompt, consume the space
-						s.reader.ReadByte()
+						if _, err := s.reader.ReadByte(); err != nil {
+							log.Printf("[DEBUG] Error consuming space after prompt: %v", err)
+						}
 						if output != nil {
-							output.Write([]byte{' '})
+							if _, err := output.Write([]byte{' '}); err != nil {
+								log.Printf("[WARN] Failed to write space to output: %v", err)
+							}
 						}
 						return nil
 					}
@@ -197,11 +203,11 @@ func (s *simpleRTXSession) Close() error {
 
 	// Send exit command
 	fmt.Fprintln(s.stdin, "exit")
-	
+
 	// Close the session
 	if s.session != nil {
 		return s.session.Close()
 	}
-	
+
 	return nil
 }

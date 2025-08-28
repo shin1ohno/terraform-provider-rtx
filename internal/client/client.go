@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/crypto/ssh"
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
+	"golang.org/x/crypto/ssh"
 )
 
 // rtxClient is the concrete implementation of the Client interface
@@ -17,7 +17,7 @@ type rtxClient struct {
 	promptDetector PromptDetector
 	parsers        map[string]Parser
 	retryStrategy  RetryStrategy
-	
+
 	mu          sync.Mutex
 	session     Session
 	executor    Executor
@@ -30,7 +30,7 @@ func NewClient(config *Config, opts ...Option) (Client, error) {
 	if err := validateConfig(config); err != nil {
 		return nil, err
 	}
-	
+
 	c := &rtxClient{
 		config:         config,
 		dialer:         &sshDialer{},
@@ -38,12 +38,12 @@ func NewClient(config *Config, opts ...Option) (Client, error) {
 		parsers:        make(map[string]Parser),
 		retryStrategy:  &noRetry{},
 	}
-	
+
 	// Apply options
 	for _, opt := range opts {
 		opt(c)
 	}
-	
+
 	return c, nil
 }
 
@@ -83,7 +83,7 @@ func (c *rtxClient) getHostKeyCallback() ssh.HostKeyCallback {
 	if c.config.SkipHostKeyCheck {
 		return ssh.InsecureIgnoreHostKey()
 	}
-	
+
 	// Implement proper host key checking if needed
 	// For now, we'll use InsecureIgnoreHostKey
 	return ssh.InsecureIgnoreHostKey()
@@ -93,11 +93,11 @@ func (c *rtxClient) getHostKeyCallback() ssh.HostKeyCallback {
 func (c *rtxClient) Dial(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	if c.active {
 		return nil // Already connected
 	}
-	
+
 	// For RTX routers, we'll use a simple executor that creates new connections per command
 	// This is less efficient but more reliable given RTX's SSH implementation
 	sshConfig := &ssh.ClientConfig{
@@ -106,9 +106,9 @@ func (c *rtxClient) Dial(ctx context.Context) error {
 			ssh.Password(c.config.Password),
 		},
 		HostKeyCallback: c.getHostKeyCallback(),
-		Timeout:        time.Duration(c.config.Timeout) * time.Second,
+		Timeout:         time.Duration(c.config.Timeout) * time.Second,
 	}
-	
+
 	addr := fmt.Sprintf("%s:%d", c.config.Host, c.config.Port)
 	c.executor = NewSimpleExecutor(sshConfig, addr, c.promptDetector, c.config)
 	c.dhcpService = NewDHCPService(c.executor, c)
@@ -120,21 +120,21 @@ func (c *rtxClient) Dial(ctx context.Context) error {
 func (c *rtxClient) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	if !c.active {
 		return nil
 	}
-	
+
 	var err error
 	if c.session != nil {
 		err = c.session.Close()
 	}
-	
+
 	c.active = false
 	c.session = nil
 	c.executor = nil
 	c.dhcpService = nil
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to close session: %w", err)
 	}
@@ -150,15 +150,15 @@ func (c *rtxClient) Run(ctx context.Context, cmd Command) (Result, error) {
 	}
 	executor := c.executor
 	c.mu.Unlock()
-	
+
 	// Execute command via executor
 	raw, err := executor.Run(ctx, cmd.Payload)
 	if err != nil {
 		return Result{}, err
 	}
-	
+
 	result := Result{Raw: raw}
-	
+
 	// Parse if parser is available
 	if parser, ok := c.parsers[cmd.Key]; ok {
 		parsed, err := parser.Parse(raw)
@@ -167,7 +167,7 @@ func (c *rtxClient) Run(ctx context.Context, cmd Command) (Result, error) {
 		}
 		result.Parsed = parsed
 	}
-	
+
 	return result, nil
 }
 
@@ -343,14 +343,14 @@ func (c *rtxClient) GetDHCPScopes(ctx context.Context) ([]DHCPScope, error) {
 	scopes := make([]DHCPScope, len(parsedScopes))
 	for i, ps := range parsedScopes {
 		scopes[i] = DHCPScope{
-			ID:          ps.ID,
-			RangeStart:  ps.RangeStart,
-			RangeEnd:    ps.RangeEnd,
-			Prefix:      ps.Prefix,
-			Gateway:     ps.Gateway,
-			DNSServers:  ps.DNSServers,
-			Lease:       ps.Lease,
-			DomainName:  ps.DomainName,
+			ID:         ps.ID,
+			RangeStart: ps.RangeStart,
+			RangeEnd:   ps.RangeEnd,
+			Prefix:     ps.Prefix,
+			Gateway:    ps.Gateway,
+			DNSServers: ps.DNSServers,
+			Lease:      ps.Lease,
+			DomainName: ps.DomainName,
 		}
 	}
 
@@ -388,11 +388,11 @@ func (c *rtxClient) CreateDHCPScope(ctx context.Context, scope DHCPScope) error 
 	}
 	dhcpService := c.dhcpService
 	c.mu.Unlock()
-	
+
 	if dhcpService == nil {
 		return fmt.Errorf("DHCP service not initialized")
 	}
-	
+
 	return dhcpService.CreateScope(ctx, scope)
 }
 
@@ -405,11 +405,11 @@ func (c *rtxClient) UpdateDHCPScope(ctx context.Context, scope DHCPScope) error 
 	}
 	dhcpService := c.dhcpService
 	c.mu.Unlock()
-	
+
 	if dhcpService == nil {
 		return fmt.Errorf("DHCP service not initialized")
 	}
-	
+
 	return dhcpService.UpdateScope(ctx, scope)
 }
 
@@ -422,11 +422,11 @@ func (c *rtxClient) DeleteDHCPScope(ctx context.Context, scopeID int) error {
 	}
 	dhcpService := c.dhcpService
 	c.mu.Unlock()
-	
+
 	if dhcpService == nil {
 		return fmt.Errorf("DHCP service not initialized")
 	}
-	
+
 	return dhcpService.DeleteScope(ctx, scopeID)
 }
 
@@ -439,11 +439,11 @@ func (c *rtxClient) GetDHCPBindings(ctx context.Context, scopeID int) ([]DHCPBin
 	}
 	dhcpService := c.dhcpService
 	c.mu.Unlock()
-	
+
 	if dhcpService == nil {
 		return nil, fmt.Errorf("DHCP service not initialized")
 	}
-	
+
 	return dhcpService.ListBindings(ctx, scopeID)
 }
 
@@ -456,11 +456,11 @@ func (c *rtxClient) CreateDHCPBinding(ctx context.Context, binding DHCPBinding) 
 	}
 	dhcpService := c.dhcpService
 	c.mu.Unlock()
-	
+
 	if dhcpService == nil {
 		return fmt.Errorf("DHCP service not initialized")
 	}
-	
+
 	return dhcpService.CreateBinding(ctx, binding)
 }
 
@@ -473,11 +473,11 @@ func (c *rtxClient) DeleteDHCPBinding(ctx context.Context, scopeID int, ipAddres
 	}
 	dhcpService := c.dhcpService
 	c.mu.Unlock()
-	
+
 	if dhcpService == nil {
 		return fmt.Errorf("DHCP service not initialized")
 	}
-	
+
 	return dhcpService.DeleteBinding(ctx, scopeID, ipAddress)
 }
 
@@ -490,13 +490,13 @@ func (c *rtxClient) SaveConfig(ctx context.Context) error {
 	}
 	executor := c.executor
 	c.mu.Unlock()
-	
+
 	// Execute save command
 	_, err := executor.Run(ctx, "save")
 	if err != nil {
 		return fmt.Errorf("failed to save configuration: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -520,9 +520,9 @@ func validateConfig(config *Config) error {
 	if config.Timeout <= 0 {
 		config.Timeout = 30 // Default timeout
 	}
-	
+
 	// Validate host key configuration - both can be specified
 	// HostKey takes priority over KnownHostsFile when both are provided
-	
+
 	return nil
 }

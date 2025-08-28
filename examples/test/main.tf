@@ -12,7 +12,7 @@ provider "rtx" {
   host     = var.rtx_host
   username = var.rtx_username
   password = var.rtx_password
-  
+
   # テスト環境の場合
   skip_host_key_check = var.skip_host_key_check
 }

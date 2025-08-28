@@ -17,16 +17,16 @@ import (
 // rtxTerminalSession implements a terminal session for RTX routers
 // Based on Ansible RTX collection implementation
 type rtxTerminalSession struct {
-	client       *ssh.Client
-	session      *ssh.Session
-	stdin        io.WriteCloser
-	stdout       io.Reader
-	stderr       io.Reader
-	reader       *bufio.Reader
-	mu           sync.Mutex
-	closed       bool
-	promptRegex  *regexp.Regexp
-	errorRegex   *regexp.Regexp
+	client      *ssh.Client
+	session     *ssh.Session
+	stdin       io.WriteCloser
+	stdout      io.Reader
+	stderr      io.Reader
+	reader      *bufio.Reader
+	mu          sync.Mutex
+	closed      bool
+	promptRegex *regexp.Regexp
+	errorRegex  *regexp.Regexp
 }
 
 // newRTXTerminalSession creates a new terminal session for RTX router
@@ -69,33 +69,33 @@ func newRTXTerminalSession(client *ssh.Client) (*rtxTerminalSession, error) {
 
 	// Try to start shell with retry
 	log.Printf("[DEBUG] Starting shell session")
-	
+
 	// Some RTX routers may need a small delay after PTY request
 	time.Sleep(100 * time.Millisecond)
-	
+
 	if err := session.Shell(); err != nil {
 		log.Printf("[ERROR] Failed to start shell: %v", err)
-		
+
 		// Try without stderr pipe
 		session.Close()
 		session2, err2 := client.NewSession()
 		if err2 != nil {
 			return nil, fmt.Errorf("failed to create second session: %w", err2)
 		}
-		
+
 		if err2 := session2.RequestPty("vt100", 80, 40, modes); err2 != nil {
 			session2.Close()
 			return nil, fmt.Errorf("failed to request PTY on second attempt: %w", err2)
 		}
-		
+
 		stdin2, _ := session2.StdinPipe()
 		stdout2, _ := session2.StdoutPipe()
-		
+
 		if err2 := session2.Shell(); err2 != nil {
 			session2.Close()
 			return nil, fmt.Errorf("failed to start shell on second attempt: %w (first error: %w)", err2, err)
 		}
-		
+
 		log.Printf("[DEBUG] Shell session started on second attempt")
 		session = session2
 		stdin = stdin2
@@ -113,7 +113,7 @@ func newRTXTerminalSession(client *ssh.Client) (*rtxTerminalSession, error) {
 		stdout:      stdout,
 		stderr:      stderr,
 		reader:      bufio.NewReader(stdout),
-		promptRegex: regexp.MustCompile(`[>#]\s*$`),     // Matches RTX prompts
+		promptRegex: regexp.MustCompile(`[>#]\s*$`),      // Matches RTX prompts
 		errorRegex:  regexp.MustCompile(`(?i)Error:\s*`), // Matches error messages
 	}
 
@@ -206,7 +206,7 @@ func (s *rtxTerminalSession) readUntilPrompt(timeout time.Duration) ([]byte, err
 
 		// Set read deadline
 		s.reader.Reset(s.stdout) // Reset to clear any buffered data
-		
+
 		// Try to read available data
 		n, err := s.reader.Read(buffer)
 		if err != nil && err != io.EOF {
@@ -215,7 +215,7 @@ func (s *rtxTerminalSession) readUntilPrompt(timeout time.Duration) ([]byte, err
 
 		if n > 0 {
 			output.Write(buffer[:n])
-			
+
 			// Check if we have a prompt in the output
 			currentOutput := output.String()
 			if s.promptRegex.MatchString(currentOutput) {

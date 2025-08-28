@@ -160,17 +160,17 @@ IP Address       MAC Address         Type
 		t.Run(tt.name, func(t *testing.T) {
 			parser := &dhcpBindingsParser{}
 			result, err := parser.ParseBindings(tt.input, tt.scopeID)
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseBindings() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if len(result) != len(tt.expected) {
 				t.Errorf("ParseBindings() returned %d bindings, want %d", len(result), len(tt.expected))
 				return
 			}
-			
+
 			for i, binding := range result {
 				if binding.ScopeID != tt.expected[i].ScopeID {
 					t.Errorf("binding[%d].ScopeID = %d, want %d", i, binding.ScopeID, tt.expected[i].ScopeID)
@@ -237,12 +237,12 @@ func TestNormalizeMACAddress(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := NormalizeMACAddress(tt.input)
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("normalizeMACAddress() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if result != tt.expected {
 				t.Errorf("normalizeMACAddress() = %s, want %s", result, tt.expected)
 			}

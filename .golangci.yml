@@ -1,0 +1,106 @@
+run:
+  timeout: 10m
+  go: "1.22"
+
+linters:
+  enable:
+    # Default linters
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+    
+    # Additional linters for quality
+    - gofmt
+    - goimports
+    - gocritic
+    - gosec
+    - misspell
+    - unconvert
+    - unparam
+    - gocyclo
+    - dupl
+    - prealloc
+    - copyloopvar
+    - nolintlint
+    - revive
+    
+  # Note: structcheck, varcheck, and deadcode are deprecated and replaced by unused
+
+linters-settings:
+  gocyclo:
+    min-complexity: 15
+  
+  gocritic:
+    enabled-tags:
+      - performance
+      - style
+      - experimental
+    disabled-checks:
+      - wrapperFunc
+      - dupImport
+  
+  gosec:
+    excludes:
+      - G204 # Subprocess launched with variable
+      - G404 # Insecure random number source
+  
+  revive:
+    rules:
+      - name: exported
+        disabled: false
+        arguments:
+          - checkPrivateReceivers
+          - sayRepetitiveInsteadOfStutters
+
+issues:
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - gosec
+        - dupl
+        - gocyclo
+        - unparam
+    
+    # Exclude some staticcheck messages
+    - linters:
+        - staticcheck
+      text: "SA9003:"
+    
+    # Exclude lll issues for long lines with go:generate
+    - linters:
+        - lll
+      source: "^//go:generate "
+    
+    # Exclude SSH InsecureIgnoreHostKey warnings (design choice)
+    - linters:
+        - gosec
+      text: "G106: Use of ssh InsecureIgnoreHostKey should be audited"
+    
+    # Exclude unused code warnings for experimental/future features
+    - linters:
+        - unused
+      text: "is unused"
+    
+    # Exclude gocritic suggestions for test mocks and preference issues
+    - path: _test\.go
+      linters:
+        - gocritic
+    
+    # Exclude unparam for Terraform required interface methods
+    - linters:
+        - unparam
+      text: "result.*is always nil"
+
+  max-issues-per-linter: 50
+  max-same-issues: 10
+
+output:
+  formats:
+    - format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true

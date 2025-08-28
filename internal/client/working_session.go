@@ -15,19 +15,19 @@ import (
 // workingSession implements a working SSH session for RTX routers
 // This is based on the successful expect script test
 type workingSession struct {
-	client     *ssh.Client
-	session    *ssh.Session
-	stdin      io.WriteCloser
-	stdout     io.Reader
-	mu         sync.Mutex
-	closed     bool
-	adminMode  bool // Track if we're in administrator mode
+	client    *ssh.Client
+	session   *ssh.Session
+	stdin     io.WriteCloser
+	stdout    io.Reader
+	mu        sync.Mutex
+	closed    bool
+	adminMode bool // Track if we're in administrator mode
 }
 
 // newWorkingSession creates a new working session
 func newWorkingSession(client *ssh.Client) (*workingSession, error) {
 	log.Printf("[DEBUG] Creating new working session")
-	
+
 	// Create session first
 	session, err := client.NewSession()
 	if err != nil {
@@ -97,7 +97,7 @@ func (s *workingSession) Send(cmd string) ([]byte, error) {
 	defer s.mu.Unlock()
 
 	log.Printf("[DEBUG] workingSession.Send called with command: %s, closed: %v", cmd, s.closed)
-	
+
 	if s.closed {
 		return nil, fmt.Errorf("session is closed")
 	}
@@ -137,7 +137,7 @@ func (s *workingSession) executeCommand(cmd string, timeout time.Duration) ([]by
 
 	// Clean output - remove command echo and prompt
 	cleanOutput := s.cleanOutput(string(output), cmd)
-	
+
 	log.Printf("[DEBUG] Command completed, output length: %d bytes", len(cleanOutput))
 	return []byte(cleanOutput), nil
 }
@@ -181,7 +181,7 @@ func (s *workingSession) readUntilPrompt(timeout time.Duration) ([]byte, error) 
 
 		if n > 0 {
 			buffer.WriteByte(buf[0])
-			
+
 			// Check if we have a prompt
 			content := buffer.String()
 			lines := strings.Split(content, "\n")
@@ -220,12 +220,14 @@ func (s *workingSession) readUntilString(target string, timeout time.Duration) (
 	for time.Since(start) < timeout {
 		// Read some data
 		chunk := make([]byte, 1024)
-		
+
 		// Set read deadline if possible
 		if conn, ok := s.stdout.(interface{ SetReadDeadline(time.Time) error }); ok {
-			conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+			if err := conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond)); err != nil {
+				log.Printf("[DEBUG] Failed to set read deadline: %v", err)
+			}
 		}
-		
+
 		n, err := s.stdout.Read(chunk)
 		if err != nil && err != io.EOF {
 			// Timeout is expected, continue
@@ -254,7 +256,7 @@ func (s *workingSession) readUntilString(target string, timeout time.Duration) (
 // cleanOutput removes command echo and prompt from output
 func (s *workingSession) cleanOutput(output, cmd string) string {
 	lines := strings.Split(output, "\n")
-	
+
 	// Remove command echo (first line that matches command)
 	for i, line := range lines {
 		if strings.TrimSpace(line) == cmd {
@@ -289,7 +291,7 @@ func (s *workingSession) Close() error {
 	defer s.mu.Unlock()
 
 	log.Printf("[DEBUG] workingSession.Close() called, already closed: %v", s.closed)
-	
+
 	if s.closed {
 		return nil
 	}
@@ -304,10 +306,10 @@ func (s *workingSession) Close() error {
 			log.Printf("[WARN] Failed to exit administrator mode properly: %v", err)
 		}
 		s.adminMode = false
-		
+
 		// Small delay before second exit
 		time.Sleep(500 * time.Millisecond)
-		
+
 		// Second exit: disconnect from router
 		if _, err := fmt.Fprintf(s.stdin, "exit\r"); err != nil {
 			log.Printf("[WARN] Failed to send second exit command: %v", err)
@@ -340,22 +342,22 @@ func (s *workingSession) SetAdminMode(admin bool) {
 // exitAdminMode safely exits administrator mode handling configuration save prompts
 func (s *workingSession) exitAdminMode() error {
 	log.Printf("[DEBUG] Exiting administrator mode")
-	
+
 	// Send exit command
 	if _, err := fmt.Fprintf(s.stdin, "exit\r"); err != nil {
 		return fmt.Errorf("failed to send exit command: %w", err)
 	}
-	
+
 	// Read response and check for configuration save prompt
 	response, err := s.readUntilPromptOrSaveConfirmation(5 * time.Second)
 	if err != nil {
 		log.Printf("[WARN] Error reading response after exit: %v", err)
 		return err
 	}
-	
+
 	responseStr := string(response)
 	log.Printf("[DEBUG] Exit response: %q", responseStr)
-	
+
 	// Check if we got a configuration save confirmation prompt
 	if s.isSaveConfigurationPrompt(responseStr) {
 		log.Printf("[DEBUG] Configuration save prompt detected, responding with 'N'")
@@ -363,7 +365,7 @@ func (s *workingSession) exitAdminMode() error {
 		if _, err := fmt.Fprintf(s.stdin, "N\r"); err != nil {
 			return fmt.Errorf("failed to respond to save prompt: %w", err)
 		}
-		
+
 		// Read final response after save confirmation
 		finalResponse, err := s.readUntilPrompt(3 * time.Second)
 		if err != nil {
@@ -372,7 +374,7 @@ func (s *workingSession) exitAdminMode() error {
 		}
 		log.Printf("[DEBUG] Final exit response: %q", string(finalResponse))
 	}
-	
+
 	return nil
 }
 
@@ -396,14 +398,14 @@ func (s *workingSession) readUntilPromptOrSaveConfirmation(timeout time.Duration
 
 		if n > 0 {
 			buffer.WriteByte(buf[0])
-			
+
 			content := buffer.String()
-			
+
 			// Check for save configuration prompt
 			if s.isSaveConfigurationPrompt(content) {
 				return buffer.Bytes(), nil
 			}
-			
+
 			// Check for normal prompt (user mode or admin mode)
 			lines := strings.Split(content, "\n")
 			if len(lines) > 0 {
@@ -434,7 +436,7 @@ func (s *workingSession) readUntilPromptOrSaveConfirmation(timeout time.Duration
 // isSaveConfigurationPrompt checks if the text contains a configuration save prompt
 func (s *workingSession) isSaveConfigurationPrompt(text string) bool {
 	lowerText := strings.ToLower(text)
-	
+
 	// Common RTX router save configuration prompts
 	savePrompts := []string{
 		"save configuration?",
@@ -446,12 +448,12 @@ func (s *workingSession) isSaveConfigurationPrompt(text string) bool {
 		"save changes?",
 		"保存しますか",
 	}
-	
+
 	for _, prompt := range savePrompts {
 		if strings.Contains(lowerText, prompt) {
 			return true
 		}
 	}
-	
+
 	return false
 }

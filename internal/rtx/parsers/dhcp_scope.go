@@ -2,6 +2,7 @@ package parsers
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"regexp"
 	"strconv"
@@ -10,14 +11,14 @@ import (
 
 // DhcpScope represents a DHCP scope configuration on an RTX router
 type DhcpScope struct {
-	ID          int      `json:"id"`
-	RangeStart  string   `json:"range_start"`
-	RangeEnd    string   `json:"range_end"`
-	Prefix      int      `json:"prefix"`
-	Gateway     string   `json:"gateway,omitempty"`
-	DNSServers  []string `json:"dns_servers,omitempty"`
-	Lease       int      `json:"lease,omitempty"`
-	DomainName  string   `json:"domain_name,omitempty"`
+	ID         int      `json:"id"`
+	RangeStart string   `json:"range_start"`
+	RangeEnd   string   `json:"range_end"`
+	Prefix     int      `json:"prefix"`
+	Gateway    string   `json:"gateway,omitempty"`
+	DNSServers []string `json:"dns_servers,omitempty"`
+	Lease      int      `json:"lease,omitempty"`
+	DomainName string   `json:"domain_name,omitempty"`
 }
 
 // DhcpScopeParser is the interface for parsing DHCP scope information
@@ -36,7 +37,7 @@ type rtx830DhcpScopeParser struct {
 	BaseDhcpScopeParser
 }
 
-// rtx12xxDhcpScopeParser handles RTX1210/1220 DHCP scope output  
+// rtx12xxDhcpScopeParser handles RTX1210/1220 DHCP scope output
 type rtx12xxDhcpScopeParser struct {
 	BaseDhcpScopeParser
 }
@@ -50,7 +51,7 @@ func init() {
 			},
 		},
 	})
-	
+
 	// Register RTX12xx parser
 	rtx12xxParser := &rtx12xxDhcpScopeParser{
 		BaseDhcpScopeParser: BaseDhcpScopeParser{
@@ -61,9 +62,11 @@ func init() {
 	}
 	Register("dhcp_scope", "RTX1210", rtx12xxParser)
 	Register("dhcp_scope", "RTX1220", rtx12xxParser)
-	
+
 	// Create aliases for model families
-	RegisterAlias("dhcp_scope", "RTX1210", "RTX12xx")
+	if err := RegisterAlias("dhcp_scope", "RTX1210", "RTX12xx"); err != nil {
+		log.Printf("[WARN] Failed to register alias for dhcp_scope RTX12xx: %v", err)
+	}
 }
 
 // ParseDhcpScope parses a single DHCP scope configuration line
@@ -149,7 +152,7 @@ func parseIPRangeAndPrefix(scope *DhcpScope, rangeStr string) error {
 // parseOptions parses the options part of the DHCP scope line
 func parseOptions(scope *DhcpScope, optionsStr string) error {
 	tokens := strings.Fields(optionsStr)
-	
+
 	for i := 0; i < len(tokens); i++ {
 		switch tokens[i] {
 		case "gateway":
@@ -167,7 +170,7 @@ func parseOptions(scope *DhcpScope, optionsStr string) error {
 			if i+1 >= len(tokens) {
 				return fmt.Errorf("dns option requires at least one IP address")
 			}
-			
+
 			// Collect DNS servers until we hit the next option or end
 			var dnsServers []string
 			for j := i + 1; j < len(tokens); j++ {
@@ -247,41 +250,41 @@ func parseOptions(scope *DhcpScope, optionsStr string) error {
 // Supports both minutes (e.g., "1440") and hh:mm format (e.g., "24:00")
 func parseTimeToSeconds(timeStr string) (int, error) {
 	timeStr = strings.TrimSpace(timeStr)
-	
+
 	// Check if it's in hh:mm format
 	if strings.Contains(timeStr, ":") {
 		parts := strings.Split(timeStr, ":")
 		if len(parts) != 2 {
 			return 0, fmt.Errorf("invalid time format: expected hh:mm")
 		}
-		
+
 		hours, err := strconv.Atoi(parts[0])
 		if err != nil {
 			return 0, fmt.Errorf("invalid hours: %v", err)
 		}
-		
+
 		minutes, err := strconv.Atoi(parts[1])
 		if err != nil {
 			return 0, fmt.Errorf("invalid minutes: %v", err)
 		}
-		
+
 		if hours < 0 || minutes < 0 || minutes >= 60 {
 			return 0, fmt.Errorf("invalid time values")
 		}
-		
-		return (hours * 60 + minutes) * 60, nil // Convert to seconds
+
+		return (hours*60 + minutes) * 60, nil // Convert to seconds
 	}
-	
+
 	// Otherwise, treat as minutes
 	minutes, err := strconv.Atoi(timeStr)
 	if err != nil {
 		return 0, fmt.Errorf("invalid minutes value: %v", err)
 	}
-	
+
 	if minutes < 0 {
 		return 0, fmt.Errorf("minutes must be non-negative")
 	}
-	
+
 	return minutes * 60, nil // Convert to seconds
 }
 
@@ -310,13 +313,13 @@ func (p *rtx830DhcpScopeParser) CanHandle(model string) bool {
 func (p *rtx830DhcpScopeParser) ParseDhcpScopes(raw string) ([]*DhcpScope, error) {
 	scopes := make([]*DhcpScope, 0)
 	lines := strings.Split(raw, "\n")
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		
+
 		// Check if line matches dhcp scope pattern (but not dhcp scope bind)
 		if strings.HasPrefix(line, "dhcp scope ") && !strings.HasPrefix(line, "dhcp scope bind") && !strings.HasPrefix(line, "dhcp scope option") {
 			scope, err := ParseDhcpScope(line)
@@ -326,7 +329,7 @@ func (p *rtx830DhcpScopeParser) ParseDhcpScopes(raw string) ([]*DhcpScope, error
 			scopes = append(scopes, scope)
 		}
 	}
-	
+
 	return scopes, nil
 }
 
@@ -344,13 +347,13 @@ func (p *rtx12xxDhcpScopeParser) CanHandle(model string) bool {
 func (p *rtx12xxDhcpScopeParser) ParseDhcpScopes(raw string) ([]*DhcpScope, error) {
 	scopes := make([]*DhcpScope, 0)
 	lines := strings.Split(raw, "\n")
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		
+
 		// Check if line matches dhcp scope pattern (but not dhcp scope bind)
 		if strings.HasPrefix(line, "dhcp scope ") && !strings.HasPrefix(line, "dhcp scope bind") && !strings.HasPrefix(line, "dhcp scope option") {
 			scope, err := ParseDhcpScope(line)
@@ -360,6 +363,6 @@ func (p *rtx12xxDhcpScopeParser) ParseDhcpScopes(raw string) ([]*DhcpScope, erro
 			scopes = append(scopes, scope)
 		}
 	}
-	
+
 	return scopes, nil
 }

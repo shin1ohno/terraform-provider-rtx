@@ -201,14 +201,14 @@ func TestResourceRTXDHCPScope_SchemaValidation(t *testing.T) {
 		{
 			name: "valid full config",
 			config: map[string]interface{}{
-				"scope_id":     1,
-				"range_start":  "192.168.1.10",
-				"range_end":    "192.168.1.100",
-				"prefix":       24,
-				"gateway":      "192.168.1.1",
-				"dns_servers":  []interface{}{"8.8.8.8", "8.8.4.4"},
-				"lease_time":   3600,
-				"domain_name":  "example.com",
+				"scope_id":    1,
+				"range_start": "192.168.1.10",
+				"range_end":   "192.168.1.100",
+				"prefix":      24,
+				"gateway":     "192.168.1.1",
+				"dns_servers": []interface{}{"8.8.8.8", "8.8.4.4"},
+				"lease_time":  3600,
+				"domain_name": "example.com",
 			},
 			expectErrors: 0,
 		},
@@ -301,7 +301,7 @@ func TestResourceRTXDHCPScope_SchemaValidation(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			rawConfig := terraform.NewResourceConfigRaw(tc.config)
 			diags := resource.Validate(rawConfig)
-			
+
 			// Count errors manually
 			totalErrors := 0
 			totalWarnings := 0
@@ -312,7 +312,7 @@ func TestResourceRTXDHCPScope_SchemaValidation(t *testing.T) {
 					totalWarnings++
 				}
 			}
-			
+
 			if totalWarnings > 0 {
 				t.Logf("warnings: %d", totalWarnings)
 			}
@@ -385,12 +385,12 @@ func parseImportID(importID string) (int, error) {
 	if importID == "" {
 		return 0, fmt.Errorf("import ID cannot be empty")
 	}
-	
+
 	scopeID, err := strconv.Atoi(importID)
 	if err != nil {
 		return 0, fmt.Errorf("invalid scope ID: %v", err)
 	}
-	
+
 	return scopeID, nil
 }
 
@@ -413,7 +413,7 @@ func TestResourceRTXDHCPScope_Coverage(t *testing.T) {
 		{"192.168.1.1", "192.168.1.10"},
 		{"10.0.0.1", "10.0.0.255"},
 	}
-	
+
 	for _, r := range validRanges {
 		if err := validateIPRange(r[0], r[1]); err != nil {
 			t.Errorf("validateIPRange failed for valid range %s-%s: %v", r[0], r[1], err)
@@ -437,29 +437,51 @@ func (m *MockClientForDHCPScopeRead) GetDHCPScope(ctx context.Context, scopeID i
 
 // Implement other Client interface methods with stubs
 func (m *MockClientForDHCPScopeRead) Dial(ctx context.Context) error { return nil }
-func (m *MockClientForDHCPScopeRead) Close() error { return nil }
-func (m *MockClientForDHCPScopeRead) Run(ctx context.Context, cmd client.Command) (client.Result, error) { return client.Result{}, nil }
-func (m *MockClientForDHCPScopeRead) GetSystemInfo(ctx context.Context) (*client.SystemInfo, error) { return nil, nil }
-func (m *MockClientForDHCPScopeRead) GetInterfaces(ctx context.Context) ([]client.Interface, error) { return nil, nil }
-func (m *MockClientForDHCPScopeRead) GetRoutes(ctx context.Context) ([]client.Route, error) { return nil, nil }
-func (m *MockClientForDHCPScopeRead) GetDHCPScopes(ctx context.Context) ([]client.DHCPScope, error) { return nil, nil }
-func (m *MockClientForDHCPScopeRead) CreateDHCPScope(ctx context.Context, scope client.DHCPScope) error { return nil }
-func (m *MockClientForDHCPScopeRead) UpdateDHCPScope(ctx context.Context, scope client.DHCPScope) error { return nil }
-func (m *MockClientForDHCPScopeRead) DeleteDHCPScope(ctx context.Context, scopeID int) error { return nil }
-func (m *MockClientForDHCPScopeRead) GetDHCPBindings(ctx context.Context, scopeID int) ([]client.DHCPBinding, error) { return nil, nil }
-func (m *MockClientForDHCPScopeRead) CreateDHCPBinding(ctx context.Context, binding client.DHCPBinding) error { return nil }
-func (m *MockClientForDHCPScopeRead) DeleteDHCPBinding(ctx context.Context, scopeID int, ipAddress string) error { return nil }
+func (m *MockClientForDHCPScopeRead) Close() error                   { return nil }
+func (m *MockClientForDHCPScopeRead) Run(ctx context.Context, cmd client.Command) (client.Result, error) {
+	return client.Result{}, nil
+}
+func (m *MockClientForDHCPScopeRead) GetSystemInfo(ctx context.Context) (*client.SystemInfo, error) {
+	return nil, nil
+}
+func (m *MockClientForDHCPScopeRead) GetInterfaces(ctx context.Context) ([]client.Interface, error) {
+	return nil, nil
+}
+func (m *MockClientForDHCPScopeRead) GetRoutes(ctx context.Context) ([]client.Route, error) {
+	return nil, nil
+}
+func (m *MockClientForDHCPScopeRead) GetDHCPScopes(ctx context.Context) ([]client.DHCPScope, error) {
+	return nil, nil
+}
+func (m *MockClientForDHCPScopeRead) CreateDHCPScope(ctx context.Context, scope client.DHCPScope) error {
+	return nil
+}
+func (m *MockClientForDHCPScopeRead) UpdateDHCPScope(ctx context.Context, scope client.DHCPScope) error {
+	return nil
+}
+func (m *MockClientForDHCPScopeRead) DeleteDHCPScope(ctx context.Context, scopeID int) error {
+	return nil
+}
+func (m *MockClientForDHCPScopeRead) GetDHCPBindings(ctx context.Context, scopeID int) ([]client.DHCPBinding, error) {
+	return nil, nil
+}
+func (m *MockClientForDHCPScopeRead) CreateDHCPBinding(ctx context.Context, binding client.DHCPBinding) error {
+	return nil
+}
+func (m *MockClientForDHCPScopeRead) DeleteDHCPBinding(ctx context.Context, scopeID int, ipAddress string) error {
+	return nil
+}
 func (m *MockClientForDHCPScopeRead) SaveConfig(ctx context.Context) error { return nil }
 
 func TestResourceRTXDHCPScopeRead(t *testing.T) {
 	tests := []struct {
-		name            string
-		resourceID      string
-		setupClient     func() client.Client
-		expectError     bool
-		expectRemoved   bool
-		expectedState   map[string]interface{}
-		errorContains   string
+		name          string
+		resourceID    string
+		setupClient   func() client.Client
+		expectError   bool
+		expectRemoved bool
+		expectedState map[string]interface{}
+		errorContains string
 	}{
 		{
 			name:       "successful read",
@@ -469,14 +491,14 @@ func TestResourceRTXDHCPScopeRead(t *testing.T) {
 					GetDHCPScopeFunc: func(ctx context.Context, scopeID int) (*client.DHCPScope, error) {
 						if scopeID == 1 {
 							return &client.DHCPScope{
-								ID:          1,
-								RangeStart:  "192.168.1.100",
-								RangeEnd:    "192.168.1.200",
-								Prefix:      24,
-								Gateway:     "192.168.1.1",
-								DNSServers:  []string{"8.8.8.8", "8.8.4.4"},
-								Lease:       86400,
-								DomainName:  "example.com",
+								ID:         1,
+								RangeStart: "192.168.1.100",
+								RangeEnd:   "192.168.1.200",
+								Prefix:     24,
+								Gateway:    "192.168.1.1",
+								DNSServers: []string{"8.8.8.8", "8.8.4.4"},
+								Lease:      86400,
+								DomainName: "example.com",
 							}, nil
 						}
 						return nil, client.ErrNotFound
@@ -595,23 +617,23 @@ func TestResourceRTXDHCPScopeRead(t *testing.T) {
 			// Verify state values
 			for key, expectedValue := range tt.expectedState {
 				actualValue := d.Get(key)
-				
+
 				// Special handling for slice comparison
 				if key == "dns_servers" {
 					expectedSlice := expectedValue.([]string)
 					actualSlice := make([]string, 0)
-					
+
 					if actualList := d.Get(key).([]interface{}); actualList != nil {
 						for _, v := range actualList {
 							actualSlice = append(actualSlice, v.(string))
 						}
 					}
-					
+
 					if len(expectedSlice) != len(actualSlice) {
 						t.Errorf("Expected %s to have %d items, got %d", key, len(expectedSlice), len(actualSlice))
 						continue
 					}
-					
+
 					for i, expected := range expectedSlice {
 						if i < len(actualSlice) && actualSlice[i] != expected {
 							t.Errorf("Expected %s[%d] to be %v, got %v", key, i, expected, actualSlice[i])
@@ -629,9 +651,9 @@ func TestResourceRTXDHCPScopeRead(t *testing.T) {
 
 // containsString checks if a string contains a substring (helper function)
 func containsString(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && 
-		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || 
-		 containsSubstring(s, substr)))
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) &&
+		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
+			containsSubstring(s, substr)))
 }
 
 func containsSubstring(s, substr string) bool {

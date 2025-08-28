@@ -12,28 +12,29 @@ func BuildDHCPScopeCreateCommand(scope DhcpScope) string {
 	baseCmd := fmt.Sprintf("dhcp scope %d %s-%s/%d",
 		scope.ID, scope.RangeStart, scope.RangeEnd, scope.Prefix)
 
-	// Add only basic parameters (gateway and lease)
+	// Add all supported parameters
 	var options []string
 
+	// Add gateway option
 	if scope.Gateway != "" {
 		options = append(options, "gateway", scope.Gateway)
 	}
 
+	// Add DNS servers option  
+	if len(scope.DNSServers) > 0 {
+		options = append(options, "dns")
+		options = append(options, scope.DNSServers...)
+	}
+
+	// Add lease time option
 	if scope.Lease > 0 {
-		// Convert seconds to minutes for RTX
-		leaseMinutes := scope.Lease / 60
-		if leaseMinutes <= 0 {
-			leaseMinutes = 1 // Minimum lease time
-		}
-		
-		// Set maxexpire to be larger than expire to avoid RTX error
-		maxExpireMinutes := leaseMinutes * 7 // 7x expire time for maxexpire
-		if maxExpireMinutes < 72*60 { // Ensure at least 72 hours for maxexpire (RTX default)
-			maxExpireMinutes = 72 * 60
-		}
-		
-		options = append(options, "expire", fmt.Sprintf("%d", leaseMinutes))
-		options = append(options, "maxexpire", fmt.Sprintf("%d", maxExpireMinutes))
+		// RTX expects lease time in seconds, not minutes
+		options = append(options, "lease", fmt.Sprintf("%d", scope.Lease))
+	}
+
+	// Add domain name option
+	if scope.DomainName != "" {
+		options = append(options, "domain", scope.DomainName)
 	}
 
 	if len(options) > 0 {
@@ -44,28 +45,11 @@ func BuildDHCPScopeCreateCommand(scope DhcpScope) string {
 }
 
 // BuildDHCPScopeCreateCommands builds multiple commands to create a DHCP scope with all options
+// This function is deprecated in favor of single command approach
 func BuildDHCPScopeCreateCommands(scope DhcpScope) []string {
-	commands := []string{}
-
-	// 1. Basic scope creation with gateway and lease
-	baseCmd := BuildDHCPScopeCreateCommand(scope)
-	commands = append(commands, baseCmd)
-
-	// 2. DNS servers option
-	if len(scope.DNSServers) > 0 {
-		dnsCmd := fmt.Sprintf("dhcp scope option %d dns=%s", 
-			scope.ID, strings.Join(scope.DNSServers, ","))
-		commands = append(commands, dnsCmd)
-	}
-
-	// 3. Domain name option
-	if scope.DomainName != "" {
-		domainCmd := fmt.Sprintf("dhcp scope option %d domain=%s", 
-			scope.ID, scope.DomainName)
-		commands = append(commands, domainCmd)
-	}
-
-	return commands
+	// Return single command instead of multiple commands
+	cmd := BuildDHCPScopeCreateCommand(scope)
+	return []string{cmd}
 }
 
 // BuildDHCPScopeDeleteCommand builds a command to remove a DHCP scope
@@ -142,8 +126,9 @@ func BuildDHCPScopeCreateCommandWithValidation(scope DhcpScope) ([]string, error
 		return nil, fmt.Errorf("range_start must be less than range_end")
 	}
 
-	// Build commands using new multi-command function
-	return BuildDHCPScopeCreateCommands(scope), nil
+	// Build single command with all options
+	cmd := BuildDHCPScopeCreateCommand(scope)
+	return []string{cmd}, nil
 }
 
 // BuildDHCPScopeUpdateCommand builds a command to update an existing DHCP scope
@@ -154,14 +139,13 @@ func BuildDHCPScopeUpdateCommand(scope DhcpScope) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Return sequence of commands: delete old scope, then create new scope
 	deleteCmd := BuildDHCPScopeDeleteCommand(scope.ID)
-	
-	// Combine delete command with all creation commands
-	updateCmds := []string{deleteCmd}
-	updateCmds = append(updateCmds, createCmds...)
-	
+
+	// Since createCmds now only contains one command, we can simplify
+	updateCmds := []string{deleteCmd, createCmds[0]}
+
 	return updateCmds, nil
 }
 

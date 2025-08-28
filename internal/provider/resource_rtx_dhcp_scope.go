@@ -134,7 +134,7 @@ func resourceRTXDHCPScopeCreate(ctx context.Context, d *schema.ResourceData, met
 
 	scopeID := d.Get("scope_id").(int)
 	scopeKey := fmt.Sprintf("dhcp-scope-%d", scopeID)
-	
+
 	// Lock this specific scope to prevent concurrent modifications
 	unlock := lockDHCPScope(scopeKey)
 	defer unlock()
@@ -246,7 +246,7 @@ func resourceRTXDHCPScopeUpdate(ctx context.Context, d *schema.ResourceData, met
 	}
 
 	scopeKey := fmt.Sprintf("dhcp-scope-%d", scopeID)
-	
+
 	// Lock this specific scope to prevent concurrent modifications
 	unlock := lockDHCPScope(scopeKey)
 	defer unlock()
@@ -303,7 +303,7 @@ func resourceRTXDHCPScopeDelete(ctx context.Context, d *schema.ResourceData, met
 	}
 
 	scopeKey := fmt.Sprintf("dhcp-scope-%d", scopeID)
-	
+
 	// Lock this specific scope to prevent concurrent modifications
 	unlock := lockDHCPScope(scopeKey)
 	defer unlock()

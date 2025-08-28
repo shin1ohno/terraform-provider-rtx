@@ -115,7 +115,7 @@ func TestDHCPService_CreateScope(t *testing.T) {
 					Return([]byte("Error: Invalid configuration"), nil)
 			},
 			expectedErr: true,
-			errMessage:  "command failed: Error: Invalid configuration",
+			errMessage:  "scope creation failed: command 1 failed: Error: Invalid configuration",
 		},
 	}
 
@@ -327,7 +327,7 @@ func TestDHCPService_UpdateScope(t *testing.T) {
 func TestDHCPService_CreateScope_RetryBehavior(t *testing.T) {
 	t.Run("Retry on conflict with exponential backoff", func(t *testing.T) {
 		mockExecutor := new(MockExecutor)
-		
+
 		// First 3 attempts fail with conflict
 		mockExecutor.On("Run", mock.Anything, "dhcp scope 1 192.168.1.100-192.168.1.200/24").
 			Return([]byte("Error: Scope already exists"), nil).Times(3)
@@ -358,7 +358,7 @@ func TestDHCPService_CreateScope_RetryBehavior(t *testing.T) {
 
 	t.Run("Give up after max retries", func(t *testing.T) {
 		mockExecutor := new(MockExecutor)
-		
+
 		// All attempts fail with conflict
 		mockExecutor.On("Run", mock.Anything, "dhcp scope 1 192.168.1.100-192.168.1.200/24").
 			Return([]byte("Error: Scope conflict"), nil).Times(6) // Max retries + 1
@@ -374,7 +374,7 @@ func TestDHCPService_CreateScope_RetryBehavior(t *testing.T) {
 		err := service.CreateScope(context.Background(), scope)
 
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "command failed after 6 attempts")
+		assert.Contains(t, err.Error(), "failed to create DHCP scope after 6 attempts")
 		mockExecutor.AssertExpectations(t)
 	})
 }

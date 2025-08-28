@@ -161,7 +161,7 @@ func (r *rtxShellSession) executeCommand(cmd string) ([]byte, error) {
 func (r *rtxShellSession) readUntilPrompt() ([]byte, error) {
 	var output bytes.Buffer
 	timeout := time.After(10 * time.Second)
-	
+
 	for {
 		select {
 		case <-r.ctx.Done():
@@ -189,7 +189,10 @@ func (r *rtxShellSession) readUntilPrompt() ([]byte, error) {
 					next := nextBytes[0]
 					if next == ' ' || next == '\n' || next == '\r' {
 						// Found prompt, consume the space/newline
-						r.reader.ReadByte()
+						if _, err := r.reader.ReadByte(); err != nil {
+							// Log but continue - this is likely EOF which is expected
+							log.Printf("[DEBUG] Error consuming space/newline after prompt: %v", err)
+						}
 						output.WriteByte(next)
 						return output.Bytes(), nil
 					}
@@ -211,7 +214,7 @@ func (r *rtxShellSession) Close() error {
 
 	// Send exit command
 	fmt.Fprintln(r.stdin, "exit")
-	
+
 	// Close the session
 	if r.session != nil {
 		return r.session.Close()
