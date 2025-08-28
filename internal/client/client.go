@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"net"
 	"sync"
 	"time"
 
@@ -294,6 +295,7 @@ func (c *rtxClient) GetRoutes(ctx context.Context) ([]Route, error) {
 	return routes, nil
 }
 
+
 // GetDHCPScopes retrieves DHCP scope configurations from the router
 func (c *rtxClient) GetDHCPScopes(ctx context.Context) ([]DHCPScope, error) {
 	// First get system information to determine model
@@ -498,6 +500,188 @@ func (c *rtxClient) SaveConfig(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// Static Route management methods
+
+// GetStaticRoutes retrieves all static route configurations from the router
+func (c *rtxClient) GetStaticRoutes(ctx context.Context) ([]StaticRoute, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	executor := c.executor
+	c.mu.Unlock()
+
+	// Execute command to get running configuration (static routes)
+	output, err := executor.Run(ctx, "show running-config | grep 'ip route'")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get static routes: %w", err)
+	}
+
+	// Parse static routes using parser
+	parserRoutes, err := parsers.ParseStaticRoutes([]byte(output))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse static routes: %w", err)
+	}
+
+	// Convert parser StaticRoute to client StaticRoute
+	var routes []StaticRoute
+	for _, parserRoute := range parserRoutes {
+		clientRoute := StaticRoute{
+			Destination:      parserRoute.Destination,
+			GatewayIP:        parserRoute.GatewayIP,
+			GatewayInterface: parserRoute.GatewayInterface,
+			Interface:        parserRoute.Interface,
+			Metric:           parserRoute.Metric,
+			Weight:           parserRoute.Weight,
+			Description:      parserRoute.Description,
+			Hide:             parserRoute.Hide,
+		}
+		routes = append(routes, clientRoute)
+	}
+
+	return routes, nil
+}
+
+// CreateStaticRoute creates a static route on the RTX router
+func (c *rtxClient) CreateStaticRoute(ctx context.Context, route StaticRoute) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	executor := c.executor
+	c.mu.Unlock()
+
+	// Convert client StaticRoute to parser StaticRoute for command generation
+	parserRoute := parsers.StaticRoute{
+		Destination:      route.Destination,
+		GatewayIP:        route.GatewayIP,
+		GatewayInterface: route.GatewayInterface,
+		Interface:        route.Interface,
+		Metric:           route.Metric,
+		Weight:           route.Weight,
+		Description:      route.Description,
+		Hide:             route.Hide,
+	}
+
+	// Validate the route first
+	if err := parsers.ValidateStaticRoute(parserRoute); err != nil {
+		return fmt.Errorf("invalid route configuration: %w", err)
+	}
+
+	// Generate and execute the command
+	cmd := parsers.BuildStaticRouteCommand(parserRoute)
+	_, err := executor.Run(ctx, cmd)
+	if err != nil {
+		return fmt.Errorf("failed to create static route: %w", err)
+	}
+
+	// Save configuration to make it persistent
+	return c.SaveConfig(ctx)
+}
+
+// GetStaticRoute retrieves a specific static route by its key components
+func (c *rtxClient) GetStaticRoute(ctx context.Context, destination, gateway, iface string) (*StaticRoute, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	c.mu.Unlock()
+
+	// Get all static routes and find the matching one
+	routes, err := c.GetStaticRoutes(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get static routes: %w", err)
+	}
+
+	for _, route := range routes {
+		// Match by destination and gateway (IP or interface)
+		if route.Destination == destination {
+			gatewayMatches := false
+			
+			// Check gateway match
+			if route.GatewayIP != "" && route.GatewayIP == gateway {
+				gatewayMatches = true
+			} else if route.GatewayInterface != "" && route.GatewayInterface == gateway {
+				gatewayMatches = true
+			}
+			
+			// Check interface match (empty interface matches empty string)
+			interfaceMatches := route.Interface == iface
+			
+			if gatewayMatches && interfaceMatches {
+				return &route, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("static route not found: %s via %s interface %s", destination, gateway, iface)
+}
+
+// UpdateStaticRoute updates an existing static route
+func (c *rtxClient) UpdateStaticRoute(ctx context.Context, route StaticRoute) error {
+	// For static routes, we implement update as delete-then-create
+	// since RTX doesn't support in-place updates for route parameters like metric/weight
+	
+	// First, delete the existing route
+	gateway := route.GatewayIP
+	if gateway == "" {
+		gateway = route.GatewayInterface
+	}
+	
+	err := c.DeleteStaticRoute(ctx, route.Destination, gateway, route.Interface)
+	if err != nil {
+		// If delete fails with "not found", that's okay - we'll just create
+		if fmt.Sprintf("%v", err) != "static route not found" {
+			return fmt.Errorf("failed to delete existing route for update: %w", err)
+		}
+	}
+
+	// Then create the new route
+	return c.CreateStaticRoute(ctx, route)
+}
+
+// DeleteStaticRoute removes a static route from the RTX router
+func (c *rtxClient) DeleteStaticRoute(ctx context.Context, destination, gateway, iface string) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	executor := c.executor
+	c.mu.Unlock()
+
+	// Create a route object for command generation
+	parserRoute := parsers.StaticRoute{
+		Destination: destination,
+		Interface:   iface,
+	}
+
+	// Set the appropriate gateway field
+	if gateway != "" {
+		// Use net.ParseIP to properly determine if gateway is an IP address
+		if net.ParseIP(gateway) != nil {
+			// It's an IP address
+			parserRoute.GatewayIP = gateway
+		} else {
+			// It's an interface name
+			parserRoute.GatewayInterface = gateway
+		}
+	}
+
+	// Generate and execute the delete command
+	cmd := parsers.BuildStaticRouteDeleteCommand(parserRoute)
+	_, err := executor.Run(ctx, cmd)
+	if err != nil {
+		return fmt.Errorf("failed to delete static route: %w", err)
+	}
+
+	// Save configuration to make it persistent
+	return c.SaveConfig(ctx)
 }
 
 // validateConfig checks if the configuration is valid

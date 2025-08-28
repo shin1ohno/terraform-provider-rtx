@@ -94,12 +94,14 @@ func New(version string) *schema.Provider {
 		ResourcesMap: map[string]*schema.Resource{
 			"rtx_dhcp_binding": resourceRTXDHCPBinding(),
 			"rtx_dhcp_scope":   resourceRTXDHCPScope(),
+			"rtx_static_route": resourceRTXStaticRoute(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
-			"rtx_system_info": dataSourceRTXSystemInfo(),
-			"rtx_interfaces":  dataSourceRTXInterfaces(),
-			"rtx_routes":      dataSourceRTXRoutes(),
-			"rtx_dhcp_scope":  dataSourceRTXDHCPScope(),
+			"rtx_system_info":   dataSourceRTXSystemInfo(),
+			"rtx_interfaces":    dataSourceRTXInterfaces(),
+			"rtx_routes":        dataSourceRTXRoutes(),
+			"rtx_static_routes": dataSourceRTXStaticRoutes(),
+			"rtx_dhcp_scope":    dataSourceRTXDHCPScope(),
 		},
 		ConfigureContextFunc: providerConfigure,
 	}

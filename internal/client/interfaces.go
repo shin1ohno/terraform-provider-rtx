@@ -25,6 +25,9 @@ type Client interface {
 	// GetRoutes retrieves routing table information from the router
 	GetRoutes(ctx context.Context) ([]Route, error)
 
+	// GetStaticRoutes retrieves static route configurations from the router
+	GetStaticRoutes(ctx context.Context) ([]StaticRoute, error)
+
 	// GetDHCPScopes retrieves DHCP scope configurations from the router
 	GetDHCPScopes(ctx context.Context) ([]DHCPScope, error)
 
@@ -51,6 +54,12 @@ type Client interface {
 
 	// SaveConfig saves the current configuration to persistent memory
 	SaveConfig(ctx context.Context) error
+
+	// Static Route management methods
+	CreateStaticRoute(ctx context.Context, route StaticRoute) error
+	GetStaticRoute(ctx context.Context, destination, gateway, iface string) (*StaticRoute, error)
+	UpdateStaticRoute(ctx context.Context, route StaticRoute) error
+	DeleteStaticRoute(ctx context.Context, destination, gateway, iface string) error
 }
 
 // Interface represents a network interface on an RTX router
@@ -74,6 +83,18 @@ type Route struct {
 	Interface   string `json:"interface"`        // Outgoing interface
 	Protocol    string `json:"protocol"`         // S=static, C=connected, R=RIP, O=OSPF, B=BGP, D=DHCP
 	Metric      *int   `json:"metric,omitempty"` // Route metric (optional)
+}
+
+// StaticRoute represents a static route configuration on an RTX router
+type StaticRoute struct {
+	Destination      string `json:"destination"`                  // Destination network prefix (required)
+	GatewayIP        string `json:"gateway_ip,omitempty"`         // Next hop gateway IP address (optional)
+	GatewayInterface string `json:"gateway_interface,omitempty"`  // Next hop gateway interface name (optional)
+	Interface        string `json:"interface,omitempty"`          // Outgoing interface (optional)
+	Metric           int    `json:"metric"`                       // Route metric (default: 1)
+	Weight           int    `json:"weight"`                       // Route weight for ECMP (optional)
+	Description      string `json:"description,omitempty"`        // Route description (optional)
+	Hide             bool   `json:"hide,omitempty"`               // Hide flag (optional)
 }
 
 // DHCPScope represents a DHCP scope configuration
