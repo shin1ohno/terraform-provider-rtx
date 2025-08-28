@@ -35,30 +35,39 @@ output "current_static_routes" {
 # Routes based on actual router configuration
 # ip route default gateway dhcp lan2
 resource "rtx_static_route" "default_route" {
-  destination       = "0.0.0.0/0"
-  gateway_interface = "dhcp"
-  interface         = "lan2"
-  description       = "Default route via DHCP"
+  destination = "0.0.0.0/0"
+  
+  gateways {
+    interface = "dhcp lan2"
+  }
+  
+  description = "Default route via DHCP-obtained gateway on LAN2"
 }
 
-# ip route 10.33.128.0/21 gateway 192.168.1.20
-resource "rtx_static_route" "private_network_route" {
+resource "rtx_static_route" "vpc" {
   destination = "10.33.128.0/21"
-  gateway_ip  = "192.168.1.20"
-  description = "Route to private network via primary gateway"
+  
+  gateways {
+    ip = "192.168.1.20"
+  }
+  
+  gateways {
+    ip = "192.168.1.21"
+  }
+  
+  description = "AWS VPC network with failover"
 }
 
-# ip route 100.64.0.0/10 gateway 192.168.1.20
-resource "rtx_static_route" "cgn_network_route" {
+resource "rtx_static_route" "tailscale" {
   destination = "100.64.0.0/10"
-  gateway_ip  = "192.168.1.20"
-  description = "Route to CGN network via primary gateway"
-}
-
-# ip route 192.168.10.0/24 gateway 192.168.1.10 metric 10
-resource "rtx_static_route" "lan_network_route" {
-  destination = "192.168.10.0/24"
-  gateway_ip  = "192.168.1.10"
-  metric      = 10
-  description = "Route to LAN network"
+  
+  gateways {
+    ip = "192.168.1.20"
+  }
+  
+  gateways {
+    ip = "192.168.1.21"
+  }
+  
+  description = "Tailscale network route"
 }
