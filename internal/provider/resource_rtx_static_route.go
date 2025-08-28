@@ -448,9 +448,9 @@ func resourceRTXStaticRouteImport(ctx context.Context, d *schema.ResourceData, m
 // Helper functions
 
 // buildStaticRouteID creates a composite ID from route components
+// Use destination as the primary identifier since each destination should have only one route entry
 func buildStaticRouteID(route client.StaticRoute) string {
-	gateway := getGateway(route)
-	return fmt.Sprintf("%s||%s||%s", route.Destination, gateway, route.Interface)
+	return route.Destination
 }
 
 // buildMultiRouteID creates a composite ID from multiple route IDs
@@ -470,29 +470,30 @@ func getGateway(route client.StaticRoute) string {
 }
 
 // buildStaticRouteIDWithGateways creates ID for multi-gateway routes
+// Use destination as the primary identifier since each destination should have only one route entry
 func buildStaticRouteIDWithGateways(route client.StaticRoute) string {
-	var gatewayStrs []string
-	for _, gw := range route.Gateways {
-		if gw.IP != "" {
-			gatewayStrs = append(gatewayStrs, gw.IP)
-		} else if gw.Interface != "" {
-			gatewayStrs = append(gatewayStrs, gw.Interface)
-		}
-	}
-	gatewayStr := strings.Join(gatewayStrs, ",")
-	return fmt.Sprintf("%s||%s||%s", route.Destination, gatewayStr, route.Interface)
+	return route.Destination
 }
 
 // parseStaticRouteID parses the composite ID into components
 func parseStaticRouteID(id string) (destination, gateway, iface string, err error) {
-	parts := strings.SplitN(id, "||", 3)
-	if len(parts) != 3 {
-		return "", "", "", fmt.Errorf("expected format 'destination||gateway||interface', got %s", id)
+	// New format: ID is just the destination
+	// For backward compatibility, also handle legacy format
+	if strings.Contains(id, "||") {
+		// Legacy format: destination||gateway||interface
+		parts := strings.SplitN(id, "||", 3)
+		if len(parts) != 3 {
+			return "", "", "", fmt.Errorf("expected format 'destination||gateway||interface', got %s", id)
+		}
+		destination = parts[0]
+		gateway = parts[1]
+		iface = parts[2]
+	} else {
+		// New format: just destination
+		destination = id
+		gateway = ""  // Will be determined from GetStaticRoute
+		iface = ""    // Will be determined from GetStaticRoute
 	}
-
-	destination = parts[0]
-	gateway = parts[1]
-	iface = parts[2]
 
 	return destination, gateway, iface, nil
 }

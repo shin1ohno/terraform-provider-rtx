@@ -653,51 +653,61 @@ func (c *rtxClient) GetStaticRoute(ctx context.Context, destination, gateway, if
 		return nil, fmt.Errorf("failed to get static routes: %w", err)
 	}
 
-	// Handle multi-gateway case: gateway parameter might be comma-separated
-	gatewayList := strings.Split(gateway, ",")
-
 	for _, route := range routes {
-		// Match by destination and gateway (IP or interface)
+		// For new ID format (destination only), match by destination
 		if route.Destination == destination {
+			// If gateway and iface are empty (new format), return the route
+			if gateway == "" && iface == "" {
+				return &route, nil
+			}
+			
+			// Legacy format: also check gateway and interface match
 			gatewayMatches := false
 			
-			// Check gateway match - support both new and legacy formats
-			if len(route.Gateways) > 0 {
-				// For multi-gateway routes, check if all gateways from ID are present
-				if len(gatewayList) > 1 {
-					// Multi-gateway case: check if the route contains all expected gateways
-					matchedGateways := 0
-					for _, expectedGw := range gatewayList {
-						for _, routeGw := range route.Gateways {
-							if (routeGw.IP != "" && routeGw.IP == expectedGw) || 
-							   (routeGw.Interface != "" && routeGw.Interface == expectedGw) {
-								matchedGateways++
+			// Handle multi-gateway case: gateway parameter might be comma-separated
+			if gateway != "" {
+				gatewayList := strings.Split(gateway, ",")
+				
+				// Check gateway match - support both new and legacy formats
+				if len(route.Gateways) > 0 {
+					// For multi-gateway routes, check if all gateways from ID are present
+					if len(gatewayList) > 1 {
+						// Multi-gateway case: check if the route contains all expected gateways
+						matchedGateways := 0
+						for _, expectedGw := range gatewayList {
+							for _, routeGw := range route.Gateways {
+								if (routeGw.IP != "" && routeGw.IP == expectedGw) || 
+								   (routeGw.Interface != "" && routeGw.Interface == expectedGw) {
+									matchedGateways++
+									break
+								}
+							}
+						}
+						gatewayMatches = (matchedGateways == len(gatewayList))
+					} else {
+						// Single gateway case: match any gateway in the list
+						for _, gw := range route.Gateways {
+							if (gw.IP != "" && gw.IP == gateway) || 
+							   (gw.Interface != "" && gw.Interface == gateway) {
+								gatewayMatches = true
 								break
 							}
 						}
 					}
-					gatewayMatches = (matchedGateways == len(gatewayList))
 				} else {
-					// Single gateway case: match any gateway in the list
-					for _, gw := range route.Gateways {
-						if (gw.IP != "" && gw.IP == gateway) || 
-						   (gw.Interface != "" && gw.Interface == gateway) {
-							gatewayMatches = true
-							break
-						}
+					// Check legacy format
+					if route.GatewayIP != "" && route.GatewayIP == gateway {
+						gatewayMatches = true
+					} else if route.GatewayInterface != "" && route.GatewayInterface == gateway {
+						gatewayMatches = true
 					}
 				}
 			} else {
-				// Check legacy format
-				if route.GatewayIP != "" && route.GatewayIP == gateway {
-					gatewayMatches = true
-				} else if route.GatewayInterface != "" && route.GatewayInterface == gateway {
-					gatewayMatches = true
-				}
+				gatewayMatches = true // No gateway specified means match any
 			}
 			
 			// Check interface match (empty interface matches empty string)
-			interfaceMatches := route.Interface == iface
+			interfaceMatches := (iface == "" || route.Interface == iface)
 			
 			if gatewayMatches && interfaceMatches {
 				return &route, nil
