@@ -8,12 +8,13 @@ terraform {
 }
 
 provider "rtx" {
-  host           = var.rtx_host
-  username       = var.rtx_username
-  password       = var.rtx_password
-  admin_password = var.rtx_admin_password
-  port           = var.rtx_port
-  timeout        = 30
+  host                 = var.rtx_host
+  username             = var.rtx_username
+  password             = var.rtx_password
+  admin_password       = var.rtx_admin_password
+  port                 = var.rtx_port
+  timeout              = 30
+  skip_host_key_check  = var.skip_host_key_check
 }
 
 # Data source to read existing static routes
