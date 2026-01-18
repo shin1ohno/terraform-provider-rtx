@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/rtx-dhcp-scope/requirements.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-13T12:32:00.697Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768307520693_vxkoiwjrl",
+      "approvalTitle": "rtx_dhcp_scope Requirements Document"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-18T13:42:13.808Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768307520693_vxkoiwjrl",
+      "approvalTitle": "rtx_dhcp_scope Requirements Document"
+    }
+  ]
+}

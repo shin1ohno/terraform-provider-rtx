@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/steering/product.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-18T15:45:07.324Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768751107321_05h9132gx",
+      "approvalTitle": "Product Overview - Terraform Provider RTX"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-18T16:01:25.484Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768751107321_05h9132gx",
+      "approvalTitle": "Product Overview - Terraform Provider RTX"
+    }
+  ]
+}
