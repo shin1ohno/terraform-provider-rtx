@@ -3,6 +3,21 @@
 ## Overview
 Terraform resource for managing SNMP (Simple Network Management Protocol) configuration on Yamaha RTX routers.
 
+**Cisco Equivalent**: `iosxe_snmp_server`
+
+## Cisco Compatibility
+
+This resource follows Cisco SNMP server naming patterns:
+
+| RTX Attribute | Cisco Equivalent | Notes |
+|---------------|------------------|-------|
+| `community` | `community` | SNMP community string |
+| `location` | `location` | System location |
+| `contact` | `contact` | System contact |
+| `host` | `host` | Trap destination |
+| `enable_traps` | `enable_traps` | Enable specific traps |
+| `view` | `view` | SNMP view configuration |
+
 ## Functional Requirements
 
 ### 1. CRUD Operations
@@ -42,6 +57,24 @@ Terraform resource for managing SNMP (Simple Network Management Protocol) config
 ### 7. Import Support
 - Import existing SNMP configuration
 
+## Terraform Command Support
+
+This resource must fully support all standard Terraform workflow commands:
+
+| Command | Support | Description |
+|---------|---------|-------------|
+| `terraform plan` | ✅ Required | Show planned SNMP configuration changes |
+| `terraform apply` | ✅ Required | Create, update, or delete SNMP settings |
+| `terraform destroy` | ✅ Required | Disable SNMP agent and remove configuration |
+| `terraform import` | ✅ Required | Import existing SNMP configuration into state |
+| `terraform refresh` | ✅ Required | Sync state with actual SNMP configuration |
+| `terraform state` | ✅ Required | Support state inspection and manipulation |
+
+### Import Specification
+- **Import ID Format**: `snmp` (singleton resource)
+- **Import Command**: `terraform import rtx_snmp.monitoring snmp`
+- **Post-Import**: All settings populated (community strings marked sensitive)
+
 ## Non-Functional Requirements
 
 ### 8. Validation
@@ -68,34 +101,47 @@ snmp syscontact <contact>
 
 ## Example Usage
 ```hcl
-resource "rtx_snmp" "monitoring" {
-  enabled = true
+# SNMP server configuration - Cisco-compatible naming
+resource "rtx_snmp_server" "monitoring" {
+  location = "Tokyo DC Rack 42"
+  contact  = "noc@example.com"
 
-  system_name     = "rtx-router-01"
-  system_location = "Tokyo DC Rack 42"
-  system_contact  = "noc@example.com"
+  # Community strings
+  communities = [
+    {
+      name       = var.snmp_community_ro
+      permission = "ro"
+      acl        = "SNMP_ACCESS"
+    },
+    {
+      name       = var.snmp_community_rw
+      permission = "rw"
+      acl        = "SNMP_ACCESS"
+    }
+  ]
 
-  community_ro = var.snmp_community_ro
-  community_rw = var.snmp_community_rw
+  # Trap destinations
+  hosts = [
+    {
+      address   = "10.0.0.100"
+      community = var.snmp_trap_community
+      version   = "2c"
+    }
+  ]
 
-  allowed_hosts = ["10.0.0.0/8"]
-
-  trap {
-    host      = "10.0.0.100"
-    community = var.snmp_trap_community
-    version   = "2c"
-
-    enabled_traps = ["linkDown", "linkUp", "authenticationFailure"]
-  }
+  # Enable traps
+  enable_traps = ["snmp", "linkdown", "linkup"]
 }
 
-resource "rtx_snmp_v3_user" "admin" {
+# SNMPv3 user
+resource "rtx_snmp_server_user" "admin" {
   username = "snmpadmin"
+  group    = "ADMIN_GROUP"
 
   auth_protocol = "sha"
   auth_password = var.snmpv3_auth_password
 
-  priv_protocol = "aes"
+  priv_protocol = "aes128"
   priv_password = var.snmpv3_priv_password
 }
 ```

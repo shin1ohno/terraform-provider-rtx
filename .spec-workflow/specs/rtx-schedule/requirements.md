@@ -3,6 +3,20 @@
 ## Overview
 Terraform resource for managing scheduled tasks and time-based automation on Yamaha RTX routers.
 
+**Cisco Equivalent**: `iosxe_kron_schedule`, `iosxe_kron_policy`
+
+## Cisco Compatibility
+
+This resource follows Cisco Kron scheduler naming patterns:
+
+| RTX Attribute | Cisco Equivalent | Notes |
+|---------------|------------------|-------|
+| `name` | `name` | Schedule name |
+| `time` | `at_time` | Execution time |
+| `recurring` | `recurring` | Recurring schedule |
+| `command` | `command_line` | Command to execute |
+| `policy_list` | `policy_list` | Associated policy |
+
 ## Functional Requirements
 
 ### 1. CRUD Operations
@@ -42,6 +56,24 @@ Terraform resource for managing scheduled tasks and time-based automation on Yam
 ### 7. Import Support
 - Import existing schedules
 
+## Terraform Command Support
+
+This resource must fully support all standard Terraform workflow commands:
+
+| Command | Support | Description |
+|---------|---------|-------------|
+| `terraform plan` | ✅ Required | Show planned schedule changes |
+| `terraform apply` | ✅ Required | Create, update, or delete scheduled tasks |
+| `terraform destroy` | ✅ Required | Remove scheduled tasks from router |
+| `terraform import` | ✅ Required | Import existing schedules into state |
+| `terraform refresh` | ✅ Required | Sync state with actual schedule configuration |
+| `terraform state` | ✅ Required | Support state inspection and manipulation |
+
+### Import Specification
+- **Import ID Format**: `<schedule_id>` (e.g., `1`)
+- **Import Command**: `terraform import rtx_schedule.daily_backup 1`
+- **Post-Import**: All schedule parameters must be populated from router
+
 ## Non-Functional Requirements
 
 ### 8. Validation
@@ -64,54 +96,55 @@ schedule pp 1 <day> <time> disconnect
 
 ## Example Usage
 ```hcl
-resource "rtx_schedule" "daily_backup" {
-  id = 1
+# Kron policy (command list) - Cisco-compatible naming
+resource "rtx_kron_policy" "backup_commands" {
+  name = "BACKUP_POLICY"
 
-  time {
-    hour   = 2
-    minute = 0
-  }
-
-  recurrence = "daily"
-
-  command = "copy config sd1:backup/config-$(date +%Y%m%d).txt"
-}
-
-resource "rtx_schedule" "weekly_reboot" {
-  id = 2
-
-  time {
-    day_of_week = "sunday"
-    hour        = 4
-    minute      = 0
-  }
-
-  recurrence = "weekly"
-
-  command = "restart"
-}
-
-resource "rtx_schedule" "business_hours_vpn" {
-  id = 3
-
-  time_range {
-    start_hour = 8
-    end_hour   = 18
-  }
-
-  days = ["monday", "tuesday", "wednesday", "thursday", "friday"]
-
-  commands = [
-    "pp select 1",
-    "pp always-on on"
+  command_lines = [
+    "copy config sd1:backup/config-$(date +%Y%m%d).txt"
   ]
 }
 
-resource "rtx_schedule" "startup_task" {
-  id = 10
+# Kron schedule - Cisco-compatible naming
+resource "rtx_kron_schedule" "daily_backup" {
+  name = "DAILY_BACKUP"
+
+  at_time   = "02:00"
+  recurring = true
+
+  policy_list = "BACKUP_POLICY"
+}
+
+resource "rtx_kron_schedule" "weekly_reboot" {
+  name = "WEEKLY_REBOOT"
+
+  at_time     = "04:00"
+  day_of_week = "sunday"
+  recurring   = true
+
+  policy_list = "REBOOT_POLICY"
+}
+
+resource "rtx_kron_policy" "reboot_commands" {
+  name = "REBOOT_POLICY"
+
+  command_lines = ["restart"]
+}
+
+# Startup schedule
+resource "rtx_kron_schedule" "startup_task" {
+  name = "STARTUP_LOG"
 
   on_startup = true
 
-  command = "syslog info 'Router started successfully'"
+  policy_list = "STARTUP_POLICY"
+}
+
+resource "rtx_kron_policy" "startup_commands" {
+  name = "STARTUP_POLICY"
+
+  command_lines = [
+    "syslog info 'Router started successfully'"
+  ]
 }
 ```

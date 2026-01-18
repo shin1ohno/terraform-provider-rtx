@@ -3,6 +3,22 @@
 ## Overview
 Terraform resource for managing Ethernet (Layer 2) packet filters on Yamaha RTX routers.
 
+**Cisco Equivalent**: `iosxe_access_list_mac` (MAC access lists)
+
+## Cisco Compatibility
+
+This resource follows Cisco MAC ACL naming patterns:
+
+| RTX Attribute | Cisco Equivalent | Notes |
+|---------------|------------------|-------|
+| `name` | `name` | Access list name |
+| `entries` | `entries` | List of filter entries |
+| `action` | `ace_action` | permit/deny |
+| `source_mac` | `source_address` | Source MAC address |
+| `source_mac_mask` | `source_address_mask` | Source MAC mask |
+| `destination_mac` | `destination_address` | Destination MAC address |
+| `ethertype` | `ethertype` | Ethernet type filter |
+
 ## Functional Requirements
 
 ### 1. CRUD Operations
@@ -37,6 +53,24 @@ Terraform resource for managing Ethernet (Layer 2) packet filters on Yamaha RTX 
 ### 6. Import Support
 - Import existing filter by number
 
+## Terraform Command Support
+
+This resource must fully support all standard Terraform workflow commands:
+
+| Command | Support | Description |
+|---------|---------|-------------|
+| `terraform plan` | ✅ Required | Show planned Ethernet filter changes |
+| `terraform apply` | ✅ Required | Create, update, or delete Ethernet filters |
+| `terraform destroy` | ✅ Required | Remove filter rules from router |
+| `terraform import` | ✅ Required | Import existing filters into state |
+| `terraform refresh` | ✅ Required | Sync state with actual filter configuration |
+| `terraform state` | ✅ Required | Support state inspection and manipulation |
+
+### Import Specification
+- **Import ID Format**: `<filter_number>` (e.g., `1`)
+- **Import Command**: `terraform import rtx_ethernet_filter.allow_known_macs 1`
+- **Post-Import**: All filter parameters must be populated from router
+
 ## Non-Functional Requirements
 
 ### 7. Validation
@@ -56,26 +90,31 @@ ethernet <interface> filter <direction> <filter_list>
 
 ## Example Usage
 ```hcl
-resource "rtx_ethernet_filter" "allow_known_macs" {
-  number = 1
-  action = "pass"
+# MAC access list - Cisco-compatible naming
+resource "rtx_access_list_mac" "trusted_macs" {
+  name = "TRUSTED_MACS"
 
-  source_mac      = "00:11:22:*:*:*"
-  destination_mac = "*"
+  entries = [
+    {
+      sequence            = 10
+      ace_action          = "permit"
+      source_address      = "0011.2200.0000"
+      source_address_mask = "0000.00ff.ffff"
+      destination_any     = true
+    },
+    {
+      sequence              = 20
+      ace_action            = "deny"
+      source_any            = true
+      destination_address   = "ffff.ffff.ffff"
+      ethertype             = "0x0806"  # ARP
+    }
+  ]
 }
 
-resource "rtx_ethernet_filter" "block_broadcast" {
-  number = 10
-  action = "reject"
-
-  source_mac      = "*"
-  destination_mac = "ff:ff:ff:ff:ff:ff"
-  ethernet_type   = "0x0806"  # ARP
-}
-
-resource "rtx_ethernet_filter_apply" "lan1" {
-  interface = "lan1"
-  direction = "in"
-  filters   = [1, 10]
+# Apply MAC ACL to interface
+resource "rtx_interface_mac_acl" "lan1" {
+  interface             = "lan1"
+  mac_access_group_in   = "TRUSTED_MACS"
 }
 ```

@@ -3,6 +3,20 @@
 ## Overview
 Terraform resource for managing NAT masquerade (dynamic NAPT) on Yamaha RTX routers.
 
+**Cisco Equivalent**: `iosxe_nat` (inside source with overload)
+
+## Cisco Compatibility
+
+This resource follows Cisco IOS XE Terraform provider naming conventions:
+
+| RTX Attribute | Cisco Equivalent | Notes |
+|---------------|------------------|-------|
+| `id` | `id` | NAT descriptor ID |
+| `inside_source` | `inside_source_interfaces` | Inside source configuration |
+| `interface` | `interface` | Outside interface |
+| `overload` | `overload` | Enable PAT (always true for masquerade) |
+| `acl` | `access_list` | Source access list |
+
 ## Functional Requirements
 
 ### 1. CRUD Operations
@@ -35,6 +49,24 @@ Terraform resource for managing NAT masquerade (dynamic NAPT) on Yamaha RTX rout
 ### 6. Import Support
 - Import existing NAT descriptors by ID
 
+## Terraform Command Support
+
+This resource must fully support all standard Terraform workflow commands:
+
+| Command | Support | Description |
+|---------|---------|-------------|
+| `terraform plan` | ✅ Required | Show planned NAT changes without applying |
+| `terraform apply` | ✅ Required | Create, update, or delete NAT masquerade configuration |
+| `terraform destroy` | ✅ Required | Remove NAT descriptor and interface bindings |
+| `terraform import` | ✅ Required | Import existing NAT descriptors into Terraform state |
+| `terraform refresh` | ✅ Required | Sync state with actual router NAT configuration |
+| `terraform state` | ✅ Required | Support state inspection and manipulation |
+
+### Import Specification
+- **Import ID Format**: `<descriptor_id>` (e.g., `1`)
+- **Import Command**: `terraform import rtx_nat_masquerade.main 1`
+- **Post-Import**: All attributes including static mappings must be populated
+
 ## Non-Functional Requirements
 
 ### 7. Validation
@@ -56,22 +88,33 @@ show nat descriptor address
 
 ## Example Usage
 ```hcl
-resource "rtx_nat_masquerade" "main" {
-  descriptor_id = 1
-  outer_address = "pp1"  # Use PP1 interface address
-  inner_network = "192.168.1.0/24"
+# Basic NAT masquerade - Cisco-compatible naming
+resource "rtx_nat" "main" {
+  id = 1
+
+  inside_source {
+    acl       = "192.168.1.0/24"
+    interface = "pp1"
+    overload  = true
+  }
 }
 
-resource "rtx_nat_masquerade" "with_mapping" {
-  descriptor_id = 2
-  outer_address = "203.0.113.1"
-  inner_network = "192.168.2.0/24"
+# NAT with static port mapping
+resource "rtx_nat" "with_mapping" {
+  id = 2
 
-  static_mapping {
-    protocol      = "tcp"
-    outer_port    = 443
-    inner_address = "192.168.2.10"
-    inner_port    = 443
+  inside_source {
+    acl       = "192.168.2.0/24"
+    interface = "pp1"
+    overload  = true
   }
+
+  static_entries = [
+    {
+      inside_local   = "192.168.2.10:443"
+      outside_global = "203.0.113.1:443"
+      protocol       = "tcp"
+    }
+  ]
 }
 ```

@@ -3,6 +3,20 @@
 ## Overview
 Terraform resource for managing BGP (Border Gateway Protocol) routing configuration on Yamaha RTX routers.
 
+**Cisco Equivalent**: `iosxe_bgp`
+
+## Cisco Compatibility
+
+This resource follows Cisco IOS XE Terraform provider naming conventions:
+
+| RTX Attribute | Cisco Equivalent | Notes |
+|---------------|------------------|-------|
+| `asn` | `asn` | Local AS number (string for 4-byte ASN) |
+| `router_id` | - | Router ID (configure via iosxe_bgp_neighbor) |
+| `default_ipv4_unicast` | `default_ipv4_unicast` | Enable IPv4 unicast by default |
+| `log_neighbor_changes` | `log_neighbor_changes` | Log neighbor state changes |
+| `neighbors` | - | Neighbors (use iosxe_bgp_neighbor) |
+
 ## Functional Requirements
 
 ### 1. CRUD Operations
@@ -49,6 +63,24 @@ Terraform resource for managing BGP (Border Gateway Protocol) routing configurat
 ### 8. Import Support
 - Import existing BGP configuration
 
+## Terraform Command Support
+
+This resource must fully support all standard Terraform workflow commands:
+
+| Command | Support | Description |
+|---------|---------|-------------|
+| `terraform plan` | ✅ Required | Show planned BGP configuration changes |
+| `terraform apply` | ✅ Required | Create, update, or delete BGP settings |
+| `terraform destroy` | ✅ Required | Disable BGP and remove all neighbor/network configs |
+| `terraform import` | ✅ Required | Import existing BGP configuration into state |
+| `terraform refresh` | ✅ Required | Sync state with actual BGP configuration |
+| `terraform state` | ✅ Required | Support state inspection and manipulation |
+
+### Import Specification
+- **Import ID Format**: `bgp` (singleton resource)
+- **Import Command**: `terraform import rtx_bgp.main bgp`
+- **Post-Import**: All neighbors, networks, and filters populated (passwords sensitive)
+
 ## Non-Functional Requirements
 
 ### 9. Validation
@@ -73,33 +105,35 @@ bgp import from static
 
 ## Example Usage
 ```hcl
+# BGP configuration - Cisco-compatible naming
 resource "rtx_bgp" "main" {
-  enabled   = true
-  as_number = 65001
-  router_id = "1.1.1.1"
+  asn                  = "65001"
+  router_id            = "1.1.1.1"
+  default_ipv4_unicast = true
+  log_neighbor_changes = true
 
-  neighbor {
-    id             = 1
-    address        = "203.0.113.1"
-    remote_as      = 65002
-    hold_time      = 90
-    keepalive_time = 30
-  }
+  neighbors = [
+    {
+      ip        = "203.0.113.1"
+      remote_as = "65002"
+      hold_time = 90
+      keepalive = 30
+    },
+    {
+      ip        = "198.51.100.1"
+      remote_as = "65003"
+      multihop  = 2
+      password  = var.bgp_password
+    }
+  ]
 
-  neighbor {
-    id             = 2
-    address        = "198.51.100.1"
-    remote_as      = 65003
-    multihop       = 2
-    password       = var.bgp_password
-  }
+  networks = [
+    {
+      prefix = "192.168.0.0"
+      mask   = "255.255.0.0"
+    }
+  ]
 
-  network {
-    prefix = "192.168.0.0/16"
-  }
-
-  redistribute {
-    protocol = "static"
-  }
+  redistribute_static = true
 }
 ```

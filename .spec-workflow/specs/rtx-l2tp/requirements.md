@@ -3,6 +3,20 @@
 ## Overview
 Terraform resource for managing L2TP (Layer 2 Tunneling Protocol) configuration on Yamaha RTX routers.
 
+**Cisco Equivalent**: `iosxe_interface_tunnel` with tunnel mode l2tp, `iosxe_aaa` for authentication
+
+## Cisco Compatibility
+
+This resource follows general VPN naming patterns where applicable:
+
+| RTX Attribute | Cisco Equivalent | Notes |
+|---------------|------------------|-------|
+| `name` | `name` | Tunnel interface name |
+| `mode` | `tunnel_mode` | Tunnel mode (l2tp) |
+| `source` | `tunnel_source` | Local tunnel endpoint |
+| `destination` | `tunnel_destination` | Remote tunnel endpoint |
+| `shutdown` | `shutdown` | Admin state |
+
 ## Functional Requirements
 
 ### 1. CRUD Operations
@@ -39,6 +53,24 @@ Terraform resource for managing L2TP (Layer 2 Tunneling Protocol) configuration 
 ### 7. Import Support
 - Import existing L2TP configuration
 
+## Terraform Command Support
+
+This resource must fully support all standard Terraform workflow commands:
+
+| Command | Support | Description |
+|---------|---------|-------------|
+| `terraform plan` | ✅ Required | Show planned L2TP configuration changes |
+| `terraform apply` | ✅ Required | Create, update, or delete L2TP settings |
+| `terraform destroy` | ✅ Required | Remove L2TP configuration cleanly |
+| `terraform import` | ✅ Required | Import existing L2TP configuration into state |
+| `terraform refresh` | ✅ Required | Sync state with actual L2TP configuration |
+| `terraform state` | ✅ Required | Support state inspection and manipulation |
+
+### Import Specification
+- **Import ID Format**: `<tunnel_id>` (e.g., `1`)
+- **Import Command**: `terraform import rtx_l2tp.vpn_server 1`
+- **Post-Import**: All settings populated (credentials marked sensitive)
+
 ## Non-Functional Requirements
 
 ### 8. Validation
@@ -64,12 +96,14 @@ l2tp keepalive log on
 
 ## Example Usage
 ```hcl
+# L2TP VPN Server - Cisco-compatible structure
 resource "rtx_l2tp" "vpn_server" {
-  mode = "lns"
+  name     = "L2TP_VPN"
+  mode     = "lns"  # L2TP Network Server
+  shutdown = false
 
-  tunnel_id = 1
-
-  local_address = "203.0.113.1"
+  tunnel_source      = "203.0.113.1"
+  tunnel_destination = "0.0.0.0"  # Accept from any
 
   authentication {
     method   = "chap"
@@ -82,7 +116,10 @@ resource "rtx_l2tp" "vpn_server" {
     end   = "192.168.100.200"
   }
 
-  ipsec_enabled = true
-  pre_shared_key = var.ipsec_psk
+  # L2TP over IPsec
+  ipsec_profile {
+    enabled        = true
+    pre_shared_key = var.ipsec_psk
+  }
 }
 ```

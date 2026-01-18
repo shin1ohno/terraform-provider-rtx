@@ -3,6 +3,18 @@
 ## Overview
 Terraform resource for managing PPTP (Point-to-Point Tunneling Protocol) configuration on Yamaha RTX routers.
 
+**Cisco Equivalent**: No direct equivalent (PPTP is deprecated in modern Cisco IOS)
+
+## Cisco Compatibility
+
+This resource follows general VPN naming patterns. Note that PPTP is considered legacy/deprecated for security reasons.
+
+| RTX Attribute | Cisco Equivalent | Notes |
+|---------------|------------------|-------|
+| `enabled` | - | Service enable/disable |
+| `shutdown` | `shutdown` | Admin state |
+| `authentication` | - | Auth settings (PAP/CHAP/MS-CHAP) |
+
 ## Functional Requirements
 
 ### 1. CRUD Operations
@@ -40,6 +52,24 @@ Terraform resource for managing PPTP (Point-to-Point Tunneling Protocol) configu
 ### 7. Import Support
 - Import existing PPTP configuration
 
+## Terraform Command Support
+
+This resource must fully support all standard Terraform workflow commands:
+
+| Command | Support | Description |
+|---------|---------|-------------|
+| `terraform plan` | ✅ Required | Show planned PPTP configuration changes |
+| `terraform apply` | ✅ Required | Create, update, or delete PPTP settings |
+| `terraform destroy` | ✅ Required | Disable PPTP and remove configuration |
+| `terraform import` | ✅ Required | Import existing PPTP configuration into state |
+| `terraform refresh` | ✅ Required | Sync state with actual PPTP configuration |
+| `terraform state` | ✅ Required | Support state inspection and manipulation |
+
+### Import Specification
+- **Import ID Format**: `pptp` (singleton resource)
+- **Import Command**: `terraform import rtx_pptp.vpn_server pptp`
+- **Post-Import**: All settings populated (passwords marked sensitive)
+
 ## Non-Functional Requirements
 
 ### 8. Validation
@@ -64,10 +94,11 @@ ppp ccp type mppe-any
 
 ## Example Usage
 ```hcl
+# PPTP VPN Server (Legacy - consider using L2TP/IPsec or IKEv2)
 resource "rtx_pptp" "vpn_server" {
-  enabled = true
+  shutdown = false
 
-  listen_address = "0.0.0.0"
+  listen_address  = "0.0.0.0"
   max_connections = 10
 
   authentication {

@@ -3,6 +3,20 @@
 ## Overview
 Terraform resource for managing static NAT (1:1 mapping) on Yamaha RTX routers.
 
+**Cisco Equivalent**: `iosxe_nat` (static inside source)
+
+## Cisco Compatibility
+
+This resource follows Cisco IOS XE Terraform provider naming conventions:
+
+| RTX Attribute | Cisco Equivalent | Notes |
+|---------------|------------------|-------|
+| `inside_local` | `inside_local_address` | Inside local IP address |
+| `outside_global` | `outside_global_address` | Outside global IP address |
+| `protocol` | `protocol` | TCP/UDP for port NAT |
+| `inside_local_port` | `inside_local_port` | Inside port number |
+| `outside_global_port` | `outside_global_port` | Outside port number |
+
 ## Functional Requirements
 
 ### 1. CRUD Operations
@@ -33,6 +47,24 @@ Terraform resource for managing static NAT (1:1 mapping) on Yamaha RTX routers.
 ### 6. Import Support
 - Import existing static NAT by descriptor ID
 
+## Terraform Command Support
+
+This resource must fully support all standard Terraform workflow commands:
+
+| Command | Support | Description |
+|---------|---------|-------------|
+| `terraform plan` | ✅ Required | Show planned static NAT changes |
+| `terraform apply` | ✅ Required | Create, update, or delete static NAT mappings |
+| `terraform destroy` | ✅ Required | Remove NAT descriptor configuration |
+| `terraform import` | ✅ Required | Import existing static NAT into Terraform state |
+| `terraform refresh` | ✅ Required | Sync state with actual router configuration |
+| `terraform state` | ✅ Required | Support state inspection and manipulation |
+
+### Import Specification
+- **Import ID Format**: `<descriptor_id>` (e.g., `10`)
+- **Import Command**: `terraform import rtx_nat_static.webserver 10`
+- **Post-Import**: All mappings must be populated from router state
+
 ## Non-Functional Requirements
 
 ### 7. Validation
@@ -50,24 +82,30 @@ ip <interface> nat descriptor <id>
 
 ## Example Usage
 ```hcl
+# Static 1:1 NAT - Cisco-compatible naming
 resource "rtx_nat_static" "webserver" {
-  descriptor_id = 10
+  id = 10
 
-  mapping {
-    outer_address = "203.0.113.10"
-    inner_address = "192.168.1.10"
-  }
+  static_entries = [
+    {
+      inside_local   = "192.168.1.10"
+      outside_global = "203.0.113.10"
+    }
+  ]
 }
 
+# Port-based static NAT
 resource "rtx_nat_static" "port_forward" {
-  descriptor_id = 11
+  id = 11
 
-  port_mapping {
-    protocol      = "tcp"
-    outer_address = "203.0.113.1"
-    outer_port    = 8080
-    inner_address = "192.168.1.20"
-    inner_port    = 80
-  }
+  static_entries = [
+    {
+      protocol           = "tcp"
+      inside_local       = "192.168.1.20"
+      inside_local_port  = 80
+      outside_global     = "203.0.113.1"
+      outside_global_port = 8080
+    }
+  ]
 }
 ```

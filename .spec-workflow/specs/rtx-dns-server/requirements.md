@@ -3,6 +3,19 @@
 ## Overview
 Terraform resource for managing DNS server configuration on Yamaha RTX routers.
 
+**Cisco Equivalent**: `iosxe_system` (DNS settings) / No direct equivalent for DNS server
+
+## Cisco Compatibility
+
+This resource follows general Cisco naming patterns where applicable:
+
+| RTX Attribute | Cisco Equivalent | Notes |
+|---------------|------------------|-------|
+| `name_servers` | `ip_name_server` | Upstream DNS servers list |
+| `domain_name` | `ip_domain_name` | Default domain name |
+| `domain_lookup` | `ip_domain_lookup` | Enable DNS lookup |
+| `hosts` | `ip_host` | Static host entries |
+
 ## Functional Requirements
 
 ### 1. CRUD Operations
@@ -39,6 +52,24 @@ Terraform resource for managing DNS server configuration on Yamaha RTX routers.
 ### 7. Import Support
 - Import existing DNS configuration
 
+## Terraform Command Support
+
+This resource must fully support all standard Terraform workflow commands:
+
+| Command | Support | Description |
+|---------|---------|-------------|
+| `terraform plan` | ✅ Required | Show planned DNS configuration changes |
+| `terraform apply` | ✅ Required | Create, update, or delete DNS server settings |
+| `terraform destroy` | ✅ Required | Remove DNS configuration and restore defaults |
+| `terraform import` | ✅ Required | Import existing DNS configuration into state |
+| `terraform refresh` | ✅ Required | Sync state with actual DNS configuration |
+| `terraform state` | ✅ Required | Support state inspection and manipulation |
+
+### Import Specification
+- **Import ID Format**: `dns` (singleton resource)
+- **Import Command**: `terraform import rtx_dns_server.main dns`
+- **Post-Import**: All DNS settings must be populated from router
+
 ## Non-Functional Requirements
 
 ### 8. Validation
@@ -58,19 +89,27 @@ dns service <switch>
 
 ## Example Usage
 ```hcl
-resource "rtx_dns_server" "main" {
-  enabled = true
+# DNS server configuration - Cisco-compatible naming
+resource "rtx_dns" "main" {
+  domain_lookup = true
+  domain_name   = "example.local"
 
-  upstream_servers = ["8.8.8.8", "8.8.4.4"]
+  name_servers = ["8.8.8.8", "8.8.4.4"]
 
-  domain_routing {
-    domain  = "internal.example.com"
-    servers = ["192.168.1.53"]
-  }
+  # Domain-specific DNS routing
+  server_select = [
+    {
+      domain  = "internal.example.com"
+      servers = ["192.168.1.53"]
+    }
+  ]
 
-  static_entry {
-    hostname = "router.local"
-    address  = "192.168.1.1"
-  }
+  # Static host entries
+  hosts = [
+    {
+      name    = "router.local"
+      address = "192.168.1.1"
+    }
+  ]
 }
 ```

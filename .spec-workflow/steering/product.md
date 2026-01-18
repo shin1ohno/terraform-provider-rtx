@@ -95,10 +95,84 @@ This provider implements comprehensive support for all Yamaha RTX router feature
 
 ## Product Principles
 
-1. **Follow RTX CLI Semantics**: Mirror RTX router terminology and command patterns for familiarity
-2. **Fail Safely**: Validate configurations before applying; provide clear error messages
-3. **Leverage Existing Patterns**: Reuse established Terraform provider conventions and Go SSH infrastructure
-4. **Minimal Scope**: Only implement features that provide clear value for IaC management
+1. **Cisco-Compatible Syntax**: Align resource and attribute naming with Cisco IOS XE Terraform provider (`CiscoDevNet/iosxe`) conventions wherever possible. This enables network administrators to manage both Cisco and RTX devices with minimal learning curve and consistent Terraform configurations.
+2. **Follow RTX CLI Semantics**: Where Cisco conventions don't apply, mirror RTX router terminology for familiarity
+3. **Fail Safely**: Validate configurations before applying; provide clear error messages
+4. **Leverage Existing Patterns**: Reuse established Terraform provider conventions and Go SSH infrastructure
+5. **Minimal Scope**: Only implement features that provide clear value for IaC management
+
+## API Design Philosophy: Cisco Compatibility
+
+To maximize interoperability and reduce cognitive load for network engineers, this provider follows Cisco IOS XE Terraform provider naming conventions:
+
+### Resource Naming
+| RTX Resource | Cisco Equivalent | Pattern |
+|--------------|------------------|---------|
+| `rtx_static_route` | `iosxe_static_route` | `<provider>_static_route` |
+| `rtx_ospf` | `iosxe_ospf` | `<provider>_ospf` |
+| `rtx_bgp` | `iosxe_bgp` | `<provider>_bgp` |
+| `rtx_vlan` | `iosxe_vlan` | `<provider>_vlan` |
+| `rtx_nat` | `iosxe_nat` | `<provider>_nat` |
+| `rtx_access_list` | `iosxe_access_list_extended` | `<provider>_access_list*` |
+| `rtx_interface` | `iosxe_interface_ethernet` | `<provider>_interface*` |
+
+### Attribute Naming Conventions
+| Attribute | Example | Notes |
+|-----------|---------|-------|
+| `process_id` | OSPF process ID | Not just `id` |
+| `router_id` | OSPF/BGP router ID | Dotted decimal format |
+| `asn` | BGP AS number | String for 4-byte ASN support |
+| `vlan_id` | VLAN identifier | Integer 1-4094 |
+| `prefix` / `mask` | Route destination | Separate prefix and mask |
+| `next_hops` | Route next hops | List of objects |
+| `networks` | OSPF/BGP networks | List of network objects |
+| `neighbors` | Routing neighbors | List of neighbor objects |
+| `entries` | ACL/filter rules | List of rule entries |
+| `shutdown` | Admin state | Boolean, true = disabled |
+
+### Nested Block Patterns
+```hcl
+# Cisco-style nested blocks for RTX
+resource "rtx_ospf" "backbone" {
+  process_id = 1
+  router_id  = "1.1.1.1"
+
+  networks = [
+    {
+      ip       = "10.0.0.0"
+      wildcard = "0.0.0.255"
+      area     = "0"
+    }
+  ]
+
+  neighbors = [
+    {
+      ip       = "2.2.2.2"
+      priority = 10
+      cost     = 100
+    }
+  ]
+}
+
+resource "rtx_static_route" "default" {
+  prefix = "0.0.0.0"
+  mask   = "0.0.0.0"
+
+  next_hops = [
+    {
+      next_hop = "192.168.1.1"
+      distance = 10
+      name     = "primary_gateway"
+    }
+  ]
+}
+```
+
+### Benefits of Cisco Compatibility
+- **Unified Workflow**: Manage Cisco and RTX devices with similar Terraform configurations
+- **Transferable Knowledge**: Skills learned on one provider apply to the other
+- **Copy-Paste Friendly**: Easier migration of configurations between vendors
+- **Reduced Errors**: Consistent naming reduces configuration mistakes
 
 ## Monitoring & Visibility
 

@@ -3,6 +3,21 @@
 ## Overview
 Terraform resource for managing OSPF (Open Shortest Path First) routing configuration on Yamaha RTX routers.
 
+**Cisco Equivalent**: `iosxe_ospf`
+
+## Cisco Compatibility
+
+This resource follows Cisco IOS XE Terraform provider naming conventions:
+
+| RTX Attribute | Cisco Equivalent | Notes |
+|---------------|------------------|-------|
+| `process_id` | `process_id` | OSPF process identifier |
+| `router_id` | `router_id` | Router ID (dotted decimal) |
+| `networks` | `networks` | List of network/area mappings |
+| `neighbors` | `neighbors` | Static neighbor list |
+| `distance` | `distance` | Administrative distance |
+| `default_information_originate` | `default_information_originate` | Advertise default route |
+
 ## Functional Requirements
 
 ### 1. CRUD Operations
@@ -43,6 +58,24 @@ Terraform resource for managing OSPF (Open Shortest Path First) routing configur
 ### 7. Import Support
 - Import existing OSPF configuration
 
+## Terraform Command Support
+
+This resource must fully support all standard Terraform workflow commands:
+
+| Command | Support | Description |
+|---------|---------|-------------|
+| `terraform plan` | ✅ Required | Show planned OSPF configuration changes |
+| `terraform apply` | ✅ Required | Create, update, or delete OSPF settings |
+| `terraform destroy` | ✅ Required | Disable OSPF and remove all area/network configs |
+| `terraform import` | ✅ Required | Import existing OSPF configuration into state |
+| `terraform refresh` | ✅ Required | Sync state with actual OSPF configuration |
+| `terraform state` | ✅ Required | Support state inspection and manipulation |
+
+### Import Specification
+- **Import ID Format**: `ospf` (singleton resource)
+- **Import Command**: `terraform import rtx_ospf.main ospf`
+- **Post-Import**: All areas, networks, and redistribution settings populated
+
 ## Non-Functional Requirements
 
 ### 8. Validation
@@ -68,35 +101,48 @@ ip <interface> ospf priority <priority>
 
 ## Example Usage
 ```hcl
-resource "rtx_ospf" "main" {
-  enabled   = true
-  router_id = "1.1.1.1"
+# OSPF configuration - Cisco-compatible naming
+resource "rtx_ospf" "backbone" {
+  process_id = 1
+  router_id  = "1.1.1.1"
+  distance   = 110
 
-  area {
-    id   = "0.0.0.0"
-    type = "normal"
-  }
+  default_information_originate = true
 
-  area {
-    id   = "0.0.0.1"
-    type = "stub"
-    no_summary = false
-  }
+  networks = [
+    {
+      ip       = "192.168.1.0"
+      wildcard = "0.0.0.255"
+      area     = "0"
+    },
+    {
+      ip       = "10.0.0.0"
+      wildcard = "0.0.0.255"
+      area     = "1"
+    }
+  ]
 
-  network {
-    prefix = "192.168.1.0/24"
-    area   = "0.0.0.0"
-  }
+  neighbors = [
+    {
+      ip       = "192.168.1.2"
+      priority = 10
+      cost     = 100
+    }
+  ]
 
-  network {
-    prefix = "10.0.0.0/24"
-    area   = "0.0.0.1"
-  }
+  # RTX-specific: area type configuration
+  areas = [
+    {
+      id   = "0"
+      type = "normal"
+    },
+    {
+      id         = "1"
+      type       = "stub"
+      no_summary = false
+    }
+  ]
 
-  redistribute {
-    protocol = "static"
-    metric   = 100
-    metric_type = 2
-  }
+  redistribute_static = true
 }
 ```

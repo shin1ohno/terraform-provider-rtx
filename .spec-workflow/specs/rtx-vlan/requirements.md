@@ -3,6 +3,19 @@
 ## Overview
 Terraform resource for managing VLAN configuration on Yamaha RTX routers.
 
+**Cisco Equivalent**: `iosxe_vlan`
+
+## Cisco Compatibility
+
+This resource follows Cisco IOS XE Terraform provider naming conventions:
+
+| RTX Attribute | Cisco Equivalent | Notes |
+|---------------|------------------|-------|
+| `vlan_id` | `vlan_id` | VLAN identifier (1-4094) |
+| `name` | `name` | VLAN name/description |
+| `shutdown` | `shutdown` | Admin state (true = disabled) |
+| `interface` | - | Parent interface (RTX-specific) |
+
 ## Functional Requirements
 
 ### 1. CRUD Operations
@@ -33,6 +46,24 @@ Terraform resource for managing VLAN configuration on Yamaha RTX routers.
 ### 6. Import Support
 - Import existing VLAN by ID
 
+## Terraform Command Support
+
+This resource must fully support all standard Terraform workflow commands:
+
+| Command | Support | Description |
+|---------|---------|-------------|
+| `terraform plan` | ✅ Required | Show planned VLAN configuration changes |
+| `terraform apply` | ✅ Required | Create, update, or delete VLAN interfaces |
+| `terraform destroy` | ✅ Required | Remove VLAN configuration from router |
+| `terraform import` | ✅ Required | Import existing VLANs into Terraform state |
+| `terraform refresh` | ✅ Required | Sync state with actual VLAN configuration |
+| `terraform state` | ✅ Required | Support state inspection and manipulation |
+
+### Import Specification
+- **Import ID Format**: `<interface>/<vlan_id>` (e.g., `lan1/10`)
+- **Import Command**: `terraform import rtx_vlan.management lan1/10`
+- **Post-Import**: IP address and all VLAN settings must be populated
+
 ## Non-Functional Requirements
 
 ### 7. Validation
@@ -52,19 +83,27 @@ vlan port mapping <interface> <vlan_list>
 
 ## Example Usage
 ```hcl
+# VLAN definition - Cisco-compatible naming
 resource "rtx_vlan" "management" {
-  interface = "lan1"
   vlan_id   = 10
-  vid       = 10
+  name      = "Management"
+  shutdown  = false
 
-  ip_address = "192.168.10.1/24"
+  # RTX-specific: parent interface
+  interface = "lan1"
+
+  ip_address = "192.168.10.1"
+  ip_mask    = "255.255.255.0"
 }
 
 resource "rtx_vlan" "users" {
-  interface = "lan1"
   vlan_id   = 20
-  vid       = 20
+  name      = "Users"
+  shutdown  = false
 
-  ip_address = "192.168.20.1/24"
+  interface = "lan1"
+
+  ip_address = "192.168.20.1"
+  ip_mask    = "255.255.255.0"
 }
 ```

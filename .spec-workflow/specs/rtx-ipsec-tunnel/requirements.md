@@ -3,6 +3,21 @@
 ## Overview
 Terraform resource for managing IPsec VPN tunnels on Yamaha RTX routers.
 
+**Cisco Equivalent**: `iosxe_crypto_ikev2_proposal`, `iosxe_crypto_ipsec_profile`, `iosxe_interface_tunnel`
+
+## Cisco Compatibility
+
+This resource follows Cisco IOS XE Terraform provider naming conventions:
+
+| RTX Attribute | Cisco Equivalent | Notes |
+|---------------|------------------|-------|
+| `name` | `name` | Tunnel/proposal name |
+| `encryption_aes_cbc_256` | `encryption_aes_cbc_256` | AES-256 encryption |
+| `integrity_sha256` | `integrity_sha256` | SHA-256 integrity |
+| `group_fourteen` | `group_fourteen` | DH Group 14 (2048-bit) |
+| `group_sixteen` | `group_sixteen` | DH Group 16 (4096-bit) |
+| `lifetime` | `lifetime_seconds` | SA lifetime |
+
 ## Functional Requirements
 
 ### 1. CRUD Operations
@@ -46,6 +61,24 @@ Terraform resource for managing IPsec VPN tunnels on Yamaha RTX routers.
 ### 7. Import Support
 - Import existing tunnel by ID
 
+## Terraform Command Support
+
+This resource must fully support all standard Terraform workflow commands:
+
+| Command | Support | Description |
+|---------|---------|-------------|
+| `terraform plan` | ✅ Required | Show planned IPsec tunnel changes |
+| `terraform apply` | ✅ Required | Create, update, or delete IPsec tunnels |
+| `terraform destroy` | ✅ Required | Remove tunnel and clear SAs |
+| `terraform import` | ✅ Required | Import existing tunnels into Terraform state |
+| `terraform refresh` | ✅ Required | Sync state with actual tunnel configuration |
+| `terraform state` | ✅ Required | Support state inspection and manipulation |
+
+### Import Specification
+- **Import ID Format**: `<tunnel_id>` (e.g., `1`)
+- **Import Command**: `terraform import rtx_ipsec_tunnel.site_to_site 1`
+- **Post-Import**: All Phase1/Phase2 settings must be populated (PSK marked sensitive)
+
 ## Non-Functional Requirements
 
 ### 8. Validation
@@ -71,27 +104,40 @@ ipsec ike keepalive use <n> on dpd
 
 ## Example Usage
 ```hcl
+# IPsec IKEv2 Proposal - Cisco-compatible naming
+resource "rtx_crypto_ikev2_proposal" "aes256_sha256" {
+  name = "PROPOSAL_AES256"
+
+  encryption_aes_cbc_256 = true
+  integrity_sha256       = true
+  group_fourteen         = true  # DH Group 14
+}
+
+# IPsec Tunnel - combined configuration for RTX
 resource "rtx_ipsec_tunnel" "site_to_site" {
-  tunnel_id = 1
+  id   = 1
+  name = "site-to-site-vpn"
 
   local_address  = "203.0.113.1"
   remote_address = "198.51.100.1"
 
   pre_shared_key = var.ipsec_psk
 
-  phase1 {
-    encryption = "aes256-cbc"
-    hash       = "sha256"
-    dh_group   = 14
-    lifetime   = 28800
+  # IKE Phase 1 (IKEv2)
+  ikev2_proposal {
+    encryption_aes_cbc_256 = true
+    integrity_sha256       = true
+    group_fourteen         = true
+    lifetime_seconds       = 28800
   }
 
-  phase2 {
-    protocol   = "esp"
-    encryption = "aes256-cbc"
-    auth       = "sha256-hmac"
-    pfs_group  = 14
-    lifetime   = 3600
+  # IPsec Phase 2
+  ipsec_transform {
+    protocol               = "esp"
+    encryption_aes_cbc_256 = true
+    integrity_sha256_hmac  = true
+    pfs_group_fourteen     = true
+    lifetime_seconds       = 3600
   }
 
   local_network  = "192.168.1.0/24"
