@@ -17,12 +17,13 @@ type rtxClient struct {
 	promptDetector PromptDetector
 	parsers        map[string]Parser
 	retryStrategy  RetryStrategy
-	
-	mu          sync.Mutex
-	session     Session
-	executor    Executor
-	active      bool
-	dhcpService *DHCPService
+
+	mu               sync.Mutex
+	session          Session
+	executor         Executor
+	active           bool
+	dhcpService      *DHCPService
+	dhcpScopeService *DHCPScopeService
 }
 
 // NewClient creates a new RTX client instance
@@ -112,6 +113,7 @@ func (c *rtxClient) Dial(ctx context.Context) error {
 	addr := fmt.Sprintf("%s:%d", c.config.Host, c.config.Port)
 	c.executor = NewSimpleExecutor(sshConfig, addr, c.promptDetector, c.config)
 	c.dhcpService = NewDHCPService(c.executor, c)
+	c.dhcpScopeService = NewDHCPScopeService(c.executor, c)
 	c.active = true
 	return nil
 }
@@ -125,12 +127,16 @@ func (c *rtxClient) Close() error {
 		return nil
 	}
 	
-	err := c.session.Close()
+	var err error
+	if c.session != nil {
+		err = c.session.Close()
+	}
 	c.active = false
 	c.session = nil
 	c.executor = nil
 	c.dhcpService = nil
-	
+	c.dhcpScopeService = nil
+
 	if err != nil {
 		return fmt.Errorf("failed to close session: %w", err)
 	}
@@ -339,6 +345,91 @@ func (c *rtxClient) DeleteDHCPBinding(ctx context.Context, scopeID int, ipAddres
 	}
 	
 	return dhcpService.DeleteBinding(ctx, scopeID, ipAddress)
+}
+
+// GetDHCPScope retrieves a DHCP scope configuration
+func (c *rtxClient) GetDHCPScope(ctx context.Context, scopeID int) (*DHCPScope, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	dhcpScopeService := c.dhcpScopeService
+	c.mu.Unlock()
+
+	if dhcpScopeService == nil {
+		return nil, fmt.Errorf("DHCP scope service not initialized")
+	}
+
+	return dhcpScopeService.GetScope(ctx, scopeID)
+}
+
+// CreateDHCPScope creates a new DHCP scope
+func (c *rtxClient) CreateDHCPScope(ctx context.Context, scope DHCPScope) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	dhcpScopeService := c.dhcpScopeService
+	c.mu.Unlock()
+
+	if dhcpScopeService == nil {
+		return fmt.Errorf("DHCP scope service not initialized")
+	}
+
+	return dhcpScopeService.CreateScope(ctx, scope)
+}
+
+// UpdateDHCPScope updates an existing DHCP scope
+func (c *rtxClient) UpdateDHCPScope(ctx context.Context, scope DHCPScope) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	dhcpScopeService := c.dhcpScopeService
+	c.mu.Unlock()
+
+	if dhcpScopeService == nil {
+		return fmt.Errorf("DHCP scope service not initialized")
+	}
+
+	return dhcpScopeService.UpdateScope(ctx, scope)
+}
+
+// DeleteDHCPScope removes a DHCP scope
+func (c *rtxClient) DeleteDHCPScope(ctx context.Context, scopeID int) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	dhcpScopeService := c.dhcpScopeService
+	c.mu.Unlock()
+
+	if dhcpScopeService == nil {
+		return fmt.Errorf("DHCP scope service not initialized")
+	}
+
+	return dhcpScopeService.DeleteScope(ctx, scopeID)
+}
+
+// ListDHCPScopes retrieves all DHCP scopes
+func (c *rtxClient) ListDHCPScopes(ctx context.Context) ([]DHCPScope, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	dhcpScopeService := c.dhcpScopeService
+	c.mu.Unlock()
+
+	if dhcpScopeService == nil {
+		return nil, fmt.Errorf("DHCP scope service not initialized")
+	}
+
+	return dhcpScopeService.ListScopes(ctx)
 }
 
 // SaveConfig saves the current configuration to persistent memory

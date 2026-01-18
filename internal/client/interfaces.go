@@ -33,7 +33,22 @@ type Client interface {
 	
 	// DeleteDHCPBinding removes a DHCP binding
 	DeleteDHCPBinding(ctx context.Context, scopeID int, ipAddress string) error
-	
+
+	// GetDHCPScope retrieves a DHCP scope configuration
+	GetDHCPScope(ctx context.Context, scopeID int) (*DHCPScope, error)
+
+	// CreateDHCPScope creates a new DHCP scope
+	CreateDHCPScope(ctx context.Context, scope DHCPScope) error
+
+	// UpdateDHCPScope updates an existing DHCP scope
+	UpdateDHCPScope(ctx context.Context, scope DHCPScope) error
+
+	// DeleteDHCPScope removes a DHCP scope
+	DeleteDHCPScope(ctx context.Context, scopeID int) error
+
+	// ListDHCPScopes retrieves all DHCP scopes
+	ListDHCPScopes(ctx context.Context) ([]DHCPScope, error)
+
 	// SaveConfig saves the current configuration to persistent memory
 	SaveConfig(ctx context.Context) error
 }
@@ -68,6 +83,22 @@ type DHCPBinding struct {
 	MACAddress          string `json:"mac_address"`
 	ClientIdentifier    string `json:"client_identifier,omitempty"`
 	UseClientIdentifier bool   `json:"use_client_identifier"`
+}
+
+// DHCPScope represents a DHCP scope configuration on an RTX router
+type DHCPScope struct {
+	ScopeID       int            `json:"scope_id"`
+	Network       string         `json:"network"`                  // CIDR notation: "192.168.1.0/24"
+	Gateway       string         `json:"gateway,omitempty"`        // Default gateway
+	DNSServers    []string       `json:"dns_servers,omitempty"`    // Up to 3 DNS servers
+	LeaseTime     string         `json:"lease_time,omitempty"`     // Go duration format or "infinite"
+	ExcludeRanges []ExcludeRange `json:"exclude_ranges,omitempty"` // Excluded IP ranges
+}
+
+// ExcludeRange represents an IP range excluded from DHCP allocation
+type ExcludeRange struct {
+	Start string `json:"start"` // Start IP address
+	End   string `json:"end"`   // End IP address
 }
 
 // Command represents a command to be executed on the router
