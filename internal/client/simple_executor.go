@@ -74,28 +74,13 @@ func (e *simpleExecutor) Run(ctx context.Context, cmd string) ([]byte, error) {
 	return output, nil
 }
 
-// requiresAdminPrivileges checks if a command requires administrator privileges
+// requiresAdminPrivileges checks if a command requires administrator privileges.
+// If admin password is configured, always use administrator mode since RTX routers
+// provide more complete information (e.g., show config) in administrator mode.
 func (e *simpleExecutor) requiresAdminPrivileges(cmd string) bool {
-	adminCommands := []string{
-		"dhcp scope bind",
-		"dhcp scope unbind", 
-		"no dhcp scope bind",
-		"show config",
-		"show dhcp scope bind",
-		// NOTE: "show environment" typically does NOT require admin privileges
-		// Temporarily removing it to test if this was the cause of the hang
-		// "show environment",
-		"ip host",
-		"no ip host",
-		"ip route",
-		"no ip route",
-	}
-	
-	cmdLower := strings.ToLower(strings.TrimSpace(cmd))
-	for _, adminCmd := range adminCommands {
-		if strings.Contains(cmdLower, adminCmd) {
-			return true
-		}
+	// If admin password is configured, always use administrator mode
+	if e.rtxConfig != nil && e.rtxConfig.AdminPassword != "" {
+		return true
 	}
 	return false
 }
