@@ -106,6 +106,789 @@ func (m *MockClient) ListDHCPScopes(ctx context.Context) ([]client.DHCPScope, er
 	return args.Get(0).([]client.DHCPScope), args.Error(1)
 }
 
+func (m *MockClient) GetInterfaceConfig(ctx context.Context, interfaceName string) (*client.InterfaceConfig, error) {
+	args := m.Called(ctx, interfaceName)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*client.InterfaceConfig), args.Error(1)
+}
+
+func (m *MockClient) ConfigureInterface(ctx context.Context, config client.InterfaceConfig) error {
+	args := m.Called(ctx, config)
+	return args.Error(0)
+}
+
+func (m *MockClient) UpdateInterfaceConfig(ctx context.Context, config client.InterfaceConfig) error {
+	args := m.Called(ctx, config)
+	return args.Error(0)
+}
+
+func (m *MockClient) ResetInterface(ctx context.Context, interfaceName string) error {
+	args := m.Called(ctx, interfaceName)
+	return args.Error(0)
+}
+
+func (m *MockClient) ListInterfaceConfigs(ctx context.Context) ([]client.InterfaceConfig, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]client.InterfaceConfig), args.Error(1)
+}
+
+func (m *MockClient) GetIPv6Prefix(ctx context.Context, prefixID int) (*client.IPv6Prefix, error) {
+	args := m.Called(ctx, prefixID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*client.IPv6Prefix), args.Error(1)
+}
+
+func (m *MockClient) CreateIPv6Prefix(ctx context.Context, prefix client.IPv6Prefix) error {
+	args := m.Called(ctx, prefix)
+	return args.Error(0)
+}
+
+func (m *MockClient) UpdateIPv6Prefix(ctx context.Context, prefix client.IPv6Prefix) error {
+	args := m.Called(ctx, prefix)
+	return args.Error(0)
+}
+
+func (m *MockClient) DeleteIPv6Prefix(ctx context.Context, prefixID int) error {
+	args := m.Called(ctx, prefixID)
+	return args.Error(0)
+}
+
+func (m *MockClient) ListIPv6Prefixes(ctx context.Context) ([]client.IPv6Prefix, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]client.IPv6Prefix), args.Error(1)
+}
+
+func (m *MockClient) GetVLAN(ctx context.Context, iface string, vlanID int) (*client.VLAN, error) {
+	args := m.Called(ctx, iface, vlanID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*client.VLAN), args.Error(1)
+}
+
+func (m *MockClient) CreateVLAN(ctx context.Context, vlan client.VLAN) error {
+	args := m.Called(ctx, vlan)
+	return args.Error(0)
+}
+
+func (m *MockClient) UpdateVLAN(ctx context.Context, vlan client.VLAN) error {
+	args := m.Called(ctx, vlan)
+	return args.Error(0)
+}
+
+func (m *MockClient) DeleteVLAN(ctx context.Context, iface string, vlanID int) error {
+	args := m.Called(ctx, iface, vlanID)
+	return args.Error(0)
+}
+
+func (m *MockClient) ListVLANs(ctx context.Context) ([]client.VLAN, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]client.VLAN), args.Error(1)
+}
+
+func (m *MockClient) GetSystemConfig(ctx context.Context) (*client.SystemConfig, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*client.SystemConfig), args.Error(1)
+}
+
+func (m *MockClient) ConfigureSystem(ctx context.Context, config client.SystemConfig) error {
+	args := m.Called(ctx, config)
+	return args.Error(0)
+}
+
+func (m *MockClient) UpdateSystemConfig(ctx context.Context, config client.SystemConfig) error {
+	args := m.Called(ctx, config)
+	return args.Error(0)
+}
+
+func (m *MockClient) ResetSystem(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+
+func (m *MockClient) GetStaticRoute(ctx context.Context, prefix, mask string) (*client.StaticRoute, error) {
+	args := m.Called(ctx, prefix, mask)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*client.StaticRoute), args.Error(1)
+}
+
+func (m *MockClient) CreateStaticRoute(ctx context.Context, route client.StaticRoute) error {
+	args := m.Called(ctx, route)
+	return args.Error(0)
+}
+
+func (m *MockClient) UpdateStaticRoute(ctx context.Context, route client.StaticRoute) error {
+	args := m.Called(ctx, route)
+	return args.Error(0)
+}
+
+func (m *MockClient) DeleteStaticRoute(ctx context.Context, prefix, mask string) error {
+	args := m.Called(ctx, prefix, mask)
+	return args.Error(0)
+}
+
+func (m *MockClient) ListStaticRoutes(ctx context.Context) ([]client.StaticRoute, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]client.StaticRoute), args.Error(1)
+}
+
+// NAT Masquerade methods
+func (m *MockClient) GetNATMasquerade(ctx context.Context, descriptorID int) (*client.NATMasquerade, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) CreateNATMasquerade(ctx context.Context, nat client.NATMasquerade) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) UpdateNATMasquerade(ctx context.Context, nat client.NATMasquerade) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) DeleteNATMasquerade(ctx context.Context, descriptorID int) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) ListNATMasquerades(ctx context.Context) ([]client.NATMasquerade, error) {
+	panic("not implemented")
+}
+
+// NAT Static methods
+func (m *MockClient) GetNATStatic(ctx context.Context, descriptorID int) (*client.NATStatic, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) CreateNATStatic(ctx context.Context, nat client.NATStatic) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) UpdateNATStatic(ctx context.Context, nat client.NATStatic) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) DeleteNATStatic(ctx context.Context, descriptorID int) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) ListNATStatics(ctx context.Context) ([]client.NATStatic, error) {
+	panic("not implemented")
+}
+
+// IP Filter methods
+func (m *MockClient) GetIPFilter(ctx context.Context, number int) (*client.IPFilter, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) CreateIPFilter(ctx context.Context, filter client.IPFilter) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) UpdateIPFilter(ctx context.Context, filter client.IPFilter) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) DeleteIPFilter(ctx context.Context, number int) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) ListIPFilters(ctx context.Context) ([]client.IPFilter, error) {
+	panic("not implemented")
+}
+
+// IP Filter Dynamic methods
+func (m *MockClient) GetIPFilterDynamic(ctx context.Context, number int) (*client.IPFilterDynamic, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) CreateIPFilterDynamic(ctx context.Context, filter client.IPFilterDynamic) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) DeleteIPFilterDynamic(ctx context.Context, number int) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) ListIPFiltersDynamic(ctx context.Context) ([]client.IPFilterDynamic, error) {
+	panic("not implemented")
+}
+
+// Ethernet Filter methods
+func (m *MockClient) GetEthernetFilter(ctx context.Context, number int) (*client.EthernetFilter, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) CreateEthernetFilter(ctx context.Context, filter client.EthernetFilter) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) UpdateEthernetFilter(ctx context.Context, filter client.EthernetFilter) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) DeleteEthernetFilter(ctx context.Context, number int) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) ListEthernetFilters(ctx context.Context) ([]client.EthernetFilter, error) {
+	panic("not implemented")
+}
+
+// BGP methods
+func (m *MockClient) GetBGPConfig(ctx context.Context) (*client.BGPConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) ConfigureBGP(ctx context.Context, config client.BGPConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) UpdateBGPConfig(ctx context.Context, config client.BGPConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) ResetBGP(ctx context.Context) error {
+	panic("not implemented")
+}
+
+// OSPF methods
+func (m *MockClient) GetOSPF(ctx context.Context) (*client.OSPFConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) CreateOSPF(ctx context.Context, config client.OSPFConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) UpdateOSPF(ctx context.Context, config client.OSPFConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) DeleteOSPF(ctx context.Context) error {
+	panic("not implemented")
+}
+
+// IPsec Tunnel methods
+func (m *MockClient) GetIPsecTunnel(ctx context.Context, tunnelID int) (*client.IPsecTunnel, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) CreateIPsecTunnel(ctx context.Context, tunnel client.IPsecTunnel) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) UpdateIPsecTunnel(ctx context.Context, tunnel client.IPsecTunnel) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) DeleteIPsecTunnel(ctx context.Context, tunnelID int) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) ListIPsecTunnels(ctx context.Context) ([]client.IPsecTunnel, error) {
+	panic("not implemented")
+}
+
+// L2TP methods
+func (m *MockClient) GetL2TP(ctx context.Context, tunnelID int) (*client.L2TPConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) CreateL2TP(ctx context.Context, config client.L2TPConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) UpdateL2TP(ctx context.Context, config client.L2TPConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) DeleteL2TP(ctx context.Context, tunnelID int) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) ListL2TPs(ctx context.Context) ([]client.L2TPConfig, error) {
+	panic("not implemented")
+}
+
+// PPTP methods
+func (m *MockClient) GetPPTP(ctx context.Context) (*client.PPTPConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) CreatePPTP(ctx context.Context, config client.PPTPConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) UpdatePPTP(ctx context.Context, config client.PPTPConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) DeletePPTP(ctx context.Context) error {
+	panic("not implemented")
+}
+
+// Syslog methods
+func (m *MockClient) GetSyslogConfig(ctx context.Context) (*client.SyslogConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) ConfigureSyslog(ctx context.Context, config client.SyslogConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) UpdateSyslogConfig(ctx context.Context, config client.SyslogConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) ResetSyslog(ctx context.Context) error {
+	panic("not implemented")
+}
+
+// QoS Class Map methods
+func (m *MockClient) GetClassMap(ctx context.Context, name string) (*client.ClassMap, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) CreateClassMap(ctx context.Context, cm client.ClassMap) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) UpdateClassMap(ctx context.Context, cm client.ClassMap) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) DeleteClassMap(ctx context.Context, name string) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) ListClassMaps(ctx context.Context) ([]client.ClassMap, error) {
+	panic("not implemented")
+}
+
+// QoS Policy Map methods
+func (m *MockClient) GetPolicyMap(ctx context.Context, name string) (*client.PolicyMap, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) CreatePolicyMap(ctx context.Context, pm client.PolicyMap) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) UpdatePolicyMap(ctx context.Context, pm client.PolicyMap) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) DeletePolicyMap(ctx context.Context, name string) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) ListPolicyMaps(ctx context.Context) ([]client.PolicyMap, error) {
+	panic("not implemented")
+}
+
+// QoS Service Policy methods
+func (m *MockClient) GetServicePolicy(ctx context.Context, iface string, direction string) (*client.ServicePolicy, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) CreateServicePolicy(ctx context.Context, sp client.ServicePolicy) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) UpdateServicePolicy(ctx context.Context, sp client.ServicePolicy) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) DeleteServicePolicy(ctx context.Context, iface string, direction string) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) ListServicePolicies(ctx context.Context) ([]client.ServicePolicy, error) {
+	panic("not implemented")
+}
+
+// QoS Shape methods
+func (m *MockClient) GetShape(ctx context.Context, iface string, direction string) (*client.ShapeConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) CreateShape(ctx context.Context, sc client.ShapeConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) UpdateShape(ctx context.Context, sc client.ShapeConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) DeleteShape(ctx context.Context, iface string, direction string) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) ListShapes(ctx context.Context) ([]client.ShapeConfig, error) {
+	panic("not implemented")
+}
+
+// SNMP methods
+func (m *MockClient) GetSNMP(ctx context.Context) (*client.SNMPConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) CreateSNMP(ctx context.Context, config client.SNMPConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) UpdateSNMP(ctx context.Context, config client.SNMPConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) DeleteSNMP(ctx context.Context) error {
+	panic("not implemented")
+}
+
+// Schedule methods
+func (m *MockClient) GetSchedule(ctx context.Context, id int) (*client.Schedule, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) CreateSchedule(ctx context.Context, schedule client.Schedule) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) UpdateSchedule(ctx context.Context, schedule client.Schedule) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) DeleteSchedule(ctx context.Context, id int) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) ListSchedules(ctx context.Context) ([]client.Schedule, error) {
+	panic("not implemented")
+}
+
+// Kron Policy methods
+func (m *MockClient) GetKronPolicy(ctx context.Context, name string) (*client.KronPolicy, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) CreateKronPolicy(ctx context.Context, policy client.KronPolicy) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) UpdateKronPolicy(ctx context.Context, policy client.KronPolicy) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) DeleteKronPolicy(ctx context.Context, name string) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) ListKronPolicies(ctx context.Context) ([]client.KronPolicy, error) {
+	panic("not implemented")
+}
+
+// DNS methods
+func (m *MockClient) GetDNS(ctx context.Context) (*client.DNSConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) ConfigureDNS(ctx context.Context, config client.DNSConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) UpdateDNS(ctx context.Context, config client.DNSConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) ResetDNS(ctx context.Context) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) GetAdminConfig(ctx context.Context) (*client.AdminConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) ConfigureAdmin(ctx context.Context, config client.AdminConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) UpdateAdminConfig(ctx context.Context, config client.AdminConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) ResetAdmin(ctx context.Context) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) GetAdminUser(ctx context.Context, username string) (*client.AdminUser, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) CreateAdminUser(ctx context.Context, user client.AdminUser) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) UpdateAdminUser(ctx context.Context, user client.AdminUser) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) DeleteAdminUser(ctx context.Context, username string) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) ListAdminUsers(ctx context.Context) ([]client.AdminUser, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) GetHTTPD(ctx context.Context) (*client.HTTPDConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) ConfigureHTTPD(ctx context.Context, config client.HTTPDConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) UpdateHTTPD(ctx context.Context, config client.HTTPDConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) ResetHTTPD(ctx context.Context) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) GetSSHD(ctx context.Context) (*client.SSHDConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) ConfigureSSHD(ctx context.Context, config client.SSHDConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) UpdateSSHD(ctx context.Context, config client.SSHDConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) ResetSSHD(ctx context.Context) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) GetSFTPD(ctx context.Context) (*client.SFTPDConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) ConfigureSFTPD(ctx context.Context, config client.SFTPDConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) UpdateSFTPD(ctx context.Context, config client.SFTPDConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) ResetSFTPD(ctx context.Context) error {
+	panic("not implemented")
+}
+
+// Bridge methods
+func (m *MockClient) GetBridge(ctx context.Context, name string) (*client.BridgeConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) CreateBridge(ctx context.Context, bridge client.BridgeConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) UpdateBridge(ctx context.Context, bridge client.BridgeConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) DeleteBridge(ctx context.Context, name string) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) ListBridges(ctx context.Context) ([]client.BridgeConfig, error) {
+	panic("not implemented")
+}
+
+// IPv6 Interface methods
+func (m *MockClient) GetIPv6InterfaceConfig(ctx context.Context, interfaceName string) (*client.IPv6InterfaceConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) ConfigureIPv6Interface(ctx context.Context, config client.IPv6InterfaceConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) UpdateIPv6InterfaceConfig(ctx context.Context, config client.IPv6InterfaceConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) ResetIPv6Interface(ctx context.Context, interfaceName string) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) ListIPv6InterfaceConfigs(ctx context.Context) ([]client.IPv6InterfaceConfig, error) {
+	panic("not implemented")
+}
+
+// Access List Extended (IPv4)
+func (m *MockClient) GetAccessListExtended(ctx context.Context, name string) (*client.AccessListExtended, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) CreateAccessListExtended(ctx context.Context, acl client.AccessListExtended) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) UpdateAccessListExtended(ctx context.Context, acl client.AccessListExtended) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) DeleteAccessListExtended(ctx context.Context, name string) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) ListAccessListsExtended(ctx context.Context) ([]client.AccessListExtended, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+// Access List Extended (IPv6)
+func (m *MockClient) GetAccessListExtendedIPv6(ctx context.Context, name string) (*client.AccessListExtendedIPv6, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) CreateAccessListExtendedIPv6(ctx context.Context, acl client.AccessListExtendedIPv6) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) UpdateAccessListExtendedIPv6(ctx context.Context, acl client.AccessListExtendedIPv6) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) DeleteAccessListExtendedIPv6(ctx context.Context, name string) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) ListAccessListsExtendedIPv6(ctx context.Context) ([]client.AccessListExtendedIPv6, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+// IP Filter Dynamic Config
+func (m *MockClient) GetIPFilterDynamicConfig(ctx context.Context) (*client.IPFilterDynamicConfig, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) CreateIPFilterDynamicConfig(ctx context.Context, config client.IPFilterDynamicConfig) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) UpdateIPFilterDynamicConfig(ctx context.Context, config client.IPFilterDynamicConfig) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) DeleteIPFilterDynamicConfig(ctx context.Context) error {
+	return fmt.Errorf("not implemented")
+}
+
+// IPv6 Filter Dynamic Config
+func (m *MockClient) GetIPv6FilterDynamicConfig(ctx context.Context) (*client.IPv6FilterDynamicConfig, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) CreateIPv6FilterDynamicConfig(ctx context.Context, config client.IPv6FilterDynamicConfig) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) UpdateIPv6FilterDynamicConfig(ctx context.Context, config client.IPv6FilterDynamicConfig) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) DeleteIPv6FilterDynamicConfig(ctx context.Context) error {
+	return fmt.Errorf("not implemented")
+}
+
+// Interface ACL
+func (m *MockClient) GetInterfaceACL(ctx context.Context, iface string) (*client.InterfaceACL, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) CreateInterfaceACL(ctx context.Context, acl client.InterfaceACL) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) UpdateInterfaceACL(ctx context.Context, acl client.InterfaceACL) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) DeleteInterfaceACL(ctx context.Context, iface string) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) ListInterfaceACLs(ctx context.Context) ([]client.InterfaceACL, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+// Access List MAC
+func (m *MockClient) GetAccessListMAC(ctx context.Context, name string) (*client.AccessListMAC, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) CreateAccessListMAC(ctx context.Context, acl client.AccessListMAC) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) UpdateAccessListMAC(ctx context.Context, acl client.AccessListMAC) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) DeleteAccessListMAC(ctx context.Context, name string) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) ListAccessListsMAC(ctx context.Context) ([]client.AccessListMAC, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+// Interface MAC ACL
+func (m *MockClient) GetInterfaceMACACL(ctx context.Context, iface string) (*client.InterfaceMACACL, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) CreateInterfaceMACACL(ctx context.Context, acl client.InterfaceMACACL) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) UpdateInterfaceMACACL(ctx context.Context, acl client.InterfaceMACACL) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) DeleteInterfaceMACACL(ctx context.Context, iface string) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) ListInterfaceMACACLs(ctx context.Context) ([]client.InterfaceMACACL, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 func TestRTXSystemInfoDataSourceSchema(t *testing.T) {
 	dataSource := dataSourceRTXSystemInfo()
 	

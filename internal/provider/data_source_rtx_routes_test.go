@@ -104,6 +104,789 @@ func (m *MockClientForRoutes) ListDHCPScopes(ctx context.Context) ([]client.DHCP
 	return args.Get(0).([]client.DHCPScope), args.Error(1)
 }
 
+func (m *MockClientForRoutes) GetInterfaceConfig(ctx context.Context, interfaceName string) (*client.InterfaceConfig, error) {
+	args := m.Called(ctx, interfaceName)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*client.InterfaceConfig), args.Error(1)
+}
+
+func (m *MockClientForRoutes) ConfigureInterface(ctx context.Context, config client.InterfaceConfig) error {
+	args := m.Called(ctx, config)
+	return args.Error(0)
+}
+
+func (m *MockClientForRoutes) UpdateInterfaceConfig(ctx context.Context, config client.InterfaceConfig) error {
+	args := m.Called(ctx, config)
+	return args.Error(0)
+}
+
+func (m *MockClientForRoutes) ResetInterface(ctx context.Context, interfaceName string) error {
+	args := m.Called(ctx, interfaceName)
+	return args.Error(0)
+}
+
+func (m *MockClientForRoutes) ListInterfaceConfigs(ctx context.Context) ([]client.InterfaceConfig, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]client.InterfaceConfig), args.Error(1)
+}
+
+func (m *MockClientForRoutes) GetIPv6Prefix(ctx context.Context, prefixID int) (*client.IPv6Prefix, error) {
+	args := m.Called(ctx, prefixID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*client.IPv6Prefix), args.Error(1)
+}
+
+func (m *MockClientForRoutes) CreateIPv6Prefix(ctx context.Context, prefix client.IPv6Prefix) error {
+	args := m.Called(ctx, prefix)
+	return args.Error(0)
+}
+
+func (m *MockClientForRoutes) UpdateIPv6Prefix(ctx context.Context, prefix client.IPv6Prefix) error {
+	args := m.Called(ctx, prefix)
+	return args.Error(0)
+}
+
+func (m *MockClientForRoutes) DeleteIPv6Prefix(ctx context.Context, prefixID int) error {
+	args := m.Called(ctx, prefixID)
+	return args.Error(0)
+}
+
+func (m *MockClientForRoutes) ListIPv6Prefixes(ctx context.Context) ([]client.IPv6Prefix, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]client.IPv6Prefix), args.Error(1)
+}
+
+func (m *MockClientForRoutes) GetVLAN(ctx context.Context, iface string, vlanID int) (*client.VLAN, error) {
+	args := m.Called(ctx, iface, vlanID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*client.VLAN), args.Error(1)
+}
+
+func (m *MockClientForRoutes) CreateVLAN(ctx context.Context, vlan client.VLAN) error {
+	args := m.Called(ctx, vlan)
+	return args.Error(0)
+}
+
+func (m *MockClientForRoutes) UpdateVLAN(ctx context.Context, vlan client.VLAN) error {
+	args := m.Called(ctx, vlan)
+	return args.Error(0)
+}
+
+func (m *MockClientForRoutes) DeleteVLAN(ctx context.Context, iface string, vlanID int) error {
+	args := m.Called(ctx, iface, vlanID)
+	return args.Error(0)
+}
+
+func (m *MockClientForRoutes) ListVLANs(ctx context.Context) ([]client.VLAN, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]client.VLAN), args.Error(1)
+}
+
+func (m *MockClientForRoutes) GetSystemConfig(ctx context.Context) (*client.SystemConfig, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*client.SystemConfig), args.Error(1)
+}
+
+func (m *MockClientForRoutes) ConfigureSystem(ctx context.Context, config client.SystemConfig) error {
+	args := m.Called(ctx, config)
+	return args.Error(0)
+}
+
+func (m *MockClientForRoutes) UpdateSystemConfig(ctx context.Context, config client.SystemConfig) error {
+	args := m.Called(ctx, config)
+	return args.Error(0)
+}
+
+func (m *MockClientForRoutes) ResetSystem(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+
+func (m *MockClientForRoutes) GetStaticRoute(ctx context.Context, prefix, mask string) (*client.StaticRoute, error) {
+	args := m.Called(ctx, prefix, mask)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*client.StaticRoute), args.Error(1)
+}
+
+func (m *MockClientForRoutes) CreateStaticRoute(ctx context.Context, route client.StaticRoute) error {
+	args := m.Called(ctx, route)
+	return args.Error(0)
+}
+
+func (m *MockClientForRoutes) UpdateStaticRoute(ctx context.Context, route client.StaticRoute) error {
+	args := m.Called(ctx, route)
+	return args.Error(0)
+}
+
+func (m *MockClientForRoutes) DeleteStaticRoute(ctx context.Context, prefix, mask string) error {
+	args := m.Called(ctx, prefix, mask)
+	return args.Error(0)
+}
+
+func (m *MockClientForRoutes) ListStaticRoutes(ctx context.Context) ([]client.StaticRoute, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]client.StaticRoute), args.Error(1)
+}
+
+// NAT Masquerade methods
+func (m *MockClientForRoutes) GetNATMasquerade(ctx context.Context, descriptorID int) (*client.NATMasquerade, error) {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) CreateNATMasquerade(ctx context.Context, nat client.NATMasquerade) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateNATMasquerade(ctx context.Context, nat client.NATMasquerade) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) DeleteNATMasquerade(ctx context.Context, descriptorID int) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ListNATMasquerades(ctx context.Context) ([]client.NATMasquerade, error) {
+	panic("not implemented")
+}
+
+// NAT Static methods
+func (m *MockClientForRoutes) GetNATStatic(ctx context.Context, descriptorID int) (*client.NATStatic, error) {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) CreateNATStatic(ctx context.Context, nat client.NATStatic) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateNATStatic(ctx context.Context, nat client.NATStatic) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) DeleteNATStatic(ctx context.Context, descriptorID int) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ListNATStatics(ctx context.Context) ([]client.NATStatic, error) {
+	panic("not implemented")
+}
+
+// IP Filter methods
+func (m *MockClientForRoutes) GetIPFilter(ctx context.Context, number int) (*client.IPFilter, error) {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) CreateIPFilter(ctx context.Context, filter client.IPFilter) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateIPFilter(ctx context.Context, filter client.IPFilter) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) DeleteIPFilter(ctx context.Context, number int) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ListIPFilters(ctx context.Context) ([]client.IPFilter, error) {
+	panic("not implemented")
+}
+
+// IP Filter Dynamic methods
+func (m *MockClientForRoutes) GetIPFilterDynamic(ctx context.Context, number int) (*client.IPFilterDynamic, error) {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) CreateIPFilterDynamic(ctx context.Context, filter client.IPFilterDynamic) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) DeleteIPFilterDynamic(ctx context.Context, number int) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ListIPFiltersDynamic(ctx context.Context) ([]client.IPFilterDynamic, error) {
+	panic("not implemented")
+}
+
+// Ethernet Filter methods
+func (m *MockClientForRoutes) GetEthernetFilter(ctx context.Context, number int) (*client.EthernetFilter, error) {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) CreateEthernetFilter(ctx context.Context, filter client.EthernetFilter) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateEthernetFilter(ctx context.Context, filter client.EthernetFilter) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) DeleteEthernetFilter(ctx context.Context, number int) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ListEthernetFilters(ctx context.Context) ([]client.EthernetFilter, error) {
+	panic("not implemented")
+}
+
+// BGP methods
+func (m *MockClientForRoutes) GetBGPConfig(ctx context.Context) (*client.BGPConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ConfigureBGP(ctx context.Context, config client.BGPConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateBGPConfig(ctx context.Context, config client.BGPConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ResetBGP(ctx context.Context) error {
+	panic("not implemented")
+}
+
+// OSPF methods
+func (m *MockClientForRoutes) GetOSPF(ctx context.Context) (*client.OSPFConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) CreateOSPF(ctx context.Context, config client.OSPFConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateOSPF(ctx context.Context, config client.OSPFConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) DeleteOSPF(ctx context.Context) error {
+	panic("not implemented")
+}
+
+// IPsec Tunnel methods
+func (m *MockClientForRoutes) GetIPsecTunnel(ctx context.Context, tunnelID int) (*client.IPsecTunnel, error) {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) CreateIPsecTunnel(ctx context.Context, tunnel client.IPsecTunnel) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateIPsecTunnel(ctx context.Context, tunnel client.IPsecTunnel) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) DeleteIPsecTunnel(ctx context.Context, tunnelID int) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ListIPsecTunnels(ctx context.Context) ([]client.IPsecTunnel, error) {
+	panic("not implemented")
+}
+
+// L2TP methods
+func (m *MockClientForRoutes) GetL2TP(ctx context.Context, tunnelID int) (*client.L2TPConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) CreateL2TP(ctx context.Context, config client.L2TPConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateL2TP(ctx context.Context, config client.L2TPConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) DeleteL2TP(ctx context.Context, tunnelID int) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ListL2TPs(ctx context.Context) ([]client.L2TPConfig, error) {
+	panic("not implemented")
+}
+
+// PPTP methods
+func (m *MockClientForRoutes) GetPPTP(ctx context.Context) (*client.PPTPConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) CreatePPTP(ctx context.Context, config client.PPTPConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdatePPTP(ctx context.Context, config client.PPTPConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) DeletePPTP(ctx context.Context) error {
+	panic("not implemented")
+}
+
+// Syslog methods
+func (m *MockClientForRoutes) GetSyslogConfig(ctx context.Context) (*client.SyslogConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ConfigureSyslog(ctx context.Context, config client.SyslogConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateSyslogConfig(ctx context.Context, config client.SyslogConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ResetSyslog(ctx context.Context) error {
+	panic("not implemented")
+}
+
+// QoS Class Map methods
+func (m *MockClientForRoutes) GetClassMap(ctx context.Context, name string) (*client.ClassMap, error) {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) CreateClassMap(ctx context.Context, cm client.ClassMap) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateClassMap(ctx context.Context, cm client.ClassMap) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) DeleteClassMap(ctx context.Context, name string) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ListClassMaps(ctx context.Context) ([]client.ClassMap, error) {
+	panic("not implemented")
+}
+
+// QoS Policy Map methods
+func (m *MockClientForRoutes) GetPolicyMap(ctx context.Context, name string) (*client.PolicyMap, error) {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) CreatePolicyMap(ctx context.Context, pm client.PolicyMap) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdatePolicyMap(ctx context.Context, pm client.PolicyMap) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) DeletePolicyMap(ctx context.Context, name string) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ListPolicyMaps(ctx context.Context) ([]client.PolicyMap, error) {
+	panic("not implemented")
+}
+
+// QoS Service Policy methods
+func (m *MockClientForRoutes) GetServicePolicy(ctx context.Context, iface string, direction string) (*client.ServicePolicy, error) {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) CreateServicePolicy(ctx context.Context, sp client.ServicePolicy) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateServicePolicy(ctx context.Context, sp client.ServicePolicy) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) DeleteServicePolicy(ctx context.Context, iface string, direction string) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ListServicePolicies(ctx context.Context) ([]client.ServicePolicy, error) {
+	panic("not implemented")
+}
+
+// QoS Shape methods
+func (m *MockClientForRoutes) GetShape(ctx context.Context, iface string, direction string) (*client.ShapeConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) CreateShape(ctx context.Context, sc client.ShapeConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateShape(ctx context.Context, sc client.ShapeConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) DeleteShape(ctx context.Context, iface string, direction string) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ListShapes(ctx context.Context) ([]client.ShapeConfig, error) {
+	panic("not implemented")
+}
+
+// SNMP methods
+func (m *MockClientForRoutes) GetSNMP(ctx context.Context) (*client.SNMPConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) CreateSNMP(ctx context.Context, config client.SNMPConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateSNMP(ctx context.Context, config client.SNMPConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) DeleteSNMP(ctx context.Context) error {
+	panic("not implemented")
+}
+
+// Schedule methods
+func (m *MockClientForRoutes) GetSchedule(ctx context.Context, id int) (*client.Schedule, error) {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) CreateSchedule(ctx context.Context, schedule client.Schedule) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateSchedule(ctx context.Context, schedule client.Schedule) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) DeleteSchedule(ctx context.Context, id int) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ListSchedules(ctx context.Context) ([]client.Schedule, error) {
+	panic("not implemented")
+}
+
+// Kron Policy methods
+func (m *MockClientForRoutes) GetKronPolicy(ctx context.Context, name string) (*client.KronPolicy, error) {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) CreateKronPolicy(ctx context.Context, policy client.KronPolicy) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateKronPolicy(ctx context.Context, policy client.KronPolicy) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) DeleteKronPolicy(ctx context.Context, name string) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ListKronPolicies(ctx context.Context) ([]client.KronPolicy, error) {
+	panic("not implemented")
+}
+
+// DNS methods
+func (m *MockClientForRoutes) GetDNS(ctx context.Context) (*client.DNSConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ConfigureDNS(ctx context.Context, config client.DNSConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateDNS(ctx context.Context, config client.DNSConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ResetDNS(ctx context.Context) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) GetAdminConfig(ctx context.Context) (*client.AdminConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ConfigureAdmin(ctx context.Context, config client.AdminConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateAdminConfig(ctx context.Context, config client.AdminConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ResetAdmin(ctx context.Context) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) GetAdminUser(ctx context.Context, username string) (*client.AdminUser, error) {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) CreateAdminUser(ctx context.Context, user client.AdminUser) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateAdminUser(ctx context.Context, user client.AdminUser) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) DeleteAdminUser(ctx context.Context, username string) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ListAdminUsers(ctx context.Context) ([]client.AdminUser, error) {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) GetHTTPD(ctx context.Context) (*client.HTTPDConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ConfigureHTTPD(ctx context.Context, config client.HTTPDConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateHTTPD(ctx context.Context, config client.HTTPDConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ResetHTTPD(ctx context.Context) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) GetSSHD(ctx context.Context) (*client.SSHDConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ConfigureSSHD(ctx context.Context, config client.SSHDConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateSSHD(ctx context.Context, config client.SSHDConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ResetSSHD(ctx context.Context) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) GetSFTPD(ctx context.Context) (*client.SFTPDConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ConfigureSFTPD(ctx context.Context, config client.SFTPDConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateSFTPD(ctx context.Context, config client.SFTPDConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ResetSFTPD(ctx context.Context) error {
+	panic("not implemented")
+}
+
+// Bridge methods
+func (m *MockClientForRoutes) GetBridge(ctx context.Context, name string) (*client.BridgeConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) CreateBridge(ctx context.Context, bridge client.BridgeConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateBridge(ctx context.Context, bridge client.BridgeConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) DeleteBridge(ctx context.Context, name string) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ListBridges(ctx context.Context) ([]client.BridgeConfig, error) {
+	panic("not implemented")
+}
+
+// IPv6 Interface methods
+func (m *MockClientForRoutes) GetIPv6InterfaceConfig(ctx context.Context, interfaceName string) (*client.IPv6InterfaceConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ConfigureIPv6Interface(ctx context.Context, config client.IPv6InterfaceConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateIPv6InterfaceConfig(ctx context.Context, config client.IPv6InterfaceConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ResetIPv6Interface(ctx context.Context, interfaceName string) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) ListIPv6InterfaceConfigs(ctx context.Context) ([]client.IPv6InterfaceConfig, error) {
+	panic("not implemented")
+}
+
+// Access List Extended (IPv4)
+func (m *MockClientForRoutes) GetAccessListExtended(ctx context.Context, name string) (*client.AccessListExtended, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) CreateAccessListExtended(ctx context.Context, acl client.AccessListExtended) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateAccessListExtended(ctx context.Context, acl client.AccessListExtended) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) DeleteAccessListExtended(ctx context.Context, name string) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) ListAccessListsExtended(ctx context.Context) ([]client.AccessListExtended, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+// Access List Extended (IPv6)
+func (m *MockClientForRoutes) GetAccessListExtendedIPv6(ctx context.Context, name string) (*client.AccessListExtendedIPv6, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) CreateAccessListExtendedIPv6(ctx context.Context, acl client.AccessListExtendedIPv6) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateAccessListExtendedIPv6(ctx context.Context, acl client.AccessListExtendedIPv6) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) DeleteAccessListExtendedIPv6(ctx context.Context, name string) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) ListAccessListsExtendedIPv6(ctx context.Context) ([]client.AccessListExtendedIPv6, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+// IP Filter Dynamic Config
+func (m *MockClientForRoutes) GetIPFilterDynamicConfig(ctx context.Context) (*client.IPFilterDynamicConfig, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) CreateIPFilterDynamicConfig(ctx context.Context, config client.IPFilterDynamicConfig) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateIPFilterDynamicConfig(ctx context.Context, config client.IPFilterDynamicConfig) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) DeleteIPFilterDynamicConfig(ctx context.Context) error {
+	return fmt.Errorf("not implemented")
+}
+
+// IPv6 Filter Dynamic Config
+func (m *MockClientForRoutes) GetIPv6FilterDynamicConfig(ctx context.Context) (*client.IPv6FilterDynamicConfig, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) CreateIPv6FilterDynamicConfig(ctx context.Context, config client.IPv6FilterDynamicConfig) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateIPv6FilterDynamicConfig(ctx context.Context, config client.IPv6FilterDynamicConfig) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) DeleteIPv6FilterDynamicConfig(ctx context.Context) error {
+	return fmt.Errorf("not implemented")
+}
+
+// Interface ACL
+func (m *MockClientForRoutes) GetInterfaceACL(ctx context.Context, iface string) (*client.InterfaceACL, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) CreateInterfaceACL(ctx context.Context, acl client.InterfaceACL) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateInterfaceACL(ctx context.Context, acl client.InterfaceACL) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) DeleteInterfaceACL(ctx context.Context, iface string) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) ListInterfaceACLs(ctx context.Context) ([]client.InterfaceACL, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+// Access List MAC
+func (m *MockClientForRoutes) GetAccessListMAC(ctx context.Context, name string) (*client.AccessListMAC, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) CreateAccessListMAC(ctx context.Context, acl client.AccessListMAC) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateAccessListMAC(ctx context.Context, acl client.AccessListMAC) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) DeleteAccessListMAC(ctx context.Context, name string) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) ListAccessListsMAC(ctx context.Context) ([]client.AccessListMAC, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+// Interface MAC ACL
+func (m *MockClientForRoutes) GetInterfaceMACACL(ctx context.Context, iface string) (*client.InterfaceMACACL, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) CreateInterfaceMACACL(ctx context.Context, acl client.InterfaceMACACL) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateInterfaceMACACL(ctx context.Context, acl client.InterfaceMACACL) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) DeleteInterfaceMACACL(ctx context.Context, iface string) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) ListInterfaceMACACLs(ctx context.Context) ([]client.InterfaceMACACL, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 func TestRTXRoutesDataSourceSchema(t *testing.T) {
 	dataSource := dataSourceRTXRoutes()
 	
