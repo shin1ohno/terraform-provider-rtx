@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/rtx-vlan/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-19T05:16:34.886Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768799794882_r4vg4tsmj",
+      "approvalTitle": "Design: rtx_vlan resource"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-19T05:23:14.701Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768799794882_r4vg4tsmj",
+      "approvalTitle": "Design: rtx_vlan resource"
+    }
+  ]
+}

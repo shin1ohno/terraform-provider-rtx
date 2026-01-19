@@ -1,13 +1,13 @@
 # Requirements: rtx_snmp
 
 ## Overview
-Terraform resource for managing SNMP (Simple Network Management Protocol) configuration on Yamaha RTX routers.
+Terraform resources for managing SNMP (Simple Network Management Protocol) configuration on Yamaha RTX routers.
 
 **Cisco Equivalent**: `iosxe_snmp_server`
 
 ## Cisco Compatibility
 
-This resource follows Cisco SNMP server naming patterns:
+These resources follow Cisco SNMP server naming patterns:
 
 | RTX Attribute | Cisco Equivalent | Notes |
 |---------------|------------------|-------|
@@ -17,6 +17,13 @@ This resource follows Cisco SNMP server naming patterns:
 | `host` | `host` | Trap destination |
 | `enable_traps` | `enable_traps` | Enable specific traps |
 | `view` | `view` | SNMP view configuration |
+
+## Covered Resources
+
+This specification covers two Terraform resources:
+
+- **`rtx_snmp_server`**: SNMP agent, communities, trap destinations
+- **`rtx_snmp_server_user`**: SNMPv3 user configuration
 
 ## Functional Requirements
 
@@ -145,3 +152,8 @@ resource "rtx_snmp_server_user" "admin" {
   priv_password = var.snmpv3_priv_password
 }
 ```
+
+## State Handling
+
+- Only configuration attributes are persisted in Terraform state.
+- Operational/runtime status must not be stored in state.

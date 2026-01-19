@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/rtx-ipsec-tunnel/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-19T05:16:38.435Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768799798431_si0rir6hc",
+      "approvalTitle": "Design: rtx_ipsec_tunnel resource"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-19T05:22:03.835Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768799798431_si0rir6hc",
+      "approvalTitle": "Design: rtx_ipsec_tunnel resource"
+    }
+  ]
+}

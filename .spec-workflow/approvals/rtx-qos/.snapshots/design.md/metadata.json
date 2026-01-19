@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/rtx-qos/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-19T05:16:40.671Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768799800666_qs6uxzcwm",
+      "approvalTitle": "Design: rtx_qos resource"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-19T05:19:19.813Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768799800666_qs6uxzcwm",
+      "approvalTitle": "Design: rtx_qos resource"
+    }
+  ]
+}

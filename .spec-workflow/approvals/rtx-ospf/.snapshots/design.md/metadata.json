@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/rtx-ospf/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-19T05:16:35.828Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768799795824_jrx9ao0y4",
+      "approvalTitle": "Design: rtx_ospf resource"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-19T05:23:11.951Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768799795824_jrx9ao0y4",
+      "approvalTitle": "Design: rtx_ospf resource"
+    }
+  ]
+}

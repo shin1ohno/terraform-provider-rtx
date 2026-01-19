@@ -1,0 +1,362 @@
+package client
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"strings"
+
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
+)
+
+// NATMasqueradeService handles NAT masquerade operations
+type NATMasqueradeService struct {
+	executor Executor
+	client   *rtxClient // Reference to the main client for save functionality
+}
+
+// NewNATMasqueradeService creates a new NAT masquerade service instance
+func NewNATMasqueradeService(executor Executor, client *rtxClient) *NATMasqueradeService {
+	return &NATMasqueradeService{
+		executor: executor,
+		client:   client,
+	}
+}
+
+// Create creates a new NAT masquerade configuration
+func (s *NATMasqueradeService) Create(ctx context.Context, nat NATMasquerade) error {
+	// Convert client.NATMasquerade to parsers.NATMasquerade
+	parserNAT := s.toParserNAT(nat)
+
+	// Validate input
+	if err := parsers.ValidateNATMasquerade(parserNAT); err != nil {
+		return fmt.Errorf("invalid NAT masquerade: %w", err)
+	}
+
+	// Check context
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	// Step 1: Set NAT descriptor type to masquerade
+	cmd := parsers.BuildNATDescriptorTypeMasqueradeCommand(nat.DescriptorID)
+	log.Printf("[DEBUG] Creating NAT masquerade with command: %s", cmd)
+
+	output, err := s.executor.Run(ctx, cmd)
+	if err != nil {
+		return fmt.Errorf("failed to create NAT masquerade type: %w", err)
+	}
+
+	if len(output) > 0 && containsError(string(output)) {
+		return fmt.Errorf("command failed: %s", string(output))
+	}
+
+	// Step 2: Set outer address
+	cmd = parsers.BuildNATDescriptorAddressOuterCommand(nat.DescriptorID, nat.OuterAddress)
+	log.Printf("[DEBUG] Setting outer address with command: %s", cmd)
+
+	output, err = s.executor.Run(ctx, cmd)
+	if err != nil {
+		return fmt.Errorf("failed to set outer address: %w", err)
+	}
+
+	if len(output) > 0 && containsError(string(output)) {
+		return fmt.Errorf("outer address command failed: %s", string(output))
+	}
+
+	// Step 3: Set inner network
+	cmd = parsers.BuildNATDescriptorAddressInnerCommand(nat.DescriptorID, nat.InnerNetwork)
+	log.Printf("[DEBUG] Setting inner network with command: %s", cmd)
+
+	output, err = s.executor.Run(ctx, cmd)
+	if err != nil {
+		return fmt.Errorf("failed to set inner network: %w", err)
+	}
+
+	if len(output) > 0 && containsError(string(output)) {
+		return fmt.Errorf("inner network command failed: %s", string(output))
+	}
+
+	// Step 4: Configure static entries
+	for i, entry := range nat.StaticEntries {
+		parserEntry := parsers.MasqueradeStaticEntry{
+			EntryNumber:       entry.EntryNumber,
+			InsideLocal:       entry.InsideLocal,
+			InsideLocalPort:   entry.InsideLocalPort,
+			OutsideGlobal:     entry.OutsideGlobal,
+			OutsideGlobalPort: entry.OutsideGlobalPort,
+			Protocol:          entry.Protocol,
+		}
+		cmd = parsers.BuildNATMasqueradeStaticCommand(nat.DescriptorID, entry.EntryNumber, parserEntry)
+		log.Printf("[DEBUG] Adding static entry %d with command: %s", i+1, cmd)
+
+		output, err = s.executor.Run(ctx, cmd)
+		if err != nil {
+			return fmt.Errorf("failed to add static entry %d: %w", i+1, err)
+		}
+
+		if len(output) > 0 && containsError(string(output)) {
+			return fmt.Errorf("static entry %d command failed: %s", i+1, string(output))
+		}
+	}
+
+	// Save configuration
+	if s.client != nil {
+		if err := s.client.SaveConfig(ctx); err != nil {
+			return fmt.Errorf("NAT masquerade created but failed to save configuration: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// Get retrieves a NAT masquerade configuration by descriptor ID
+func (s *NATMasqueradeService) Get(ctx context.Context, descriptorID int) (*NATMasquerade, error) {
+	// Check context
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	cmd := parsers.BuildShowNATDescriptorCommand(descriptorID)
+	log.Printf("[DEBUG] Getting NAT masquerade with command: %s", cmd)
+
+	output, err := s.executor.Run(ctx, cmd)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get NAT masquerade: %w", err)
+	}
+
+	log.Printf("[DEBUG] NAT masquerade raw output: %q", string(output))
+
+	parserNATs, err := parsers.ParseNATMasqueradeConfig(string(output))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse NAT masquerade: %w", err)
+	}
+
+	// Find the matching descriptor
+	for _, parserNAT := range parserNATs {
+		if parserNAT.DescriptorID == descriptorID {
+			nat := s.fromParserNAT(parserNAT)
+			return &nat, nil
+		}
+	}
+
+	return nil, fmt.Errorf("NAT masquerade with descriptor ID %d not found", descriptorID)
+}
+
+// Update updates an existing NAT masquerade configuration
+func (s *NATMasqueradeService) Update(ctx context.Context, nat NATMasquerade) error {
+	// Convert client.NATMasquerade to parsers.NATMasquerade
+	parserNAT := s.toParserNAT(nat)
+
+	// Validate input
+	if err := parsers.ValidateNATMasquerade(parserNAT); err != nil {
+		return fmt.Errorf("invalid NAT masquerade: %w", err)
+	}
+
+	// Check context
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	// Get current configuration
+	currentNAT, err := s.Get(ctx, nat.DescriptorID)
+	if err != nil {
+		return fmt.Errorf("failed to get current NAT masquerade: %w", err)
+	}
+
+	// Update outer address if changed
+	if currentNAT.OuterAddress != nat.OuterAddress {
+		cmd := parsers.BuildNATDescriptorAddressOuterCommand(nat.DescriptorID, nat.OuterAddress)
+		log.Printf("[DEBUG] Updating outer address with command: %s", cmd)
+
+		output, err := s.executor.Run(ctx, cmd)
+		if err != nil {
+			return fmt.Errorf("failed to update outer address: %w", err)
+		}
+
+		if len(output) > 0 && containsError(string(output)) {
+			return fmt.Errorf("outer address command failed: %s", string(output))
+		}
+	}
+
+	// Update inner network if changed
+	if currentNAT.InnerNetwork != nat.InnerNetwork {
+		cmd := parsers.BuildNATDescriptorAddressInnerCommand(nat.DescriptorID, nat.InnerNetwork)
+		log.Printf("[DEBUG] Updating inner network with command: %s", cmd)
+
+		output, err := s.executor.Run(ctx, cmd)
+		if err != nil {
+			return fmt.Errorf("failed to update inner network: %w", err)
+		}
+
+		if len(output) > 0 && containsError(string(output)) {
+			return fmt.Errorf("inner network command failed: %s", string(output))
+		}
+	}
+
+	// Handle static entries: remove old entries that are not in new configuration
+	for _, oldEntry := range currentNAT.StaticEntries {
+		found := false
+		for _, newEntry := range nat.StaticEntries {
+			if oldEntry.EntryNumber == newEntry.EntryNumber {
+				found = true
+				break
+			}
+		}
+		if !found {
+			cmd := parsers.BuildDeleteNATMasqueradeStaticCommand(nat.DescriptorID, oldEntry.EntryNumber)
+			log.Printf("[DEBUG] Removing static entry with command: %s", cmd)
+			_, _ = s.executor.Run(ctx, cmd) // Ignore errors for cleanup
+		}
+	}
+
+	// Add/update new entries
+	for i, entry := range nat.StaticEntries {
+		parserEntry := parsers.MasqueradeStaticEntry{
+			EntryNumber:       entry.EntryNumber,
+			InsideLocal:       entry.InsideLocal,
+			InsideLocalPort:   entry.InsideLocalPort,
+			OutsideGlobal:     entry.OutsideGlobal,
+			OutsideGlobalPort: entry.OutsideGlobalPort,
+			Protocol:          entry.Protocol,
+		}
+		cmd := parsers.BuildNATMasqueradeStaticCommand(nat.DescriptorID, entry.EntryNumber, parserEntry)
+		log.Printf("[DEBUG] Setting static entry %d with command: %s", i+1, cmd)
+
+		output, err := s.executor.Run(ctx, cmd)
+		if err != nil {
+			return fmt.Errorf("failed to set static entry %d: %w", i+1, err)
+		}
+
+		if len(output) > 0 && containsError(string(output)) {
+			return fmt.Errorf("static entry %d command failed: %s", i+1, string(output))
+		}
+	}
+
+	// Save configuration
+	if s.client != nil {
+		if err := s.client.SaveConfig(ctx); err != nil {
+			return fmt.Errorf("NAT masquerade updated but failed to save configuration: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// Delete removes a NAT masquerade configuration
+func (s *NATMasqueradeService) Delete(ctx context.Context, descriptorID int) error {
+	// Check context
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	cmd := parsers.BuildDeleteNATMasqueradeCommand(descriptorID)
+	log.Printf("[DEBUG] Deleting NAT masquerade with command: %s", cmd)
+
+	output, err := s.executor.Run(ctx, cmd)
+	if err != nil {
+		return fmt.Errorf("failed to delete NAT masquerade: %w", err)
+	}
+
+	if len(output) > 0 && containsError(string(output)) {
+		// Check if it's already gone
+		if strings.Contains(strings.ToLower(string(output)), "not found") {
+			return nil
+		}
+		return fmt.Errorf("command failed: %s", string(output))
+	}
+
+	// Save configuration
+	if s.client != nil {
+		if err := s.client.SaveConfig(ctx); err != nil {
+			return fmt.Errorf("NAT masquerade deleted but failed to save configuration: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// List retrieves all NAT masquerade configurations
+func (s *NATMasqueradeService) List(ctx context.Context) ([]NATMasquerade, error) {
+	// Check context
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	cmd := parsers.BuildShowAllNATDescriptorsCommand()
+	log.Printf("[DEBUG] Listing NAT masquerades with command: %s", cmd)
+
+	output, err := s.executor.Run(ctx, cmd)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list NAT masquerades: %w", err)
+	}
+
+	log.Printf("[DEBUG] NAT masquerades raw output: %q", string(output))
+
+	parserNATs, err := parsers.ParseNATMasqueradeConfig(string(output))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse NAT masquerades: %w", err)
+	}
+
+	// Convert parsers.NATMasquerade to client.NATMasquerade
+	nats := make([]NATMasquerade, len(parserNATs))
+	for i, parserNAT := range parserNATs {
+		nats[i] = s.fromParserNAT(parserNAT)
+	}
+
+	return nats, nil
+}
+
+// toParserNAT converts client.NATMasquerade to parsers.NATMasquerade
+func (s *NATMasqueradeService) toParserNAT(nat NATMasquerade) parsers.NATMasquerade {
+	staticEntries := make([]parsers.MasqueradeStaticEntry, len(nat.StaticEntries))
+	for i, entry := range nat.StaticEntries {
+		staticEntries[i] = parsers.MasqueradeStaticEntry{
+			EntryNumber:       entry.EntryNumber,
+			InsideLocal:       entry.InsideLocal,
+			InsideLocalPort:   entry.InsideLocalPort,
+			OutsideGlobal:     entry.OutsideGlobal,
+			OutsideGlobalPort: entry.OutsideGlobalPort,
+			Protocol:          entry.Protocol,
+		}
+	}
+
+	return parsers.NATMasquerade{
+		DescriptorID:  nat.DescriptorID,
+		OuterAddress:  nat.OuterAddress,
+		InnerNetwork:  nat.InnerNetwork,
+		StaticEntries: staticEntries,
+	}
+}
+
+// fromParserNAT converts parsers.NATMasquerade to client.NATMasquerade
+func (s *NATMasqueradeService) fromParserNAT(parserNAT parsers.NATMasquerade) NATMasquerade {
+	staticEntries := make([]MasqueradeStaticEntry, len(parserNAT.StaticEntries))
+	for i, entry := range parserNAT.StaticEntries {
+		staticEntries[i] = MasqueradeStaticEntry{
+			EntryNumber:       entry.EntryNumber,
+			InsideLocal:       entry.InsideLocal,
+			InsideLocalPort:   entry.InsideLocalPort,
+			OutsideGlobal:     entry.OutsideGlobal,
+			OutsideGlobalPort: entry.OutsideGlobalPort,
+			Protocol:          entry.Protocol,
+		}
+	}
+
+	return NATMasquerade{
+		DescriptorID:  parserNAT.DescriptorID,
+		OuterAddress:  parserNAT.OuterAddress,
+		InnerNetwork:  parserNAT.InnerNetwork,
+		StaticEntries: staticEntries,
+	}
+}

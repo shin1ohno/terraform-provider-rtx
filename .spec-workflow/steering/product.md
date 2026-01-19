@@ -100,6 +100,7 @@ This provider implements comprehensive support for all Yamaha RTX router feature
 3. **Fail Safely**: Validate configurations before applying; provide clear error messages
 4. **Leverage Existing Patterns**: Reuse established Terraform provider conventions and Go SSH infrastructure
 5. **Minimal Scope**: Only implement features that provide clear value for IaC management
+6. **State Clarity**: Persist only configuration in Terraform state; do not store operational/runtime status to avoid perpetual diffs
 
 ## API Design Philosophy: Cisco Compatibility
 

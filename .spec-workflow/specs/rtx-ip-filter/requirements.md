@@ -1,13 +1,13 @@
 # Requirements: rtx_ip_filter
 
 ## Overview
-Terraform resource for managing IP packet filters (firewall rules) on Yamaha RTX routers.
+Terraform resources for managing IP packet filters (firewall rules) on Yamaha RTX routers.
 
 **Cisco Equivalent**: `iosxe_access_list_extended`
 
 ## Cisco Compatibility
 
-This resource follows Cisco IOS XE Terraform provider naming conventions:
+These resources follow Cisco IOS XE Terraform provider naming conventions:
 
 | RTX Attribute | Cisco Equivalent | Notes |
 |---------------|------------------|-------|
@@ -21,6 +21,16 @@ This resource follows Cisco IOS XE Terraform provider naming conventions:
 | `destination_prefix` | `destination_prefix` | Destination network |
 | `destination_port_equal` | `destination_port_equal` | Destination port |
 | `log` | `log` | Enable logging |
+
+## Covered Resources
+
+This specification covers multiple Terraform resources:
+
+- **`rtx_access_list_extended`**: IPv4 access list definition
+- **`rtx_access_list_extended_ipv6`**: IPv6 access list definition
+- **`rtx_ip_filter_dynamic`**: IPv4 dynamic (stateful) filter
+- **`rtx_ipv6_filter_dynamic`**: IPv6 dynamic (stateful) filter
+- **`rtx_interface_acl`**: Apply ACL to an interface and direction
 
 ## Functional Requirements
 
@@ -39,27 +49,39 @@ This resource follows Cisco IOS XE Terraform provider naming conventions:
 - Source port(s)
 - Destination port(s)
 
-### 3. Filter Set
+### 3. IPv6 Filter Definition
+- Filter number (1-65535)
+- Action: pass, reject
+- Source and destination IPv6 prefixes or wildcard
+- Protocol (icmp6, tcp, udp, any)
+- Optional source and destination ports
+
+### 4. Filter Set
 - Group multiple filters into a set
 - Apply filter set to interface
 - Direction: in, out
 
-### 4. Stateful Filtering (Dynamic Filter)
+### 5. Stateful Filtering (Dynamic Filter)
 - Track connection state
 - Allow return traffic automatically
 - Session timeout configuration
+- Implemented as separate resources for IPv4 and IPv6
 
-### 5. Protocol-Specific Options
+### 6. Protocol-Specific Options
 - TCP flags filtering (SYN, ACK, FIN, RST)
 - ICMP type and code filtering
 - Established connection matching
 
-### 6. Logging
+### 7. Logging
 - Log matched packets
 - Syslog integration
 
-### 7. Import Support
-- Import existing filter by number
+### 8. Interface Binding
+- Bind ACL to a specific interface and direction
+- Support separate inbound and outbound ACL sets
+
+### 9. Import Support
+- Import existing filters and bindings by their defined resource IDs
 
 ## Terraform Command Support
 
@@ -76,18 +98,18 @@ This resource must fully support all standard Terraform workflow commands:
 
 ### Import Specification
 - **Import ID Format**: `<filter_number>` (e.g., `100`)
-- **Import Command**: `terraform import rtx_ip_filter.allow_http 100`
+- **Import Command**: `terraform import rtx_access_list_extended.allow_http 100`
 - **Post-Import**: All filter parameters must be populated from router
 
 ## Non-Functional Requirements
 
-### 8. Validation
+### 10. Validation
 - Validate IP address formats
 - Validate port ranges (1-65535)
 - Validate protocol names
 - Prevent filter number conflicts
 
-### 9. Order Sensitivity
+### 11. Order Sensitivity
 - Filters evaluated in order
 - First match wins
 
@@ -144,4 +166,36 @@ resource "rtx_interface_acl" "wan" {
   interface            = "pp1"
   ip_access_group_in   = "WEB_ACCESS"
 }
+
+# IPv6 access list
+resource "rtx_access_list_extended_ipv6" "allow_icmp6" {
+  number      = 101000
+  action      = "pass"
+  source      = "*"
+  destination = "*"
+  protocol    = "icmp6"
+}
+
+# IPv4 dynamic (stateful) filter
+resource "rtx_ip_filter_dynamic" "stateful_web" {
+  number      = 100080
+  source      = "*"
+  destination = "*"
+  protocol    = "www"
+  syslog      = false
+}
+
+# IPv6 dynamic (stateful) filter
+resource "rtx_ipv6_filter_dynamic" "stateful_web6" {
+  number      = 101082
+  source      = "*"
+  destination = "*"
+  protocol    = "www"
+  syslog      = false
+}
 ```
+
+## State Handling
+
+- Only configuration attributes are persisted in Terraform state.
+- Operational/runtime status must not be stored in state.

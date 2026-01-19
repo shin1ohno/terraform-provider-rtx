@@ -20,6 +20,7 @@ This resource follows general VPN naming patterns. Note that PPTP is considered 
 ### 1. CRUD Operations
 - **Create**: Configure PPTP tunnel settings
 - **Read**: Query PPTP tunnel status
+  - Tunnel status is operational-only and MUST NOT be persisted in Terraform state
 - **Update**: Modify PPTP parameters
 - **Delete**: Remove PPTP configuration
 
@@ -118,3 +119,8 @@ resource "rtx_pptp" "vpn_server" {
   }
 }
 ```
+
+## State Handling
+
+- Only configuration attributes are persisted in Terraform state.
+- Operational/runtime status must not be stored in state.

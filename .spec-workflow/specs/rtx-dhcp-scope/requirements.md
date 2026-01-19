@@ -179,3 +179,8 @@ resource "rtx_dhcp_scope" "example" {
 - Existing `internal/client/` infrastructure
 - Existing `internal/rtx/parsers/` registry pattern
 - `rtx_dhcp_binding` resource (for integration testing)
+
+## State Handling
+
+- Only configuration attributes are persisted in Terraform state.
+- Operational/runtime status must not be stored in state.

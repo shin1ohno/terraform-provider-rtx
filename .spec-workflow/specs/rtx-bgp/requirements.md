@@ -22,6 +22,7 @@ This resource follows Cisco IOS XE Terraform provider naming conventions:
 ### 1. CRUD Operations
 - **Create**: Configure BGP routing process
 - **Read**: Query BGP configuration and peer status
+  - Peer status is operational-only and MUST NOT be persisted in Terraform state
 - **Update**: Modify BGP parameters
 - **Delete**: Remove BGP configuration
 
@@ -137,3 +138,8 @@ resource "rtx_bgp" "main" {
   redistribute_static = true
 }
 ```
+
+## State Handling
+
+- Only configuration attributes are persisted in Terraform state.
+- Operational/runtime status must not be stored in state.

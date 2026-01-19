@@ -31,6 +31,10 @@ Terraform Provider plugin for Yamaha RTX series routers. This is a Go-based infr
 - **Router Storage**: RTX router's persistent configuration memory
 - **Data Format**: HCL for configuration, JSON for state, plain text for RTX CLI
 
+### Terraform State Handling
+- Persist only configuration attributes in Terraform state
+- Do not store operational/runtime status values to avoid perpetual diffs
+
 ### External Integrations
 - **Protocols**: SSH for RTX router CLI access
 - **Authentication**: SSH password or public key authentication

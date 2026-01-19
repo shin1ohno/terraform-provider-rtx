@@ -1,13 +1,13 @@
 # Requirements: rtx_qos
 
 ## Overview
-Terraform resource for managing QoS (Quality of Service) and traffic shaping on Yamaha RTX routers.
+Terraform resources for managing QoS (Quality of Service) and traffic shaping on Yamaha RTX routers.
 
 **Cisco Equivalent**: `iosxe_policy_map`, `iosxe_class_map`, `iosxe_service_policy`
 
 ## Cisco Compatibility
 
-This resource follows Cisco MQC (Modular QoS CLI) naming patterns:
+These resources follow Cisco MQC (Modular QoS CLI) naming patterns:
 
 | RTX Attribute | Cisco Equivalent | Notes |
 |---------------|------------------|-------|
@@ -18,6 +18,15 @@ This resource follows Cisco MQC (Modular QoS CLI) naming patterns:
 | `priority` | `priority` | Priority queuing |
 | `police` | `police_cir` | Traffic policing |
 | `shape` | `shape_average` | Traffic shaping |
+
+## Covered Resources
+
+This specification covers four Terraform resources:
+
+- **`rtx_class_map`**: Traffic classification rules
+- **`rtx_policy_map`**: QoS policy definition with class actions
+- **`rtx_service_policy`**: Apply policy to interface
+- **`rtx_shape`**: Traffic shaping configuration
 
 ## Functional Requirements
 
@@ -72,9 +81,13 @@ This resource must fully support all standard Terraform workflow commands:
 | `terraform state` | ✅ Required | Support state inspection and manipulation |
 
 ### Import Specification
-- **Import ID Format**: `<interface>` (e.g., `pp1`)
-- **Import Command**: `terraform import rtx_qos.wan_qos pp1`
-- **Post-Import**: All classes and queue settings must be populated
+- **Import ID Format**: Resource-specific IDs (e.g., class name, policy name, interface)
+- **Import Commands**:
+  - `terraform import rtx_class_map.voip VOIP`
+  - `terraform import rtx_policy_map.wan_qos WAN_QOS`
+  - `terraform import rtx_service_policy.wan pp1`
+  - `terraform import rtx_shape.upload_limit pp1`
+- **Post-Import**: All attributes must be populated
 
 ## Non-Functional Requirements
 
@@ -149,3 +162,8 @@ resource "rtx_shape" "upload_limit" {
   shape_burst   = 1000000   # 1 Mbps burst
 }
 ```
+
+## State Handling
+
+- Only configuration attributes are persisted in Terraform state.
+- Operational/runtime status must not be stored in state.

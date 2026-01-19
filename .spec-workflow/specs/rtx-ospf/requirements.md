@@ -23,6 +23,7 @@ This resource follows Cisco IOS XE Terraform provider naming conventions:
 ### 1. CRUD Operations
 - **Create**: Configure OSPF routing process
 - **Read**: Query OSPF configuration and neighbor status
+  - Neighbor status is operational-only and MUST NOT be persisted in Terraform state
 - **Update**: Modify OSPF parameters
 - **Delete**: Remove OSPF configuration
 
@@ -146,3 +147,8 @@ resource "rtx_ospf" "backbone" {
   redistribute_static = true
 }
 ```
+
+## State Handling
+
+- Only configuration attributes are persisted in Terraform state.
+- Operational/runtime status must not be stored in state.

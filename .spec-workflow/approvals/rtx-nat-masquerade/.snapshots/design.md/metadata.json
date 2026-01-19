@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/rtx-nat-masquerade/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-19T05:16:34.025Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768799794022_h3iaumzqm",
+      "approvalTitle": "Design: rtx_nat_masquerade resource"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-19T05:23:15.868Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768799794022_h3iaumzqm",
+      "approvalTitle": "Design: rtx_nat_masquerade resource"
+    }
+  ]
+}

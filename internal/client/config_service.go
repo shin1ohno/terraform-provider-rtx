@@ -17,12 +17,6 @@ func NewConfigService(executor Executor) *ConfigService {
 	}
 }
 
-// DNSHost represents a DNS host entry
-type DNSHost struct {
-	Hostname string
-	IP       string
-}
-
 // AddDNSHost adds a DNS host entry to the router configuration
 func (s *ConfigService) AddDNSHost(ctx context.Context, host DNSHost) error {
 	// Will be implemented when working on rtx_dns_host resource

@@ -1,7 +1,14 @@
 # Requirements: rtx_l2tp
 
 ## Overview
-Terraform resource for managing L2TP (Layer 2 Tunneling Protocol) configuration on Yamaha RTX routers.
+Terraform resource for managing L2TP (Layer 2 Tunneling Protocol) configuration on Yamaha RTX routers. Supports both L2TPv2 (remote access VPN) and L2TPv3 (site-to-site L2VPN).
+
+### L2TP Versions Supported
+
+| Version | Use Case | Description |
+|---------|----------|-------------|
+| **L2TPv2** | Remote Access VPN | L2TP/IPsec for smartphone/PC clients connecting to LAN. Server (LNS) mode only. |
+| **L2TPv3** | Site-to-Site L2VPN | Ethernet frame tunneling between routers. Enables same L2 segment across multiple sites. |
 
 **Cisco Equivalent**: `iosxe_interface_tunnel` with tunnel mode l2tp, `iosxe_aaa` for authentication
 
@@ -22,6 +29,7 @@ This resource follows general VPN naming patterns where applicable:
 ### 1. CRUD Operations
 - **Create**: Configure L2TP tunnel settings
 - **Read**: Query L2TP tunnel status
+  - Tunnel status is operational-only and MUST NOT be persisted in Terraform state
 - **Update**: Modify L2TP parameters
 - **Delete**: Remove L2TP configuration
 
@@ -50,7 +58,14 @@ This resource follows general VPN naming patterns where applicable:
 - Configure anonymous PP for L2TP
 - IP address assignment
 
-### 7. Import Support
+### 7. L2TPv3 Site-to-Site Configuration
+- Local and remote router IDs
+- Remote end ID (optional)
+- Always-on connection mode
+- Bridge interface binding
+- IPsec transport mode (IKEv1)
+
+### 8. Import Support
 - Import existing L2TP configuration
 
 ## Terraform Command Support
@@ -73,12 +88,12 @@ This resource must fully support all standard Terraform workflow commands:
 
 ## Non-Functional Requirements
 
-### 8. Validation
+### 9. Validation
 - Validate IP addresses
 - Validate authentication credentials
 - Validate tunnel parameters
 
-### 9. Security
+### 10. Security
 - Mark passwords as sensitive
 - Secure credential handling
 
@@ -96,10 +111,11 @@ l2tp keepalive log on
 
 ## Example Usage
 ```hcl
-# L2TP VPN Server - Cisco-compatible structure
+# L2TPv2 VPN Server (Remote Access)
 resource "rtx_l2tp" "vpn_server" {
   name     = "L2TP_VPN"
-  mode     = "lns"  # L2TP Network Server
+  version  = "l2tp"  # L2TPv2
+  mode     = "lns"   # L2TP Network Server
   shutdown = false
 
   tunnel_source      = "203.0.113.1"
@@ -122,4 +138,30 @@ resource "rtx_l2tp" "vpn_server" {
     pre_shared_key = var.ipsec_psk
   }
 }
+
+# L2TPv3 Site-to-Site L2VPN
+resource "rtx_l2tp" "l2vpn_site_b" {
+  name     = "L2VPN_SITE_B"
+  version  = "l2tpv3"
+  mode     = "l2vpn"
+  shutdown = false
+
+  l2tpv3_config {
+    local_router_id  = "203.0.113.1"
+    remote_router_id = "198.51.100.1"
+    always_on        = true
+    bridge_interface = "bridge1"
+  }
+
+  # IPsec transport mode (optional)
+  ipsec_profile {
+    enabled        = true
+    pre_shared_key = var.ipsec_psk
+  }
+}
 ```
+
+## State Handling
+
+- Only configuration attributes are persisted in Terraform state.
+- Operational/runtime status must not be stored in state.

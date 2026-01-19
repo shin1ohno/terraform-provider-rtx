@@ -118,3 +118,8 @@ resource "rtx_interface_mac_acl" "lan1" {
   mac_access_group_in   = "TRUSTED_MACS"
 }
 ```
+
+## State Handling
+
+- Only configuration attributes are persisted in Terraform state.
+- Operational/runtime status must not be stored in state.

@@ -371,3 +371,8 @@ internal/
 4. **Configuration Save**: Use existing `SaveConfig()` pattern after modifications to persist to router memory.
 
 5. **Provider Registration**: Add `resourceRTXDHCPScope` to provider's resource map in `provider.go`.
+
+## State Handling
+
+- Persist only configuration attributes in Terraform state.
+- Operational/runtime status must not be stored in state to avoid perpetual diffs.

@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/rtx-nat-static/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-19T05:16:36.642Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768799796638_pip5d04hi",
+      "approvalTitle": "Design: rtx_nat_static resource"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-19T05:23:10.052Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768799796638_pip5d04hi",
+      "approvalTitle": "Design: rtx_nat_static resource"
+    }
+  ]
+}

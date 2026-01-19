@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/rtx-static-route/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-19T05:16:33.121Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768799793116_onizm77cc",
+      "approvalTitle": "Design: rtx_static_route resource"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-19T05:23:16.917Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768799793116_onizm77cc",
+      "approvalTitle": "Design: rtx_static_route resource"
+    }
+  ]
+}

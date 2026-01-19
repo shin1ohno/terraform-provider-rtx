@@ -89,8 +89,8 @@ dns service <switch>
 
 ## Example Usage
 ```hcl
-# DNS server configuration - Cisco-compatible naming
-resource "rtx_dns" "main" {
+# DNS server configuration
+resource "rtx_dns_server" "main" {
   domain_lookup = true
   domain_name   = "example.local"
 
@@ -113,3 +113,8 @@ resource "rtx_dns" "main" {
   ]
 }
 ```
+
+## State Handling
+
+- Only configuration attributes are persisted in Terraform state.
+- Operational/runtime status must not be stored in state.

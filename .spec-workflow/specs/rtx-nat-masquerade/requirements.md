@@ -88,33 +88,36 @@ show nat descriptor address
 
 ## Example Usage
 ```hcl
-# Basic NAT masquerade - Cisco-compatible naming
-resource "rtx_nat" "main" {
+# Basic NAT masquerade
+resource "rtx_nat_masquerade" "main" {
   id = 1
 
-  inside_source {
-    acl       = "192.168.1.0/24"
-    interface = "pp1"
-    overload  = true
-  }
+  outer_address  = "pp1"           # Interface name or "ipcp"
+  inner_network  = "192.168.1.0/24"
+  interface      = "lan2"          # Interface to bind NAT descriptor
 }
 
 # NAT with static port mapping
-resource "rtx_nat" "with_mapping" {
+resource "rtx_nat_masquerade" "with_mapping" {
   id = 2
 
-  inside_source {
-    acl       = "192.168.2.0/24"
-    interface = "pp1"
-    overload  = true
-  }
+  outer_address  = "ipcp"          # Use IP from PPPoE
+  inner_network  = "192.168.2.0/24"
+  interface      = "lan2"
 
   static_entries = [
     {
-      inside_local   = "192.168.2.10:443"
-      outside_global = "203.0.113.1:443"
-      protocol       = "tcp"
+      inside_local        = "192.168.2.10"
+      inside_local_port   = 443
+      outside_global      = "203.0.113.1"
+      outside_global_port = 443
+      protocol            = "tcp"
     }
   ]
 }
 ```
+
+## State Handling
+
+- Only configuration attributes are persisted in Terraform state.
+- Operational/runtime status must not be stored in state.

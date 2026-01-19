@@ -140,3 +140,8 @@ resource "rtx_static_route" "vpn_route" {
   ]
 }
 ```
+
+## State Handling
+
+- Only configuration attributes are persisted in Terraform state.
+- Operational/runtime status must not be stored in state.

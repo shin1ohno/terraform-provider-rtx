@@ -1,13 +1,13 @@
 # Requirements: rtx_schedule
 
 ## Overview
-Terraform resource for managing scheduled tasks and time-based automation on Yamaha RTX routers.
+Terraform resources for managing scheduled tasks and time-based automation on Yamaha RTX routers.
 
 **Cisco Equivalent**: `iosxe_kron_schedule`, `iosxe_kron_policy`
 
 ## Cisco Compatibility
 
-This resource follows Cisco Kron scheduler naming patterns:
+These resources follow Cisco Kron scheduler naming patterns:
 
 | RTX Attribute | Cisco Equivalent | Notes |
 |---------------|------------------|-------|
@@ -17,13 +17,20 @@ This resource follows Cisco Kron scheduler naming patterns:
 | `command` | `command_line` | Command to execute |
 | `policy_list` | `policy_list` | Associated policy |
 
+## Covered Resources
+
+This specification covers two Terraform resources:
+
+- **`rtx_kron_policy`**: Defines command lists to execute
+- **`rtx_kron_schedule`**: Defines when to execute policies
+
 ## Functional Requirements
 
 ### 1. CRUD Operations
-- **Create**: Define scheduled commands
-- **Read**: Query schedule configuration
-- **Update**: Modify schedule parameters
-- **Delete**: Remove scheduled tasks
+- **Create**: Define policies and schedules
+- **Read**: Query policy and schedule configuration
+- **Update**: Modify policy commands and schedule parameters
+- **Delete**: Remove policies and schedules
 
 ### 2. Schedule Definition
 - Schedule ID/name
@@ -48,6 +55,7 @@ This resource follows Cisco Kron scheduler naming patterns:
 - Execute only if condition is met
 - Interface status conditions
 - Connection status conditions
+  - Runtime status is operational-only and MUST NOT be persisted in Terraform state
 
 ### 6. Schedule Groups
 - Group related schedules
@@ -71,7 +79,7 @@ This resource must fully support all standard Terraform workflow commands:
 
 ### Import Specification
 - **Import ID Format**: `<schedule_id>` (e.g., `1`)
-- **Import Command**: `terraform import rtx_schedule.daily_backup 1`
+- **Import Command**: `terraform import rtx_kron_schedule.daily_backup 1`
 - **Post-Import**: All schedule parameters must be populated from router
 
 ## Non-Functional Requirements
@@ -148,3 +156,8 @@ resource "rtx_kron_policy" "startup_commands" {
   ]
 }
 ```
+
+## State Handling
+
+- Only configuration attributes are persisted in Terraform state.
+- Operational/runtime status must not be stored in state.

@@ -107,3 +107,8 @@ resource "rtx_vlan" "users" {
   ip_mask    = "255.255.255.0"
 }
 ```
+
+## State Handling
+
+- Only configuration attributes are persisted in Terraform state.
+- Operational/runtime status must not be stored in state.

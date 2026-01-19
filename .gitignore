@@ -64,3 +64,9 @@ Thumbs.db
 dist/
 build/
 .serena/cache/go
+
+# Local MCP configuration
+.mcp.json
+
+# Spec workflow audit log
+audit.log

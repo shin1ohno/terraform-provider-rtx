@@ -1,6 +1,6 @@
 {
   "filePath": ".spec-workflow/steering/product.md",
-  "currentVersion": 2,
+  "currentVersion": 3,
   "snapshots": [
     {
       "version": 1,
@@ -17,6 +17,14 @@
       "trigger": "approved",
       "approvalId": "approval_1768751107321_05h9132gx",
       "approvalTitle": "Product Overview - Terraform Provider RTX"
+    },
+    {
+      "version": 3,
+      "filename": "snapshot-003.json",
+      "timestamp": "2026-01-19T09:54:35.455Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768816390800_w2kzw8k6v",
+      "approvalTitle": "Update product.md with Terraform state handling principle"
     }
   ]
 }

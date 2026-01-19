@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/rtx-ip-filter/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-19T05:16:38.981Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768799798977_ubg934imh",
+      "approvalTitle": "Design: rtx_ip_filter resource"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-19T05:21:54.233Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768799798977_ubg934imh",
+      "approvalTitle": "Design: rtx_ip_filter resource"
+    }
+  ]
+}

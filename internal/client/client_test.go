@@ -353,12 +353,11 @@ func TestClient_Run(t *testing.T) {
 			
 			client := &rtxClient{
 				config:         config,
-				session:        tt.session,
 				promptDetector: tt.detector,
 				retryStrategy:  &MockRetryStrategy{},
 				active:         true, // Set as connected for testing
 			}
-			// Initialize executor for the test
+			// Initialize executor for the test (session is nil so executor will be used)
 			client.executor = NewSSHExecutor(tt.session, tt.detector, &MockRetryStrategy{})
 
 			timeout := 5 * time.Second
@@ -665,12 +664,11 @@ func TestClientTimeoutHandling(t *testing.T) {
 
 		client := &rtxClient{
 			config:         config,
-			session:        session,
 			promptDetector: detector,
 			retryStrategy:  &MockRetryStrategy{},
 			active:         true, // Set as connected for testing
 		}
-		// Initialize executor for the test
+		// Initialize executor for the test (session is nil so executor will be used)
 		client.executor = NewSSHExecutor(session, detector, &MockRetryStrategy{})
 
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)

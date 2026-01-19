@@ -23,6 +23,7 @@ This resource follows Cisco IOS XE Terraform provider naming conventions:
 ### 1. CRUD Operations
 - **Create**: Configure IPsec tunnel with IKE settings
 - **Read**: Query tunnel and SA status
+  - Tunnel/SA status is operational-only and MUST NOT be persisted in Terraform state
 - **Update**: Modify tunnel parameters
 - **Delete**: Remove tunnel configuration
 
@@ -104,16 +105,7 @@ ipsec ike keepalive use <n> on dpd
 
 ## Example Usage
 ```hcl
-# IPsec IKEv2 Proposal - Cisco-compatible naming
-resource "rtx_crypto_ikev2_proposal" "aes256_sha256" {
-  name = "PROPOSAL_AES256"
-
-  encryption_aes_cbc_256 = true
-  integrity_sha256       = true
-  group_fourteen         = true  # DH Group 14
-}
-
-# IPsec Tunnel - combined configuration for RTX
+# IPsec Tunnel - integrated configuration for RTX
 resource "rtx_ipsec_tunnel" "site_to_site" {
   id   = 1
   name = "site-to-site-vpn"
@@ -121,13 +113,13 @@ resource "rtx_ipsec_tunnel" "site_to_site" {
   local_address  = "203.0.113.1"
   remote_address = "198.51.100.1"
 
-  pre_shared_key = var.ipsec_psk
+  pre_shared_key = var.ipsec_psk  # Sensitive
 
   # IKE Phase 1 (IKEv2)
   ikev2_proposal {
     encryption_aes_cbc_256 = true
     integrity_sha256       = true
-    group_fourteen         = true
+    group_fourteen         = true  # DH Group 14
     lifetime_seconds       = 28800
   }
 
@@ -147,3 +139,8 @@ resource "rtx_ipsec_tunnel" "site_to_site" {
   dpd_interval = 30
 }
 ```
+
+## State Handling
+
+- Only configuration attributes are persisted in Terraform state.
+- Operational/runtime status must not be stored in state.
