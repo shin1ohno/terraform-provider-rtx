@@ -87,12 +87,18 @@ type DHCPBinding struct {
 
 // DHCPScope represents a DHCP scope configuration on an RTX router
 type DHCPScope struct {
-	ScopeID       int            `json:"scope_id"`
-	Network       string         `json:"network"`                  // CIDR notation: "192.168.1.0/24"
-	Gateway       string         `json:"gateway,omitempty"`        // Default gateway
-	DNSServers    []string       `json:"dns_servers,omitempty"`    // Up to 3 DNS servers
-	LeaseTime     string         `json:"lease_time,omitempty"`     // Go duration format or "infinite"
-	ExcludeRanges []ExcludeRange `json:"exclude_ranges,omitempty"` // Excluded IP ranges
+	ScopeID       int              `json:"scope_id"`
+	Network       string           `json:"network"`                  // CIDR notation: "192.168.1.0/24"
+	LeaseTime     string           `json:"lease_time,omitempty"`     // Go duration format or "infinite"
+	ExcludeRanges []ExcludeRange   `json:"exclude_ranges,omitempty"` // Excluded IP ranges
+	Options       DHCPScopeOptions `json:"options,omitempty"`        // DHCP options (dns, routers, etc.)
+}
+
+// DHCPScopeOptions represents DHCP options for a scope (Cisco-compatible naming)
+type DHCPScopeOptions struct {
+	DNSServers []string `json:"dns_servers,omitempty"` // DNS servers (max 3)
+	Routers    []string `json:"routers,omitempty"`     // Default gateways (max 3)
+	DomainName string   `json:"domain_name,omitempty"` // Domain name
 }
 
 // ExcludeRange represents an IP range excluded from DHCP allocation

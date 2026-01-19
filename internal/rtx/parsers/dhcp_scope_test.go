@@ -12,7 +12,7 @@ func TestParseScopeConfig(t *testing.T) {
 		wantErr  bool
 	}{
 		{
-			name: "basic scope",
+			name:  "basic scope",
 			input: `dhcp scope 1 192.168.1.0/24`,
 			expected: []DHCPScope{
 				{
@@ -23,39 +23,68 @@ func TestParseScopeConfig(t *testing.T) {
 			},
 		},
 		{
-			name: "scope with gateway",
+			name:  "scope with gateway (legacy format)",
 			input: `dhcp scope 1 192.168.1.0/24 gateway 192.168.1.1`,
 			expected: []DHCPScope{
 				{
 					ScopeID:       1,
 					Network:       "192.168.1.0/24",
-					Gateway:       "192.168.1.1",
+					Options:       DHCPScopeOptions{Routers: []string{"192.168.1.1"}},
 					ExcludeRanges: []ExcludeRange{},
 				},
 			},
 		},
 		{
-			name: "scope with gateway and expire",
+			name:  "scope with gateway and expire",
 			input: `dhcp scope 1 192.168.1.0/24 gateway 192.168.1.1 expire 72:00`,
 			expected: []DHCPScope{
 				{
 					ScopeID:       1,
 					Network:       "192.168.1.0/24",
-					Gateway:       "192.168.1.1",
+					Options:       DHCPScopeOptions{Routers: []string{"192.168.1.1"}},
 					LeaseTime:     "72h",
 					ExcludeRanges: []ExcludeRange{},
 				},
 			},
 		},
 		{
-			name: "scope with DNS",
+			name: "scope with DNS option",
 			input: `dhcp scope 1 192.168.1.0/24
 dhcp scope option 1 dns=8.8.8.8,8.8.4.4`,
 			expected: []DHCPScope{
 				{
 					ScopeID:       1,
 					Network:       "192.168.1.0/24",
-					DNSServers:    []string{"8.8.8.8", "8.8.4.4"},
+					Options:       DHCPScopeOptions{DNSServers: []string{"8.8.8.8", "8.8.4.4"}},
+					ExcludeRanges: []ExcludeRange{},
+				},
+			},
+		},
+		{
+			name: "scope with router option",
+			input: `dhcp scope 1 192.168.1.0/24
+dhcp scope option 1 router=192.168.1.1`,
+			expected: []DHCPScope{
+				{
+					ScopeID:       1,
+					Network:       "192.168.1.0/24",
+					Options:       DHCPScopeOptions{Routers: []string{"192.168.1.1"}},
+					ExcludeRanges: []ExcludeRange{},
+				},
+			},
+		},
+		{
+			name: "scope with DNS and router options",
+			input: `dhcp scope 1 192.168.1.0/24
+dhcp scope option 1 dns=8.8.8.8 router=192.168.1.1`,
+			expected: []DHCPScope{
+				{
+					ScopeID: 1,
+					Network: "192.168.1.0/24",
+					Options: DHCPScopeOptions{
+						DNSServers: []string{"8.8.8.8"},
+						Routers:    []string{"192.168.1.1"},
+					},
 					ExcludeRanges: []ExcludeRange{},
 				},
 			},
@@ -76,17 +105,19 @@ dhcp scope 1 except 192.168.1.1-192.168.1.10`,
 		},
 		{
 			name: "full scope configuration",
-			input: `dhcp scope 1 192.168.1.0/24 gateway 192.168.1.1 expire 24:00
-dhcp scope option 1 dns=8.8.8.8,8.8.4.4,1.1.1.1
+			input: `dhcp scope 1 192.168.1.0/24 expire 24:00
+dhcp scope option 1 dns=8.8.8.8,8.8.4.4,1.1.1.1 router=192.168.1.1
 dhcp scope 1 except 192.168.1.1-192.168.1.10
 dhcp scope 1 except 192.168.1.250-192.168.1.254`,
 			expected: []DHCPScope{
 				{
-					ScopeID:    1,
-					Network:    "192.168.1.0/24",
-					Gateway:    "192.168.1.1",
-					LeaseTime:  "24h",
-					DNSServers: []string{"8.8.8.8", "8.8.4.4", "1.1.1.1"},
+					ScopeID:   1,
+					Network:   "192.168.1.0/24",
+					LeaseTime: "24h",
+					Options: DHCPScopeOptions{
+						DNSServers: []string{"8.8.8.8", "8.8.4.4", "1.1.1.1"},
+						Routers:    []string{"192.168.1.1"},
+					},
 					ExcludeRanges: []ExcludeRange{
 						{Start: "192.168.1.1", End: "192.168.1.10"},
 						{Start: "192.168.1.250", End: "192.168.1.254"},
@@ -96,23 +127,27 @@ dhcp scope 1 except 192.168.1.250-192.168.1.254`,
 		},
 		{
 			name: "multiple scopes",
-			input: `dhcp scope 1 192.168.1.0/24 gateway 192.168.1.1
-dhcp scope 2 192.168.2.0/24 gateway 192.168.2.1
-dhcp scope option 1 dns=8.8.8.8
-dhcp scope option 2 dns=1.1.1.1`,
+			input: `dhcp scope 1 192.168.1.0/24
+dhcp scope 2 192.168.2.0/24
+dhcp scope option 1 dns=8.8.8.8 router=192.168.1.1
+dhcp scope option 2 dns=1.1.1.1 router=192.168.2.1`,
 			expected: []DHCPScope{
 				{
-					ScopeID:       1,
-					Network:       "192.168.1.0/24",
-					Gateway:       "192.168.1.1",
-					DNSServers:    []string{"8.8.8.8"},
+					ScopeID: 1,
+					Network: "192.168.1.0/24",
+					Options: DHCPScopeOptions{
+						DNSServers: []string{"8.8.8.8"},
+						Routers:    []string{"192.168.1.1"},
+					},
 					ExcludeRanges: []ExcludeRange{},
 				},
 				{
-					ScopeID:       2,
-					Network:       "192.168.2.0/24",
-					Gateway:       "192.168.2.1",
-					DNSServers:    []string{"1.1.1.1"},
+					ScopeID: 2,
+					Network: "192.168.2.0/24",
+					Options: DHCPScopeOptions{
+						DNSServers: []string{"1.1.1.1"},
+						Routers:    []string{"192.168.2.1"},
+					},
 					ExcludeRanges: []ExcludeRange{},
 				},
 			},
@@ -163,14 +198,14 @@ dhcp scope option 2 dns=1.1.1.1`,
 				if got.Network != expected.Network {
 					t.Errorf("scope %d: network = %q, want %q", expected.ScopeID, got.Network, expected.Network)
 				}
-				if got.Gateway != expected.Gateway {
-					t.Errorf("scope %d: gateway = %q, want %q", expected.ScopeID, got.Gateway, expected.Gateway)
-				}
 				if got.LeaseTime != expected.LeaseTime {
 					t.Errorf("scope %d: lease_time = %q, want %q", expected.ScopeID, got.LeaseTime, expected.LeaseTime)
 				}
-				if len(got.DNSServers) != len(expected.DNSServers) {
-					t.Errorf("scope %d: dns_servers count = %d, want %d", expected.ScopeID, len(got.DNSServers), len(expected.DNSServers))
+				if len(got.Options.Routers) != len(expected.Options.Routers) {
+					t.Errorf("scope %d: routers count = %d, want %d", expected.ScopeID, len(got.Options.Routers), len(expected.Options.Routers))
+				}
+				if len(got.Options.DNSServers) != len(expected.Options.DNSServers) {
+					t.Errorf("scope %d: dns_servers count = %d, want %d", expected.ScopeID, len(got.Options.DNSServers), len(expected.Options.DNSServers))
 				}
 				if len(got.ExcludeRanges) != len(expected.ExcludeRanges) {
 					t.Errorf("scope %d: exclude_ranges count = %d, want %d", expected.ScopeID, len(got.ExcludeRanges), len(expected.ExcludeRanges))
@@ -195,23 +230,13 @@ func TestBuildDHCPScopeCommand(t *testing.T) {
 			expected: "dhcp scope 1 192.168.1.0/24",
 		},
 		{
-			name: "scope with gateway",
-			scope: DHCPScope{
-				ScopeID: 1,
-				Network: "192.168.1.0/24",
-				Gateway: "192.168.1.1",
-			},
-			expected: "dhcp scope 1 192.168.1.0/24 gateway 192.168.1.1",
-		},
-		{
-			name: "scope with gateway and lease time",
+			name: "scope with lease time",
 			scope: DHCPScope{
 				ScopeID:   1,
 				Network:   "192.168.1.0/24",
-				Gateway:   "192.168.1.1",
 				LeaseTime: "72h",
 			},
-			expected: "dhcp scope 1 192.168.1.0/24 gateway 192.168.1.1 expire 72:00",
+			expected: "dhcp scope 1 192.168.1.0/24 expire 72:00",
 		},
 		{
 			name: "scope with infinite lease",
@@ -236,46 +261,67 @@ func TestBuildDHCPScopeCommand(t *testing.T) {
 
 func TestBuildDHCPScopeOptionsCommand(t *testing.T) {
 	tests := []struct {
-		name       string
-		scopeID    int
-		dnsServers []string
-		expected   string
+		name     string
+		scopeID  int
+		options  DHCPScopeOptions
+		expected string
 	}{
 		{
-			name:       "single DNS",
-			scopeID:    1,
-			dnsServers: []string{"8.8.8.8"},
-			expected:   "dhcp scope option 1 dns=8.8.8.8",
+			name:     "single DNS",
+			scopeID:  1,
+			options:  DHCPScopeOptions{DNSServers: []string{"8.8.8.8"}},
+			expected: "dhcp scope option 1 dns=8.8.8.8",
 		},
 		{
-			name:       "multiple DNS",
-			scopeID:    1,
-			dnsServers: []string{"8.8.8.8", "8.8.4.4"},
-			expected:   "dhcp scope option 1 dns=8.8.8.8,8.8.4.4",
+			name:     "multiple DNS",
+			scopeID:  1,
+			options:  DHCPScopeOptions{DNSServers: []string{"8.8.8.8", "8.8.4.4"}},
+			expected: "dhcp scope option 1 dns=8.8.8.8,8.8.4.4",
 		},
 		{
-			name:       "three DNS",
-			scopeID:    1,
-			dnsServers: []string{"8.8.8.8", "8.8.4.4", "1.1.1.1"},
-			expected:   "dhcp scope option 1 dns=8.8.8.8,8.8.4.4,1.1.1.1",
+			name:     "single router",
+			scopeID:  1,
+			options:  DHCPScopeOptions{Routers: []string{"192.168.1.1"}},
+			expected: "dhcp scope option 1 router=192.168.1.1",
 		},
 		{
-			name:       "more than three DNS (truncated)",
-			scopeID:    1,
-			dnsServers: []string{"8.8.8.8", "8.8.4.4", "1.1.1.1", "9.9.9.9"},
-			expected:   "dhcp scope option 1 dns=8.8.8.8,8.8.4.4,1.1.1.1",
+			name:    "DNS and router",
+			scopeID: 1,
+			options: DHCPScopeOptions{
+				DNSServers: []string{"8.8.8.8"},
+				Routers:    []string{"192.168.1.1"},
+			},
+			expected: "dhcp scope option 1 dns=8.8.8.8 router=192.168.1.1",
 		},
 		{
-			name:       "empty DNS",
-			scopeID:    1,
-			dnsServers: []string{},
-			expected:   "",
+			name:    "DNS, router and domain",
+			scopeID: 1,
+			options: DHCPScopeOptions{
+				DNSServers: []string{"8.8.8.8"},
+				Routers:    []string{"192.168.1.1"},
+				DomainName: "example.local",
+			},
+			expected: "dhcp scope option 1 dns=8.8.8.8 router=192.168.1.1 domain=example.local",
+		},
+		{
+			name:    "more than three DNS (truncated)",
+			scopeID: 1,
+			options: DHCPScopeOptions{
+				DNSServers: []string{"8.8.8.8", "8.8.4.4", "1.1.1.1", "9.9.9.9"},
+			},
+			expected: "dhcp scope option 1 dns=8.8.8.8,8.8.4.4,1.1.1.1",
+		},
+		{
+			name:     "empty options",
+			scopeID:  1,
+			options:  DHCPScopeOptions{},
+			expected: "",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := BuildDHCPScopeOptionsCommand(tt.scopeID, tt.dnsServers)
+			result := BuildDHCPScopeOptionsCommand(tt.scopeID, tt.options)
 			if result != tt.expected {
 				t.Errorf("BuildDHCPScopeOptionsCommand() = %q, want %q", result, tt.expected)
 			}
@@ -342,10 +388,12 @@ func TestValidateDHCPScope(t *testing.T) {
 		{
 			name: "valid full scope",
 			scope: DHCPScope{
-				ScopeID:    1,
-				Network:    "192.168.1.0/24",
-				Gateway:    "192.168.1.1",
-				DNSServers: []string{"8.8.8.8", "8.8.4.4"},
+				ScopeID: 1,
+				Network: "192.168.1.0/24",
+				Options: DHCPScopeOptions{
+					Routers:    []string{"192.168.1.1"},
+					DNSServers: []string{"8.8.8.8", "8.8.4.4"},
+				},
 				ExcludeRanges: []ExcludeRange{
 					{Start: "192.168.1.1", End: "192.168.1.10"},
 				},
@@ -380,21 +428,23 @@ func TestValidateDHCPScope(t *testing.T) {
 			errMsg:  "network must be in CIDR notation",
 		},
 		{
-			name: "invalid gateway",
+			name: "invalid router",
 			scope: DHCPScope{
 				ScopeID: 1,
 				Network: "192.168.1.0/24",
-				Gateway: "invalid",
+				Options: DHCPScopeOptions{Routers: []string{"invalid"}},
 			},
 			wantErr: true,
-			errMsg:  "gateway must be a valid IP address",
+			errMsg:  "invalid router address",
 		},
 		{
 			name: "too many DNS servers",
 			scope: DHCPScope{
-				ScopeID:    1,
-				Network:    "192.168.1.0/24",
-				DNSServers: []string{"8.8.8.8", "8.8.4.4", "1.1.1.1", "9.9.9.9"},
+				ScopeID: 1,
+				Network: "192.168.1.0/24",
+				Options: DHCPScopeOptions{
+					DNSServers: []string{"8.8.8.8", "8.8.4.4", "1.1.1.1", "9.9.9.9"},
+				},
 			},
 			wantErr: true,
 			errMsg:  "maximum 3 DNS servers allowed",
@@ -402,9 +452,9 @@ func TestValidateDHCPScope(t *testing.T) {
 		{
 			name: "invalid DNS server",
 			scope: DHCPScope{
-				ScopeID:    1,
-				Network:    "192.168.1.0/24",
-				DNSServers: []string{"invalid"},
+				ScopeID: 1,
+				Network: "192.168.1.0/24",
+				Options: DHCPScopeOptions{DNSServers: []string{"invalid"}},
 			},
 			wantErr: true,
 			errMsg:  "invalid DNS server address",
@@ -435,9 +485,9 @@ func TestValidateDHCPScope(t *testing.T) {
 
 func TestConvertLeaseTime(t *testing.T) {
 	tests := []struct {
-		name     string
-		goTime   string
-		rtxTime  string
+		name    string
+		goTime  string
+		rtxTime string
 	}{
 		{"hours only", "72h", "72:00"},
 		{"minutes only", "30m", "0:30"},

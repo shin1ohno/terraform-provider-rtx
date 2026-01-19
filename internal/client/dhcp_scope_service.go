@@ -53,18 +53,18 @@ func (s *DHCPScopeService) CreateScope(ctx context.Context, scope DHCPScope) err
 		return fmt.Errorf("command failed: %s", string(output))
 	}
 
-	// Configure DNS servers if specified
-	if len(scope.DNSServers) > 0 {
-		dnsCmd := parsers.BuildDHCPScopeOptionsCommand(scope.ScopeID, scope.DNSServers)
-		log.Printf("[DEBUG] Setting DNS servers with command: %s", dnsCmd)
+	// Configure DHCP options (DNS, routers, domain) if any are specified
+	if len(scope.Options.DNSServers) > 0 || len(scope.Options.Routers) > 0 || scope.Options.DomainName != "" {
+		optsCmd := parsers.BuildDHCPScopeOptionsCommand(scope.ScopeID, parserScope.Options)
+		log.Printf("[DEBUG] Setting DHCP options with command: %s", optsCmd)
 
-		output, err = s.executor.Run(ctx, dnsCmd)
+		output, err = s.executor.Run(ctx, optsCmd)
 		if err != nil {
-			return fmt.Errorf("failed to set DNS servers: %w", err)
+			return fmt.Errorf("failed to set DHCP options: %w", err)
 		}
 
 		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("DNS command failed: %s", string(output))
+			return fmt.Errorf("options command failed: %s", string(output))
 		}
 	}
 
@@ -162,26 +162,28 @@ func (s *DHCPScopeService) UpdateScope(ctx context.Context, scope DHCPScope) err
 		return fmt.Errorf("command failed: %s", string(output))
 	}
 
-	// Update DNS servers
-	// First, remove existing DNS configuration
-	if len(currentScope.DNSServers) > 0 {
+	// Update DHCP options (DNS, routers, domain)
+	// First, remove existing options configuration
+	hasCurrentOptions := len(currentScope.Options.DNSServers) > 0 || len(currentScope.Options.Routers) > 0 || currentScope.Options.DomainName != ""
+	if hasCurrentOptions {
 		deleteCmd := parsers.BuildDeleteDHCPScopeOptionsCommand(scope.ScopeID)
-		log.Printf("[DEBUG] Removing existing DNS with command: %s", deleteCmd)
+		log.Printf("[DEBUG] Removing existing options with command: %s", deleteCmd)
 		_, _ = s.executor.Run(ctx, deleteCmd) // Ignore errors for cleanup
 	}
 
-	// Set new DNS servers if specified
-	if len(scope.DNSServers) > 0 {
-		dnsCmd := parsers.BuildDHCPScopeOptionsCommand(scope.ScopeID, scope.DNSServers)
-		log.Printf("[DEBUG] Setting DNS servers with command: %s", dnsCmd)
+	// Set new options if specified
+	hasNewOptions := len(scope.Options.DNSServers) > 0 || len(scope.Options.Routers) > 0 || scope.Options.DomainName != ""
+	if hasNewOptions {
+		optsCmd := parsers.BuildDHCPScopeOptionsCommand(scope.ScopeID, parserScope.Options)
+		log.Printf("[DEBUG] Setting DHCP options with command: %s", optsCmd)
 
-		output, err = s.executor.Run(ctx, dnsCmd)
+		output, err = s.executor.Run(ctx, optsCmd)
 		if err != nil {
-			return fmt.Errorf("failed to set DNS servers: %w", err)
+			return fmt.Errorf("failed to set DHCP options: %w", err)
 		}
 
 		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("DNS command failed: %s", string(output))
+			return fmt.Errorf("options command failed: %s", string(output))
 		}
 	}
 
@@ -319,10 +321,13 @@ func (s *DHCPScopeService) toParserScope(scope DHCPScope) parsers.DHCPScope {
 	return parsers.DHCPScope{
 		ScopeID:       scope.ScopeID,
 		Network:       scope.Network,
-		Gateway:       scope.Gateway,
-		DNSServers:    scope.DNSServers,
 		LeaseTime:     scope.LeaseTime,
 		ExcludeRanges: excludeRanges,
+		Options: parsers.DHCPScopeOptions{
+			DNSServers: scope.Options.DNSServers,
+			Routers:    scope.Options.Routers,
+			DomainName: scope.Options.DomainName,
+		},
 	}
 }
 
@@ -339,9 +344,12 @@ func (s *DHCPScopeService) fromParserScope(ps parsers.DHCPScope) DHCPScope {
 	return DHCPScope{
 		ScopeID:       ps.ScopeID,
 		Network:       ps.Network,
-		Gateway:       ps.Gateway,
-		DNSServers:    ps.DNSServers,
 		LeaseTime:     ps.LeaseTime,
 		ExcludeRanges: excludeRanges,
+		Options: DHCPScopeOptions{
+			DNSServers: ps.Options.DNSServers,
+			Routers:    ps.Options.Routers,
+			DomainName: ps.Options.DomainName,
+		},
 	}
 }

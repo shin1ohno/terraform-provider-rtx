@@ -40,27 +40,11 @@ func resourceRTXDHCPScope() *schema.Resource {
 				Description:  "The network address in CIDR notation (e.g., '192.168.1.0/24')",
 				ValidateFunc: validateCIDR,
 			},
-			"gateway": {
+			"lease_time": {
 				Type:         schema.TypeString,
 				Optional:     true,
-				Description:  "The default gateway address for DHCP clients",
-				ValidateFunc: validateIPAddress,
-			},
-			"dns_servers": {
-				Type:        schema.TypeList,
-				Optional:    true,
-				MaxItems:    3,
-				Description: "List of DNS server addresses (maximum 3)",
-				Elem: &schema.Schema{
-					Type:         schema.TypeString,
-					ValidateFunc: validateIPAddress,
-				},
-			},
-			"lease_time": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Default:     "72h",
-				Description: "DHCP lease duration in Go duration format (e.g., '72h', '30m') or 'infinite'",
+				Default:      "72h",
+				Description:  "DHCP lease duration in Go duration format (e.g., '72h', '30m') or 'infinite'",
 				ValidateFunc: validateLeaseTime,
 			},
 			"exclude_ranges": {
@@ -80,6 +64,41 @@ func resourceRTXDHCPScope() *schema.Resource {
 							Required:     true,
 							Description:  "End IP address of the exclusion range",
 							ValidateFunc: validateIPAddress,
+						},
+					},
+				},
+			},
+			"options": {
+				Type:        schema.TypeList,
+				Optional:    true,
+				MaxItems:    1,
+				Description: "DHCP options for client configuration (Cisco-compatible naming)",
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"routers": {
+							Type:        schema.TypeList,
+							Optional:    true,
+							MaxItems:    3,
+							Description: "Default gateway addresses for DHCP clients (maximum 3)",
+							Elem: &schema.Schema{
+								Type:         schema.TypeString,
+								ValidateFunc: validateIPAddress,
+							},
+						},
+						"dns_servers": {
+							Type:        schema.TypeList,
+							Optional:    true,
+							MaxItems:    3,
+							Description: "DNS server addresses for DHCP clients (maximum 3)",
+							Elem: &schema.Schema{
+								Type:         schema.TypeString,
+								ValidateFunc: validateIPAddress,
+							},
+						},
+						"domain_name": {
+							Type:        schema.TypeString,
+							Optional:    true,
+							Description: "Domain name for DHCP clients",
 						},
 					},
 				},
@@ -135,12 +154,6 @@ func resourceRTXDHCPScopeRead(ctx context.Context, d *schema.ResourceData, meta 
 	if err := d.Set("network", scope.Network); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set("gateway", scope.Gateway); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("dns_servers", scope.DNSServers); err != nil {
-		return diag.FromErr(err)
-	}
 	if err := d.Set("lease_time", scope.LeaseTime); err != nil {
 		return diag.FromErr(err)
 	}
@@ -154,6 +167,20 @@ func resourceRTXDHCPScopeRead(ctx context.Context, d *schema.ResourceData, meta 
 		}
 	}
 	if err := d.Set("exclude_ranges", excludeRanges); err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Convert Options to nested block
+	options := []map[string]interface{}{}
+	if len(scope.Options.Routers) > 0 || len(scope.Options.DNSServers) > 0 || scope.Options.DomainName != "" {
+		optionsMap := map[string]interface{}{
+			"routers":     scope.Options.Routers,
+			"dns_servers": scope.Options.DNSServers,
+			"domain_name": scope.Options.DomainName,
+		}
+		options = append(options, optionsMap)
+	}
+	if err := d.Set("options", options); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -219,8 +246,6 @@ func resourceRTXDHCPScopeImport(ctx context.Context, d *schema.ResourceData, met
 	d.SetId(strconv.Itoa(scopeID))
 	d.Set("scope_id", scope.ScopeID)
 	d.Set("network", scope.Network)
-	d.Set("gateway", scope.Gateway)
-	d.Set("dns_servers", scope.DNSServers)
 	d.Set("lease_time", scope.LeaseTime)
 
 	excludeRanges := make([]map[string]interface{}, len(scope.ExcludeRanges))
@@ -232,6 +257,18 @@ func resourceRTXDHCPScopeImport(ctx context.Context, d *schema.ResourceData, met
 	}
 	d.Set("exclude_ranges", excludeRanges)
 
+	// Set options block
+	options := []map[string]interface{}{}
+	if len(scope.Options.Routers) > 0 || len(scope.Options.DNSServers) > 0 || scope.Options.DomainName != "" {
+		optionsMap := map[string]interface{}{
+			"routers":     scope.Options.Routers,
+			"dns_servers": scope.Options.DNSServers,
+			"domain_name": scope.Options.DomainName,
+		}
+		options = append(options, optionsMap)
+	}
+	d.Set("options", options)
+
 	return []*schema.ResourceData{d}, nil
 }
 
@@ -240,18 +277,40 @@ func buildDHCPScopeFromResourceData(d *schema.ResourceData) client.DHCPScope {
 	scope := client.DHCPScope{
 		ScopeID:   d.Get("scope_id").(int),
 		Network:   d.Get("network").(string),
-		Gateway:   d.Get("gateway").(string),
 		LeaseTime: d.Get("lease_time").(string),
 	}
 
-	// Handle dns_servers
-	if v, ok := d.GetOk("dns_servers"); ok {
-		dnsServersRaw := v.([]interface{})
-		dnsServers := make([]string, len(dnsServersRaw))
-		for i, dns := range dnsServersRaw {
-			dnsServers[i] = dns.(string)
+	// Handle options block
+	if v, ok := d.GetOk("options"); ok {
+		optionsList := v.([]interface{})
+		if len(optionsList) > 0 {
+			optionsMap := optionsList[0].(map[string]interface{})
+
+			// Parse routers
+			if routersRaw, ok := optionsMap["routers"]; ok {
+				routersList := routersRaw.([]interface{})
+				routers := make([]string, len(routersList))
+				for i, r := range routersList {
+					routers[i] = r.(string)
+				}
+				scope.Options.Routers = routers
+			}
+
+			// Parse dns_servers
+			if dnsRaw, ok := optionsMap["dns_servers"]; ok {
+				dnsList := dnsRaw.([]interface{})
+				dnsServers := make([]string, len(dnsList))
+				for i, dns := range dnsList {
+					dnsServers[i] = dns.(string)
+				}
+				scope.Options.DNSServers = dnsServers
+			}
+
+			// Parse domain_name
+			if domainRaw, ok := optionsMap["domain_name"]; ok {
+				scope.Options.DomainName = domainRaw.(string)
+			}
 		}
-		scope.DNSServers = dnsServers
 	}
 
 	// Handle exclude_ranges

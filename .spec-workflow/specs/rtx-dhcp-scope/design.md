@@ -157,7 +157,7 @@ type ExcludeRange struct {
 }
 ```
 
-### Terraform Schema
+### Terraform Schema (Cisco-Compatible)
 
 ```hcl
 resource "rtx_dhcp_scope" "example" {
@@ -165,10 +165,6 @@ resource "rtx_dhcp_scope" "example" {
 
   # Network configuration
   network = "192.168.1.0/24"  # Required, ForceNew
-
-  # Optional parameters
-  gateway     = "192.168.1.1"
-  dns_servers = ["8.8.8.8", "8.8.4.4"]
 
   # Lease configuration
   lease_time = "72h"  # Go duration format, or "infinite"
@@ -180,6 +176,33 @@ resource "rtx_dhcp_scope" "example" {
       end   = "192.168.1.10"
     }
   ]
+
+  # DHCP Options (Cisco-compatible nested block)
+  options {
+    routers     = ["192.168.1.253"]            # Default gateways (max 3)
+    dns_servers = ["1.1.1.1", "1.0.0.1"]       # DNS servers (max 3)
+    domain_name = "home.local"                  # Domain name
+  }
+}
+```
+
+### Data Models (Implemented)
+
+```go
+// DHCPScope represents a DHCP scope configuration on an RTX router
+type DHCPScope struct {
+    ScopeID       int              `json:"scope_id"`
+    Network       string           `json:"network"`                  // CIDR notation
+    LeaseTime     string           `json:"lease_time,omitempty"`     // Go duration or "infinite"
+    ExcludeRanges []ExcludeRange   `json:"exclude_ranges,omitempty"`
+    Options       DHCPScopeOptions `json:"options,omitempty"`
+}
+
+// DHCPScopeOptions represents DHCP options (Cisco-compatible naming)
+type DHCPScopeOptions struct {
+    DNSServers []string `json:"dns_servers,omitempty"` // Max 3
+    Routers    []string `json:"routers,omitempty"`     // Default gateways (max 3)
+    DomainName string   `json:"domain_name,omitempty"` // Domain name
 }
 ```
 
@@ -200,6 +223,30 @@ dhcp scope option <scope-id> dns=<dns1>[,<dns2>[,<dns3>]]
 ```
 
 Example: `dhcp scope option 1 dns=8.8.8.8,8.8.4.4`
+
+### Configure Router (Default Gateway)
+
+```
+dhcp scope option <scope-id> router=<gateway1>[,<gateway2>[,<gateway3>]]
+```
+
+Example: `dhcp scope option 1 router=192.168.1.253`
+
+### Configure All Options
+
+RTX routers support various DHCP options via the `dhcp scope option` command:
+
+| Option | Description | Example |
+|--------|-------------|---------|
+| `dns` | DNS servers (max 3) | `dns=1.1.1.1,1.0.0.1` |
+| `router` | Default gateways (max 3) | `router=192.168.1.1` |
+| `domain` | Domain name | `domain=example.com` |
+| `wins` | WINS servers | `wins=192.168.1.10` |
+| `ntp` | NTP servers | `ntp=pool.ntp.org` |
+| `tftp` | TFTP server | `tftp=192.168.1.100` |
+| `sip` | SIP servers | `sip=sip.example.com` |
+
+Combined example: `dhcp scope option 1 dns=1.1.1.1,1.0.0.1 router=192.168.1.253`
 
 ### Configure Exclusions
 

@@ -9,12 +9,18 @@ import (
 
 // DHCPScope represents a DHCP scope configuration on an RTX router
 type DHCPScope struct {
-	ScopeID       int            `json:"scope_id"`
-	Network       string         `json:"network"`                  // CIDR notation: "192.168.1.0/24"
-	Gateway       string         `json:"gateway,omitempty"`        // Default gateway
-	DNSServers    []string       `json:"dns_servers,omitempty"`    // Up to 3 DNS servers
-	LeaseTime     string         `json:"lease_time,omitempty"`     // Go duration format or "infinite"
-	ExcludeRanges []ExcludeRange `json:"exclude_ranges,omitempty"` // Excluded IP ranges
+	ScopeID       int              `json:"scope_id"`
+	Network       string           `json:"network"`                  // CIDR notation: "192.168.1.0/24"
+	LeaseTime     string           `json:"lease_time,omitempty"`     // Go duration format or "infinite"
+	ExcludeRanges []ExcludeRange   `json:"exclude_ranges,omitempty"` // Excluded IP ranges
+	Options       DHCPScopeOptions `json:"options,omitempty"`        // DHCP options (dns, routers, etc.)
+}
+
+// DHCPScopeOptions represents DHCP options for a scope (Cisco-compatible naming)
+type DHCPScopeOptions struct {
+	DNSServers []string `json:"dns_servers,omitempty"` // DNS servers (max 3)
+	Routers    []string `json:"routers,omitempty"`     // Default gateways (max 3)
+	DomainName string   `json:"domain_name,omitempty"` // Domain name
 }
 
 // ExcludeRange represents an IP range excluded from DHCP allocation
@@ -38,10 +44,11 @@ func (p *DHCPScopeParser) ParseScopeConfig(raw string) ([]DHCPScope, error) {
 	lines := strings.Split(raw, "\n")
 
 	// Patterns for different scope configuration lines
-	// dhcp scope <id> <network>/<prefix> [gateway <gateway>] [expire <time>]
+	// dhcp scope <id> <network>/<prefix> [expire <time>]
+	// Note: gateway is now handled via "dhcp scope option <id> router=..."
 	scopePattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+(\d+)\s+([0-9.]+/\d+)(?:\s+gateway\s+([0-9.]+))?(?:\s+expire\s+(\S+))?\s*$`)
-	// dhcp scope option <id> dns=<dns1>[,<dns2>[,<dns3>]]
-	dnsPattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+option\s+(\d+)\s+dns=([0-9.,]+)\s*$`)
+	// dhcp scope option <id> dns=<dns1>[,<dns2>[,<dns3>]] [router=<gw1>[,<gw2>]] [domain=<domain>]
+	optionPattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+option\s+(\d+)\s+(.+)\s*$`)
 	// dhcp scope <id> except <start>-<end>
 	exceptPattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+(\d+)\s+except\s+([0-9.]+)-([0-9.]+)\s*$`)
 
@@ -68,8 +75,9 @@ func (p *DHCPScopeParser) ParseScopeConfig(raw string) ([]DHCPScope, error) {
 			}
 
 			scope.Network = matches[2]
+			// Legacy gateway support: convert to Options.Routers
 			if len(matches) > 3 && matches[3] != "" {
-				scope.Gateway = matches[3]
+				scope.Options.Routers = []string{matches[3]}
 			}
 			if len(matches) > 4 && matches[4] != "" {
 				scope.LeaseTime = convertRTXLeaseTimeToGo(matches[4])
@@ -77,8 +85,8 @@ func (p *DHCPScopeParser) ParseScopeConfig(raw string) ([]DHCPScope, error) {
 			continue
 		}
 
-		// Try DNS option pattern
-		if matches := dnsPattern.FindStringSubmatch(line); len(matches) >= 3 {
+		// Try option pattern (dns=, router=, domain=)
+		if matches := optionPattern.FindStringSubmatch(line); len(matches) >= 3 {
 			scopeID, err := strconv.Atoi(matches[1])
 			if err != nil {
 				continue
@@ -93,13 +101,9 @@ func (p *DHCPScopeParser) ParseScopeConfig(raw string) ([]DHCPScope, error) {
 				scopes[scopeID] = scope
 			}
 
-			dnsServers := strings.Split(matches[2], ",")
-			for _, dns := range dnsServers {
-				dns = strings.TrimSpace(dns)
-				if dns != "" {
-					scope.DNSServers = append(scope.DNSServers, dns)
-				}
-			}
+			// Parse option string (e.g., "dns=1.1.1.1,8.8.8.8 router=192.168.1.1")
+			optionStr := matches[2]
+			parseOptions(optionStr, &scope.Options)
 			continue
 		}
 
@@ -150,6 +154,39 @@ func (p *DHCPScopeParser) ParseSingleScope(raw string, scopeID int) (*DHCPScope,
 	}
 
 	return nil, fmt.Errorf("scope %d not found", scopeID)
+}
+
+// parseOptions parses option string like "dns=1.1.1.1,8.8.8.8 router=192.168.1.1 domain=example.com"
+func parseOptions(optionStr string, opts *DHCPScopeOptions) {
+	// Split by space to get individual key=value pairs
+	parts := strings.Fields(optionStr)
+	for _, part := range parts {
+		if idx := strings.Index(part, "="); idx != -1 {
+			key := strings.ToLower(part[:idx])
+			value := part[idx+1:]
+
+			switch key {
+			case "dns":
+				servers := strings.Split(value, ",")
+				for _, s := range servers {
+					s = strings.TrimSpace(s)
+					if s != "" {
+						opts.DNSServers = append(opts.DNSServers, s)
+					}
+				}
+			case "router":
+				routers := strings.Split(value, ",")
+				for _, r := range routers {
+					r = strings.TrimSpace(r)
+					if r != "" {
+						opts.Routers = append(opts.Routers, r)
+					}
+				}
+			case "domain":
+				opts.DomainName = value
+			}
+		}
+	}
 }
 
 // convertRTXLeaseTimeToGo converts RTX lease time format (h:mm or "infinite") to Go duration
@@ -229,13 +266,10 @@ func convertGoLeaseTimeToRTX(goDuration string) string {
 }
 
 // BuildDHCPScopeCommand builds the command to create a DHCP scope
-// Command format: dhcp scope <id> <network>/<prefix> [gateway <gateway>] [expire <time>]
+// Command format: dhcp scope <id> <network>/<prefix> [expire <time>]
+// Note: Gateway/routers are now configured via options command
 func BuildDHCPScopeCommand(scope DHCPScope) string {
 	cmd := fmt.Sprintf("dhcp scope %d %s", scope.ScopeID, scope.Network)
-
-	if scope.Gateway != "" {
-		cmd += fmt.Sprintf(" gateway %s", scope.Gateway)
-	}
 
 	if scope.LeaseTime != "" {
 		rtxTime := convertGoLeaseTimeToRTX(scope.LeaseTime)
@@ -247,20 +281,39 @@ func BuildDHCPScopeCommand(scope DHCPScope) string {
 	return cmd
 }
 
-// BuildDHCPScopeOptionsCommand builds the command to set DNS servers for a scope
-// Command format: dhcp scope option <id> dns=<dns1>[,<dns2>[,<dns3>]]
-func BuildDHCPScopeOptionsCommand(scopeID int, dnsServers []string) string {
-	if len(dnsServers) == 0 {
+// BuildDHCPScopeOptionsCommand builds the command to set DHCP options for a scope
+// Command format: dhcp scope option <id> [dns=<dns1>,<dns2>] [router=<gw1>,<gw2>] [domain=<domain>]
+func BuildDHCPScopeOptionsCommand(scopeID int, opts DHCPScopeOptions) string {
+	var parts []string
+
+	// DNS servers (max 3)
+	if len(opts.DNSServers) > 0 {
+		servers := opts.DNSServers
+		if len(servers) > 3 {
+			servers = servers[:3]
+		}
+		parts = append(parts, fmt.Sprintf("dns=%s", strings.Join(servers, ",")))
+	}
+
+	// Routers/default gateways (max 3)
+	if len(opts.Routers) > 0 {
+		routers := opts.Routers
+		if len(routers) > 3 {
+			routers = routers[:3]
+		}
+		parts = append(parts, fmt.Sprintf("router=%s", strings.Join(routers, ",")))
+	}
+
+	// Domain name
+	if opts.DomainName != "" {
+		parts = append(parts, fmt.Sprintf("domain=%s", opts.DomainName))
+	}
+
+	if len(parts) == 0 {
 		return ""
 	}
 
-	// Limit to 3 DNS servers (RTX limitation)
-	servers := dnsServers
-	if len(servers) > 3 {
-		servers = servers[:3]
-	}
-
-	return fmt.Sprintf("dhcp scope option %d dns=%s", scopeID, strings.Join(servers, ","))
+	return fmt.Sprintf("dhcp scope option %d %s", scopeID, strings.Join(parts, " "))
 }
 
 // BuildDHCPScopeExceptCommand builds the command to add an exclusion range
@@ -275,10 +328,10 @@ func BuildDeleteDHCPScopeCommand(scopeID int) string {
 	return fmt.Sprintf("no dhcp scope %d", scopeID)
 }
 
-// BuildDeleteDHCPScopeOptionsCommand builds the command to remove DNS options
-// Command format: no dhcp scope option <id> dns
+// BuildDeleteDHCPScopeOptionsCommand builds the command to remove all DHCP options
+// Command format: no dhcp scope option <id>
 func BuildDeleteDHCPScopeOptionsCommand(scopeID int) string {
-	return fmt.Sprintf("no dhcp scope option %d dns", scopeID)
+	return fmt.Sprintf("no dhcp scope option %d", scopeID)
 }
 
 // BuildDeleteDHCPScopeExceptCommand builds the command to remove an exclusion range
@@ -314,16 +367,21 @@ func ValidateDHCPScope(scope DHCPScope) error {
 		return fmt.Errorf("network must be in CIDR notation (e.g., 192.168.1.0/24)")
 	}
 
-	// Validate gateway if provided
-	if scope.Gateway != "" && !isValidIP(scope.Gateway) {
-		return fmt.Errorf("gateway must be a valid IP address")
+	// Validate routers (default gateways)
+	if len(scope.Options.Routers) > 3 {
+		return fmt.Errorf("maximum 3 routers (default gateways) allowed")
+	}
+	for _, router := range scope.Options.Routers {
+		if !isValidIP(router) {
+			return fmt.Errorf("invalid router address: %s", router)
+		}
 	}
 
 	// Validate DNS servers
-	if len(scope.DNSServers) > 3 {
+	if len(scope.Options.DNSServers) > 3 {
 		return fmt.Errorf("maximum 3 DNS servers allowed")
 	}
-	for _, dns := range scope.DNSServers {
+	for _, dns := range scope.Options.DNSServers {
 		if !isValidIP(dns) {
 			return fmt.Errorf("invalid DNS server address: %s", dns)
 		}
