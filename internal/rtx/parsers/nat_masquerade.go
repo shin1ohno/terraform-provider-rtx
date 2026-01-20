@@ -19,11 +19,11 @@ type NATMasquerade struct {
 // MasqueradeStaticEntry represents a static port mapping entry
 type MasqueradeStaticEntry struct {
 	EntryNumber       int    `json:"entry_number"`
-	InsideLocal       string `json:"inside_local"`        // Internal IP address
-	InsideLocalPort   int    `json:"inside_local_port"`   // Internal port
-	OutsideGlobal     string `json:"outside_global"`      // External IP address (or "ipcp")
-	OutsideGlobalPort int    `json:"outside_global_port"` // External port
-	Protocol          string `json:"protocol,omitempty"`  // "tcp", "udp", or empty for any
+	InsideLocal       string `json:"inside_local"`                   // Internal IP address
+	InsideLocalPort   *int   `json:"inside_local_port,omitempty"`    // Internal port (nil for protocol-only like ESP/AH/GRE)
+	OutsideGlobal     string `json:"outside_global,omitempty"`       // External IP address (or "ipcp")
+	OutsideGlobalPort *int   `json:"outside_global_port,omitempty"`  // External port (nil for protocol-only)
+	Protocol          string `json:"protocol,omitempty"`             // "tcp", "udp", "esp", "ah", "gre", or empty
 }
 
 // ParseNATMasqueradeConfig parses the output of "show config" command
@@ -41,6 +41,15 @@ func ParseNATMasqueradeConfig(raw string) ([]NATMasquerade, error) {
 	// nat descriptor masquerade static <id> <entry> <outer:port>=<inner:port> [protocol]
 	// Format: nat descriptor masquerade static 1 1 203.0.113.1:80=192.168.1.100:8080 tcp
 	staticPattern := regexp.MustCompile(`^\s*nat\s+descriptor\s+masquerade\s+static\s+(\d+)\s+(\d+)\s+([^:]+):(\d+)=([^:]+):(\d+)(?:\s+(\S+))?\s*$`)
+	// Alternate static pattern: nat descriptor masquerade static <id> <entry> <inner_ip> <protocol> <port>
+	// Format: nat descriptor masquerade static 1 1 192.168.1.100 tcp 80
+	staticAltPattern := regexp.MustCompile(`^\s*nat\s+descriptor\s+masquerade\s+static\s+(\d+)\s+(\d+)\s+(\d+\.\d+\.\d+\.\d+)\s+(tcp|udp)\s+(\d+)\s*$`)
+	// Alternate static pattern with port mapping: nat descriptor masquerade static <id> <entry> <inner_ip> <protocol> <outer_port>=<inner_port>
+	// Format: nat descriptor masquerade static 1 2 192.168.1.100 tcp 8080=80
+	staticAltPortPattern := regexp.MustCompile(`^\s*nat\s+descriptor\s+masquerade\s+static\s+(\d+)\s+(\d+)\s+(\d+\.\d+\.\d+\.\d+)\s+(tcp|udp)\s+(\d+)=(\d+)\s*$`)
+	// Protocol-only static pattern (no ports): nat descriptor masquerade static <id> <entry> <inner_ip> <protocol>
+	// Format: nat descriptor masquerade static 1000 1 192.168.1.253 esp
+	staticProtocolOnlyPattern := regexp.MustCompile(`^\s*nat\s+descriptor\s+masquerade\s+static\s+(\d+)\s+(\d+)\s+(\d+\.\d+\.\d+\.\d+)\s+(esp|ah|gre|icmp)\s*$`)
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -102,7 +111,7 @@ func ParseNATMasqueradeConfig(raw string) ([]NATMasquerade, error) {
 			continue
 		}
 
-		// Try static entry pattern
+		// Try static entry pattern (outer:port=inner:port format)
 		if matches := staticPattern.FindStringSubmatch(line); len(matches) >= 7 {
 			id, err := strconv.Atoi(matches[1])
 			if err != nil {
@@ -133,12 +142,119 @@ func ParseNATMasqueradeConfig(raw string) ([]NATMasquerade, error) {
 			entry := MasqueradeStaticEntry{
 				EntryNumber:       entryNum,
 				OutsideGlobal:     matches[3],
-				OutsideGlobalPort: outerPort,
+				OutsideGlobalPort: &outerPort,
 				InsideLocal:       matches[5],
-				InsideLocalPort:   innerPort,
+				InsideLocalPort:   &innerPort,
 			}
 			if len(matches) > 7 && matches[7] != "" {
 				entry.Protocol = strings.ToLower(matches[7])
+			}
+			desc.StaticEntries = append(desc.StaticEntries, entry)
+			continue
+		}
+
+		// Try alternate static entry pattern (inner_ip protocol port - same port for inner and outer)
+		// Format: nat descriptor masquerade static 1 1 192.168.1.100 tcp 80
+		if matches := staticAltPattern.FindStringSubmatch(line); len(matches) >= 6 {
+			id, err := strconv.Atoi(matches[1])
+			if err != nil {
+				continue
+			}
+			entryNum, err := strconv.Atoi(matches[2])
+			if err != nil {
+				continue
+			}
+			port, err := strconv.Atoi(matches[5])
+			if err != nil {
+				continue
+			}
+
+			desc, exists := descriptors[id]
+			if !exists {
+				desc = &NATMasquerade{
+					DescriptorID:  id,
+					StaticEntries: []MasqueradeStaticEntry{},
+				}
+				descriptors[id] = desc
+			}
+
+			entry := MasqueradeStaticEntry{
+				EntryNumber:       entryNum,
+				InsideLocal:       matches[3],
+				InsideLocalPort:   &port,
+				OutsideGlobalPort: &port, // Same port for outer
+				Protocol:          strings.ToLower(matches[4]),
+			}
+			desc.StaticEntries = append(desc.StaticEntries, entry)
+			continue
+		}
+
+		// Try alternate static entry pattern with different ports (inner_ip protocol outer_port=inner_port)
+		// Format: nat descriptor masquerade static 1 2 192.168.1.100 tcp 8080=80
+		if matches := staticAltPortPattern.FindStringSubmatch(line); len(matches) >= 7 {
+			id, err := strconv.Atoi(matches[1])
+			if err != nil {
+				continue
+			}
+			entryNum, err := strconv.Atoi(matches[2])
+			if err != nil {
+				continue
+			}
+			outerPort, err := strconv.Atoi(matches[5])
+			if err != nil {
+				continue
+			}
+			innerPort, err := strconv.Atoi(matches[6])
+			if err != nil {
+				continue
+			}
+
+			desc, exists := descriptors[id]
+			if !exists {
+				desc = &NATMasquerade{
+					DescriptorID:  id,
+					StaticEntries: []MasqueradeStaticEntry{},
+				}
+				descriptors[id] = desc
+			}
+
+			entry := MasqueradeStaticEntry{
+				EntryNumber:       entryNum,
+				InsideLocal:       matches[3],
+				InsideLocalPort:   &innerPort,
+				OutsideGlobalPort: &outerPort,
+				Protocol:          strings.ToLower(matches[4]),
+			}
+			desc.StaticEntries = append(desc.StaticEntries, entry)
+			continue
+		}
+
+		// Try protocol-only static entry pattern (no ports)
+		// Format: nat descriptor masquerade static 1000 1 192.168.1.253 esp
+		if matches := staticProtocolOnlyPattern.FindStringSubmatch(line); len(matches) >= 5 {
+			id, err := strconv.Atoi(matches[1])
+			if err != nil {
+				continue
+			}
+			entryNum, err := strconv.Atoi(matches[2])
+			if err != nil {
+				continue
+			}
+
+			desc, exists := descriptors[id]
+			if !exists {
+				desc = &NATMasquerade{
+					DescriptorID:  id,
+					StaticEntries: []MasqueradeStaticEntry{},
+				}
+				descriptors[id] = desc
+			}
+
+			entry := MasqueradeStaticEntry{
+				EntryNumber: entryNum,
+				InsideLocal: matches[3],
+				Protocol:    strings.ToLower(matches[4]),
+				// InsideLocalPort and OutsideGlobalPort are nil for protocol-only
 			}
 			desc.StaticEntries = append(desc.StaticEntries, entry)
 			continue
@@ -170,12 +286,20 @@ func BuildNATDescriptorAddressInnerCommand(id int, network string) string {
 }
 
 // BuildNATMasqueradeStaticCommand generates static port mapping command
-// Format: nat descriptor masquerade static <id> <entry> <outer:port>=<inner:port> [protocol]
+// Format with ports: nat descriptor masquerade static <id> <entry> <outer:port>=<inner:port> [protocol]
+// Format protocol-only: nat descriptor masquerade static <id> <entry> <inner_ip> <protocol>
 func BuildNATMasqueradeStaticCommand(id int, entryNum int, entry MasqueradeStaticEntry) string {
+	// Protocol-only entries (ESP, AH, GRE, ICMP) don't have ports
+	if entry.InsideLocalPort == nil || entry.OutsideGlobalPort == nil {
+		return fmt.Sprintf("nat descriptor masquerade static %d %d %s %s",
+			id, entryNum, entry.InsideLocal, strings.ToLower(entry.Protocol))
+	}
+
+	// Port-based entries
 	cmd := fmt.Sprintf("nat descriptor masquerade static %d %d %s:%d=%s:%d",
 		id, entryNum,
-		entry.OutsideGlobal, entry.OutsideGlobalPort,
-		entry.InsideLocal, entry.InsideLocalPort)
+		entry.OutsideGlobal, *entry.OutsideGlobalPort,
+		entry.InsideLocal, *entry.InsideLocalPort)
 
 	if entry.Protocol != "" {
 		cmd += " " + strings.ToLower(entry.Protocol)
@@ -279,13 +403,24 @@ func ValidateNATPort(port int) error {
 	return nil
 }
 
-// ValidateNATProtocol validates that protocol is tcp, udp, or empty
+// ValidNATProtocols defines valid protocols for NAT masquerade static entries
+var ValidNATProtocols = []string{"tcp", "udp", "esp", "ah", "gre", "icmp", ""}
+
+// ValidateNATProtocol validates that protocol is a valid NAT protocol
 func ValidateNATProtocol(protocol string) error {
 	protocol = strings.ToLower(protocol)
-	if protocol != "" && protocol != "tcp" && protocol != "udp" {
-		return fmt.Errorf("protocol must be 'tcp', 'udp', or empty, got '%s'", protocol)
+	for _, valid := range ValidNATProtocols {
+		if protocol == valid {
+			return nil
+		}
 	}
-	return nil
+	return fmt.Errorf("protocol must be 'tcp', 'udp', 'esp', 'ah', 'gre', 'icmp', or empty, got '%s'", protocol)
+}
+
+// IsProtocolOnly returns true if the protocol doesn't require ports (ESP, AH, GRE, ICMP)
+func IsProtocolOnly(protocol string) bool {
+	protocol = strings.ToLower(protocol)
+	return protocol == "esp" || protocol == "ah" || protocol == "gre" || protocol == "icmp"
 }
 
 // ValidateOuterAddress validates outer address format
@@ -332,15 +467,32 @@ func ValidateNATMasquerade(nat NATMasquerade) error {
 
 	// Validate static entries
 	for i, entry := range nat.StaticEntries {
-		if err := ValidateNATPort(entry.InsideLocalPort); err != nil {
-			return fmt.Errorf("static entry %d: %w", i+1, err)
-		}
-		if err := ValidateNATPort(entry.OutsideGlobalPort); err != nil {
-			return fmt.Errorf("static entry %d: %w", i+1, err)
-		}
 		if err := ValidateNATProtocol(entry.Protocol); err != nil {
 			return fmt.Errorf("static entry %d: %w", i+1, err)
 		}
+
+		// Protocol-only entries (ESP, AH, GRE, ICMP) don't have ports
+		if IsProtocolOnly(entry.Protocol) {
+			// Ports should be nil for protocol-only entries
+			if entry.InsideLocalPort != nil || entry.OutsideGlobalPort != nil {
+				return fmt.Errorf("static entry %d: protocol %s should not have ports", i+1, entry.Protocol)
+			}
+		} else {
+			// Port-based protocols require ports
+			if entry.InsideLocalPort == nil {
+				return fmt.Errorf("static entry %d: inside local port is required for protocol %s", i+1, entry.Protocol)
+			}
+			if err := ValidateNATPort(*entry.InsideLocalPort); err != nil {
+				return fmt.Errorf("static entry %d: %w", i+1, err)
+			}
+			if entry.OutsideGlobalPort == nil {
+				return fmt.Errorf("static entry %d: outside global port is required for protocol %s", i+1, entry.Protocol)
+			}
+			if err := ValidateNATPort(*entry.OutsideGlobalPort); err != nil {
+				return fmt.Errorf("static entry %d: %w", i+1, err)
+			}
+		}
+
 		// Validate InsideLocal is a valid IP
 		if net.ParseIP(entry.InsideLocal) == nil {
 			return fmt.Errorf("static entry %d: invalid inside local IP: %s", i+1, entry.InsideLocal)
