@@ -39,35 +39,34 @@ func resourceRTXIPsecTunnel() *schema.Resource {
 			},
 			"local_address": {
 				Type:         schema.TypeString,
-				Required:     true,
+				Optional:     true,
 				Description:  "Local endpoint IP address.",
 				ValidateFunc: validateIPv4Address,
 			},
 			"remote_address": {
-				Type:         schema.TypeString,
-				Required:     true,
-				Description:  "Remote endpoint IP address.",
-				ValidateFunc: validateIPv4Address,
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "Remote endpoint IP address or hostname (for dynamic DNS).",
 			},
 			"pre_shared_key": {
 				Type:        schema.TypeString,
-				Required:    true,
+				Optional:    true,
 				Sensitive:   true,
 				Description: "Pre-shared key for IKE authentication.",
 			},
 			"local_network": {
 				Type:        schema.TypeString,
-				Required:    true,
+				Optional:    true,
 				Description: "Local network in CIDR notation (e.g., '192.168.1.0/24').",
 			},
 			"remote_network": {
 				Type:        schema.TypeString,
-				Required:    true,
+				Optional:    true,
 				Description: "Remote network in CIDR notation (e.g., '10.0.0.0/24').",
 			},
 			"ikev2_proposal": {
 				Type:        schema.TypeList,
-				Required:    true,
+				Optional:    true,
 				MaxItems:    1,
 				Description: "IKE Phase 1 proposal settings.",
 				Elem: &schema.Resource{
@@ -138,7 +137,7 @@ func resourceRTXIPsecTunnel() *schema.Resource {
 			},
 			"ipsec_transform": {
 				Type:        schema.TypeList,
-				Required:    true,
+				Optional:    true,
 				MaxItems:    1,
 				Description: "IPsec Phase 2 transform settings.",
 				Elem: &schema.Resource{
@@ -230,9 +229,9 @@ func resourceRTXIPsecTunnel() *schema.Resource {
 			"dpd_retry": {
 				Type:         schema.TypeInt,
 				Optional:     true,
-				Default:      5,
-				Description:  "DPD retry count before declaring peer dead.",
-				ValidateFunc: validation.IntAtLeast(1),
+				Default:      0,
+				Description:  "DPD retry count before declaring peer dead (0 means disabled).",
+				ValidateFunc: validation.IntAtLeast(0),
 			},
 			"enabled": {
 				Type:        schema.TypeBool,

@@ -48,7 +48,7 @@ func resourceRTXNATMasquerade() *schema.Resource {
 			},
 			"inner_network": {
 				Type:         schema.TypeString,
-				Required:     true,
+				Optional:     true,
 				Description:  "Inner (internal) network range in format 'start_ip-end_ip' (e.g., '192.168.1.0-192.168.1.255')",
 				ValidateFunc: validateIPRange,
 			},

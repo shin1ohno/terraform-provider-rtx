@@ -363,6 +363,22 @@ func validateIPAddress(v interface{}, k string) ([]string, []error) {
 	return nil, nil
 }
 
+// validateIPAddressAny validates that a string is a valid IPv4 or IPv6 address
+func validateIPAddressAny(v interface{}, k string) ([]string, []error) {
+	value := v.(string)
+
+	if value == "" {
+		return nil, nil
+	}
+
+	ip := net.ParseIP(value)
+	if ip == nil {
+		return nil, []error{fmt.Errorf("%q must be a valid IP address (IPv4 or IPv6)", k)}
+	}
+
+	return nil, nil
+}
+
 // validateLeaseTime validates the lease time format
 func validateLeaseTime(v interface{}, k string) ([]string, []error) {
 	value := v.(string)

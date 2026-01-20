@@ -69,15 +69,15 @@ func TestResourceRTXAdminUser_Schema(t *testing.T) {
 		}
 	}
 
-	// Test connection schema
-	if s, ok := resource.Schema["connection"]; !ok {
-		t.Error("connection schema should exist")
+	// Test connection_methods schema
+	if s, ok := resource.Schema["connection_methods"]; !ok {
+		t.Error("connection_methods schema should exist")
 	} else {
 		if s.Type != schema.TypeSet {
-			t.Error("connection should be TypeSet")
+			t.Error("connection_methods should be TypeSet")
 		}
 		if !s.Optional {
-			t.Error("connection should be Optional")
+			t.Error("connection_methods should be Optional")
 		}
 	}
 

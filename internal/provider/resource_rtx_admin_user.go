@@ -49,7 +49,7 @@ func resourceRTXAdminUser() *schema.Resource {
 				Default:     false,
 				Description: "Whether the user has administrator privileges.",
 			},
-			"connection": {
+			"connection_methods": {
 				Type:        schema.TypeSet,
 				Optional:    true,
 				Description: "Allowed connection methods for the user.",
@@ -152,7 +152,7 @@ func resourceRTXAdminUserRead(ctx context.Context, d *schema.ResourceData, meta 
 	if err := d.Set("administrator", user.Attributes.Administrator); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set("connection", user.Attributes.Connection); err != nil {
+	if err := d.Set("connection_methods", user.Attributes.Connection); err != nil {
 		return diag.FromErr(err)
 	}
 	if err := d.Set("gui_pages", user.Attributes.GUIPages); err != nil {
@@ -219,7 +219,7 @@ func resourceRTXAdminUserImport(ctx context.Context, d *schema.ResourceData, met
 	d.Set("username", user.Username)
 	d.Set("encrypted", user.Encrypted)
 	d.Set("administrator", user.Attributes.Administrator)
-	d.Set("connection", user.Attributes.Connection)
+	d.Set("connection_methods", user.Attributes.Connection)
 	d.Set("gui_pages", user.Attributes.GUIPages)
 	d.Set("login_timer", user.Attributes.LoginTimer)
 
@@ -242,7 +242,7 @@ func buildAdminUserFromResourceData(d *schema.ResourceData) client.AdminUser {
 	}
 
 	// Handle connection set
-	if v, ok := d.GetOk("connection"); ok {
+	if v, ok := d.GetOk("connection_methods"); ok {
 		connectionSet := v.(*schema.Set)
 		connections := make([]string, connectionSet.Len())
 		for i, conn := range connectionSet.List() {

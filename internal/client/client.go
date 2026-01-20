@@ -122,17 +122,6 @@ func (c *rtxClient) Dial(ctx context.Context) error {
 		return nil // Already connected
 	}
 
-	// Use dialer if provided (for testing/dependency injection)
-	if c.dialer != nil {
-		session, err := c.dialer.Dial(ctx, fmt.Sprintf("%s:%d", c.config.Host, c.config.Port), c.config)
-		if err != nil {
-			return err
-		}
-		c.session = session
-		c.active = true
-		return nil
-	}
-
 	// For RTX routers, we'll use a simple executor that creates new connections per command
 	// This is less efficient but more reliable given RTX's SSH implementation
 	sshConfig := &ssh.ClientConfig{
@@ -145,6 +134,15 @@ func (c *rtxClient) Dial(ctx context.Context) error {
 	}
 
 	addr := fmt.Sprintf("%s:%d", c.config.Host, c.config.Port)
+
+	// Use dialer if provided (for testing/dependency injection)
+	if c.dialer != nil {
+		session, err := c.dialer.Dial(ctx, fmt.Sprintf("%s:%d", c.config.Host, c.config.Port), c.config)
+		if err != nil {
+			return err
+		}
+		c.session = session
+	}
 	c.executor = NewSimpleExecutor(sshConfig, addr, c.promptDetector, c.config)
 	c.dhcpService = NewDHCPService(c.executor, c)
 	c.dhcpScopeService = NewDHCPScopeService(c.executor, c)

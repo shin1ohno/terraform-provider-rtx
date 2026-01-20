@@ -53,17 +53,17 @@ func resourceRTXDNSServer() *schema.Resource {
 						"id": {
 							Type:         schema.TypeInt,
 							Required:     true,
-							Description:  "Selector ID (1-65535)",
-							ValidateFunc: validation.IntBetween(1, 65535),
+							Description:  "Selector ID (positive integer)",
+							ValidateFunc: validation.IntAtLeast(1),
 						},
 						"servers": {
 							Type:        schema.TypeList,
 							Required:    true,
-							Description: "DNS server IP addresses for this selector",
+							Description: "DNS server IP addresses for this selector (IPv4 or IPv6)",
 							MinItems:    1,
 							Elem: &schema.Schema{
 								Type:         schema.TypeString,
-								ValidateFunc: validateIPAddress,
+								ValidateFunc: validateIPAddressAny,
 							},
 						},
 						"domains": {
