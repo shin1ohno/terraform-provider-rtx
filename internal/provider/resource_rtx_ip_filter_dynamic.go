@@ -349,7 +349,11 @@ func flattenIPFilterDynamicToResourceData(filter *client.IPFilterDynamic, d *sch
 }
 
 // expandIntList converts a []interface{} to []int
+// Returns nil for empty input to distinguish from explicitly empty slice
 func expandIntList(input []interface{}) []int {
+	if len(input) == 0 {
+		return nil
+	}
 	result := make([]int, 0, len(input))
 	for _, v := range input {
 		result = append(result, v.(int))

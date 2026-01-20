@@ -9,6 +9,11 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+// intPtr is a helper function to create *int pointers for test data
+func intPtr(i int) *int {
+	return &i
+}
+
 func TestNATMasqueradeService_Create(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -44,9 +49,9 @@ func TestNATMasqueradeService_Create(t *testing.T) {
 					{
 						EntryNumber:       1,
 						InsideLocal:       "192.168.1.100",
-						InsideLocalPort:   8080,
+						InsideLocalPort:   intPtr(8080),
 						OutsideGlobal:     "ipcp",
-						OutsideGlobalPort: 80,
+						OutsideGlobalPort: intPtr(80),
 						Protocol:          "tcp",
 					},
 				},
@@ -189,25 +194,25 @@ nat descriptor masquerade static 2 3 ipcp:53=192.168.2.20:53 udp
 					{
 						EntryNumber:       1,
 						InsideLocal:       "192.168.2.10",
-						InsideLocalPort:   8080,
+						InsideLocalPort:   intPtr(8080),
 						OutsideGlobal:     "ipcp",
-						OutsideGlobalPort: 80,
+						OutsideGlobalPort: intPtr(80),
 						Protocol:          "tcp",
 					},
 					{
 						EntryNumber:       2,
 						InsideLocal:       "192.168.2.10",
-						InsideLocalPort:   8443,
+						InsideLocalPort:   intPtr(8443),
 						OutsideGlobal:     "ipcp",
-						OutsideGlobalPort: 443,
+						OutsideGlobalPort: intPtr(443),
 						Protocol:          "tcp",
 					},
 					{
 						EntryNumber:       3,
 						InsideLocal:       "192.168.2.20",
-						InsideLocalPort:   53,
+						InsideLocalPort:   intPtr(53),
 						OutsideGlobal:     "ipcp",
-						OutsideGlobalPort: 53,
+						OutsideGlobalPort: intPtr(53),
 						Protocol:          "udp",
 					},
 				},
@@ -443,9 +448,9 @@ nat descriptor address inner 1 192.168.1.0-192.168.1.255
 					{
 						EntryNumber:       1,
 						InsideLocal:       "192.168.1.100",
-						InsideLocalPort:   8080,
+						InsideLocalPort:   intPtr(8080),
 						OutsideGlobal:     "ipcp",
-						OutsideGlobalPort: 80,
+						OutsideGlobalPort: intPtr(80),
 						Protocol:          "tcp",
 					},
 				},
@@ -574,9 +579,9 @@ func TestNATMasqueradeService_TypeConversions(t *testing.T) {
 				{
 					EntryNumber:       1,
 					InsideLocal:       "192.168.1.100",
-					InsideLocalPort:   8080,
+					InsideLocalPort:   intPtr(8080),
 					OutsideGlobal:     "ipcp",
-					OutsideGlobalPort: 80,
+					OutsideGlobalPort: intPtr(80),
 					Protocol:          "tcp",
 				},
 			},
@@ -590,9 +595,11 @@ func TestNATMasqueradeService_TypeConversions(t *testing.T) {
 		assert.Len(t, parserNAT.StaticEntries, 1)
 		assert.Equal(t, 1, parserNAT.StaticEntries[0].EntryNumber)
 		assert.Equal(t, "192.168.1.100", parserNAT.StaticEntries[0].InsideLocal)
-		assert.Equal(t, 8080, parserNAT.StaticEntries[0].InsideLocalPort)
+		assert.NotNil(t, parserNAT.StaticEntries[0].InsideLocalPort)
+		assert.Equal(t, 8080, *parserNAT.StaticEntries[0].InsideLocalPort)
 		assert.Equal(t, "ipcp", parserNAT.StaticEntries[0].OutsideGlobal)
-		assert.Equal(t, 80, parserNAT.StaticEntries[0].OutsideGlobalPort)
+		assert.NotNil(t, parserNAT.StaticEntries[0].OutsideGlobalPort)
+		assert.Equal(t, 80, *parserNAT.StaticEntries[0].OutsideGlobalPort)
 		assert.Equal(t, "tcp", parserNAT.StaticEntries[0].Protocol)
 	})
 }

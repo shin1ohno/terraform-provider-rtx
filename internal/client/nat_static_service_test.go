@@ -9,6 +9,11 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+// staticIntPtr is a helper function to create *int pointers for test data
+func staticIntPtr(i int) *int {
+	return &i
+}
+
 func TestNATStaticService_Create(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -43,9 +48,9 @@ func TestNATStaticService_Create(t *testing.T) {
 				Entries: []NATStaticEntry{
 					{
 						InsideLocal:       "192.168.1.100",
-						InsideLocalPort:   8080,
+						InsideLocalPort:   staticIntPtr(8080),
 						OutsideGlobal:     "203.0.113.100",
-						OutsideGlobalPort: 80,
+						OutsideGlobalPort: staticIntPtr(80),
 						Protocol:          "tcp",
 					},
 				},
@@ -252,9 +257,9 @@ nat descriptor static 2 203.0.113.100:80=192.168.1.100:8080 tcp
 				Entries: []NATStaticEntry{
 					{
 						InsideLocal:       "192.168.1.100",
-						InsideLocalPort:   8080,
+						InsideLocalPort:   staticIntPtr(8080),
 						OutsideGlobal:     "203.0.113.100",
-						OutsideGlobalPort: 80,
+						OutsideGlobalPort: staticIntPtr(80),
 						Protocol:          "tcp",
 					},
 				},
@@ -438,9 +443,9 @@ nat descriptor static 2 203.0.113.200:80=192.168.2.100:8080 tcp
 					Entries: []NATStaticEntry{
 						{
 							InsideLocal:       "192.168.2.100",
-							InsideLocalPort:   8080,
+							InsideLocalPort:   staticIntPtr(8080),
 							OutsideGlobal:     "203.0.113.200",
-							OutsideGlobalPort: 80,
+							OutsideGlobalPort: staticIntPtr(80),
 							Protocol:          "tcp",
 						},
 					},
@@ -716,16 +721,16 @@ func TestNATStaticService_EntriesEqual(t *testing.T) {
 			name: "Equal port-based NAT entries",
 			a: NATStaticEntry{
 				InsideLocal:       "192.168.1.100",
-				InsideLocalPort:   8080,
+				InsideLocalPort:   staticIntPtr(8080),
 				OutsideGlobal:     "203.0.113.100",
-				OutsideGlobalPort: 80,
+				OutsideGlobalPort: staticIntPtr(80),
 				Protocol:          "tcp",
 			},
 			b: NATStaticEntry{
 				InsideLocal:       "192.168.1.100",
-				InsideLocalPort:   8080,
+				InsideLocalPort:   staticIntPtr(8080),
 				OutsideGlobal:     "203.0.113.100",
-				OutsideGlobalPort: 80,
+				OutsideGlobalPort: staticIntPtr(80),
 				Protocol:          "TCP", // Case insensitive
 			},
 			expected: true,
@@ -758,16 +763,16 @@ func TestNATStaticService_EntriesEqual(t *testing.T) {
 			name: "Different ports",
 			a: NATStaticEntry{
 				InsideLocal:       "192.168.1.100",
-				InsideLocalPort:   8080,
+				InsideLocalPort:   staticIntPtr(8080),
 				OutsideGlobal:     "203.0.113.100",
-				OutsideGlobalPort: 80,
+				OutsideGlobalPort: staticIntPtr(80),
 				Protocol:          "tcp",
 			},
 			b: NATStaticEntry{
 				InsideLocal:       "192.168.1.100",
-				InsideLocalPort:   8081,
+				InsideLocalPort:   staticIntPtr(8081),
 				OutsideGlobal:     "203.0.113.100",
-				OutsideGlobalPort: 80,
+				OutsideGlobalPort: staticIntPtr(80),
 				Protocol:          "tcp",
 			},
 			expected: false,
@@ -776,16 +781,16 @@ func TestNATStaticService_EntriesEqual(t *testing.T) {
 			name: "Different protocols",
 			a: NATStaticEntry{
 				InsideLocal:       "192.168.1.100",
-				InsideLocalPort:   8080,
+				InsideLocalPort:   staticIntPtr(8080),
 				OutsideGlobal:     "203.0.113.100",
-				OutsideGlobalPort: 80,
+				OutsideGlobalPort: staticIntPtr(80),
 				Protocol:          "tcp",
 			},
 			b: NATStaticEntry{
 				InsideLocal:       "192.168.1.100",
-				InsideLocalPort:   8080,
+				InsideLocalPort:   staticIntPtr(8080),
 				OutsideGlobal:     "203.0.113.100",
-				OutsideGlobalPort: 80,
+				OutsideGlobalPort: staticIntPtr(80),
 				Protocol:          "udp",
 			},
 			expected: false,

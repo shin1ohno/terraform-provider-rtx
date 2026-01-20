@@ -33,7 +33,7 @@ func resourceRTXAdminUser() *schema.Resource {
 			},
 			"password": {
 				Type:        schema.TypeString,
-				Optional:    true,
+				Required:    true,
 				Sensitive:   true,
 				Description: "Password for the admin user.",
 			},

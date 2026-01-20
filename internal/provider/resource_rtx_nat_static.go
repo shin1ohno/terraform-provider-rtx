@@ -248,11 +248,11 @@ func expandNATStaticEntries(entries []interface{}) []client.NATStaticEntry {
 		}
 
 		if v, ok := entry["inside_local_port"].(int); ok && v > 0 {
-			natEntry.InsideLocalPort = v
+			natEntry.InsideLocalPort = &v
 		}
 
 		if v, ok := entry["outside_global_port"].(int); ok && v > 0 {
-			natEntry.OutsideGlobalPort = v
+			natEntry.OutsideGlobalPort = &v
 		}
 
 		if v, ok := entry["protocol"].(string); ok && v != "" {
@@ -271,11 +271,19 @@ func flattenNATStaticEntries(entries []client.NATStaticEntry) []interface{} {
 
 	for _, entry := range entries {
 		e := map[string]interface{}{
-			"inside_local":        entry.InsideLocal,
-			"outside_global":      entry.OutsideGlobal,
-			"inside_local_port":   entry.InsideLocalPort,
-			"outside_global_port": entry.OutsideGlobalPort,
-			"protocol":            entry.Protocol,
+			"inside_local":   entry.InsideLocal,
+			"outside_global": entry.OutsideGlobal,
+			"protocol":       entry.Protocol,
+		}
+		if entry.InsideLocalPort != nil {
+			e["inside_local_port"] = *entry.InsideLocalPort
+		} else {
+			e["inside_local_port"] = 0
+		}
+		if entry.OutsideGlobalPort != nil {
+			e["outside_global_port"] = *entry.OutsideGlobalPort
+		} else {
+			e["outside_global_port"] = 0
 		}
 		result = append(result, e)
 	}

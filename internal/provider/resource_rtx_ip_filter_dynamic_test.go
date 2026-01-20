@@ -394,7 +394,7 @@ func TestExpandIntList(t *testing.T) {
 		{
 			name:     "empty list",
 			input:    []interface{}{},
-			expected: []int{},
+			expected: nil, // expandIntList returns nil for empty input
 		},
 		{
 			name:     "single element",

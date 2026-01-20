@@ -38,6 +38,8 @@ func ParseInterfaceConfig(raw string, interfaceName string) (*InterfaceConfig, e
 		Name: interfaceName,
 	}
 
+	// Preprocess to handle wrapped lines (long filter lists can span multiple lines)
+	raw = preprocessWrappedLines(raw)
 	lines := strings.Split(raw, "\n")
 
 	// Patterns for parsing interface configuration
@@ -325,4 +327,47 @@ func ValidateInterfaceName(name string) error {
 		return fmt.Errorf("invalid interface name: %s (expected lan1, lan2, bridge1, pp1, tunnel1, etc.)", name)
 	}
 	return nil
+}
+
+// preprocessWrappedLines handles RTX output where long filter lists wrap to multiple lines.
+// RTX wraps long filter lists by continuing on the next line with just numbers.
+// This function joins those continuation lines back together.
+// Example input:
+//
+//	ip lan2 secure filter in 100 101
+//	102 103 104
+//
+// Example output:
+//
+//	ip lan2 secure filter in 100 101 102 103 104
+func preprocessWrappedLines(input string) string {
+	if input == "" {
+		return ""
+	}
+
+	// Normalize line endings
+	input = strings.ReplaceAll(input, "\r\n", "\n")
+
+	// Pattern to detect a continuation line:
+	// - Must start with a number (filter ID continuation)
+	// - May contain numbers, 'dynamic' keyword, and spaces
+	// This handles both simple number continuations and "numbers dynamic numbers" patterns
+	continuationPattern := regexp.MustCompile(`^\d`)
+
+	lines := strings.Split(input, "\n")
+	var result []string
+
+	for i := 0; i < len(lines); i++ {
+		line := lines[i]
+
+		// Look ahead for continuation lines (lines starting with a digit)
+		for i+1 < len(lines) && continuationPattern.MatchString(strings.TrimSpace(lines[i+1])) {
+			i++
+			line = line + " " + strings.TrimSpace(lines[i])
+		}
+
+		result = append(result, line)
+	}
+
+	return strings.Join(result, "\n")
 }

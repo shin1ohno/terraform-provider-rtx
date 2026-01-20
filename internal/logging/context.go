@@ -16,13 +16,13 @@ func WithContext(ctx context.Context, logger zerolog.Logger) context.Context {
 }
 
 // FromContext retrieves the logger from context.
-// Returns the global logger if no logger is attached to the context.
-func FromContext(ctx context.Context) zerolog.Logger {
+// Returns a pointer to the global logger if no logger is attached to the context.
+func FromContext(ctx context.Context) *zerolog.Logger {
 	if ctx == nil {
-		return globalLogger
+		return &globalLogger
 	}
 	if logger, ok := ctx.Value(ctxKey{}).(zerolog.Logger); ok {
-		return logger
+		return &logger
 	}
-	return globalLogger
+	return &globalLogger
 }

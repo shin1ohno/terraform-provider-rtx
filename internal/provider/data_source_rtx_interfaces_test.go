@@ -938,6 +938,99 @@ func (m *MockClientForInterfaces) ListInterfaceMACACLs(ctx context.Context) ([]c
 	return nil, fmt.Errorf("not implemented")
 }
 
+// DDNS - NetVolante DNS methods
+func (m *MockClientForInterfaces) GetNetVolanteDNS(ctx context.Context) ([]client.NetVolanteConfig, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForInterfaces) GetNetVolanteDNSByInterface(ctx context.Context, iface string) (*client.NetVolanteConfig, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForInterfaces) ConfigureNetVolanteDNS(ctx context.Context, config client.NetVolanteConfig) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForInterfaces) UpdateNetVolanteDNS(ctx context.Context, config client.NetVolanteConfig) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForInterfaces) DeleteNetVolanteDNS(ctx context.Context, iface string) error {
+	return fmt.Errorf("not implemented")
+}
+
+// DDNS - Custom DDNS methods
+func (m *MockClientForInterfaces) GetDDNS(ctx context.Context) ([]client.DDNSServerConfig, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForInterfaces) GetDDNSByID(ctx context.Context, id int) (*client.DDNSServerConfig, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForInterfaces) ConfigureDDNS(ctx context.Context, config client.DDNSServerConfig) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForInterfaces) UpdateDDNS(ctx context.Context, config client.DDNSServerConfig) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForInterfaces) DeleteDDNS(ctx context.Context, id int) error {
+	return fmt.Errorf("not implemented")
+}
+
+// DDNS - Status methods
+func (m *MockClientForInterfaces) GetNetVolanteDNSStatus(ctx context.Context) ([]client.DDNSStatus, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForInterfaces) GetDDNSStatus(ctx context.Context) ([]client.DDNSStatus, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+// PP Interface methods
+func (m *MockClientForInterfaces) GetPPInterfaceConfig(ctx context.Context, ppNum int) (*client.PPIPConfig, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForInterfaces) ConfigurePPInterface(ctx context.Context, ppNum int, config client.PPIPConfig) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForInterfaces) UpdatePPInterfaceConfig(ctx context.Context, ppNum int, config client.PPIPConfig) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForInterfaces) ResetPPInterfaceConfig(ctx context.Context, ppNum int) error {
+	return fmt.Errorf("not implemented")
+}
+
+// PPPoE methods
+func (m *MockClientForInterfaces) ListPPPoE(ctx context.Context) ([]client.PPPoEConfig, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForInterfaces) GetPPPoE(ctx context.Context, ppNum int) (*client.PPPoEConfig, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForInterfaces) CreatePPPoE(ctx context.Context, config client.PPPoEConfig) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForInterfaces) UpdatePPPoE(ctx context.Context, config client.PPPoEConfig) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForInterfaces) DeletePPPoE(ctx context.Context, ppNum int) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForInterfaces) GetPPConnectionStatus(ctx context.Context, ppNum int) (*client.PPConnectionStatus, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 func TestRTXInterfacesDataSourceSchema(t *testing.T) {
 	dataSource := dataSourceRTXInterfaces()
 	

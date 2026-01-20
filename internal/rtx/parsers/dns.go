@@ -206,9 +206,9 @@ func parseDNSServerSelectFields(id int, rest string) *DNSServerSelect {
 	}
 
 	sel := &DNSServerSelect{
-		ID:         id,
-		Servers:    []string{},
-		RecordType: "a", // Default record type
+		ID:      id,
+		Servers: []string{},
+		// RecordType left empty - defaults to "a" implicitly when building commands
 	}
 
 	i := 0

@@ -296,31 +296,63 @@ func (s *NATStaticService) fromParserNATStatic(pn parsers.NATStatic) NATStatic {
 
 // toParserEntry converts client.NATStaticEntry to parsers.NATStaticEntry
 func (s *NATStaticService) toParserEntry(entry NATStaticEntry) parsers.NATStaticEntry {
-	return parsers.NATStaticEntry{
-		InsideLocal:       entry.InsideLocal,
-		InsideLocalPort:   entry.InsideLocalPort,
-		OutsideGlobal:     entry.OutsideGlobal,
-		OutsideGlobalPort: entry.OutsideGlobalPort,
-		Protocol:          entry.Protocol,
+	pe := parsers.NATStaticEntry{
+		InsideLocal:   entry.InsideLocal,
+		OutsideGlobal: entry.OutsideGlobal,
+		Protocol:      entry.Protocol,
 	}
+	if entry.InsideLocalPort != nil {
+		pe.InsideLocalPort = *entry.InsideLocalPort
+	}
+	if entry.OutsideGlobalPort != nil {
+		pe.OutsideGlobalPort = *entry.OutsideGlobalPort
+	}
+	return pe
 }
 
 // fromParserEntry converts parsers.NATStaticEntry to client.NATStaticEntry
 func (s *NATStaticService) fromParserEntry(pe parsers.NATStaticEntry) NATStaticEntry {
-	return NATStaticEntry{
-		InsideLocal:       pe.InsideLocal,
-		InsideLocalPort:   pe.InsideLocalPort,
-		OutsideGlobal:     pe.OutsideGlobal,
-		OutsideGlobalPort: pe.OutsideGlobalPort,
-		Protocol:          pe.Protocol,
+	entry := NATStaticEntry{
+		InsideLocal:   pe.InsideLocal,
+		OutsideGlobal: pe.OutsideGlobal,
+		Protocol:      pe.Protocol,
 	}
+	if pe.InsideLocalPort != 0 {
+		port := pe.InsideLocalPort
+		entry.InsideLocalPort = &port
+	}
+	if pe.OutsideGlobalPort != 0 {
+		port := pe.OutsideGlobalPort
+		entry.OutsideGlobalPort = &port
+	}
+	return entry
 }
 
 // entriesEqual checks if two NATStaticEntry instances are equal
 func (s *NATStaticService) entriesEqual(a, b NATStaticEntry) bool {
-	return a.InsideLocal == b.InsideLocal &&
-		a.InsideLocalPort == b.InsideLocalPort &&
-		a.OutsideGlobal == b.OutsideGlobal &&
-		a.OutsideGlobalPort == b.OutsideGlobalPort &&
-		strings.EqualFold(a.Protocol, b.Protocol)
+	if a.InsideLocal != b.InsideLocal || a.OutsideGlobal != b.OutsideGlobal {
+		return false
+	}
+	if !strings.EqualFold(a.Protocol, b.Protocol) {
+		return false
+	}
+	// Compare pointer values
+	if !intPtrEqual(a.InsideLocalPort, b.InsideLocalPort) {
+		return false
+	}
+	if !intPtrEqual(a.OutsideGlobalPort, b.OutsideGlobalPort) {
+		return false
+	}
+	return true
+}
+
+// intPtrEqual compares two *int values for equality
+func intPtrEqual(a, b *int) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return *a == *b
 }
