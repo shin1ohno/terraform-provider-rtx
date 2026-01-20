@@ -168,6 +168,52 @@ user attribute testuser login-timer=7200 administrator=on connection=http
 			},
 			wantErr: false,
 		},
+		{
+			name: "user with all gui-pages",
+			input: `
+login user guiuser guipass
+user attribute guiuser administrator=on gui-page=dashboard,lan-map,config
+`,
+			expected: &AdminConfig{
+				Users: []UserConfig{
+					{
+						Username:  "guiuser",
+						Password:  "guipass",
+						Encrypted: false,
+						Attributes: UserAttributes{
+							Administrator: true,
+							Connection:    []string{},
+							GUIPages:      []string{"dashboard", "lan-map", "config"},
+							LoginTimer:    0,
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "user with full attributes for REQ-5 import fidelity",
+			input: `
+login user admin encrypted $1$hashpass
+user attribute admin administrator=on connection=ssh,telnet,http gui-page=dashboard,lan-map,config login-timer=3600
+`,
+			expected: &AdminConfig{
+				Users: []UserConfig{
+					{
+						Username:  "admin",
+						Password:  "$1$hashpass",
+						Encrypted: true,
+						Attributes: UserAttributes{
+							Administrator: true,
+							Connection:    []string{"ssh", "telnet", "http"},
+							GUIPages:      []string{"dashboard", "lan-map", "config"},
+							LoginTimer:    3600,
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
 	}
 
 	parser := NewAdminParser()
@@ -560,6 +606,134 @@ func TestValidateUserConfig(t *testing.T) {
 				if !strings.Contains(err.Error(), tt.errMsg) {
 					t.Errorf("ValidateUserConfig() error = %v, should contain %v", err.Error(), tt.errMsg)
 				}
+			}
+		})
+	}
+}
+
+func TestParseUserAttributeString(t *testing.T) {
+	tests := []struct {
+		name     string
+		attrStr  string
+		expected UserAttributes
+	}{
+		{
+			name:    "login-timer only",
+			attrStr: "login-timer=3600",
+			expected: UserAttributes{
+				Administrator: false,
+				Connection:    []string{},
+				GUIPages:      []string{},
+				LoginTimer:    3600,
+			},
+		},
+		{
+			name:    "gui-page only",
+			attrStr: "gui-page=dashboard,lan-map,config",
+			expected: UserAttributes{
+				Administrator: false,
+				Connection:    []string{},
+				GUIPages:      []string{"dashboard", "lan-map", "config"},
+				LoginTimer:    0,
+			},
+		},
+		{
+			name:    "all attributes",
+			attrStr: "administrator=on connection=ssh,telnet,http gui-page=dashboard,lan-map,config login-timer=3600",
+			expected: UserAttributes{
+				Administrator: true,
+				Connection:    []string{"ssh", "telnet", "http"},
+				GUIPages:      []string{"dashboard", "lan-map", "config"},
+				LoginTimer:    3600,
+			},
+		},
+		{
+			name:    "attributes in different order",
+			attrStr: "login-timer=7200 gui-page=config administrator=off connection=http",
+			expected: UserAttributes{
+				Administrator: false,
+				Connection:    []string{"http"},
+				GUIPages:      []string{"config"},
+				LoginTimer:    7200,
+			},
+		},
+		{
+			name:    "connection none",
+			attrStr: "administrator=on connection=none",
+			expected: UserAttributes{
+				Administrator: true,
+				Connection:    []string{},
+				GUIPages:      []string{},
+				LoginTimer:    0,
+			},
+		},
+		{
+			name:    "gui-page none",
+			attrStr: "administrator=on gui-page=none",
+			expected: UserAttributes{
+				Administrator: true,
+				Connection:    []string{},
+				GUIPages:      []string{},
+				LoginTimer:    0,
+			},
+		},
+		{
+			name:    "login-timer zero",
+			attrStr: "administrator=on login-timer=0",
+			expected: UserAttributes{
+				Administrator: true,
+				Connection:    []string{},
+				GUIPages:      []string{},
+				LoginTimer:    0,
+			},
+		},
+		// REQ-5: Verify import fidelity for admin user attributes
+		{
+			name:    "REQ-5 import fidelity - shin1ohno example",
+			attrStr: "on administrator=off gui-page=dashboard,lan-map,config login-timer=3600",
+			expected: UserAttributes{
+				Administrator: false,
+				Connection:    []string{},
+				GUIPages:      []string{"dashboard", "lan-map", "config"},
+				LoginTimer:    3600,
+			},
+		},
+		{
+			name:    "REQ-5 hyphen-separated keys only",
+			attrStr: "administrator=on login-timer=1800 gui-page=dashboard",
+			expected: UserAttributes{
+				Administrator: true,
+				Connection:    []string{},
+				GUIPages:      []string{"dashboard"},
+				LoginTimer:    1800,
+			},
+		},
+		{
+			name:    "REQ-5 large login-timer value",
+			attrStr: "administrator=off login-timer=86400 connection=ssh",
+			expected: UserAttributes{
+				Administrator: false,
+				Connection:    []string{"ssh"},
+				GUIPages:      []string{},
+				LoginTimer:    86400,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := parseUserAttributeString(tt.attrStr)
+			if result.Administrator != tt.expected.Administrator {
+				t.Errorf("parseUserAttributeString() Administrator = %v, want %v", result.Administrator, tt.expected.Administrator)
+			}
+			if !reflect.DeepEqual(result.Connection, tt.expected.Connection) {
+				t.Errorf("parseUserAttributeString() Connection = %v, want %v", result.Connection, tt.expected.Connection)
+			}
+			if !reflect.DeepEqual(result.GUIPages, tt.expected.GUIPages) {
+				t.Errorf("parseUserAttributeString() GUIPages = %v, want %v", result.GUIPages, tt.expected.GUIPages)
+			}
+			if result.LoginTimer != tt.expected.LoginTimer {
+				t.Errorf("parseUserAttributeString() LoginTimer = %v, want %v", result.LoginTimer, tt.expected.LoginTimer)
 			}
 		})
 	}

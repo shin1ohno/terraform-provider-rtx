@@ -1,96 +1,117 @@
 # Tasks Document: Import Fidelity Fix
 
-## P0 - Critical Priority
+## Phase 1: P0 - Critical Parser Fixes
 
-- [x] 1. Fix static route multi-gateway import
-  - File: `internal/rtx/parsers/static_route.go`, `internal/rtx/parsers/static_route_test.go`
-  - Verify `BuildShowSingleRouteConfigCommand` grep pattern captures all gateway lines
-  - Add test case with multi-gateway configuration (2-3 gateways for same prefix/mask)
-  - Ensure `ParseRouteConfig` correctly groups all NextHops under same route key
-  - Purpose: Ensure all gateways are captured during import, not just the first one
-  - _Leverage: `internal/rtx/parsers/static_route.go` (existing ParseRouteConfig logic)_
+- [ ] 1. Fix DNS server_select field parsing order (REQ-1)
+  - File: `internal/rtx/parsers/dns.go`
+  - Refactor `parseDNSServerSelectFields` to parse fields in correct order:
+    1. servers (1-2 IPs) from beginning
+    2. `edns=on` if present (literal match)
+    3. record_type if in validRecordTypes AND not `.`
+    4. query_pattern (required, first non-IP/non-keyword)
+    5. original_sender (optional, IP/CIDR after query_pattern)
+    6. `restrict pp n` if present
+  - Fix: Second server incorrectly parsed as original_sender
+  - Fix: record_type defaulting to `a` instead of preserving `aaaa`
+  - Fix: query_pattern `.` misinterpreted as other fields
+  - Purpose: Ensure DNS forwarding rules are accurately imported
+  - _Leverage: `internal/rtx/parsers/dns.go` existing isIPOrCIDR, validRecordTypes_
   - _Requirements: REQ-1_
-  - _Prompt: Implement the task for spec import-fidelity-fix, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Developer specializing in text parsing and regex patterns | Task: Fix static route multi-gateway import by verifying grep patterns and parser grouping for REQ-1, leveraging existing ParseRouteConfig logic in internal/rtx/parsers/static_route.go | Restrictions: Do not change the StaticRoute struct, maintain backward compatibility with existing single-gateway routes, ensure parser handles varying whitespace | _Leverage: internal/rtx/parsers/static_route.go for existing pattern matching | _Requirements: REQ-1 (Static Route Multi-Gateway Import) | Success: Test case with 3 gateways passes, all gateways appear in NextHops slice, existing tests still pass | After completing implementation, mark this task as [-] in progress before starting, use log-implementation tool to record what was implemented, then mark as [x] complete_
+  - _Prompt: Implement the task for spec import-fidelity-fix, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Developer specializing in text parsing | Task: Refactor parseDNSServerSelectFields to parse fields in strict order per RTX command specification for REQ-1 | Restrictions: Do not change DNSServerSelect struct, maintain backward compatibility, handle IPv6 addresses | _Leverage: internal/rtx/parsers/dns.go for isIPOrCIDR function | _Requirements: REQ-1 | Success: Test with two servers captures both in servers array, record_type aaaa preserved, query_pattern . captured correctly | After completing, use log-implementation tool, then mark [x]_
 
-- [x] 2. Implement DHCP scope import functionality
-  - File: `internal/provider/resource_rtx_dhcp_scope.go`, `internal/client/dhcp_scope_service.go`
-  - Verify `resourceRtxDhcpScopeImport` function exists and is registered in schema
-  - Ensure service `GetScope` queries all related config lines (scope, option, except)
-  - Verify parser captures `dhcp scope option N dns=... router=... domain=...` correctly
-  - Purpose: Enable terraform import of existing DHCP scope configurations
-  - _Leverage: `internal/rtx/parsers/dhcp_scope.go` (existing DHCPScopeParser)_
+- [ ] 2. Fix Interface secure_filter array truncation (REQ-2)
+  - File: `internal/rtx/parsers/interface_config.go`
+  - Investigate `parseFilterList` for truncation cause
+  - Check SSH output buffer size in `internal/client/`
+  - Verify regex captures entire line without truncation
+  - Test with 13+ filter IDs to reproduce issue
+  - Fix: Filter arrays truncated (e.g., `20010` instead of `200100`)
+  - Purpose: Ensure all firewall filter IDs are captured
+  - _Leverage: `internal/rtx/parsers/interface_config.go` parseFilterList_
   - _Requirements: REQ-2_
-  - _Prompt: Implement the task for spec import-fidelity-fix, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Terraform Provider Developer with expertise in import state handling | Task: Implement DHCP scope import functionality for REQ-2, ensuring import function is registered and service queries capture all scope configuration | Restrictions: Follow existing resource import patterns from other resources like rtx_static_route, ensure Computed fields are properly set | _Leverage: internal/provider/resource_rtx_static_route.go for import pattern reference | _Requirements: REQ-2 (DHCP Scope Import) | Success: terraform import rtx_dhcp_scope.test 1 populates all fields including options and exclude_ranges, import produces no plan diff | After completing implementation, mark this task as [-] in progress before starting, use log-implementation tool to record what was implemented, then mark as [x] complete_
+  - _Prompt: Implement the task for spec import-fidelity-fix, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Developer debugging parser issues | Task: Investigate and fix secure_filter array truncation in parseFilterList for REQ-2 | Restrictions: Do not change InterfaceConfig struct, maintain dynamic filter separation | _Leverage: internal/rtx/parsers/interface_config.go | _Requirements: REQ-2 | Success: Test with 13 filter IDs captures all correctly, no truncated IDs like 20010 | After completing, use log-implementation tool, then mark [x]_
 
-- [x] 3. Fix NAT masquerade static entries import
-  - File: `internal/rtx/parsers/nat_masquerade.go`, `internal/client/nat_masquerade_service.go`, `internal/provider/resource_rtx_nat_masquerade.go`
-  - Verify `BuildShowNATDescriptorCommand` grep pattern captures static entry lines
-  - Ensure `ParseNATMasqueradeConfig` staticPattern regex matches actual RTX output format
-  - Verify resource schema maps `StaticEntries` from parser to Terraform state
-  - Add test case with multiple static port mappings
-  - Purpose: Ensure NAT static port forwarding rules are captured during import
-  - _Leverage: `internal/rtx/parsers/nat_masquerade.go` (existing staticPattern regex)_
-  - _Requirements: REQ-4_
-  - _Prompt: Implement the task for spec import-fidelity-fix, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Developer with expertise in NAT configuration parsing | Task: Fix NAT masquerade static entries import for REQ-4, verifying grep patterns and ensuring static_entries list is populated | Restrictions: Do not change MasqueradeStaticEntry struct fields, ensure protocol field handles tcp/udp/empty cases | _Leverage: internal/rtx/parsers/nat_masquerade.go for existing static entry parsing | _Requirements: REQ-4 (NAT Masquerade Static Entries Import) | Success: Import of NAT descriptor with 3 static entries shows all entries in state, static entries include correct protocol and port mappings | After completing implementation, mark this task as [-] in progress before starting, use log-implementation tool to record what was implemented, then mark as [x] complete_
+## Phase 2: P1 - High Priority Parser Fixes
 
-## P1 - High Priority
-
-- [x] 4. Fix admin user login_timer import
-  - File: `internal/rtx/parsers/admin.go`, `internal/provider/resource_rtx_admin_user.go`
-  - Verify `parseUserAttributeString` correctly parses `login-timer=N`
-  - Check if schema uses `Default: 0` which overrides parsed value
-  - Ensure `login_timer` is Computed or has correct default behavior
-  - Add test case with explicit login-timer value
-  - Purpose: Ensure login_timer reflects actual router config, not default 0
-  - _Leverage: `internal/rtx/parsers/admin.go` (parseUserAttributeString function)_
+- [x] 3. Fix Static route multi-gateway import (REQ-3)
+  - File: `internal/rtx/parsers/static_route.go`, `internal/client/static_route_service.go`
+  - Verify grep command captures all gateway lines for same prefix
+  - Confirm `ParseRouteConfig` groups by routeKey correctly
+  - Check if service query filters too narrowly
+  - Fix: Only first gateway captured for routes with multiple gateways
+  - Purpose: Ensure ECMP/failover routing configurations are preserved
+  - _Leverage: `internal/rtx/parsers/static_route.go` existing routeKey grouping_
   - _Requirements: REQ-3_
-  - _Prompt: Implement the task for spec import-fidelity-fix, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Terraform Provider Developer specializing in schema design and defaults | Task: Fix admin user login_timer import for REQ-3, ensuring parsed values are not overridden by schema defaults | Restrictions: Do not break existing user creation flows, ensure login_timer=0 is still valid when explicitly set | _Leverage: internal/rtx/parsers/admin.go for existing attribute parsing | _Requirements: REQ-3 (Admin User Attribute Import) | Success: Import of user with login-timer=3600 shows 3600 in state (not 0), user with no explicit timer uses router default | After completing implementation, mark this task as [-] in progress before starting, use log-implementation tool to record what was implemented, then mark as [x] complete_
+  - _Completed: 2026-01-20 - Implementation verified correct. Added comprehensive service tests._
 
-- [x] 5. Verify DNS server select EDNS parsing
-  - File: `internal/rtx/parsers/dns.go`, `internal/rtx/parsers/dns_test.go`
-  - Verify `parseDNSServerSelectFields` extracts `edns=on` before domain pattern
-  - Add test case with `edns=on` in various positions within the command
-  - Ensure EDNS flag is stored in `DNSServerSelect.EDNS` not in `QueryPattern`
-  - Purpose: Ensure EDNS flag is correctly captured as boolean, not mixed into domain list
-  - _Leverage: `internal/rtx/parsers/dns.go` (parseDNSServerSelectFields function)_
+- [x] 4. Fix Admin user attribute parsing (REQ-5)
+  - File: `internal/rtx/parsers/admin.go`, `internal/provider/resource_rtx_admin_user.go`
+  - Verify `parseUserAttributeString` handles `login-timer=N` correctly
+  - Check `gui-page=` parsing (comma-separated values)
+  - Verify schema Default values don't override parsed values
+  - Fix: login_timer=0 instead of actual value, gui_pages empty
+  - Purpose: Ensure user permissions are accurately imported
+  - _Leverage: `internal/rtx/parsers/admin.go` parseUserAttributeString_
   - _Requirements: REQ-5_
-  - _Prompt: Implement the task for spec import-fidelity-fix, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Developer with expertise in DNS configuration parsing | Task: Verify DNS server select EDNS parsing for REQ-5, ensuring edns=on is captured as boolean field | Restrictions: Do not change DNSServerSelect struct, maintain compatibility with existing DNS configurations | _Leverage: internal/rtx/parsers/dns.go for existing parseDNSServerSelectFields logic | _Requirements: REQ-5 (DNS Server Select Parsing) | Success: Test with edns=on before domain passes, EDNS field is true, QueryPattern contains only domain pattern without edns=on string | After completing implementation, mark this task as [-] in progress before starting, use log-implementation tool to record what was implemented, then mark as [x] complete_
+  - _Completed: 2026-01-20 - Verified parser is correct. RTX uses `login-timer=` (hyphen) and `gui-page=` (singular). Added REQ-5 unit tests._
 
-## Test Fixtures and Validation
+## Phase 3: P2 - Medium Priority Fixes
 
-- [x] 6. Create test fixtures for import fidelity tests
+- [ ] 5. Fix L2TP tunnel_auth parsing (REQ-4)
+  - File: `internal/rtx/parsers/l2tp.go`
+  - Add debug logging to track currentTunnelID during parsing
+  - Verify `tunnel select N` sets currentTunnelID correctly
+  - Ensure L2TPv3Config initialization at tunnel select
+  - Fix l2tpTunnelAuthPattern association with correct tunnel
+  - Fix: tunnel_auth_enabled=false when router has `l2tp tunnel auth on`
+  - Purpose: Ensure L2TPv3 VPN security settings are preserved
+  - _Leverage: `internal/rtx/parsers/l2tp.go` l2tpTunnelAuthPattern_
+  - _Requirements: REQ-4_
+  - _Prompt: Implement the task for spec import-fidelity-fix, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Developer debugging stateful parsers | Task: Fix L2TP tunnel_auth parsing by ensuring correct tunnel context for REQ-4 | Restrictions: Do not change L2TPConfig struct, maintain tunnel select state | _Leverage: internal/rtx/parsers/l2tp.go | _Requirements: REQ-4 | Success: Tunnel with auth on shows tunnel_auth_enabled=true | After completing, use log-implementation tool, then mark [x]_
+
+- [ ] 6. Relax schema constraints for import compatibility (REQ-6)
+  - File: Various `internal/provider/resource_rtx_*.go`
+  - Audit schemas for `Required: true` on optional router attributes
+  - Change to `Optional: true` where appropriate for import
+  - Add `Computed: true` for attributes with router defaults
+  - Remove `Default:` that overrides imported values
+  - Purpose: Enable import without validation errors
+  - _Leverage: Existing resource schemas_
+  - _Requirements: REQ-6_
+  - _Prompt: Implement the task for spec import-fidelity-fix, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Terraform Provider Developer specializing in schema design | Task: Relax schema constraints for import compatibility per REQ-6 | Restrictions: Don't break existing configurations, maintain validation for Create | _Leverage: internal/provider/resource_rtx_*.go schemas | _Requirements: REQ-6 | Success: Import succeeds without Required attribute errors, no perpetual diffs | After completing, use log-implementation tool, then mark [x]_
+
+## Phase 4: Testing and Validation
+
+- [ ] 7. Create test fixtures for parser fixes
   - File: `internal/rtx/testdata/import_fidelity/`
-  - Create `static_route_multi_gateway.txt` with sample multi-gateway config
-  - Create `dhcp_scope_complete.txt` with scope, options, and except ranges
-  - Create `nat_masquerade_with_static.txt` with multiple static entries
-  - Create `admin_user_with_timer.txt` with explicit login-timer value
-  - Create `dns_server_select_edns.txt` with edns=on flag
-  - Purpose: Provide real-world configuration samples for parser testing
-  - _Leverage: Existing testdata patterns in `internal/rtx/testdata/`_
-  - _Requirements: All (REQ-1 through REQ-5)_
-  - _Prompt: Implement the task for spec import-fidelity-fix, first run spec-workflow-guide to get the workflow guide then implement the task: Role: QA Engineer creating test fixtures for parser validation | Task: Create test fixture files with realistic RTX router configurations covering all requirements | Restrictions: Use realistic RTX command syntax, include edge cases like maximum field counts | _Leverage: Existing testdata files for format reference | _Requirements: REQ-1, REQ-2, REQ-3, REQ-4, REQ-5 | Success: All fixture files created with valid RTX syntax, each fixture covers the specific requirement's edge cases | After completing implementation, mark this task as [-] in progress before starting, use log-implementation tool to record what was implemented, then mark as [x] complete_
+  - Create `dns_server_select_multi_server.txt` - two servers, edns, aaaa
+  - Create `interface_filter_long_list.txt` - 13+ filter IDs
+  - Create `static_route_multi_gateway.txt` - same prefix, 2 gateways
+  - Create `l2tp_tunnel_auth.txt` - tunnel auth on with password
+  - Create `admin_user_full_attributes.txt` - all attribute types
+  - Purpose: Provide test data for parser unit tests
+  - _Leverage: Existing testdata patterns_
+  - _Requirements: REQ-1 through REQ-5_
+  - _Prompt: Implement the task for spec import-fidelity-fix, first run spec-workflow-guide to get the workflow guide then implement the task: Role: QA Engineer creating test fixtures | Task: Create test fixture files with realistic RTX configurations | Restrictions: Use valid RTX command syntax, include edge cases | _Leverage: internal/rtx/testdata/ | _Requirements: All | Success: Fixture files created with valid syntax | After completing, use log-implementation tool, then mark [x]_
 
-- [x] 7. Add parser unit tests using fixtures
+- [ ] 8. Add parser unit tests using fixtures
   - File: `internal/rtx/parsers/*_test.go`
-  - Add test cases that load fixtures from task 6
-  - Verify multi-gateway grouping for static routes
-  - Verify complete DHCP scope parsing
-  - Verify NAT static entries parsing
-  - Verify admin login_timer parsing
-  - Verify DNS EDNS flag isolation
-  - Purpose: Ensure parsers handle all identified edge cases correctly
-  - _Leverage: Test fixtures from task 6, existing test patterns_
-  - _Requirements: All (REQ-1 through REQ-5)_
-  - _Prompt: Implement the task for spec import-fidelity-fix, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Developer writing comprehensive parser unit tests | Task: Add parser unit tests using created fixtures for all requirements | Restrictions: Use table-driven tests, ensure each test is independent, mock no external dependencies | _Leverage: internal/rtx/parsers/*_test.go for existing test patterns | _Requirements: REQ-1 through REQ-5 | Success: All new tests pass, tests cover both success and edge cases, existing tests still pass | After completing implementation, mark this task as [-] in progress before starting, use log-implementation tool to record what was implemented, then mark as [x] complete_
+  - Add tests for DNS multi-server and record_type parsing
+  - Add tests for interface filter long lists
+  - Add tests for static route multi-gateway grouping
+  - Add tests for L2TP tunnel auth context
+  - Add tests for admin user attributes
+  - Purpose: Ensure parser fixes work correctly
+  - _Leverage: Test fixtures from task 7_
+  - _Requirements: REQ-1 through REQ-5_
+  - _Prompt: Implement the task for spec import-fidelity-fix, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Developer writing parser unit tests | Task: Add parser unit tests using fixtures for all requirements | Restrictions: Table-driven tests, no external mocks | _Leverage: internal/rtx/parsers/*_test.go patterns | _Requirements: All | Success: All tests pass, cover edge cases | After completing, use log-implementation tool, then mark [x]_
 
-## Integration Validation
-
-- [x] 8. Validate import round-trip fidelity
-  - File: Integration test documentation
-  - Document manual testing procedure for import validation
-  - Test import → plan should show no changes
-  - Verify exported HCL matches router configuration
-  - Purpose: Confirm end-to-end import fidelity is achieved
-  - _Leverage: Existing acceptance test patterns if available_
+- [ ] 9. Validate import round-trip fidelity
+  - File: Manual testing / acceptance tests
+  - Test: `terraform import` → `terraform plan` shows no changes
+  - Verify each fixed resource type imports correctly
+  - Document any remaining known limitations
+  - Purpose: Confirm end-to-end import fidelity achieved
+  - _Leverage: RTX router or simulator_
   - _Requirements: All_
-  - _Prompt: Implement the task for spec import-fidelity-fix, first run spec-workflow-guide to get the workflow guide then implement the task: Role: QA Engineer validating import functionality | Task: Create integration test documentation and validate import round-trip produces no plan diff | Restrictions: Document steps clearly for reproducibility, note any known limitations | _Leverage: Existing documentation patterns | _Requirements: All requirements validation | Success: Import of each resource type produces no plan diff, documentation is clear and complete | After completing implementation, mark this task as [-] in progress before starting, use log-implementation tool to record what was implemented, then mark as [x] complete_
+  - _Prompt: Implement the task for spec import-fidelity-fix, first run spec-workflow-guide to get the workflow guide then implement the task: Role: QA Engineer validating import functionality | Task: Validate import round-trip produces no plan diff | Restrictions: Document steps for reproducibility | _Leverage: Existing acceptance test patterns | _Requirements: All | Success: Import → plan shows no changes for all resource types | After completing, use log-implementation tool, then mark [x]_
