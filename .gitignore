@@ -70,3 +70,6 @@ build/
 
 # Spec workflow audit log
 audit.log
+
+# Local import testing
+examples/import/
