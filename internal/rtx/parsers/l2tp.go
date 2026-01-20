@@ -96,13 +96,18 @@ func (p *L2TPParser) ParseL2TPConfig(raw string) ([]L2TPConfig, error) {
 	tunnelSelectPattern := regexp.MustCompile(`^\s*tunnel\s+select\s+(\d+)\s*$`)
 	tunnelEncapsulationPattern := regexp.MustCompile(`^\s*tunnel\s+encapsulation\s+(l2tp|l2tpv3)\s*$`)
 	tunnelEndpointPattern := regexp.MustCompile(`^\s*tunnel\s+endpoint\s+address\s+([0-9.]+)\s+([0-9.]+)\s*$`)
+	tunnelEndpointNamePattern := regexp.MustCompile(`^\s*tunnel\s+endpoint\s+name\s+(\S+)\s+(fqdn|ip)\s*$`)
+	ipsecTunnelPattern := regexp.MustCompile(`^\s*ipsec\s+tunnel\s+(\d+)\s*$`)
 	l2tpLocalRouterIDPattern := regexp.MustCompile(`^\s*l2tp\s+local\s+router-id\s+([0-9.]+)\s*$`)
 	l2tpRemoteRouterIDPattern := regexp.MustCompile(`^\s*l2tp\s+remote\s+router-id\s+([0-9.]+)\s*$`)
 	l2tpRemoteEndIDPattern := regexp.MustCompile(`^\s*l2tp\s+remote\s+end-id\s+(\S+)\s*$`)
 	l2tpAlwaysOnPattern := regexp.MustCompile(`^\s*l2tp\s+always-on\s+(on|off)\s*$`)
+	l2tpHostnamePattern := regexp.MustCompile(`^\s*l2tp\s+hostname\s+(\S+)\s*$`)
+	l2tpTunnelAuthPattern := regexp.MustCompile(`^\s*l2tp\s+tunnel\s+auth\s+(on|off)(?:\s+(\S+))?\s*$`)
 	l2tpKeepalivePattern := regexp.MustCompile(`^\s*l2tp\s+keepalive\s+use\s+on\s+(\d+)\s+(\d+)\s*$`)
-	l2tpDisconnectTimePattern := regexp.MustCompile(`^\s*l2tp\s+tunnel\s+disconnect\s+time\s+(\d+)\s*$`)
+	l2tpDisconnectTimePattern := regexp.MustCompile(`^\s*l2tp\s+tunnel\s+disconnect\s+time\s+(off|\d+)\s*$`)
 	tunnelDescriptionPattern := regexp.MustCompile(`^\s*description\s+(.+)\s*$`)
+	tunnelEnablePattern := regexp.MustCompile(`^\s*tunnel\s+enable\s+(\d+)\s*$`)
 
 	var currentTunnelID int
 	var l2tpServiceOn bool
@@ -286,10 +291,72 @@ func (p *L2TPParser) ParseL2TPConfig(raw string) ([]L2TPConfig, error) {
 			}
 			continue
 		}
+
+		// Tunnel endpoint name (FQDN destination)
+		if matches := tunnelEndpointNamePattern.FindStringSubmatch(line); len(matches) >= 3 && currentTunnelID > 0 {
+			if tunnel, exists := tunnels[currentTunnelID]; exists {
+				tunnel.TunnelDest = matches[1]
+				tunnel.TunnelDestType = matches[2]
+			}
+			continue
+		}
+
+		// IPsec tunnel association
+		if matches := ipsecTunnelPattern.FindStringSubmatch(line); len(matches) >= 2 && currentTunnelID > 0 {
+			if tunnel, exists := tunnels[currentTunnelID]; exists {
+				ipsecID, _ := strconv.Atoi(matches[1])
+				if tunnel.IPsecProfile == nil {
+					tunnel.IPsecProfile = &L2TPIPsec{Enabled: true}
+				}
+				tunnel.IPsecProfile.TunnelID = ipsecID
+			}
+			continue
+		}
+
+		// L2TP hostname (used as tunnel name)
+		if matches := l2tpHostnamePattern.FindStringSubmatch(line); len(matches) >= 2 && currentTunnelID > 0 {
+			if tunnel, exists := tunnels[currentTunnelID]; exists {
+				tunnel.Name = matches[1]
+			}
+			continue
+		}
+
+		// L2TP tunnel auth
+		if matches := l2tpTunnelAuthPattern.FindStringSubmatch(line); len(matches) >= 2 && currentTunnelID > 0 {
+			if tunnel, exists := tunnels[currentTunnelID]; exists {
+				if tunnel.L2TPv3Config == nil {
+					tunnel.L2TPv3Config = &L2TPv3Config{}
+				}
+				if tunnel.L2TPv3Config.TunnelAuth == nil {
+					tunnel.L2TPv3Config.TunnelAuth = &L2TPTunnelAuth{}
+				}
+				tunnel.L2TPv3Config.TunnelAuth.Enabled = matches[1] == "on"
+				if len(matches) >= 3 && matches[2] != "" {
+					tunnel.L2TPv3Config.TunnelAuth.Password = matches[2]
+				}
+			}
+			continue
+		}
+
+		// Tunnel enable
+		if matches := tunnelEnablePattern.FindStringSubmatch(line); len(matches) >= 2 {
+			enabledID, _ := strconv.Atoi(matches[1])
+			if tunnel, exists := tunnels[enabledID]; exists {
+				tunnel.Enabled = true
+			}
+			continue
+		}
 	}
 
-	// Add anonymous PP config if exists
+	// Add anonymous PP config if exists, merging with tunnel config
 	if currentAnonymousConfig != nil && currentAnonymousConfig.ID > 0 {
+		if existing, exists := tunnels[currentAnonymousConfig.ID]; exists {
+			// Preserve enabled state and IPsec profile from tunnel config
+			currentAnonymousConfig.Enabled = existing.Enabled
+			if existing.IPsecProfile != nil {
+				currentAnonymousConfig.IPsecProfile = existing.IPsecProfile
+			}
+		}
 		tunnels[currentAnonymousConfig.ID] = currentAnonymousConfig
 	}
 
@@ -405,8 +472,9 @@ func BuildDeleteL2TPTunnelCommand(tunnelID int) string {
 }
 
 // BuildShowL2TPConfigCommand builds the command to show L2TP configuration
+// Uses full "show config" output since RTX routers don't support pipe commands
 func BuildShowL2TPConfigCommand() string {
-	return "show config | grep l2tp"
+	return "show config"
 }
 
 // ValidateL2TPConfig validates an L2TP configuration

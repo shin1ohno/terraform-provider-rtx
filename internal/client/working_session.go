@@ -88,6 +88,12 @@ func newWorkingSession(client *ssh.Client) (*workingSession, error) {
 		log.Printf("[WARN] Failed to set character encoding: %v (continuing anyway)", err)
 	}
 
+	// Disable paging to get full output from commands like "show config"
+	log.Printf("[DEBUG] Disabling console paging")
+	if _, err := s.executeCommand("console lines infinity", 5*time.Second); err != nil {
+		log.Printf("[WARN] Failed to disable paging: %v (continuing anyway)", err)
+	}
+
 	return s, nil
 }
 
@@ -106,10 +112,12 @@ func (s *workingSession) Send(cmd string) ([]byte, error) {
 	// So we return the raw output without cleaning
 	// Use reasonable timeout for commands
 	timeout := 15 * time.Second
-	if strings.Contains(cmd, "show status dhcp") {
+	if strings.Contains(cmd, "show config") {
+		timeout = 120 * time.Second // show config produces large output
+	} else if strings.Contains(cmd, "show status dhcp") {
 		timeout = 30 * time.Second
 	} else if strings.Contains(cmd, "show environment") {
-		timeout = 20 * time.Second // Reduced from 60s to 20s
+		timeout = 20 * time.Second
 	}
 	output, err := s.executeCommandRaw(cmd, timeout)
 	if err != nil {
@@ -181,26 +189,40 @@ func (s *workingSession) readUntilPrompt(timeout time.Duration) ([]byte, error) 
 
 		if n > 0 {
 			buffer.WriteByte(buf[0])
-			
+
 			// Check if we have a prompt
 			content := buffer.String()
 			lines := strings.Split(content, "\n")
 			if len(lines) > 0 {
 				lastLine := lines[len(lines)-1]
-				// Check for prompt at end of line (> or # with optional space after)
-				// RTX format: "[RTX1210] >" for user mode or "[RTX1210] # " for admin mode
-				if len(lastLine) > 0 {
-					trimmed := strings.TrimSpace(lastLine)
-					// Check for user mode prompt: "[RTX1210] >"
-					if strings.Contains(lastLine, "] >") || strings.HasSuffix(lastLine, "> ") {
+				// Detect RTX prompt generically without depending on hostname
+				// Conditions:
+				// 1. Line is short (prompts are typically < 100 chars)
+				// 2. Line ends with "> " or "# " (with trailing space)
+				// 3. Line doesn't start with whitespace (config content is often indented)
+				if len(lastLine) > 0 && len(lastLine) < 100 {
+					trimmedLeft := strings.TrimLeft(lastLine, "\r")
+					// Skip if line starts with # (config comment line, not a prompt)
+					// RTX config comments start with "#", but prompts end with "# "
+					if strings.HasPrefix(trimmedLeft, "#") {
+						continue
+					}
+					// Skip if line starts with whitespace (indented config content)
+					if strings.HasPrefix(trimmedLeft, " ") || strings.HasPrefix(trimmedLeft, "\t") {
+						continue
+					}
+					// Check for user mode prompt ending with "> "
+					if strings.HasSuffix(lastLine, "> ") {
 						return buffer.Bytes(), nil
 					}
-					// Check for admin mode prompt: "[RTX1210] # "
-					if strings.Contains(lastLine, "] # ") || strings.HasSuffix(lastLine, "# ") {
+					// Check for admin mode prompt ending with "# "
+					if strings.HasSuffix(lastLine, "# ") {
 						return buffer.Bytes(), nil
 					}
-					// Fallback: check if line ends with > or # (with possible trailing spaces)
-					if strings.HasSuffix(trimmed, ">") || strings.HasSuffix(trimmed, "#") {
+					// Also check without trailing space (some terminals)
+					// Require minimum length to avoid matching single "#" or ">"
+					if len(trimmedLeft) >= 3 &&
+						(strings.HasSuffix(lastLine, ">") || strings.HasSuffix(lastLine, "#")) {
 						return buffer.Bytes(), nil
 					}
 				}

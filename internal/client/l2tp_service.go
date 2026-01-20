@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
@@ -39,15 +40,30 @@ func (s *L2TPService) Get(ctx context.Context, tunnelID int) (*L2TPConfig, error
 
 // List retrieves all L2TP tunnel configurations
 func (s *L2TPService) List(ctx context.Context) ([]L2TPConfig, error) {
-	output, err := s.executor.Run(ctx, parsers.BuildShowL2TPConfigCommand())
+	cmd := parsers.BuildShowL2TPConfigCommand()
+	log.Printf("[DEBUG] L2TP List: executing command: %s", cmd)
+
+	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get L2TP config: %w", err)
+	}
+
+	log.Printf("[DEBUG] L2TP List: output length: %d bytes", len(output))
+	if len(output) < 1000 {
+		log.Printf("[DEBUG] L2TP List: full output: %s", string(output))
+	} else {
+		log.Printf("[DEBUG] L2TP List: output preview (first 500 chars): %s", string(output[:500]))
 	}
 
 	parser := parsers.NewL2TPParser()
 	parsed, err := parser.ParseL2TPConfig(string(output))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse L2TP config: %w", err)
+	}
+
+	log.Printf("[DEBUG] L2TP List: parsed %d tunnels", len(parsed))
+	for _, t := range parsed {
+		log.Printf("[DEBUG] L2TP List: tunnel ID=%d, Version=%s, Mode=%s, Enabled=%v", t.ID, t.Version, t.Mode, t.Enabled)
 	}
 
 	// Convert from parser types to client types
