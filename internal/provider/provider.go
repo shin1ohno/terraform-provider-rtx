@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 )
 
 func init() {
@@ -104,6 +104,7 @@ func New(version string) *schema.Provider {
 			"rtx_class_map":                 resourceRTXClassMap(),
 			"rtx_dhcp_binding":              resourceRTXDHCPBinding(),
 			"rtx_dhcp_scope":                resourceRTXDHCPScope(),
+			"rtx_ddns":                      resourceRTXDDNS(),
 			"rtx_dns_server":                resourceRTXDNSServer(),
 			"rtx_httpd":                     resourceRTXHTTPD(),
 			"rtx_interface":                 resourceRTXInterface(),
@@ -120,6 +121,7 @@ func New(version string) *schema.Provider {
 			"rtx_l2tp":                      resourceRTXL2TP(),
 			"rtx_l2tp_service":              resourceRTXL2TPService(),
 			"rtx_nat_masquerade":            resourceRTXNATMasquerade(),
+			"rtx_netvolante_dns":            resourceRTXNetVolanteDNS(),
 			"rtx_nat_static":                resourceRTXNATStatic(),
 			"rtx_ospf":                      resourceRTXOSPF(),
 			"rtx_policy_map":                resourceRTXPolicyMap(),
@@ -135,9 +137,10 @@ func New(version string) *schema.Provider {
 			"rtx_vlan":                      resourceRTXVLAN(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
-			"rtx_system_info": dataSourceRTXSystemInfo(),
+			"rtx_ddns_status": dataSourceRTXDDNSStatus(),
 			"rtx_interfaces":  dataSourceRTXInterfaces(),
 			"rtx_routes":      dataSourceRTXRoutes(),
+			"rtx_system_info": dataSourceRTXSystemInfo(),
 		},
 		ConfigureContextFunc: providerConfigure,
 	}
@@ -148,6 +151,10 @@ type apiClient struct {
 }
 
 func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
+	// Initialize logger and add to context
+	logger := logging.NewLogger()
+	ctx = logging.WithContext(ctx, logger)
+
 	host := d.Get("host").(string)
 	username := d.Get("username").(string)
 	password := d.Get("password").(string)
@@ -157,7 +164,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	sshHostKey := d.Get("ssh_host_key").(string)
 	knownHostsFile := d.Get("known_hosts_file").(string)
 	skipHostKeyCheck := d.Get("skip_host_key_check").(bool)
-	
+
 	// If admin_password is not set, use the same as password
 	if adminPassword == "" {
 		adminPassword = password
@@ -216,7 +223,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		Payload: "show environment",
 	}
 	
-	log.Printf("[DEBUG] Provider: Running test command")
+	logger.Debug().Msg("Provider: Running test command")
 	if _, err := sshClient.Run(ctx, testCmd); err != nil {
 		// Close the connection if test fails
 		sshClient.Close()
@@ -227,7 +234,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		})
 		return nil, diags
 	}
-	log.Printf("[DEBUG] Provider: Test command successful")
+	logger.Debug().Msg("Provider: Test command successful")
 	
 	// Important: Do NOT close the connection here!
 	// The connection must remain open for subsequent operations
