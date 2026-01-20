@@ -147,6 +147,90 @@ description Site-B L2VPN`
 	}
 }
 
+func TestL2TPParser_TunnelAuth(t *testing.T) {
+	tests := []struct {
+		name             string
+		input            string
+		expectedEnabled  bool
+		expectedPassword string
+	}{
+		{
+			name: "tunnel auth on with password",
+			input: `tunnel select 1
+ tunnel encapsulation l2tpv3
+ tunnel endpoint address 10.0.0.1 10.0.0.2
+ l2tp local router-id 1.1.1.1
+ l2tp remote router-id 2.2.2.2
+ l2tp tunnel auth on secret123
+tunnel enable 1`,
+			expectedEnabled:  true,
+			expectedPassword: "secret123",
+		},
+		{
+			name: "tunnel auth on without password",
+			input: `tunnel select 1
+ tunnel encapsulation l2tpv3
+ l2tp tunnel auth on
+tunnel enable 1`,
+			expectedEnabled:  true,
+			expectedPassword: "",
+		},
+		{
+			name: "tunnel auth off",
+			input: `tunnel select 1
+ tunnel encapsulation l2tpv3
+ l2tp tunnel auth off
+tunnel enable 1`,
+			expectedEnabled:  false,
+			expectedPassword: "",
+		},
+		{
+			name: "no tunnel auth line",
+			input: `tunnel select 1
+ tunnel encapsulation l2tpv3
+ l2tp local router-id 1.1.1.1
+tunnel enable 1`,
+			expectedEnabled:  false,
+			expectedPassword: "",
+		},
+	}
+
+	parser := NewL2TPParser()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tunnels, err := parser.ParseL2TPConfig(tt.input)
+			if err != nil {
+				t.Fatalf("ParseL2TPConfig() error = %v", err)
+			}
+			if len(tunnels) != 1 {
+				t.Fatalf("Expected 1 tunnel, got %d", len(tunnels))
+			}
+
+			tunnel := tunnels[0]
+			if tunnel.L2TPv3Config == nil {
+				if tt.expectedEnabled {
+					t.Errorf("L2TPv3Config is nil, but expected tunnel auth enabled")
+				}
+				return
+			}
+
+			if tunnel.L2TPv3Config.TunnelAuth == nil {
+				if tt.expectedEnabled {
+					t.Errorf("TunnelAuth is nil, but expected enabled=%v", tt.expectedEnabled)
+				}
+				return
+			}
+
+			if tunnel.L2TPv3Config.TunnelAuth.Enabled != tt.expectedEnabled {
+				t.Errorf("TunnelAuth.Enabled = %v, want %v", tunnel.L2TPv3Config.TunnelAuth.Enabled, tt.expectedEnabled)
+			}
+			if tunnel.L2TPv3Config.TunnelAuth.Password != tt.expectedPassword {
+				t.Errorf("TunnelAuth.Password = %v, want %v", tunnel.L2TPv3Config.TunnelAuth.Password, tt.expectedPassword)
+			}
+		})
+	}
+}
+
 func TestBuildL2TPCommands(t *testing.T) {
 	t.Run("BuildL2TPServiceCommand", func(t *testing.T) {
 		if got := BuildL2TPServiceCommand(true); got != "l2tp service on" {

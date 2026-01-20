@@ -291,6 +291,12 @@ func convertToParserL2TPConfig(config L2TPConfig) parsers.L2TPConfig {
 			CookieSize:      config.L2TPv3Config.CookieSize,
 			BridgeInterface: config.L2TPv3Config.BridgeInterface,
 		}
+		if config.L2TPv3Config.TunnelAuth != nil {
+			parserConfig.L2TPv3Config.TunnelAuth = &parsers.L2TPTunnelAuth{
+				Enabled:  config.L2TPv3Config.TunnelAuth.Enabled,
+				Password: config.L2TPv3Config.TunnelAuth.Password,
+			}
+		}
 	}
 
 	if config.KeepaliveConfig != nil {
@@ -351,6 +357,12 @@ func convertFromParserL2TPConfig(p parsers.L2TPConfig) L2TPConfig {
 			SessionID:       p.L2TPv3Config.SessionID,
 			CookieSize:      p.L2TPv3Config.CookieSize,
 			BridgeInterface: p.L2TPv3Config.BridgeInterface,
+		}
+		if p.L2TPv3Config.TunnelAuth != nil {
+			config.L2TPv3Config.TunnelAuth = &L2TPTunnelAuth{
+				Enabled:  p.L2TPv3Config.TunnelAuth.Enabled,
+				Password: p.L2TPv3Config.TunnelAuth.Password,
+			}
 		}
 	}
 
