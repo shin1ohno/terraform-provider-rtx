@@ -1445,3 +1445,83 @@ type IPsecTransportConfig struct {
 	Protocol    string `json:"protocol"`     // Protocol ("udp" typically)
 	Port        int    `json:"port"`         // Port number (1701 for L2TP)
 }
+
+// ============================================================================
+// DDNS Types
+// ============================================================================
+
+// NetVolanteConfig represents NetVolante DNS configuration (Yamaha's free DDNS service)
+type NetVolanteConfig struct {
+	Hostname     string `json:"hostname"`               // NetVolante DNS hostname (*.netvolante.jp)
+	Interface    string `json:"interface"`              // Interface for DDNS (pp 1, lan1, etc.)
+	Server       int    `json:"server,omitempty"`       // Server number (1 or 2)
+	Timeout      int    `json:"timeout,omitempty"`      // Update timeout in seconds
+	IPv6         bool   `json:"ipv6,omitempty"`         // Enable IPv6 address registration
+	AutoHostname bool   `json:"auto_hostname,omitempty"` // Enable automatic hostname generation
+	Use          bool   `json:"use,omitempty"`          // Enable NetVolante DNS for interface
+}
+
+// DDNSServerConfig represents custom DDNS provider configuration
+type DDNSServerConfig struct {
+	ID       int    `json:"id"`                 // DDNS server ID (1-4)
+	URL      string `json:"url"`                // DDNS update URL (http:// or https://)
+	Hostname string `json:"hostname"`           // DDNS hostname to update
+	Username string `json:"username,omitempty"` // DDNS account username
+	Password string `json:"password,omitempty"` // DDNS account password (sensitive)
+}
+
+// DDNSStatus represents DDNS registration status
+type DDNSStatus struct {
+	Type         string `json:"type"`                    // "netvolante" or "custom"
+	Interface    string `json:"interface,omitempty"`     // Interface (for NetVolante)
+	ServerID     int    `json:"server_id,omitempty"`     // Server ID (for custom DDNS)
+	Hostname     string `json:"hostname,omitempty"`      // Registered hostname
+	CurrentIP    string `json:"current_ip,omitempty"`    // Currently registered IP address
+	LastUpdate   string `json:"last_update,omitempty"`   // Last update time
+	Status       string `json:"status,omitempty"`        // Status: "success", "error", "pending"
+	ErrorMessage string `json:"error_message,omitempty"` // Error message if failed
+}
+
+// ============================================================================
+// PPP/PPPoE Types
+// ============================================================================
+
+// PPPoEConfig represents PPPoE connection configuration on an RTX router
+type PPPoEConfig struct {
+	Number            int         `json:"number"`                      // PP interface number (1-based)
+	Name              string      `json:"name,omitempty"`              // Connection name/description
+	Interface         string      `json:"interface,omitempty"`         // PP interface name (e.g., "pp 1")
+	BindInterface     string      `json:"bind_interface"`              // Physical interface to bind (lan2, etc.)
+	ServiceName       string      `json:"service_name,omitempty"`      // PPPoE service name
+	ACName            string      `json:"ac_name,omitempty"`           // PPPoE AC (Access Concentrator) name
+	Authentication    *PPPAuth    `json:"authentication,omitempty"`    // PPP authentication settings
+	AlwaysOn          bool        `json:"always_on,omitempty"`         // Keep connection always active
+	IPConfig          *PPIPConfig `json:"ip_config,omitempty"`         // IP configuration for PP interface
+	Enabled           bool        `json:"enabled"`                     // PP interface enabled
+	DisconnectTimeout int         `json:"disconnect_timeout,omitempty"` // Idle disconnect timeout in seconds
+}
+
+// PPPAuth represents PPP authentication configuration
+type PPPAuth struct {
+	Method   string `json:"method,omitempty"`   // Auth method: pap, chap, mschap, mschap-v2
+	Username string `json:"username,omitempty"` // Username (pp auth myname)
+	Password string `json:"password,omitempty"` // Password (sensitive)
+}
+
+// PPIPConfig represents PP interface IP configuration
+type PPIPConfig struct {
+	Address         string `json:"address,omitempty"`           // IP address or "ipcp" for dynamic
+	MTU             int    `json:"mtu,omitempty"`               // MTU size
+	TCPMSSLimit     int    `json:"tcp_mss_limit,omitempty"`     // TCP MSS limit value
+	NATDescriptor   int    `json:"nat_descriptor,omitempty"`    // NAT descriptor number
+	SecureFilterIn  []int  `json:"secure_filter_in,omitempty"`  // Inbound security filter numbers
+	SecureFilterOut []int  `json:"secure_filter_out,omitempty"` // Outbound security filter numbers
+}
+
+// PPConnectionStatus represents PPPoE connection status
+type PPConnectionStatus struct {
+	PPNumber  int    `json:"pp_number"`           // PP interface number
+	Connected bool   `json:"connected"`           // Connection established
+	State     string `json:"state,omitempty"`     // State: "connected", "disconnected", "unknown"
+	RawStatus string `json:"raw_status,omitempty"` // Raw status output from router
+}
