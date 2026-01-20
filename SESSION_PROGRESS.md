@@ -124,27 +124,22 @@ Yamaha RTXシリーズルーター用Terraformプロバイダーの開発プロ�
 
 ## 現在の課題
 
-### モッククライアントの更新が必要
-既存のテストファイルで使用しているモッククライアントが新しいインターフェースメソッドを実装していない：
-- `data_source_rtx_interfaces_test.go`
-- `data_source_rtx_routes_test.go`
-- `data_source_rtx_system_info_test.go`
+### PPPパーサーテストの問題
+- `TestPPPoERoundTrip`: LCPReconnect設定のパース問題
+- zerolog移行とは無関係の既存問題
 
-必要なメソッド追加：
-- System系: GetSystemConfig, ConfigureSystem, UpdateSystemConfig, ResetSystem
-- IPv6Prefix系: GetIPv6Prefix, CreateIPv6Prefix, UpdateIPv6Prefix, DeleteIPv6Prefix, ListIPv6Prefixes
-- VLAN系: GetVLAN, CreateVLAN, UpdateVLAN, DeleteVLAN, ListVLANs
-- StaticRoute系: GetStaticRoute, CreateStaticRoute, UpdateStaticRoute, DeleteStaticRoute, ListStaticRoutes
-- Interface系: GetInterfaceConfig, ConfigureInterface, UpdateInterfaceConfig, ResetInterfaceConfig
+### 既存のテストの問題（解決待ち）
+- ethernet_filter_service_test.go
+- ip_filter_service_test.go
 
 ---
 
 ## 次のステップ
 
-1. **モッククライアント修正**: 全テスト成功を確認
-2. **Wave 2-5の実装開始**: 並列開発可能
-3. **受け入れテスト**: Docker RTXシミュレーター or 実RTXでの統合テスト
-4. **Dashboard**: http://localhost:5000 でステータス確認可能
+1. **PPPパーサー修正**: LCPReconnect round-trip テスト修正
+2. **受け入れテスト**: Docker RTXシミュレーター or 実RTXでの統合テスト
+3. **Dashboard**: http://localhost:5000 でステータス確認可能
+4. **ドキュメント整備**: 各リソースのREADME作成
 
 ---
 
@@ -212,6 +207,38 @@ Wave 2/3/4のSpec/Design文書と実際の実装に乖離が発見された。
 ---
 
 ## 最近のセッション履歴
+
+### セッション27: zerolog統合・4 Spec完了
+4つのSpecを並列で完了:
+
+**zerolog-integration** (ログシステム刷新):
+- 標準logパッケージからzerologへの完全移行
+- 27クライアントサービスファイル + 47プロバイダーリソースファイルを移行
+- 構造化ログフィールド追加: service, resource, component
+- internal/loggingパッケージ: NewLogger(), FromContext(), Global()
+- SanitizingHookで機密データ自動マスク
+- TF_LOG環境変数でログレベル制御
+
+**filter-nat-enhancements** (タスク26-32完了):
+- rtx_ethernet_filterリソース実装
+- rtx_ip_filter_dynamicリソース実装
+- NAT protocol-only entries対応
+- 受け入れテスト追加
+
+**rtx-ddns** (タスク18-20完了):
+- DDNSサンプル設定作成
+- プロバイダーテスト追加
+- ビルド・テスト検証
+
+**rtx-ppp-pppoe** (タスク15-17完了):
+- PPPoEサンプル設定作成
+- プロバイダーテスト追加
+- ビルド・テスト検証
+
+変更ファイル: 85ファイル (+1388/-914行)
+ビルド結果: ✅ 成功
+テスト結果: ✅ client/provider/loggingテスト全パス
+※ PPPパーサーテストに既存の問題あり（LCPReconnect round-trip）
 
 ### セッション26: Wave 6 並列実装完了
 Wave 6の2リソース（rtx-bridge、rtx-ipv6-interface）を2並列エージェントで開発:

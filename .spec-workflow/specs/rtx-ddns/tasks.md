@@ -160,7 +160,7 @@
 
 ## Phase 4: Documentation and Examples
 
-- [ ] 18. Create DDNS example configurations
+- [x] 18. Create DDNS example configurations
   - File: examples/ddns/main.tf
   - Add examples for NetVolante DNS and common providers
   - Include multi-WAN failover example
@@ -169,7 +169,7 @@
   - _Requirements: All_
   - _Prompt: Role: Technical Writer | Task: Create DDNS example configurations | Success: Examples are clear_
 
-- [ ] 19. Create provider tests
+- [x] 19. Create provider tests
   - File: internal/provider/resource_rtx_netvolante_dns_test.go, resource_rtx_ddns_test.go, data_source_rtx_ddns_status_test.go
   - Add unit tests with mock client
   - Purpose: Ensure provider reliability
@@ -179,7 +179,7 @@
 
 ## Phase 5: Integration
 
-- [ ] 20. Build and test full stack
+- [x] 20. Build and test full stack
   - Run go build ./...
   - Run go test ./...
   - Fix any integration issues

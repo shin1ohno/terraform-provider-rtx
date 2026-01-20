@@ -132,7 +132,7 @@
 
 ## Phase 4: Documentation and Examples
 
-- [ ] 15. Create PPPoE example configurations
+- [x] 15. Create PPPoE example configurations
   - File: examples/pppoe/main.tf
   - Add examples for NTT FLET'S, common Japanese ISPs
   - Include multi-WAN failover example
@@ -141,7 +141,7 @@
   - _Requirements: All_
   - _Prompt: Role: Technical Writer | Task: Create PPPoE example configurations | Success: Examples are clear and complete_
 
-- [ ] 16. Create provider tests
+- [x] 16. Create provider tests
   - File: internal/provider/resource_rtx_pppoe_test.go, resource_rtx_pp_interface_test.go
   - Add unit tests with mock client
   - Purpose: Ensure provider reliability
@@ -151,7 +151,7 @@
 
 ## Phase 5: Integration
 
-- [ ] 17. Build and test full stack
+- [x] 17. Build and test full stack
   - Run go build ./...
   - Run go test ./...
   - Fix any integration issues

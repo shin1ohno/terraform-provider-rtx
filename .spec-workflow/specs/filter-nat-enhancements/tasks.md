@@ -217,7 +217,7 @@
   - _Leverage: ip_filter_test.go as template_
   - _Requirements: REQ-5_
 
-- [ ] 26. Create rtx_ethernet_filter resource
+- [x] 26. Create rtx_ethernet_filter resource
   - File: internal/provider/resource_rtx_ethernet_filter.go
   - Implement resourceRTXEthernetFilter() with schema definition
   - Schema fields for MAC-based: number, action, source_mac, destination_mac
@@ -228,7 +228,7 @@
   - _Leverage: resource_rtx_access_list_ip.go as template_
   - _Requirements: REQ-5_
 
-- [ ] 27. Implement CRUD operations for rtx_ethernet_filter
+- [x] 27. Implement CRUD operations for rtx_ethernet_filter
   - File: internal/provider/resource_rtx_ethernet_filter.go
   - Implement Create, Read, Update, Delete functions
   - Implement Import function for existing ethernet filters
@@ -236,14 +236,14 @@
   - _Leverage: Existing resource CRUD patterns_
   - _Requirements: REQ-5_
 
-- [ ] 28. Register rtx_ethernet_filter in provider
+- [x] 28. Register rtx_ethernet_filter in provider
   - File: internal/provider/provider.go
   - Add resource to ResourcesMap
   - Purpose: Make resource available to Terraform users
   - _Leverage: Existing resource registration pattern_
   - _Requirements: REQ-5_
 
-- [ ] 29. Add acceptance tests for rtx_ethernet_filter
+- [x] 29. Add acceptance tests for rtx_ethernet_filter
   - File: internal/provider/resource_rtx_ethernet_filter_test.go
   - Test Create/Read/Update/Delete lifecycle for MAC-based filters
   - Test DHCP-based filters
@@ -254,7 +254,7 @@
 
 ## Final Integration
 
-- [ ] 30. Update examples/import/main.tf with new resources
+- [x] 30. Update examples/import/main.tf with new resources
   - File: examples/import/main.tf
   - Add examples for rtx_ip_filter_dynamic resource
   - Add examples for rtx_ethernet_filter resource
@@ -263,7 +263,7 @@
   - _Leverage: Existing example patterns_
   - _Requirements: All_
 
-- [ ] 31. Update import.sh with new resource imports
+- [x] 31. Update import.sh with new resource imports
   - File: examples/import/import.sh
   - Add import commands for dynamic filters
   - Add import commands for ethernet filters
@@ -271,7 +271,7 @@
   - _Leverage: Existing import script patterns_
   - _Requirements: All_
 
-- [ ] 32. Run full test suite and fix any issues
+- [x] 32. Run full test suite and fix any issues
   - Run `go test ./...` to verify all tests pass
   - Run acceptance tests with `TF_ACC=1`
   - Fix any integration issues discovered
