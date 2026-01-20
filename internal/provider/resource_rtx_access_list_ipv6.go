@@ -33,7 +33,7 @@ func resourceRTXAccessListIPv6() *schema.Resource {
 				Required:     true,
 				ForceNew:     true,
 				Description:  "Filter number (unique identifier, 1-65535)",
-				ValidateFunc: validation.IntBetween(1, 65535),
+				ValidateFunc: validation.IntBetween(1, 2147483647),
 			},
 			"action": {
 				Type:         schema.TypeString,

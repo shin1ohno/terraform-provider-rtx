@@ -29,8 +29,8 @@ func resourceRTXAccessListIP() *schema.Resource {
 				Type:         schema.TypeInt,
 				Required:     true,
 				ForceNew:     true,
-				Description:  "Filter number (1-65535). This uniquely identifies the filter on the router.",
-				ValidateFunc: validation.IntBetween(1, 65535),
+				Description:  "Filter number (1-2147483647). This uniquely identifies the filter on the router.",
+				ValidateFunc: validation.IntBetween(1, 2147483647),
 			},
 			"action": {
 				Type:         schema.TypeString,
@@ -53,7 +53,7 @@ func resourceRTXAccessListIP() *schema.Resource {
 				Optional:     true,
 				Default:      "*",
 				Description:  "Protocol: tcp, udp, icmp, ip, gre, esp, ah, or * for any",
-				ValidateFunc: validation.StringInSlice([]string{"tcp", "udp", "icmp", "ip", "gre", "esp", "ah", "*"}, false),
+				ValidateFunc: validation.StringInSlice([]string{"tcp", "udp", "udp,tcp", "tcp,udp", "icmp", "ip", "gre", "esp", "ah", "*"}, false),
 			},
 			"source_port": {
 				Type:        schema.TypeString,
