@@ -72,26 +72,27 @@ func resourceRTXNATMasquerade() *schema.Resource {
 						},
 						"inside_local_port": {
 							Type:         schema.TypeInt,
-							Required:     true,
-							Description:  "Internal port number (1-65535)",
+							Optional:     true,
+							Description:  "Internal port number (1-65535). Required for tcp/udp, omit for protocol-only entries (esp, ah, gre, icmp)",
 							ValidateFunc: validation.IntBetween(1, 65535),
 						},
 						"outside_global": {
 							Type:        schema.TypeString,
-							Required:    true,
+							Optional:    true,
+							Default:     "ipcp",
 							Description: "External IP address or 'ipcp' for PPPoE-assigned address",
 						},
 						"outside_global_port": {
 							Type:         schema.TypeInt,
-							Required:     true,
-							Description:  "External port number (1-65535)",
+							Optional:     true,
+							Description:  "External port number (1-65535). Required for tcp/udp, omit for protocol-only entries (esp, ah, gre, icmp)",
 							ValidateFunc: validation.IntBetween(1, 65535),
 						},
 						"protocol": {
 							Type:         schema.TypeString,
 							Optional:     true,
-							Description:  "Protocol: 'tcp', 'udp', or empty for any",
-							ValidateFunc: validation.StringInSlice([]string{"tcp", "udp", ""}, false),
+							Description:  "Protocol: 'tcp', 'udp' (require ports), or 'esp', 'ah', 'gre', 'icmp' (protocol-only, no ports)",
+							ValidateFunc: validation.StringInSlice([]string{"tcp", "udp", "esp", "ah", "gre", "icmp", ""}, true),
 						},
 					},
 				},
@@ -251,11 +252,17 @@ func expandStaticEntries(entries []interface{}) []client.MasqueradeStaticEntry {
 	for _, entry := range entries {
 		e := entry.(map[string]interface{})
 		staticEntry := client.MasqueradeStaticEntry{
-			EntryNumber:       e["entry_number"].(int),
-			InsideLocal:       e["inside_local"].(string),
-			InsideLocalPort:   e["inside_local_port"].(int),
-			OutsideGlobal:     e["outside_global"].(string),
-			OutsideGlobalPort: e["outside_global_port"].(int),
+			EntryNumber:   e["entry_number"].(int),
+			InsideLocal:   e["inside_local"].(string),
+			OutsideGlobal: e["outside_global"].(string),
+		}
+
+		if v, ok := e["inside_local_port"].(int); ok && v > 0 {
+			staticEntry.InsideLocalPort = &v
+		}
+
+		if v, ok := e["outside_global_port"].(int); ok && v > 0 {
+			staticEntry.OutsideGlobalPort = &v
 		}
 
 		if protocol, ok := e["protocol"].(string); ok {
@@ -274,13 +281,20 @@ func flattenStaticEntries(entries []client.MasqueradeStaticEntry) []interface{} 
 
 	for _, entry := range entries {
 		e := map[string]interface{}{
-			"entry_number":        entry.EntryNumber,
-			"inside_local":        entry.InsideLocal,
-			"inside_local_port":   entry.InsideLocalPort,
-			"outside_global":      entry.OutsideGlobal,
-			"outside_global_port": entry.OutsideGlobalPort,
-			"protocol":            entry.Protocol,
+			"entry_number":   entry.EntryNumber,
+			"inside_local":   entry.InsideLocal,
+			"outside_global": entry.OutsideGlobal,
+			"protocol":       entry.Protocol,
 		}
+
+		// Handle optional port fields (nil for protocol-only entries like ESP/AH/GRE)
+		if entry.InsideLocalPort != nil {
+			e["inside_local_port"] = *entry.InsideLocalPort
+		}
+		if entry.OutsideGlobalPort != nil {
+			e["outside_global_port"] = *entry.OutsideGlobalPort
+		}
+
 		result = append(result, e)
 	}
 
