@@ -1,0 +1,348 @@
+# RTX DDNS Command Patterns
+#
+# This file documents all DDNS related commands for RTX routers.
+# Includes NetVolante DNS (Yamaha's free DDNS) and custom DDNS providers.
+
+schema_version: "1.0"
+
+commands:
+  # ============================================================================
+  # NetVolante DNS Commands
+  # ============================================================================
+
+  # NetVolante DNS Hostname
+  - name: netvolante_dns_hostname
+    syntax: "netvolante-dns hostname host <interface> <hostname>"
+    no_form: "no netvolante-dns hostname host <interface>"
+    chapter: 27
+    section: "27.1"
+    parser: ddns.go
+    description: Configure NetVolante DNS hostname for interface
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        description: Interface for DDNS (pp 1, lan1, etc.)
+      - name: hostname
+        type: hostname
+        required: true
+        description: NetVolante DNS hostname (*.netvolante.jp)
+    examples:
+      - input: "netvolante-dns hostname host pp 1 myhost.aa0.netvolante.jp"
+        expected:
+          interface: "pp 1"
+          hostname: "myhost.aa0.netvolante.jp"
+        description: Register hostname for PP interface 1
+      - input: "netvolante-dns hostname host lan1 office.aa0.netvolante.jp"
+        expected:
+          interface: "lan1"
+          hostname: "office.aa0.netvolante.jp"
+        description: Register hostname for LAN interface
+
+  # NetVolante DNS Server Selection
+  - name: netvolante_dns_server
+    syntax: "netvolante-dns server <number>"
+    chapter: 27
+    section: "27.1"
+    parser: ddns.go
+    description: Select NetVolante DNS server (1 or 2 for redundancy)
+    parameters:
+      - name: number
+        type: enum
+        required: true
+        values: ["1", "2"]
+        default: "1"
+        description: Server number (1 = primary, 2 = secondary)
+    examples:
+      - input: "netvolante-dns server 1"
+        expected:
+          number: 1
+        description: Use primary NetVolante server
+      - input: "netvolante-dns server 2"
+        expected:
+          number: 2
+        description: Use secondary NetVolante server
+
+  # NetVolante DNS Go (Manual Update)
+  - name: netvolante_dns_go
+    syntax: "netvolante-dns go <interface>"
+    chapter: 27
+    section: "27.1"
+    parser: ddns.go
+    description: Trigger manual NetVolante DNS update
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        description: Interface to update
+    examples:
+      - input: "netvolante-dns go pp 1"
+        expected:
+          interface: "pp 1"
+        description: Update NetVolante DNS for PP 1
+      - input: "netvolante-dns go lan1"
+        expected:
+          interface: "lan1"
+        description: Update NetVolante DNS for LAN1
+
+  # NetVolante DNS Timeout
+  - name: netvolante_dns_timeout
+    syntax: "netvolante-dns timeout <seconds>"
+    chapter: 27
+    section: "27.1"
+    parser: ddns.go
+    description: Configure NetVolante DNS update timeout
+    parameters:
+      - name: seconds
+        type: int
+        required: true
+        range: "1-3600"
+        default: 90
+        description: Timeout in seconds
+    examples:
+      - input: "netvolante-dns timeout 90"
+        expected:
+          seconds: 90
+        description: Default 90 second timeout
+      - input: "netvolante-dns timeout 120"
+        expected:
+          seconds: 120
+        description: Extended timeout for slow connections
+
+  # NetVolante DNS IPv6
+  - name: netvolante_dns_use_ipv6
+    syntax: "netvolante-dns use ipv6 <interface> <state>"
+    chapter: 27
+    section: "27.1"
+    parser: ddns.go
+    description: Enable IPv6 address registration for NetVolante DNS
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        description: Interface to configure
+      - name: state
+        type: bool
+        required: true
+        values: ["on", "off"]
+        description: Enable/disable IPv6 registration
+    examples:
+      - input: "netvolante-dns use ipv6 pp 1 on"
+        expected:
+          interface: "pp 1"
+          state: true
+        description: Enable IPv6 for PP 1
+      - input: "netvolante-dns use ipv6 pp 1 off"
+        expected:
+          interface: "pp 1"
+          state: false
+        description: Disable IPv6 for PP 1
+
+  # NetVolante DNS Auto Hostname
+  - name: netvolante_dns_auto_hostname
+    syntax: "netvolante-dns auto hostname <interface> <state>"
+    chapter: 27
+    section: "27.1"
+    parser: ddns.go
+    description: Enable automatic hostname generation
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        description: Interface to configure
+      - name: state
+        type: bool
+        required: true
+        values: ["on", "off"]
+        description: Enable/disable auto hostname
+    examples:
+      - input: "netvolante-dns auto hostname pp 1 on"
+        expected:
+          interface: "pp 1"
+          state: true
+        description: Enable auto hostname for PP 1
+      - input: "netvolante-dns auto hostname pp 1 off"
+        expected:
+          interface: "pp 1"
+          state: false
+        description: Disable auto hostname
+
+  # NetVolante DNS Use
+  - name: netvolante_dns_use
+    syntax: "netvolante-dns use <interface> <state>"
+    chapter: 27
+    section: "27.1"
+    parser: ddns.go
+    description: Enable/disable NetVolante DNS for interface
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        description: Interface to configure
+      - name: state
+        type: bool
+        required: true
+        values: ["on", "off"]
+        description: Enable/disable NetVolante DNS
+    examples:
+      - input: "netvolante-dns use pp 1 on"
+        expected:
+          interface: "pp 1"
+          state: true
+        description: Enable NetVolante for PP 1
+      - input: "netvolante-dns use pp 1 off"
+        expected:
+          interface: "pp 1"
+          state: false
+        description: Disable NetVolante for PP 1
+
+  # ============================================================================
+  # Custom DDNS Commands
+  # ============================================================================
+
+  # DDNS Server URL
+  - name: ddns_server_url
+    syntax: "ddns server url <id> <url>"
+    no_form: "no ddns server url <id>"
+    chapter: 27
+    section: "27.2"
+    parser: ddns.go
+    description: Configure custom DDNS provider URL
+    parameters:
+      - name: id
+        type: int
+        required: true
+        range: "1-4"
+        description: DDNS server ID
+      - name: url
+        type: string
+        required: true
+        description: DDNS update URL (http:// or https://)
+    examples:
+      - input: "ddns server url 1 https://dynupdate.no-ip.com/nic/update"
+        expected:
+          id: 1
+          url: "https://dynupdate.no-ip.com/nic/update"
+        description: No-IP DDNS update URL
+      - input: "ddns server url 2 https://www.dyndns.org/nic/update"
+        expected:
+          id: 2
+          url: "https://www.dyndns.org/nic/update"
+        description: DynDNS update URL
+
+  # DDNS Server Hostname
+  - name: ddns_server_hostname
+    syntax: "ddns server hostname <id> <hostname>"
+    no_form: "no ddns server hostname <id>"
+    chapter: 27
+    section: "27.2"
+    parser: ddns.go
+    description: Configure hostname for custom DDNS
+    parameters:
+      - name: id
+        type: int
+        required: true
+        range: "1-4"
+        description: DDNS server ID
+      - name: hostname
+        type: hostname
+        required: true
+        description: DDNS hostname to update
+    examples:
+      - input: "ddns server hostname 1 myhost.no-ip.org"
+        expected:
+          id: 1
+          hostname: "myhost.no-ip.org"
+        description: No-IP hostname
+      - input: "ddns server hostname 2 mysite.dyndns.org"
+        expected:
+          id: 2
+          hostname: "mysite.dyndns.org"
+        description: DynDNS hostname
+
+  # DDNS Server User
+  - name: ddns_server_user
+    syntax: "ddns server user <id> <username> <password>"
+    no_form: "no ddns server user <id>"
+    chapter: 27
+    section: "27.2"
+    parser: ddns.go
+    description: Configure authentication for custom DDNS
+    parameters:
+      - name: id
+        type: int
+        required: true
+        range: "1-4"
+        description: DDNS server ID
+      - name: username
+        type: string
+        required: true
+        description: DDNS account username
+      - name: password
+        type: password
+        required: true
+        description: DDNS account password
+    examples:
+      - input: "ddns server user 1 myuser mypassword"
+        expected:
+          id: 1
+          username: "myuser"
+          password: "mypassword"
+        description: Basic authentication
+      - input: "ddns server user 1 user@email.com p@ss!word#123"
+        expected:
+          id: 1
+          username: "user@email.com"
+          password: "p@ss!word#123"
+        description: Email username with special chars in password
+
+  # DDNS Server Go (Manual Update)
+  - name: ddns_server_go
+    syntax: "ddns server go <id>"
+    chapter: 27
+    section: "27.2"
+    parser: ddns.go
+    description: Trigger manual custom DDNS update
+    parameters:
+      - name: id
+        type: int
+        required: true
+        range: "1-4"
+        description: DDNS server ID to update
+    examples:
+      - input: "ddns server go 1"
+        expected:
+          id: 1
+        description: Update DDNS server 1
+      - input: "ddns server go 4"
+        expected:
+          id: 4
+        description: Update DDNS server 4
+
+  # ============================================================================
+  # Show Commands
+  # ============================================================================
+
+  # Show NetVolante Status
+  - name: show_status_netvolante_dns
+    syntax: "show status netvolante-dns"
+    chapter: 27
+    section: "27.3"
+    parser: ddns.go
+    description: Display NetVolante DNS registration status
+    parameters: []
+    examples:
+      - input: "show status netvolante-dns"
+        description: Show NetVolante registration status
+
+  # Show DDNS Status
+  - name: show_status_ddns
+    syntax: "show status ddns"
+    chapter: 27
+    section: "27.3"
+    parser: ddns.go
+    description: Display custom DDNS registration status
+    parameters: []
+    examples:
+      - input: "show status ddns"
+        description: Show custom DDNS status for all servers

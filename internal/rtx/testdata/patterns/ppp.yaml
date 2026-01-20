@@ -1,0 +1,419 @@
+# RTX PPP/PPPoE Command Patterns
+#
+# This file documents all PPP and PPPoE related commands for RTX routers.
+# PPPoE is commonly used for FLET'S connections in Japan.
+
+schema_version: "1.0"
+
+commands:
+  # PP Interface Selection
+  - name: pp_select
+    syntax: "pp select <number>"
+    chapter: 10
+    section: "10.1"
+    parser: ppp.go
+    description: Select PP interface for configuration
+    parameters:
+      - name: number
+        type: int
+        required: true
+        range: "1-30"
+        description: PP interface number
+    examples:
+      - input: "pp select 1"
+        expected:
+          number: 1
+        description: Select PP interface 1
+      - input: "pp select 10"
+        expected:
+          number: 10
+        description: Select PP interface 10
+
+  # PPPoE Use Interface
+  - name: pppoe_use
+    syntax: "pppoe use <interface>"
+    no_form: "no pppoe use"
+    chapter: 10
+    section: "10.2"
+    parser: ppp.go
+    description: Specify physical interface for PPPoE connection
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        values: ["lan1", "lan2", "lan3", "lan4"]
+        description: Physical LAN interface for PPPoE
+    examples:
+      - input: "pppoe use lan2"
+        expected:
+          interface: "lan2"
+        description: Use LAN2 for PPPoE (common for FLET'S)
+      - input: "pppoe use lan3"
+        expected:
+          interface: "lan3"
+        description: Use LAN3 for PPPoE
+
+  # PP Bind
+  - name: pp_bind
+    syntax: "pp bind <interface>"
+    no_form: "no pp bind"
+    chapter: 10
+    section: "10.2"
+    parser: ppp.go
+    description: Bind PP interface to physical interface
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        description: Interface to bind (lan1, lan2, tunnel1, etc.)
+    examples:
+      - input: "pp bind lan2"
+        expected:
+          interface: "lan2"
+        description: Bind to LAN2
+      - input: "pp bind tunnel1"
+        expected:
+          interface: "tunnel1"
+        description: Bind to tunnel interface
+
+  # PPPoE Service Name
+  - name: pppoe_service_name
+    syntax: "pppoe service-name <name>"
+    no_form: "no pppoe service-name"
+    chapter: 10
+    section: "10.2"
+    parser: ppp.go
+    description: Specify PPPoE service name for connection
+    parameters:
+      - name: name
+        type: string
+        required: true
+        description: Service name advertised by Access Concentrator
+    examples:
+      - input: "pppoe service-name FLET'S"
+        expected:
+          name: "FLET'S"
+        description: NTT FLET'S service name
+      - input: "pppoe service-name inet"
+        expected:
+          name: "inet"
+        description: Generic internet service
+
+  # PPPoE AC Name
+  - name: pppoe_ac_name
+    syntax: "pppoe ac-name <name>"
+    no_form: "no pppoe ac-name"
+    chapter: 10
+    section: "10.2"
+    parser: ppp.go
+    description: Specify Access Concentrator name for PPPoE
+    parameters:
+      - name: name
+        type: string
+        required: true
+        description: Access Concentrator name
+    examples:
+      - input: "pppoe ac-name my-ac"
+        expected:
+          name: "my-ac"
+        description: Specify AC name
+
+  # PP Auth Accept
+  - name: pp_auth_accept
+    syntax: "pp auth accept <method> [<method2>]"
+    no_form: "no pp auth accept"
+    chapter: 10
+    section: "10.3"
+    parser: ppp.go
+    description: Specify authentication method to accept
+    parameters:
+      - name: method
+        type: enum
+        required: true
+        values: ["pap", "chap", "mschap", "mschap-v2", "none"]
+        description: Primary authentication method
+      - name: method2
+        type: enum
+        required: false
+        values: ["pap", "chap", "mschap", "mschap-v2"]
+        description: Secondary authentication method (fallback)
+    examples:
+      - input: "pp auth accept chap"
+        expected:
+          method: "chap"
+        description: Accept CHAP authentication
+      - input: "pp auth accept pap chap"
+        expected:
+          method: "pap"
+          method2: "chap"
+        description: Accept PAP or CHAP (PAP preferred)
+      - input: "pp auth accept mschap-v2"
+        expected:
+          method: "mschap-v2"
+        description: Accept MS-CHAPv2 authentication
+
+  # PP Auth Myname
+  - name: pp_auth_myname
+    syntax: "pp auth myname <username> <password>"
+    no_form: "no pp auth myname"
+    chapter: 10
+    section: "10.3"
+    parser: ppp.go
+    description: Specify authentication credentials
+    parameters:
+      - name: username
+        type: string
+        required: true
+        description: Authentication username (often email-like format)
+      - name: password
+        type: password
+        required: true
+        description: Authentication password
+    examples:
+      - input: "pp auth myname user@isp.example.jp password123"
+        expected:
+          username: "user@isp.example.jp"
+          password: "password123"
+        description: ISP credentials with email-style username
+      - input: "pp auth myname testuser p@ssw0rd!"
+        expected:
+          username: "testuser"
+          password: "p@ssw0rd!"
+        description: Credentials with special characters
+
+  # PP Always-On
+  - name: pp_always_on
+    syntax: "pp always-on <state>"
+    chapter: 10
+    section: "10.4"
+    parser: ppp.go
+    description: Configure always-on PPP connection
+    parameters:
+      - name: state
+        type: bool
+        required: true
+        values: ["on", "off"]
+        description: Enable/disable always-on mode
+    examples:
+      - input: "pp always-on on"
+        expected:
+          state: true
+        description: Enable always-on mode
+      - input: "pp always-on off"
+        expected:
+          state: false
+        description: Disable always-on (connect on demand)
+
+  # PP Disconnect Time
+  - name: pp_disconnect_time
+    syntax: "pp disconnect time <seconds|off>"
+    chapter: 10
+    section: "10.4"
+    parser: ppp.go
+    description: Configure idle disconnect timeout
+    parameters:
+      - name: seconds
+        type: int
+        required: false
+        range: "1-21474836"
+        description: Idle timeout in seconds
+    examples:
+      - input: "pp disconnect time 60"
+        expected:
+          seconds: 60
+        description: Disconnect after 60 seconds idle
+      - input: "pp disconnect time off"
+        expected:
+          seconds: 0
+        description: Disable idle disconnect
+
+  # PP Enable
+  - name: pp_enable
+    syntax: "pp enable <number>"
+    no_form: "pp disable <number>"
+    chapter: 10
+    section: "10.1"
+    parser: ppp.go
+    description: Enable/disable PP interface
+    parameters:
+      - name: number
+        type: int
+        required: true
+        range: "1-30"
+        description: PP interface number
+    examples:
+      - input: "pp enable 1"
+        expected:
+          number: 1
+          enabled: true
+        description: Enable PP interface 1
+      - input: "pp disable 1"
+        expected:
+          number: 1
+          enabled: false
+        description: Disable PP interface 1
+
+  # IP PP Address
+  - name: ip_pp_address
+    syntax: "ip pp address <address>"
+    no_form: "no ip pp address"
+    chapter: 10
+    section: "10.5"
+    parser: ppp.go
+    description: Configure IP address for PP interface
+    parameters:
+      - name: address
+        type: string
+        required: true
+        description: IP address with mask (e.g., 192.168.1.1/24) or "dhcp"
+    examples:
+      - input: "ip pp address 192.168.1.1/24"
+        expected:
+          address: "192.168.1.1/24"
+        description: Static IP address with /24 mask
+      - input: "ip pp address dhcp"
+        expected:
+          address: "dhcp"
+        description: Obtain IP via PPP negotiation
+
+  # IP PP MTU
+  - name: ip_pp_mtu
+    syntax: "ip pp mtu <size>"
+    no_form: "no ip pp mtu"
+    chapter: 10
+    section: "10.5"
+    parser: ppp.go
+    description: Configure MTU for PP interface
+    parameters:
+      - name: size
+        type: int
+        required: true
+        range: "64-1500"
+        default: 1500
+        description: MTU size in bytes
+    examples:
+      - input: "ip pp mtu 1454"
+        expected:
+          size: 1454
+        description: PPPoE typical MTU (1500 - PPPoE overhead)
+      - input: "ip pp mtu 1492"
+        expected:
+          size: 1492
+        description: Alternative PPPoE MTU
+
+  # IP PP TCP MSS Limit
+  - name: ip_pp_tcp_mss_limit
+    syntax: "ip pp tcp mss limit <size>"
+    no_form: "no ip pp tcp mss limit"
+    chapter: 10
+    section: "10.5"
+    parser: ppp.go
+    description: Configure TCP MSS clamping for PP interface
+    parameters:
+      - name: size
+        type: int
+        required: true
+        range: "1-1460"
+        description: Maximum Segment Size for TCP
+    examples:
+      - input: "ip pp tcp mss limit 1414"
+        expected:
+          size: 1414
+        description: MSS for 1454 MTU (1454 - 40 IP/TCP headers)
+      - input: "ip pp tcp mss limit 1360"
+        expected:
+          size: 1360
+        description: Conservative MSS for tunneled connections
+
+  # IP PP NAT Descriptor
+  - name: ip_pp_nat_descriptor
+    syntax: "ip pp nat descriptor <id>"
+    no_form: "no ip pp nat descriptor"
+    chapter: 10
+    section: "10.5"
+    parser: ppp.go
+    description: Associate NAT descriptor with PP interface
+    parameters:
+      - name: id
+        type: int
+        required: true
+        range: "1-65535"
+        description: NAT descriptor ID
+    examples:
+      - input: "ip pp nat descriptor 1"
+        expected:
+          id: 1
+        description: Apply NAT descriptor 1
+      - input: "ip pp nat descriptor 100"
+        expected:
+          id: 100
+        description: Apply NAT descriptor 100
+
+  # IP PP Secure Filter In
+  - name: ip_pp_secure_filter_in
+    syntax: "ip pp secure filter in <id1> [<id2> ...]"
+    no_form: "no ip pp secure filter in"
+    chapter: 10
+    section: "10.6"
+    parser: ppp.go
+    description: Apply inbound security filters to PP interface
+    parameters:
+      - name: ids
+        type: string
+        required: true
+        description: Space-separated list of filter IDs
+    examples:
+      - input: "ip pp secure filter in 100 101 102"
+        expected:
+          ids: [100, 101, 102]
+        description: Apply multiple inbound filters
+      - input: "ip pp secure filter in 200"
+        expected:
+          ids: [200]
+        description: Apply single inbound filter
+
+  # IP PP Secure Filter Out
+  - name: ip_pp_secure_filter_out
+    syntax: "ip pp secure filter out <id1> [<id2> ...]"
+    no_form: "no ip pp secure filter out"
+    chapter: 10
+    section: "10.6"
+    parser: ppp.go
+    description: Apply outbound security filters to PP interface
+    parameters:
+      - name: ids
+        type: string
+        required: true
+        description: Space-separated list of filter IDs
+    examples:
+      - input: "ip pp secure filter out 200 201"
+        expected:
+          ids: [200, 201]
+        description: Apply multiple outbound filters
+      - input: "ip pp secure filter out 300"
+        expected:
+          ids: [300]
+        description: Apply single outbound filter
+
+  # PP Description
+  - name: pp_description
+    syntax: "description pp <text>"
+    no_form: "no description"
+    chapter: 10
+    section: "10.1"
+    parser: ppp.go
+    description: Set description for PP interface
+    parameters:
+      - name: text
+        type: string
+        required: true
+        description: Description text
+    examples:
+      - input: "description pp NTT FLETS Connection"
+        expected:
+          text: "NTT FLETS Connection"
+        description: Descriptive name for FLET'S connection
+      - input: "description pp Backup ISP"
+        expected:
+          text: "Backup ISP"
+        description: Descriptive name for backup connection
