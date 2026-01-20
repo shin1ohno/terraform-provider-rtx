@@ -122,6 +122,52 @@ user attribute operator administrator=off connection=serial,telnet,remote,ssh,sf
 			},
 			wantErr: false,
 		},
+		{
+			name: "user with explicit login-timer=3600",
+			input: `
+login user netadmin encrypted $1$secure123
+user attribute netadmin administrator=on connection=ssh,telnet login-timer=3600
+`,
+			expected: &AdminConfig{
+				Users: []UserConfig{
+					{
+						Username:  "netadmin",
+						Password:  "$1$secure123",
+						Encrypted: true,
+						Attributes: UserAttributes{
+							Administrator: true,
+							Connection:    []string{"ssh", "telnet"},
+							GUIPages:      []string{},
+							LoginTimer:    3600,
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "user with login-timer at different positions",
+			input: `
+login user testuser testpass
+user attribute testuser login-timer=7200 administrator=on connection=http
+`,
+			expected: &AdminConfig{
+				Users: []UserConfig{
+					{
+						Username:  "testuser",
+						Password:  "testpass",
+						Encrypted: false,
+						Attributes: UserAttributes{
+							Administrator: true,
+							Connection:    []string{"http"},
+							GUIPages:      []string{},
+							LoginTimer:    7200,
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
 	}
 
 	parser := NewAdminParser()

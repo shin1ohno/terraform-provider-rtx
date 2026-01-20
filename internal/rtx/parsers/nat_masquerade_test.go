@@ -1072,10 +1072,35 @@ func TestBuildDeleteNATMasqueradeStaticCommand(t *testing.T) {
 }
 
 func TestBuildShowNATDescriptorCommand(t *testing.T) {
-	result := BuildShowNATDescriptorCommand(1)
-	expected := `show config | grep "nat descriptor.*1"`
-	if result != expected {
-		t.Errorf("got %q, want %q", result, expected)
+	tests := []struct {
+		name     string
+		id       int
+		expected string
+	}{
+		{
+			name:     "descriptor 1",
+			id:       1,
+			expected: `show config | grep -E "nat descriptor (type|address outer|address inner|masquerade static) 1 "`,
+		},
+		{
+			name:     "descriptor 10",
+			id:       10,
+			expected: `show config | grep -E "nat descriptor (type|address outer|address inner|masquerade static) 10 "`,
+		},
+		{
+			name:     "descriptor 100",
+			id:       100,
+			expected: `show config | grep -E "nat descriptor (type|address outer|address inner|masquerade static) 100 "`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := BuildShowNATDescriptorCommand(tt.id)
+			if result != tt.expected {
+				t.Errorf("got %q, want %q", result, tt.expected)
+			}
+		})
 	}
 }
 

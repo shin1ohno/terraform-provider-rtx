@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/import-fidelity-fix/requirements.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-20T06:02:25.739Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768888945727_og00n0xmj",
+      "approvalTitle": "Requirements: Import Fidelity Bug Fix"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-20T06:15:19.987Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768888945727_og00n0xmj",
+      "approvalTitle": "Requirements: Import Fidelity Bug Fix"
+    }
+  ]
+}

@@ -206,7 +206,13 @@ func BuildDeleteNATMasqueradeStaticCommand(id int, entryNum int) string {
 
 // BuildShowNATDescriptorCommand builds command to show NAT descriptor configuration
 func BuildShowNATDescriptorCommand(id int) string {
-	return fmt.Sprintf("show config | grep \"nat descriptor.*%d\"", id)
+	// Use multiple grep patterns to capture all NAT descriptor lines for this ID:
+	// - nat descriptor type <id> masquerade
+	// - nat descriptor address outer <id> ...
+	// - nat descriptor address inner <id> ...
+	// - nat descriptor masquerade static <id> ...
+	// The pattern uses word boundaries to avoid matching IDs like 10 when searching for 1
+	return fmt.Sprintf("show config | grep -E \"nat descriptor (type|address outer|address inner|masquerade static) %d \"", id)
 }
 
 // BuildShowAllNATDescriptorsCommand builds command to show all NAT descriptors

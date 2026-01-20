@@ -341,9 +341,13 @@ func BuildDeleteDHCPScopeExceptCommand(scopeID int, excludeRange ExcludeRange) s
 }
 
 // BuildShowDHCPScopeCommand builds the command to show DHCP scope configuration
-// Command format: show config | grep "dhcp scope <id>"
+// This uses a broad grep pattern to capture all dhcp scope lines, then relies on
+// the parser to filter by scope ID. Direct grep like "dhcp scope 1" misses
+// "dhcp scope option 1" lines because the ID is not immediately after "dhcp scope ".
+// Command format: show config | grep "dhcp scope"
 func BuildShowDHCPScopeCommand(scopeID int) string {
-	return fmt.Sprintf("show config | grep \"dhcp scope %d\"", scopeID)
+	// Use broad pattern - the parser will filter by scopeID
+	return "show config | grep \"dhcp scope\""
 }
 
 // BuildShowAllDHCPScopesCommand builds the command to show all DHCP scopes

@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/import-fidelity-fix/tasks.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-20T06:23:28.288Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768890208282_lq3v3bgma",
+      "approvalTitle": "Tasks: Import Fidelity Fix"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-20T06:25:17.298Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768890208282_lq3v3bgma",
+      "approvalTitle": "Tasks: Import Fidelity Fix"
+    }
+  ]
+}

@@ -607,3 +607,209 @@ func TestBuildDeleteDNSCommand(t *testing.T) {
 		}
 	}
 }
+
+// TestParseDNSServerSelectEDNS verifies that edns=on is correctly extracted
+// and stored in the EDNS boolean field, not in QueryPattern
+func TestParseDNSServerSelectEDNS(t *testing.T) {
+	tests := []struct {
+		name                string
+		input               string
+		expectedEDNS        bool
+		expectedRecordType  string
+		expectedPattern     string
+		expectedSender      string
+		expectedRestrictPP  int
+	}{
+		{
+			name:               "edns=on before record type",
+			input:              "dns server select 1 10.0.0.1 10.0.0.2 edns=on any .",
+			expectedEDNS:       true,
+			expectedRecordType: "any",
+			expectedPattern:    ".",
+		},
+		{
+			name:               "edns=on without record type",
+			input:              "dns server select 2 10.0.0.1 edns=on example.com",
+			expectedEDNS:       true,
+			expectedRecordType: "a", // default
+			expectedPattern:    "example.com",
+		},
+		{
+			name:               "no edns flag",
+			input:              "dns server select 3 10.0.0.1 aaaa example.com",
+			expectedEDNS:       false,
+			expectedRecordType: "aaaa",
+			expectedPattern:    "example.com",
+		},
+		{
+			name:               "edns=on with original sender",
+			input:              "dns server select 4 10.0.0.1 edns=on example.com 192.168.1.0/24",
+			expectedEDNS:       true,
+			expectedRecordType: "a",
+			expectedPattern:    "example.com",
+			expectedSender:     "192.168.1.0/24",
+		},
+		{
+			name:                "edns=on with restrict pp",
+			input:               "dns server select 5 10.0.0.1 edns=on . restrict pp 1",
+			expectedEDNS:        true,
+			expectedRecordType:  "a",
+			expectedPattern:     ".",
+			expectedRestrictPP:  1,
+		},
+		{
+			name:                "full options with edns=on",
+			input:               "dns server select 6 10.0.0.53 edns=on aaaa *.corp.example.com 192.168.1.0/24 restrict pp 2",
+			expectedEDNS:        true,
+			expectedRecordType:  "aaaa",
+			expectedPattern:     "*.corp.example.com",
+			expectedSender:      "192.168.1.0/24",
+			expectedRestrictPP:  2,
+		},
+		{
+			name:               "domain with equals sign (not edns)",
+			input:              "dns server select 7 10.0.0.1 something=test.com",
+			expectedEDNS:       false,
+			expectedRecordType: "a",
+			expectedPattern:    "something=test.com",
+		},
+		{
+			name:               "edns=on with wildcard domain",
+			input:              "dns server select 8 192.168.1.1 edns=on *.internal.corp",
+			expectedEDNS:       true,
+			expectedRecordType: "a",
+			expectedPattern:    "*.internal.corp",
+		},
+		{
+			name:               "ptr record type with edns=on",
+			input:              "dns server select 9 10.0.0.53 edns=on ptr .",
+			expectedEDNS:       true,
+			expectedRecordType: "ptr",
+			expectedPattern:    ".",
+		},
+	}
+
+	parser := NewDNSParser()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config, err := parser.ParseDNSConfig(tt.input)
+			if err != nil {
+				t.Fatalf("Failed to parse: %v", err)
+			}
+
+			if len(config.ServerSelect) != 1 {
+				t.Fatalf("Expected 1 server select entry, got %d", len(config.ServerSelect))
+			}
+
+			sel := config.ServerSelect[0]
+
+			// Verify EDNS is stored in the boolean field, not in QueryPattern
+			if sel.EDNS != tt.expectedEDNS {
+				t.Errorf("EDNS: expected %v, got %v", tt.expectedEDNS, sel.EDNS)
+			}
+
+			// Ensure QueryPattern does NOT contain "edns=on"
+			if sel.QueryPattern == "edns=on" {
+				t.Errorf("QueryPattern incorrectly contains 'edns=on': %s", sel.QueryPattern)
+			}
+
+			if sel.RecordType != tt.expectedRecordType {
+				t.Errorf("RecordType: expected %s, got %s", tt.expectedRecordType, sel.RecordType)
+			}
+
+			if sel.QueryPattern != tt.expectedPattern {
+				t.Errorf("QueryPattern: expected %s, got %s", tt.expectedPattern, sel.QueryPattern)
+			}
+
+			if sel.OriginalSender != tt.expectedSender {
+				t.Errorf("OriginalSender: expected %s, got %s", tt.expectedSender, sel.OriginalSender)
+			}
+
+			if sel.RestrictPP != tt.expectedRestrictPP {
+				t.Errorf("RestrictPP: expected %d, got %d", tt.expectedRestrictPP, sel.RestrictPP)
+			}
+		})
+	}
+}
+
+// TestDNSServerSelectRoundTrip verifies that parsing and building produce consistent results
+func TestDNSServerSelectRoundTrip(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    DNSServerSelect
+		expected string
+	}{
+		{
+			name: "with EDNS enabled",
+			input: DNSServerSelect{
+				ID:           1,
+				Servers:      []string{"10.0.0.1"},
+				EDNS:         true,
+				RecordType:   "any",
+				QueryPattern: ".",
+			},
+			expected: "dns server select 1 10.0.0.1 edns=on any .",
+		},
+		{
+			name: "without EDNS",
+			input: DNSServerSelect{
+				ID:           2,
+				Servers:      []string{"192.168.1.1"},
+				EDNS:         false,
+				RecordType:   "a",
+				QueryPattern: "example.com",
+			},
+			expected: "dns server select 2 192.168.1.1 example.com",
+		},
+		{
+			name: "EDNS with aaaa record type",
+			input: DNSServerSelect{
+				ID:           3,
+				Servers:      []string{"10.0.0.53", "10.0.0.54"},
+				EDNS:         true,
+				RecordType:   "aaaa",
+				QueryPattern: "*.ipv6.corp",
+			},
+			expected: "dns server select 3 10.0.0.53 10.0.0.54 edns=on aaaa *.ipv6.corp",
+		},
+	}
+
+	parser := NewDNSParser()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Build the command
+			cmd := BuildDNSServerSelectCommand(tt.input)
+			if cmd != tt.expected {
+				t.Errorf("Build: expected %q, got %q", tt.expected, cmd)
+			}
+
+			// Parse the command back
+			config, err := parser.ParseDNSConfig(cmd)
+			if err != nil {
+				t.Fatalf("Parse failed: %v", err)
+			}
+
+			if len(config.ServerSelect) != 1 {
+				t.Fatalf("Expected 1 entry, got %d", len(config.ServerSelect))
+			}
+
+			sel := config.ServerSelect[0]
+
+			// Verify round-trip consistency
+			if sel.ID != tt.input.ID {
+				t.Errorf("ID: expected %d, got %d", tt.input.ID, sel.ID)
+			}
+			if sel.EDNS != tt.input.EDNS {
+				t.Errorf("EDNS: expected %v, got %v", tt.input.EDNS, sel.EDNS)
+			}
+			if sel.RecordType != tt.input.RecordType {
+				t.Errorf("RecordType: expected %s, got %s", tt.input.RecordType, sel.RecordType)
+			}
+			if sel.QueryPattern != tt.input.QueryPattern {
+				t.Errorf("QueryPattern: expected %s, got %s", tt.input.QueryPattern, sel.QueryPattern)
+			}
+		})
+	}
+}

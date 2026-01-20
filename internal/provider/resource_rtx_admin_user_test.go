@@ -103,8 +103,8 @@ func TestResourceRTXAdminUser_Schema(t *testing.T) {
 		if !s.Optional {
 			t.Error("login_timer should be Optional")
 		}
-		if s.Default != 0 {
-			t.Error("login_timer should default to 0")
+		if !s.Computed {
+			t.Error("login_timer should be Computed for import fidelity")
 		}
 	}
 }

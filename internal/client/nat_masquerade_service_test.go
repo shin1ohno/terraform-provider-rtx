@@ -155,7 +155,7 @@ nat descriptor address outer 1 ipcp
 nat descriptor address inner 1 192.168.1.0-192.168.1.255
 `
 				m.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
-					return cmd == `show config | grep "nat descriptor.*1"`
+					return cmd == `show config | grep -E "nat descriptor (type|address outer|address inner|masquerade static) 1 "`
 				})).Return([]byte(output), nil)
 			},
 			expected: &NATMasquerade{
@@ -167,11 +167,59 @@ nat descriptor address inner 1 192.168.1.0-192.168.1.255
 			expectedErr: false,
 		},
 		{
+			name:         "Successful get with multiple static entries",
+			descriptorID: 2,
+			mockSetup: func(m *MockExecutor) {
+				output := `nat descriptor type 2 masquerade
+nat descriptor address outer 2 ipcp
+nat descriptor address inner 2 192.168.2.0-192.168.2.255
+nat descriptor masquerade static 2 1 ipcp:80=192.168.2.10:8080 tcp
+nat descriptor masquerade static 2 2 ipcp:443=192.168.2.10:8443 tcp
+nat descriptor masquerade static 2 3 ipcp:53=192.168.2.20:53 udp
+`
+				m.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
+					return cmd == `show config | grep -E "nat descriptor (type|address outer|address inner|masquerade static) 2 "`
+				})).Return([]byte(output), nil)
+			},
+			expected: &NATMasquerade{
+				DescriptorID: 2,
+				OuterAddress: "ipcp",
+				InnerNetwork: "192.168.2.0-192.168.2.255",
+				StaticEntries: []MasqueradeStaticEntry{
+					{
+						EntryNumber:       1,
+						InsideLocal:       "192.168.2.10",
+						InsideLocalPort:   8080,
+						OutsideGlobal:     "ipcp",
+						OutsideGlobalPort: 80,
+						Protocol:          "tcp",
+					},
+					{
+						EntryNumber:       2,
+						InsideLocal:       "192.168.2.10",
+						InsideLocalPort:   8443,
+						OutsideGlobal:     "ipcp",
+						OutsideGlobalPort: 443,
+						Protocol:          "tcp",
+					},
+					{
+						EntryNumber:       3,
+						InsideLocal:       "192.168.2.20",
+						InsideLocalPort:   53,
+						OutsideGlobal:     "ipcp",
+						OutsideGlobalPort: 53,
+						Protocol:          "udp",
+					},
+				},
+			},
+			expectedErr: false,
+		},
+		{
 			name:         "NAT masquerade not found",
 			descriptorID: 99,
 			mockSetup: func(m *MockExecutor) {
 				m.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
-					return cmd == `show config | grep "nat descriptor.*99"`
+					return cmd == `show config | grep -E "nat descriptor (type|address outer|address inner|masquerade static) 99 "`
 				})).Return([]byte(""), nil)
 			},
 			expected:    nil,
@@ -374,7 +422,7 @@ func TestNATMasqueradeService_Update(t *testing.T) {
 			mockSetup: func(m *MockExecutor) {
 				// Get current config
 				m.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
-					return cmd == `show config | grep "nat descriptor.*1"`
+					return cmd == `show config | grep -E "nat descriptor (type|address outer|address inner|masquerade static) 1 "`
 				})).Return([]byte(`nat descriptor type 1 masquerade
 nat descriptor address outer 1 ipcp
 nat descriptor address inner 1 192.168.1.0-192.168.1.255
@@ -405,7 +453,7 @@ nat descriptor address inner 1 192.168.1.0-192.168.1.255
 			mockSetup: func(m *MockExecutor) {
 				// Get current config
 				m.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
-					return cmd == `show config | grep "nat descriptor.*1"`
+					return cmd == `show config | grep -E "nat descriptor (type|address outer|address inner|masquerade static) 1 "`
 				})).Return([]byte(`nat descriptor type 1 masquerade
 nat descriptor address outer 1 ipcp
 nat descriptor address inner 1 192.168.1.0-192.168.1.255

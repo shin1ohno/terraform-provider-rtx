@@ -74,8 +74,8 @@ func resourceRTXAdminUser() *schema.Resource {
 			"login_timer": {
 				Type:         schema.TypeInt,
 				Optional:     true,
-				Default:      0,
-				Description:  "Login timeout in seconds. 0 means infinite (no timeout).",
+				Computed:     true,
+				Description:  "Login timeout in seconds. 0 means infinite (no timeout). If not specified, the router's default is used.",
 				ValidateFunc: validation.IntAtLeast(0),
 			},
 		},

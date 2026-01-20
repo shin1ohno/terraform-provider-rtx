@@ -130,6 +130,32 @@ ip route 10.0.0.0/8 gateway 192.168.2.1 weight 2`,
 			},
 		},
 		{
+			name: "multi-hop route with 3 gateways (failover/load balancing)",
+			input: `ip route 192.168.100.0/24 gateway 10.0.0.1 weight 1
+ip route 192.168.100.0/24 gateway 10.0.0.2 weight 2
+ip route 192.168.100.0/24 gateway 10.0.0.3 weight 3`,
+			expected: []StaticRoute{
+				{
+					Prefix: "192.168.100.0",
+					Mask:   "255.255.255.0",
+					NextHops: []NextHop{
+						{
+							NextHop:  "10.0.0.1",
+							Distance: 1,
+						},
+						{
+							NextHop:  "10.0.0.2",
+							Distance: 2,
+						},
+						{
+							NextHop:  "10.0.0.3",
+							Distance: 3,
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "multiple routes",
 			input: `ip route default gateway 192.168.0.1
 ip route 10.0.0.0/8 gateway 192.168.1.1
@@ -312,6 +338,52 @@ ip route 10.0.0.0/8 gateway 192.168.1.1`
 	_, err = parser.ParseSingleRoute(input, "172.16.0.0", "255.240.0.0")
 	if err == nil {
 		t.Errorf("expected error for non-existent route, got nil")
+	}
+}
+
+func TestParseSingleRouteMultiGateway(t *testing.T) {
+	parser := NewStaticRouteParser()
+
+	// Simulate output from: show config | grep "ip route 192.168.100.0/24"
+	// This should return ALL lines matching the prefix, including multiple gateways
+	input := `ip route 192.168.100.0/24 gateway 10.0.0.1 weight 1
+ip route 192.168.100.0/24 gateway 10.0.0.2 weight 2
+ip route 192.168.100.0/24 gateway 10.0.0.3 weight 3`
+
+	route, err := parser.ParseSingleRoute(input, "192.168.100.0", "255.255.255.0")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if route.Prefix != "192.168.100.0" {
+		t.Errorf("prefix = %q, want %q", route.Prefix, "192.168.100.0")
+	}
+	if route.Mask != "255.255.255.0" {
+		t.Errorf("mask = %q, want %q", route.Mask, "255.255.255.0")
+	}
+
+	// Verify all 3 gateways are captured
+	if len(route.NextHops) != 3 {
+		t.Fatalf("expected 3 next_hops, got %d", len(route.NextHops))
+	}
+
+	expectedHops := []struct {
+		nextHop  string
+		distance int
+	}{
+		{"10.0.0.1", 1},
+		{"10.0.0.2", 2},
+		{"10.0.0.3", 3},
+	}
+
+	for i, expected := range expectedHops {
+		got := route.NextHops[i]
+		if got.NextHop != expected.nextHop {
+			t.Errorf("next_hops[%d].next_hop = %q, want %q", i, got.NextHop, expected.nextHop)
+		}
+		if got.Distance != expected.distance {
+			t.Errorf("next_hops[%d].distance = %d, want %d", i, got.Distance, expected.distance)
+		}
 	}
 }
 

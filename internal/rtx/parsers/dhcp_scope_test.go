@@ -363,10 +363,19 @@ func TestBuildDeleteDHCPScopeCommand(t *testing.T) {
 }
 
 func TestBuildShowDHCPScopeCommand(t *testing.T) {
+	// BuildShowDHCPScopeCommand now returns a broad grep pattern to capture all
+	// dhcp scope lines (including "dhcp scope option N" lines which would be
+	// missed by "dhcp scope N" pattern). The parser filters by scopeID.
 	result := BuildShowDHCPScopeCommand(1)
-	expected := `show config | grep "dhcp scope 1"`
+	expected := `show config | grep "dhcp scope"`
 	if result != expected {
 		t.Errorf("BuildShowDHCPScopeCommand() = %q, want %q", result, expected)
+	}
+
+	// Verify that different scope IDs return the same command (filtering is done by parser)
+	result2 := BuildShowDHCPScopeCommand(5)
+	if result != result2 {
+		t.Errorf("BuildShowDHCPScopeCommand should return same command for any scopeID, got %q vs %q", result, result2)
 	}
 }
 
