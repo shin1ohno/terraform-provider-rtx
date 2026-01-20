@@ -51,7 +51,7 @@ func resourceRTXDHCPBinding() *schema.Resource {
 			"use_mac_as_client_id": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     false,
+				Computed:    true,
 				ForceNew:    true,
 				Description: "When true with mac_address, automatically generates '01:MAC' client identifier",
 				RequiredWith: []string{"mac_address"},

@@ -43,7 +43,7 @@ func resourceRTXDHCPScope() *schema.Resource {
 			"lease_time": {
 				Type:         schema.TypeString,
 				Optional:     true,
-				Default:      "72h",
+				Computed:     true,
 				Description:  "DHCP lease duration in Go duration format (e.g., '72h', '30m') or 'infinite'",
 				ValidateFunc: validateLeaseTime,
 			},

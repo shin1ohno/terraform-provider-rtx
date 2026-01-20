@@ -41,8 +41,8 @@ func resourceRTXIPsecTransport() *schema.Resource {
 			"protocol": {
 				Type:         schema.TypeString,
 				Optional:     true,
-				Default:      "udp",
-				Description:  "Transport protocol: 'udp' or 'tcp'. Default is 'udp'.",
+				Computed:     true,
+				Description:  "Transport protocol: 'udp' or 'tcp'.",
 				ValidateFunc: validation.StringInSlice([]string{"udp", "tcp"}, true),
 			},
 			"port": {

@@ -27,8 +27,8 @@ func TestResourceRTXHTTPD_Schema(t *testing.T) {
 	if proxySchema.Required {
 		t.Error("expected proxy_access to be optional")
 	}
-	if proxySchema.Default != false {
-		t.Errorf("expected proxy_access default to be false, got %v", proxySchema.Default)
+	if !proxySchema.Computed {
+		t.Error("expected proxy_access to be computed (for import compatibility)")
 	}
 }
 

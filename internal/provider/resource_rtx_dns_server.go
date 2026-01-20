@@ -26,7 +26,7 @@ func resourceRTXDNSServer() *schema.Resource {
 			"domain_lookup": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     true,
+				Computed:    true,
 				Description: "Enable DNS domain lookup (dns domain lookup on/off)",
 			},
 			"domain_name": {
@@ -69,13 +69,13 @@ func resourceRTXDNSServer() *schema.Resource {
 						"edns": {
 							Type:        schema.TypeBool,
 							Optional:    true,
-							Default:     false,
+							Computed:    true,
 							Description: "Enable EDNS (Extension mechanisms for DNS)",
 						},
 						"record_type": {
 							Type:         schema.TypeString,
 							Optional:     true,
-							Default:      "a",
+							Computed:     true,
 							Description:  "DNS record type to match: a, aaaa, ptr, mx, ns, cname, any",
 							ValidateFunc: validation.StringInSlice([]string{"a", "aaaa", "ptr", "mx", "ns", "cname", "any"}, false),
 						},
@@ -92,7 +92,7 @@ func resourceRTXDNSServer() *schema.Resource {
 						"restrict_pp": {
 							Type:         schema.TypeInt,
 							Optional:     true,
-							Default:      0,
+							Computed:     true,
 							Description:  "PP session restriction (0 = no restriction)",
 							ValidateFunc: validation.IntAtLeast(0),
 						},
@@ -122,13 +122,13 @@ func resourceRTXDNSServer() *schema.Resource {
 			"service_on": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     false,
+				Computed:    true,
 				Description: "Enable DNS service (dns service on/off)",
 			},
 			"private_address_spoof": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     false,
+				Computed:    true,
 				Description: "Enable DNS private address spoofing (dns private address spoof on/off)",
 			},
 		},

@@ -278,24 +278,24 @@ func TestResourceRTXAccessListIPSchema(t *testing.T) {
 		assert.True(t, resource.Schema["destination"].Required)
 	})
 
-	t.Run("protocol is optional with default", func(t *testing.T) {
+	t.Run("protocol is optional and computed", func(t *testing.T) {
 		assert.True(t, resource.Schema["protocol"].Optional)
-		assert.Equal(t, "*", resource.Schema["protocol"].Default)
+		assert.True(t, resource.Schema["protocol"].Computed)
 	})
 
-	t.Run("source_port is optional with default", func(t *testing.T) {
+	t.Run("source_port is optional and computed", func(t *testing.T) {
 		assert.True(t, resource.Schema["source_port"].Optional)
-		assert.Equal(t, "*", resource.Schema["source_port"].Default)
+		assert.True(t, resource.Schema["source_port"].Computed)
 	})
 
-	t.Run("dest_port is optional with default", func(t *testing.T) {
+	t.Run("dest_port is optional and computed", func(t *testing.T) {
 		assert.True(t, resource.Schema["dest_port"].Optional)
-		assert.Equal(t, "*", resource.Schema["dest_port"].Default)
+		assert.True(t, resource.Schema["dest_port"].Computed)
 	})
 
-	t.Run("established is optional with default false", func(t *testing.T) {
+	t.Run("established is optional and computed", func(t *testing.T) {
 		assert.True(t, resource.Schema["established"].Optional)
-		assert.Equal(t, false, resource.Schema["established"].Default)
+		assert.True(t, resource.Schema["established"].Computed)
 	})
 }
 
@@ -325,7 +325,7 @@ func TestResourceRTXAccessListIPSchemaValidation(t *testing.T) {
 	})
 
 	t.Run("filter_id validation", func(t *testing.T) {
-		// Valid range: 1-65535
+		// Valid range: 1-2147483647
 		_, errs := resource.Schema["filter_id"].ValidateFunc(1, "filter_id")
 		assert.Empty(t, errs, "filter_id 1 should be valid")
 
@@ -335,8 +335,9 @@ func TestResourceRTXAccessListIPSchemaValidation(t *testing.T) {
 		_, errs = resource.Schema["filter_id"].ValidateFunc(0, "filter_id")
 		assert.NotEmpty(t, errs, "filter_id 0 should be invalid")
 
+		// 65536 is valid since range is 1-2147483647
 		_, errs = resource.Schema["filter_id"].ValidateFunc(65536, "filter_id")
-		assert.NotEmpty(t, errs, "filter_id 65536 should be invalid")
+		assert.Empty(t, errs, "filter_id 65536 should be valid")
 	})
 }
 

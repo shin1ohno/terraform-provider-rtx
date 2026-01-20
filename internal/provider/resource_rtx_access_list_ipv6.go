@@ -60,13 +60,13 @@ func resourceRTXAccessListIPv6() *schema.Resource {
 			"source_port": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				Default:     "*",
+				Computed:    true,
 				Description: "Source port(s) or '*' for any. Only applicable for tcp/udp protocols.",
 			},
 			"dest_port": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				Default:     "*",
+				Computed:    true,
 				Description: "Destination port(s) or '*' for any. Only applicable for tcp/udp protocols.",
 			},
 		},

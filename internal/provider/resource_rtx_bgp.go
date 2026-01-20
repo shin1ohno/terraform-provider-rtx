@@ -41,13 +41,13 @@ func resourceRTXBGP() *schema.Resource {
 			"default_ipv4_unicast": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     true,
+				Computed:    true,
 				Description: "Enable IPv4 unicast address family by default for new neighbors.",
 			},
 			"log_neighbor_changes": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     true,
+				Computed:    true,
 				Description: "Log neighbor up/down changes.",
 			},
 			"neighbor": {
@@ -131,13 +131,13 @@ func resourceRTXBGP() *schema.Resource {
 			"redistribute_static": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     false,
+				Computed:    true,
 				Description: "Redistribute static routes into BGP.",
 			},
 			"redistribute_connected": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     false,
+				Computed:    true,
 				Description: "Redistribute connected routes into BGP.",
 			},
 		},

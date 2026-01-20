@@ -38,7 +38,7 @@ func resourceRTXHTTPD() *schema.Resource {
 			"proxy_access": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     false,
+				Computed:    true,
 				Description: "Enable L2MS proxy access for HTTP. When enabled, allows proxy access via L2MS protocol.",
 			},
 		},

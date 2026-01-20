@@ -54,7 +54,7 @@ func resourceRTXInterface() *schema.Resource {
 						"dhcp": {
 							Type:        schema.TypeBool,
 							Optional:    true,
-							Default:     false,
+							Computed:    true,
 							Description: "Use DHCP for IP address assignment",
 						},
 					},
@@ -90,20 +90,20 @@ func resourceRTXInterface() *schema.Resource {
 			"nat_descriptor": {
 				Type:         schema.TypeInt,
 				Optional:     true,
-				Default:      0,
+				Computed:     true,
 				Description:  "NAT descriptor ID to bind to this interface. Use rtx_nat_masquerade or rtx_nat_static to define the descriptor.",
 				ValidateFunc: validation.IntAtLeast(0),
 			},
 			"proxyarp": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     false,
+				Computed:    true,
 				Description: "Enable ProxyARP on this interface",
 			},
 			"mtu": {
 				Type:         schema.TypeInt,
 				Optional:     true,
-				Default:      0,
+				Computed:     true,
 				Description:  "Maximum Transmission Unit size. Set to 0 to use the default MTU.",
 				ValidateFunc: validation.IntBetween(0, 65535),
 			},

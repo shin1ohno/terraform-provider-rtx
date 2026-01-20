@@ -25,15 +25,15 @@ func TestResourceRTXInterface_Schema(t *testing.T) {
 		}
 	}
 
-	// Test defaults
-	if resource.Schema["nat_descriptor"].Default != 0 {
-		t.Error("nat_descriptor default should be 0")
+	// Test computed fields (for import compatibility, these don't have Default values)
+	if resource.Schema["nat_descriptor"].Computed != true {
+		t.Error("nat_descriptor should be computed")
 	}
-	if resource.Schema["proxyarp"].Default != false {
-		t.Error("proxyarp default should be false")
+	if resource.Schema["proxyarp"].Computed != true {
+		t.Error("proxyarp should be computed")
 	}
-	if resource.Schema["mtu"].Default != 0 {
-		t.Error("mtu default should be 0")
+	if resource.Schema["mtu"].Computed != true {
+		t.Error("mtu should be computed")
 	}
 
 	// Test ip_address block structure
@@ -44,8 +44,8 @@ func TestResourceRTXInterface_Schema(t *testing.T) {
 	if ipAddressResource.Schema["dhcp"].Optional != true {
 		t.Error("ip_address.dhcp should be optional")
 	}
-	if ipAddressResource.Schema["dhcp"].Default != false {
-		t.Error("ip_address.dhcp default should be false")
+	if ipAddressResource.Schema["dhcp"].Computed != true {
+		t.Error("ip_address.dhcp should be computed (for import compatibility)")
 	}
 }
 

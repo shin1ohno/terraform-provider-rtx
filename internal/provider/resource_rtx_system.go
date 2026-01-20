@@ -97,13 +97,13 @@ func resourceRTXSystem() *schema.Resource {
 						"traffic": {
 							Type:        schema.TypeBool,
 							Optional:    true,
-							Default:     false,
+							Computed:    true,
 							Description: "Enable traffic statistics collection",
 						},
 						"nat": {
 							Type:        schema.TypeBool,
 							Optional:    true,
-							Default:     false,
+							Computed:    true,
 							Description: "Enable NAT statistics collection",
 						},
 					},

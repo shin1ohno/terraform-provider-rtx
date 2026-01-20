@@ -27,8 +27,8 @@ func resourceRTXOSPF() *schema.Resource {
 			"process_id": {
 				Type:         schema.TypeInt,
 				Optional:     true,
-				Default:      1,
-				Description:  "OSPF process ID. Default is 1.",
+				Computed:     true,
+				Description:  "OSPF process ID.",
 				ValidateFunc: validation.IntAtLeast(1),
 			},
 			"router_id": {
@@ -40,14 +40,14 @@ func resourceRTXOSPF() *schema.Resource {
 			"distance": {
 				Type:         schema.TypeInt,
 				Optional:     true,
-				Default:      110,
-				Description:  "Administrative distance for OSPF routes. Default is 110.",
+				Computed:     true,
+				Description:  "Administrative distance for OSPF routes.",
 				ValidateFunc: validation.IntBetween(1, 255),
 			},
 			"default_information_originate": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     false,
+				Computed:    true,
 				Description: "Originate a default route into the OSPF domain.",
 			},
 			"network": {
@@ -89,14 +89,14 @@ func resourceRTXOSPF() *schema.Resource {
 						"type": {
 							Type:         schema.TypeString,
 							Optional:     true,
-							Default:      "normal",
+							Computed:     true,
 							Description:  "Area type: 'normal', 'stub', or 'nssa'.",
 							ValidateFunc: validation.StringInSlice([]string{"normal", "stub", "nssa"}, false),
 						},
 						"no_summary": {
 							Type:        schema.TypeBool,
 							Optional:    true,
-							Default:     false,
+							Computed:    true,
 							Description: "For stub/NSSA areas, suppress summary LSAs (totally stubby/NSSA).",
 						},
 					},
@@ -117,14 +117,14 @@ func resourceRTXOSPF() *schema.Resource {
 						"priority": {
 							Type:         schema.TypeInt,
 							Optional:     true,
-							Default:      0,
-							Description:  "Neighbor priority (0-255). Default is 0.",
+							Computed:     true,
+							Description:  "Neighbor priority (0-255).",
 							ValidateFunc: validation.IntBetween(0, 255),
 						},
 						"cost": {
 							Type:         schema.TypeInt,
 							Optional:     true,
-							Default:      0,
+							Computed:     true,
 							Description:  "Cost to reach neighbor. 0 means default cost.",
 							ValidateFunc: validation.IntAtLeast(0),
 						},
@@ -134,13 +134,13 @@ func resourceRTXOSPF() *schema.Resource {
 			"redistribute_static": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     false,
+				Computed:    true,
 				Description: "Redistribute static routes into OSPF.",
 			},
 			"redistribute_connected": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     false,
+				Computed:    true,
 				Description: "Redistribute connected routes into OSPF.",
 			},
 		},

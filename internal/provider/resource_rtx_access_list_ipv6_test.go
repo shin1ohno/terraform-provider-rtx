@@ -30,12 +30,12 @@ func TestResourceRTXAccessListIPv6_Schema(t *testing.T) {
 		}
 	}
 
-	// Test defaults
-	if resource.Schema["source_port"].Default != "*" {
-		t.Errorf("source_port default should be '*', got %v", resource.Schema["source_port"].Default)
+	// Test Computed (for import compatibility)
+	if resource.Schema["source_port"].Computed != true {
+		t.Errorf("source_port should be computed, got %v", resource.Schema["source_port"].Computed)
 	}
-	if resource.Schema["dest_port"].Default != "*" {
-		t.Errorf("dest_port default should be '*', got %v", resource.Schema["dest_port"].Default)
+	if resource.Schema["dest_port"].Computed != true {
+		t.Errorf("dest_port should be computed, got %v", resource.Schema["dest_port"].Computed)
 	}
 }
 
@@ -186,12 +186,18 @@ func TestResourceRTXAccessListIPv6_FilterIDValidation(t *testing.T) {
 		}
 	}
 
-	// Test invalid filter IDs
-	invalidIDs := []int{0, -1, 65536}
+	// Test invalid filter IDs (0 and -1 are invalid, 65536 is valid since range is 1-2147483647)
+	invalidIDs := []int{0, -1}
 	for _, id := range invalidIDs {
 		_, errs := filterIDSchema.ValidateFunc(id, "filter_id")
 		if len(errs) == 0 {
 			t.Errorf("filter_id %d should be invalid", id)
 		}
+	}
+
+	// 65536 is valid since range is 1-2147483647
+	_, errs := filterIDSchema.ValidateFunc(65536, "filter_id")
+	if len(errs) > 0 {
+		t.Errorf("filter_id 65536 should be valid, got errors: %v", errs)
 	}
 }

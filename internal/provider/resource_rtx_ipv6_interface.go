@@ -68,7 +68,7 @@ func resourceRTXIPv6Interface() *schema.Resource {
 						"enabled": {
 							Type:        schema.TypeBool,
 							Optional:    true,
-							Default:     true,
+							Computed:    true,
 							Description: "Enable Router Advertisement on this interface.",
 						},
 						"prefix_id": {
@@ -80,19 +80,19 @@ func resourceRTXIPv6Interface() *schema.Resource {
 						"o_flag": {
 							Type:        schema.TypeBool,
 							Optional:    true,
-							Default:     false,
+							Computed:    true,
 							Description: "Other Configuration Flag (O flag). When set, clients should use DHCPv6 for other configuration (e.g., DNS).",
 						},
 						"m_flag": {
 							Type:        schema.TypeBool,
 							Optional:    true,
-							Default:     false,
+							Computed:    true,
 							Description: "Managed Address Configuration Flag (M flag). When set, clients should use DHCPv6 for address assignment.",
 						},
 						"lifetime": {
 							Type:         schema.TypeInt,
 							Optional:     true,
-							Default:      0,
+							Computed:     true,
 							Description:  "Router lifetime in seconds. Set to 0 to use the default value.",
 							ValidateFunc: validation.IntAtLeast(0),
 						},
@@ -102,14 +102,14 @@ func resourceRTXIPv6Interface() *schema.Resource {
 			"dhcpv6_service": {
 				Type:         schema.TypeString,
 				Optional:     true,
-				Default:      "",
+				Computed:     true,
 				Description:  "DHCPv6 service mode: 'server', 'client', or '' (disabled).",
 				ValidateFunc: validateDHCPv6Service,
 			},
 			"mtu": {
 				Type:         schema.TypeInt,
 				Optional:     true,
-				Default:      0,
+				Computed:     true,
 				Description:  "IPv6 MTU size (minimum 1280 for IPv6). Set to 0 to use the default MTU.",
 				ValidateFunc: validation.IntBetween(0, 65535),
 			},

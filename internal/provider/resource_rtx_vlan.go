@@ -59,7 +59,7 @@ func resourceRTXVLAN() *schema.Resource {
 			"shutdown": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     false,
+				Computed:    true,
 				Description: "Administrative shutdown state (true = disabled, false = enabled)",
 			},
 			"vlan_interface": {

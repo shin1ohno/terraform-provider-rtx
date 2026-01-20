@@ -61,13 +61,13 @@ func resourceRTXKronSchedule() *schema.Resource {
 			"recurring": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     true,
+				Computed:    true,
 				Description: "Whether the schedule repeats. Automatically set to false for date-specific schedules.",
 			},
 			"on_startup": {
 				Type:          schema.TypeBool,
 				Optional:      true,
-				Default:       false,
+				Computed:      true,
 				Description:   "Execute this schedule when the router starts up. Cannot be combined with at_time or date.",
 				ConflictsWith: []string{"at_time", "date", "day_of_week"},
 			},
