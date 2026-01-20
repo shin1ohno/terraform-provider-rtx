@@ -75,7 +75,7 @@
   - _Leverage: Existing dynamic filter test patterns_
   - _Requirements: REQ-3_
 
-- [ ] 10. Create rtx_ip_filter_dynamic resource
+- [x] 10. Create rtx_ip_filter_dynamic resource
   - File: internal/provider/resource_rtx_ip_filter_dynamic.go
   - Implement resourceRTXIPFilterDynamic() with schema definition
   - Schema fields: number, source, destination, protocol (Form 1)
@@ -85,7 +85,7 @@
   - _Leverage: resource_rtx_access_list_ip.go as template_
   - _Requirements: REQ-3_
 
-- [ ] 11. Implement CRUD operations for rtx_ip_filter_dynamic
+- [x] 11. Implement CRUD operations for rtx_ip_filter_dynamic
   - File: internal/provider/resource_rtx_ip_filter_dynamic.go
   - Implement Create, Read, Update, Delete functions
   - Implement Import function for existing dynamic filters
@@ -93,14 +93,14 @@
   - _Leverage: Existing resource CRUD patterns_
   - _Requirements: REQ-3_
 
-- [ ] 12. Register rtx_ip_filter_dynamic in provider
+- [x] 12. Register rtx_ip_filter_dynamic in provider
   - File: internal/provider/provider.go
   - Add resource to ResourcesMap
   - Purpose: Make resource available to Terraform users
   - _Leverage: Existing resource registration pattern_
   - _Requirements: REQ-3_
 
-- [ ] 13. Add acceptance tests for rtx_ip_filter_dynamic
+- [x] 13. Add acceptance tests for rtx_ip_filter_dynamic
   - File: internal/provider/resource_rtx_ip_filter_dynamic_test.go
   - Test Create/Read/Update/Delete lifecycle
   - Test Import functionality

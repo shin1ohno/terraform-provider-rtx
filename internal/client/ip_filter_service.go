@@ -3,9 +3,9 @@ package client
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
@@ -42,7 +42,7 @@ func (s *IPFilterService) CreateFilter(ctx context.Context, filter IPFilter) err
 
 	// Build and execute filter creation command
 	cmd := parsers.BuildIPFilterCommand(parserFilter)
-	log.Printf("[DEBUG] Creating IP filter with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Creating IP filter with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -73,14 +73,14 @@ func (s *IPFilterService) GetFilter(ctx context.Context, number int) (*IPFilter,
 	}
 
 	cmd := parsers.BuildShowIPFilterByNumberCommand(number)
-	log.Printf("[DEBUG] Getting IP filter with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Getting IP filter with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get IP filter: %w", err)
 	}
 
-	log.Printf("[DEBUG] IP filter raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("IP filter raw output: %q", string(output))
 
 	// Parse the output
 	parserFilters, err := parsers.ParseIPFilterConfig(string(output))
@@ -118,7 +118,7 @@ func (s *IPFilterService) UpdateFilter(ctx context.Context, filter IPFilter) err
 	// For RTX routers, update is done by re-running the filter command
 	// This will overwrite the existing filter with the same number
 	cmd := parsers.BuildIPFilterCommand(parserFilter)
-	log.Printf("[DEBUG] Updating IP filter with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Updating IP filter with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -149,7 +149,7 @@ func (s *IPFilterService) DeleteFilter(ctx context.Context, number int) error {
 	}
 
 	cmd := parsers.BuildDeleteIPFilterCommand(number)
-	log.Printf("[DEBUG] Deleting IP filter with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Deleting IP filter with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -184,14 +184,14 @@ func (s *IPFilterService) ListFilters(ctx context.Context) ([]IPFilter, error) {
 	}
 
 	cmd := parsers.BuildShowIPFilterCommand()
-	log.Printf("[DEBUG] Listing IP filters with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Listing IP filters with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list IP filters: %w", err)
 	}
 
-	log.Printf("[DEBUG] IP filters raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("IP filters raw output: %q", string(output))
 
 	// Parse the output
 	parserFilters, err := parsers.ParseIPFilterConfig(string(output))
@@ -213,9 +213,12 @@ func (s *IPFilterService) CreateDynamicFilter(ctx context.Context, filter IPFilt
 	// Convert client.IPFilterDynamic to parsers.IPFilterDynamic
 	parserFilter := s.toParserDynamicFilter(filter)
 
-	// Validate input
-	if err := parsers.ValidateIPFilterDynamic(parserFilter); err != nil {
-		return fmt.Errorf("invalid dynamic IP filter: %w", err)
+	// Validate input - only validate Form 1 filters (those with protocol)
+	// Form 2 filters use filter lists instead of protocol
+	if len(filter.FilterList) == 0 {
+		if err := parsers.ValidateIPFilterDynamic(parserFilter); err != nil {
+			return fmt.Errorf("invalid dynamic IP filter: %w", err)
+		}
 	}
 
 	// Check context
@@ -225,9 +228,9 @@ func (s *IPFilterService) CreateDynamicFilter(ctx context.Context, filter IPFilt
 	default:
 	}
 
-	// Build and execute filter creation command
-	cmd := parsers.BuildIPFilterDynamicCommand(parserFilter)
-	log.Printf("[DEBUG] Creating dynamic IP filter with command: %s", cmd)
+	// Build and execute filter creation command using extended builder
+	cmd := parsers.BuildIPFilterDynamicCommandExtended(parserFilter)
+	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Creating dynamic IP filter with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -259,17 +262,17 @@ func (s *IPFilterService) GetDynamicFilter(ctx context.Context, number int) (*IP
 
 	// Use the same command as list but filter by number
 	cmd := parsers.BuildShowIPFilterCommand()
-	log.Printf("[DEBUG] Getting dynamic IP filter with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Getting dynamic IP filter with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get dynamic IP filter: %w", err)
 	}
 
-	log.Printf("[DEBUG] Dynamic IP filter raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Dynamic IP filter raw output: %q", string(output))
 
-	// Parse the output
-	parserFilters, err := parsers.ParseIPFilterDynamicConfig(string(output))
+	// Parse the output using extended parser to handle both Form 1 and Form 2
+	parserFilters, err := parsers.ParseIPFilterDynamicConfigExtended(string(output))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse dynamic IP filter: %w", err)
 	}
@@ -295,7 +298,7 @@ func (s *IPFilterService) DeleteDynamicFilter(ctx context.Context, number int) e
 	}
 
 	cmd := parsers.BuildDeleteIPFilterDynamicCommand(number)
-	log.Printf("[DEBUG] Deleting dynamic IP filter with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Deleting dynamic IP filter with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -330,17 +333,17 @@ func (s *IPFilterService) ListDynamicFilters(ctx context.Context) ([]IPFilterDyn
 	}
 
 	cmd := parsers.BuildShowIPFilterCommand()
-	log.Printf("[DEBUG] Listing dynamic IP filters with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Listing dynamic IP filters with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list dynamic IP filters: %w", err)
 	}
 
-	log.Printf("[DEBUG] Dynamic IP filters raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Dynamic IP filters raw output: %q", string(output))
 
-	// Parse the output
-	parserFilters, err := parsers.ParseIPFilterDynamicConfig(string(output))
+	// Parse the output using extended parser to handle both Form 1 and Form 2
+	parserFilters, err := parsers.ParseIPFilterDynamicConfigExtended(string(output))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse dynamic IP filters: %w", err)
 	}
@@ -389,22 +392,30 @@ func (s *IPFilterService) fromParserFilter(pf parsers.IPFilter) IPFilter {
 // toParserDynamicFilter converts client.IPFilterDynamic to parsers.IPFilterDynamic
 func (s *IPFilterService) toParserDynamicFilter(filter IPFilterDynamic) parsers.IPFilterDynamic {
 	return parsers.IPFilterDynamic{
-		Number:   filter.Number,
-		Source:   filter.Source,
-		Dest:     filter.Dest,
-		Protocol: filter.Protocol,
-		SyslogOn: filter.SyslogOn,
+		Number:        filter.Number,
+		Source:        filter.Source,
+		Dest:          filter.Dest,
+		Protocol:      filter.Protocol,
+		SyslogOn:      filter.SyslogOn,
+		FilterList:    filter.FilterList,
+		InFilterList:  filter.InFilterList,
+		OutFilterList: filter.OutFilterList,
+		Timeout:       filter.Timeout,
 	}
 }
 
 // fromParserDynamicFilter converts parsers.IPFilterDynamic to client.IPFilterDynamic
 func (s *IPFilterService) fromParserDynamicFilter(pf parsers.IPFilterDynamic) IPFilterDynamic {
 	return IPFilterDynamic{
-		Number:   pf.Number,
-		Source:   pf.Source,
-		Dest:     pf.Dest,
-		Protocol: pf.Protocol,
-		SyslogOn: pf.SyslogOn,
+		Number:        pf.Number,
+		Source:        pf.Source,
+		Dest:          pf.Dest,
+		Protocol:      pf.Protocol,
+		SyslogOn:      pf.SyslogOn,
+		FilterList:    pf.FilterList,
+		InFilterList:  pf.InFilterList,
+		OutFilterList: pf.OutFilterList,
+		Timeout:       pf.Timeout,
 	}
 }
 
@@ -420,7 +431,7 @@ func (s *IPFilterService) CreateAccessListExtended(ctx context.Context, acl Acce
 	for _, entry := range acl.Entries {
 		parserEntry := s.toParserExtendedEntry(entry)
 		cmd := parsers.BuildAccessListExtendedEntryCommand(parserEntry)
-		log.Printf("[DEBUG] Creating ACL entry with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Creating ACL entry with command: %s", cmd)
 
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
@@ -452,7 +463,7 @@ func (s *IPFilterService) GetAccessListExtended(ctx context.Context, name string
 
 	// Get all IP filters and filter by name/sequence pattern
 	cmd := parsers.BuildShowIPFilterCommand()
-	log.Printf("[DEBUG] Getting ACL with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Getting ACL with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -493,7 +504,7 @@ func (s *IPFilterService) UpdateAccessListExtended(ctx context.Context, acl Acce
 	for _, entry := range acl.Entries {
 		parserEntry := s.toParserExtendedEntry(entry)
 		cmd := parsers.BuildAccessListExtendedEntryCommand(parserEntry)
-		log.Printf("[DEBUG] Updating ACL entry with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Updating ACL entry with command: %s", cmd)
 
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
@@ -526,7 +537,7 @@ func (s *IPFilterService) DeleteAccessListExtended(ctx context.Context, name str
 	// Delete each filter by number
 	for _, num := range filterNums {
 		cmd := parsers.BuildDeleteIPFilterCommand(num)
-		log.Printf("[DEBUG] Deleting ACL entry with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Deleting ACL entry with command: %s", cmd)
 
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
@@ -563,7 +574,7 @@ func (s *IPFilterService) CreateAccessListExtendedIPv6(ctx context.Context, acl 
 	for _, entry := range acl.Entries {
 		parserEntry := s.toParserExtendedIPv6Entry(entry)
 		cmd := parsers.BuildAccessListExtendedIPv6EntryCommand(parserEntry)
-		log.Printf("[DEBUG] Creating IPv6 ACL entry with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Creating IPv6 ACL entry with command: %s", cmd)
 
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
@@ -594,7 +605,7 @@ func (s *IPFilterService) GetAccessListExtendedIPv6(ctx context.Context, name st
 	}
 
 	cmd := parsers.BuildShowIPv6FilterCommand()
-	log.Printf("[DEBUG] Getting IPv6 ACL with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Getting IPv6 ACL with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -633,7 +644,7 @@ func (s *IPFilterService) UpdateAccessListExtendedIPv6(ctx context.Context, acl 
 	for _, entry := range acl.Entries {
 		parserEntry := s.toParserExtendedIPv6Entry(entry)
 		cmd := parsers.BuildAccessListExtendedIPv6EntryCommand(parserEntry)
-		log.Printf("[DEBUG] Updating IPv6 ACL entry with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Updating IPv6 ACL entry with command: %s", cmd)
 
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
@@ -665,7 +676,7 @@ func (s *IPFilterService) DeleteAccessListExtendedIPv6(ctx context.Context, name
 
 	for _, num := range filterNums {
 		cmd := parsers.BuildDeleteIPv6FilterCommand(num)
-		log.Printf("[DEBUG] Deleting IPv6 ACL entry with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Deleting IPv6 ACL entry with command: %s", cmd)
 
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
@@ -700,11 +711,15 @@ func (s *IPFilterService) CreateIPFilterDynamicConfig(ctx context.Context, confi
 
 	for _, entry := range config.Entries {
 		filter := IPFilterDynamic{
-			Number:   entry.Number,
-			Source:   entry.Source,
-			Dest:     entry.Dest,
-			Protocol: entry.Protocol,
-			SyslogOn: entry.Syslog,
+			Number:        entry.Number,
+			Source:        entry.Source,
+			Dest:          entry.Dest,
+			Protocol:      entry.Protocol,
+			SyslogOn:      entry.Syslog,
+			FilterList:    entry.FilterList,
+			InFilterList:  entry.InFilterList,
+			OutFilterList: entry.OutFilterList,
+			Timeout:       entry.Timeout,
 		}
 		if err := s.CreateDynamicFilter(ctx, filter); err != nil {
 			return err
@@ -727,11 +742,15 @@ func (s *IPFilterService) GetIPFilterDynamicConfig(ctx context.Context) (*IPFilt
 
 	for _, filter := range filters {
 		config.Entries = append(config.Entries, IPFilterDynamicEntry{
-			Number:   filter.Number,
-			Source:   filter.Source,
-			Dest:     filter.Dest,
-			Protocol: filter.Protocol,
-			Syslog:   filter.SyslogOn,
+			Number:        filter.Number,
+			Source:        filter.Source,
+			Dest:          filter.Dest,
+			Protocol:      filter.Protocol,
+			Syslog:        filter.SyslogOn,
+			FilterList:    filter.FilterList,
+			InFilterList:  filter.InFilterList,
+			OutFilterList: filter.OutFilterList,
+			Timeout:       filter.Timeout,
 		})
 	}
 
@@ -743,16 +762,20 @@ func (s *IPFilterService) UpdateIPFilterDynamicConfig(ctx context.Context, confi
 	// Re-create all entries
 	for _, entry := range config.Entries {
 		filter := IPFilterDynamic{
-			Number:   entry.Number,
-			Source:   entry.Source,
-			Dest:     entry.Dest,
-			Protocol: entry.Protocol,
-			SyslogOn: entry.Syslog,
+			Number:        entry.Number,
+			Source:        entry.Source,
+			Dest:          entry.Dest,
+			Protocol:      entry.Protocol,
+			SyslogOn:      entry.Syslog,
+			FilterList:    entry.FilterList,
+			InFilterList:  entry.InFilterList,
+			OutFilterList: entry.OutFilterList,
+			Timeout:       entry.Timeout,
 		}
 
 		parserFilter := s.toParserDynamicFilter(filter)
-		cmd := parsers.BuildIPFilterDynamicCommand(parserFilter)
-		log.Printf("[DEBUG] Updating dynamic filter with command: %s", cmd)
+		cmd := parsers.BuildIPFilterDynamicCommandExtended(parserFilter)
+		logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Updating dynamic filter with command: %s", cmd)
 
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
@@ -803,7 +826,7 @@ func (s *IPFilterService) CreateIPv6FilterDynamicConfig(ctx context.Context, con
 			SyslogOn: entry.Syslog,
 		}
 		cmd := parsers.BuildIPv6FilterDynamicCommand(parserFilter)
-		log.Printf("[DEBUG] Creating IPv6 dynamic filter with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Creating IPv6 dynamic filter with command: %s", cmd)
 
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
@@ -834,7 +857,7 @@ func (s *IPFilterService) GetIPv6FilterDynamicConfig(ctx context.Context) (*IPv6
 	}
 
 	cmd := parsers.BuildShowIPv6FilterCommand()
-	log.Printf("[DEBUG] Getting IPv6 dynamic filters with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Getting IPv6 dynamic filters with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -874,7 +897,7 @@ func (s *IPFilterService) UpdateIPv6FilterDynamicConfig(ctx context.Context, con
 			SyslogOn: entry.Syslog,
 		}
 		cmd := parsers.BuildIPv6FilterDynamicCommand(parserFilter)
-		log.Printf("[DEBUG] Updating IPv6 dynamic filter with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Updating IPv6 dynamic filter with command: %s", cmd)
 
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
@@ -906,7 +929,7 @@ func (s *IPFilterService) DeleteIPv6FilterDynamicConfig(ctx context.Context, fil
 
 	for _, num := range filterNums {
 		cmd := parsers.BuildDeleteIPv6FilterDynamicCommand(num)
-		log.Printf("[DEBUG] Deleting IPv6 dynamic filter with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Deleting IPv6 dynamic filter with command: %s", cmd)
 
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
@@ -945,7 +968,7 @@ func (s *IPFilterService) CreateInterfaceACL(ctx context.Context, acl InterfaceA
 		// For now, use dynamic filters directly
 		if len(acl.DynamicFiltersIn) > 0 {
 			cmd := parsers.BuildInterfaceSecureFilterWithDynamicCommand(acl.Interface, "in", nil, acl.DynamicFiltersIn)
-			log.Printf("[DEBUG] Applying interface ACL inbound with command: %s", cmd)
+			logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Applying interface ACL inbound with command: %s", cmd)
 
 			output, err := s.executor.Run(ctx, cmd)
 			if err != nil {
@@ -962,7 +985,7 @@ func (s *IPFilterService) CreateInterfaceACL(ctx context.Context, acl InterfaceA
 	if acl.IPAccessGroupOut != "" || len(acl.DynamicFiltersOut) > 0 {
 		if len(acl.DynamicFiltersOut) > 0 {
 			cmd := parsers.BuildInterfaceSecureFilterWithDynamicCommand(acl.Interface, "out", nil, acl.DynamicFiltersOut)
-			log.Printf("[DEBUG] Applying interface ACL outbound with command: %s", cmd)
+			logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Applying interface ACL outbound with command: %s", cmd)
 
 			output, err := s.executor.Run(ctx, cmd)
 			if err != nil {
@@ -979,7 +1002,7 @@ func (s *IPFilterService) CreateInterfaceACL(ctx context.Context, acl InterfaceA
 	if acl.IPv6AccessGroupIn != "" || len(acl.IPv6DynamicFiltersIn) > 0 {
 		if len(acl.IPv6DynamicFiltersIn) > 0 {
 			cmd := parsers.BuildInterfaceIPv6SecureFilterWithDynamicCommand(acl.Interface, "in", nil, acl.IPv6DynamicFiltersIn)
-			log.Printf("[DEBUG] Applying interface IPv6 ACL inbound with command: %s", cmd)
+			logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Applying interface IPv6 ACL inbound with command: %s", cmd)
 
 			output, err := s.executor.Run(ctx, cmd)
 			if err != nil {
@@ -996,7 +1019,7 @@ func (s *IPFilterService) CreateInterfaceACL(ctx context.Context, acl InterfaceA
 	if acl.IPv6AccessGroupOut != "" || len(acl.IPv6DynamicFiltersOut) > 0 {
 		if len(acl.IPv6DynamicFiltersOut) > 0 {
 			cmd := parsers.BuildInterfaceIPv6SecureFilterWithDynamicCommand(acl.Interface, "out", nil, acl.IPv6DynamicFiltersOut)
-			log.Printf("[DEBUG] Applying interface IPv6 ACL outbound with command: %s", cmd)
+			logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Applying interface IPv6 ACL outbound with command: %s", cmd)
 
 			output, err := s.executor.Run(ctx, cmd)
 			if err != nil {
@@ -1099,22 +1122,22 @@ func (s *IPFilterService) DeleteInterfaceACL(ctx context.Context, iface string) 
 
 	// Remove IPv4 inbound filters
 	cmd := parsers.BuildDeleteInterfaceSecureFilterCommand(iface, "in")
-	log.Printf("[DEBUG] Removing interface ACL inbound with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Removing interface ACL inbound with command: %s", cmd)
 	s.executor.Run(ctx, cmd) // Ignore error if not configured
 
 	// Remove IPv4 outbound filters
 	cmd = parsers.BuildDeleteInterfaceSecureFilterCommand(iface, "out")
-	log.Printf("[DEBUG] Removing interface ACL outbound with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Removing interface ACL outbound with command: %s", cmd)
 	s.executor.Run(ctx, cmd) // Ignore error if not configured
 
 	// Remove IPv6 inbound filters
 	cmd = parsers.BuildDeleteInterfaceIPv6SecureFilterCommand(iface, "in")
-	log.Printf("[DEBUG] Removing interface IPv6 ACL inbound with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Removing interface IPv6 ACL inbound with command: %s", cmd)
 	s.executor.Run(ctx, cmd) // Ignore error if not configured
 
 	// Remove IPv6 outbound filters
 	cmd = parsers.BuildDeleteInterfaceIPv6SecureFilterCommand(iface, "out")
-	log.Printf("[DEBUG] Removing interface IPv6 ACL outbound with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Removing interface IPv6 ACL outbound with command: %s", cmd)
 	s.executor.Run(ctx, cmd) // Ignore error if not configured
 
 	// Save configuration
@@ -1264,7 +1287,7 @@ func (s *IPFilterService) CreateIPv6Filter(ctx context.Context, filter IPFilter)
 
 	// Build and execute filter creation command
 	cmd := parsers.BuildIPv6FilterCommand(parserFilter)
-	log.Printf("[DEBUG] Creating IPv6 filter with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Creating IPv6 filter with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -1295,14 +1318,14 @@ func (s *IPFilterService) GetIPv6Filter(ctx context.Context, number int) (*IPFil
 	}
 
 	cmd := parsers.BuildShowIPv6FilterByNumberCommand(number)
-	log.Printf("[DEBUG] Getting IPv6 filter with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Getting IPv6 filter with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get IPv6 filter: %w", err)
 	}
 
-	log.Printf("[DEBUG] IPv6 filter raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("IPv6 filter raw output: %q", string(output))
 
 	// Parse the output
 	parserFilters, err := parsers.ParseIPv6FilterConfig(string(output))
@@ -1343,7 +1366,7 @@ func (s *IPFilterService) UpdateIPv6Filter(ctx context.Context, filter IPFilter)
 	// For RTX routers, update is done by re-running the filter command
 	// This will overwrite the existing filter with the same number
 	cmd := parsers.BuildIPv6FilterCommand(parserFilter)
-	log.Printf("[DEBUG] Updating IPv6 filter with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Updating IPv6 filter with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -1374,7 +1397,7 @@ func (s *IPFilterService) DeleteIPv6Filter(ctx context.Context, number int) erro
 	}
 
 	cmd := parsers.BuildDeleteIPv6FilterCommand(number)
-	log.Printf("[DEBUG] Deleting IPv6 filter with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Deleting IPv6 filter with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -1409,14 +1432,14 @@ func (s *IPFilterService) ListIPv6Filters(ctx context.Context) ([]IPFilter, erro
 	}
 
 	cmd := parsers.BuildShowIPv6FilterCommand()
-	log.Printf("[DEBUG] Listing IPv6 filters with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Listing IPv6 filters with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list IPv6 filters: %w", err)
 	}
 
-	log.Printf("[DEBUG] IPv6 filters raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("IPv6 filters raw output: %q", string(output))
 
 	// Parse the output
 	parserFilters, err := parsers.ParseIPv6FilterConfig(string(output))
