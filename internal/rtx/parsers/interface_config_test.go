@@ -113,6 +113,96 @@ ip tunnel1 secure filter in 300 301`,
 				SecureFilterOut: []int{100, 101, 102},
 			},
 		},
+		{
+			name: "wrapped line due to terminal width - filter IDs on continuation",
+			input: "ip lan2 secure filter in 200020 200021 200022 200023 200024\n" +
+				"200025 200103 200100 200102 200104 200101 200105 200099",
+			interfaceName: "lan2",
+			expected: &InterfaceConfig{
+				Name:           "lan2",
+				SecureFilterIn: []int{200020, 200021, 200022, 200023, 200024, 200025, 200103, 200100, 200102, 200104, 200101, 200105, 200099},
+			},
+		},
+		{
+			name: "very long filter list with 15+ IDs",
+			input: `ip lan2 secure filter in 100001 100002 100003 100004 100005 100006 100007 100008 100009 100010 100011 100012 100013 100014 100015 100016`,
+			interfaceName: "lan2",
+			expected: &InterfaceConfig{
+				Name:           "lan2",
+				SecureFilterIn: []int{100001, 100002, 100003, 100004, 100005, 100006, 100007, 100008, 100009, 100010, 100011, 100012, 100013, 100014, 100015, 100016},
+			},
+		},
+		{
+			name: "wrapped filter out with dynamic on separate line",
+			input: "ip lan2 secure filter out 200020 200021 200022 200023 200024\n" +
+				"200025 200026 200027 200099 dynamic 200080 200081 200082",
+			interfaceName: "lan2",
+			expected: &InterfaceConfig{
+				Name:             "lan2",
+				SecureFilterOut:  []int{200020, 200021, 200022, 200023, 200024, 200025, 200026, 200027, 200099},
+				DynamicFilterOut: []int{200080, 200081, 200082},
+			},
+		},
+		{
+			name: "multiple commands with wrapped lines and carriage returns",
+			input: "description lan2 au\r\n" +
+				"ip lan2 address dhcp\r\n" +
+				"ip lan2 secure filter in 200020 200021 200022 200023 200024 200025\r\n" +
+				"200103 200100 200102 200104 200101 200105 200099\r\n" +
+				"ip lan2 nat descriptor 1000",
+			interfaceName: "lan2",
+			expected: &InterfaceConfig{
+				Name:           "lan2",
+				Description:    "au",
+				IPAddress:      &InterfaceIP{DHCP: true},
+				SecureFilterIn: []int{200020, 200021, 200022, 200023, 200024, 200025, 200103, 200100, 200102, 200104, 200101, 200105, 200099},
+				NATDescriptor:  1000,
+			},
+		},
+		{
+			name: "REQ-2: exact 13 filter IDs matching reported issue - no truncation",
+			input: `ip lan2 secure filter in 200020 200021 200022 200023 200024 200025 200103 200100 200102 200104 200101 200105 200099`,
+			interfaceName: "lan2",
+			expected: &InterfaceConfig{
+				Name: "lan2",
+				// All 13 filter IDs must be captured without truncation
+				// Previously truncated to 8 IDs with last one corrupted: [200020, 200021, 200022, 200023, 200024, 200025, 200103, 20010]
+				SecureFilterIn: []int{200020, 200021, 200022, 200023, 200024, 200025, 200103, 200100, 200102, 200104, 200101, 200105, 200099},
+			},
+		},
+		{
+			name: "REQ-2: filter list with 6-digit IDs to verify no digit truncation",
+			input: `ip lan2 secure filter in 100000 200000 300000 400000 500000 600000 700000 800000 900000 999999`,
+			interfaceName: "lan2",
+			expected: &InterfaceConfig{
+				Name: "lan2",
+				// Verify 6-digit IDs are not truncated (e.g., 999999 should not become 99999)
+				SecureFilterIn: []int{100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 999999},
+			},
+		},
+		{
+			name: "REQ-2: secure_filter_out with 9+ IDs - no truncation",
+			input: `ip lan2 secure filter out 200020 200021 200022 200023 200024 200025 200026 200027 200099`,
+			interfaceName: "lan2",
+			expected: &InterfaceConfig{
+				Name: "lan2",
+				// All 9 filter IDs must be captured without truncation
+				// Previously truncated: [200020, ..., 200026, 2000] (last ID corrupted)
+				SecureFilterOut: []int{200020, 200021, 200022, 200023, 200024, 200025, 200026, 200027, 200099},
+			},
+		},
+		{
+			name: "REQ-2: secure_filter_out with dynamic - 9 static + 6 dynamic IDs",
+			input: `ip lan2 secure filter out 200020 200021 200022 200023 200024 200025 200026 200027 200099 dynamic 200080 200081 200082 200083 200084 200085`,
+			interfaceName: "lan2",
+			expected: &InterfaceConfig{
+				Name: "lan2",
+				// All static filter IDs captured
+				SecureFilterOut: []int{200020, 200021, 200022, 200023, 200024, 200025, 200026, 200027, 200099},
+				// All dynamic filter IDs captured
+				DynamicFilterOut: []int{200080, 200081, 200082, 200083, 200084, 200085},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -674,6 +764,64 @@ func TestValidateInterfaceName(t *testing.T) {
 			}
 			if !tt.wantErr && err != nil {
 				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestPreprocessWrappedLines(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "no wrapping needed",
+			input:    "ip lan2 address dhcp\nip lan2 nat descriptor 1000",
+			expected: "ip lan2 address dhcp\nip lan2 nat descriptor 1000",
+		},
+		{
+			name:     "filter IDs wrapped to new line",
+			input:    "ip lan2 secure filter in 200020 200021\n200022 200023 200024",
+			expected: "ip lan2 secure filter in 200020 200021 200022 200023 200024",
+		},
+		{
+			name:     "multiple lines with one wrapped",
+			input:    "ip lan2 address dhcp\nip lan2 secure filter in 100 101\n102 103 104\nip lan2 nat descriptor 1",
+			expected: "ip lan2 address dhcp\nip lan2 secure filter in 100 101 102 103 104\nip lan2 nat descriptor 1",
+		},
+		{
+			name:     "carriage returns in input",
+			input:    "ip lan2 address dhcp\r\nip lan2 secure filter in 100\r\n101 102\r\nip lan2 nat descriptor 1",
+			expected: "ip lan2 address dhcp\nip lan2 secure filter in 100 101 102\nip lan2 nat descriptor 1",
+		},
+		{
+			name:     "empty input",
+			input:    "",
+			expected: "",
+		},
+		{
+			name:     "single line no wrapping",
+			input:    "ip lan2 secure filter in 100 101 102",
+			expected: "ip lan2 secure filter in 100 101 102",
+		},
+		{
+			name:     "description command not wrapped",
+			input:    "description lan2 test\nip lan2 address dhcp",
+			expected: "description lan2 test\nip lan2 address dhcp",
+		},
+		{
+			name:     "multiple wrapped continuations",
+			input:    "ip lan2 secure filter in 1 2 3\n4 5 6\n7 8 9\nip lan2 nat descriptor 1",
+			expected: "ip lan2 secure filter in 1 2 3 4 5 6 7 8 9\nip lan2 nat descriptor 1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := preprocessWrappedLines(tt.input)
+			if result != tt.expected {
+				t.Errorf("preprocessWrappedLines() = %q, want %q", result, tt.expected)
 			}
 		})
 	}

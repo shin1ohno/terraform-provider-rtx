@@ -39,7 +39,10 @@ func newRTXShellSession(ctx context.Context, client *ssh.Client) (*rtxShellSessi
 		ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
 	}
 
-	if err := session.RequestPty("vt100", 80, 40, modes); err != nil {
+	// Use wide terminal to prevent line wrapping for long filter lists
+	// RTX config lines can exceed 200 characters (e.g., secure filter with 13+ IDs)
+	// RequestPty parameters: term, height, width, modes
+	if err := session.RequestPty("vt100", 40, 512, modes); err != nil {
 		session.Close()
 		return nil, fmt.Errorf("failed to request PTY: %w", err)
 	}
