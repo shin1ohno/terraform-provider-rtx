@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/dns-server-select-refactor/tasks.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-20T05:35:52.410Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768887352403_e6s83lybr",
+      "approvalTitle": "Tasks: DNS Server Select Schema Refactor"
+    }
+  ]
+}

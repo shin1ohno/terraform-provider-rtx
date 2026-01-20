@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/dns-server-select-refactor/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-20T05:31:12.910Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768887072904_qp74rh1vj",
+      "approvalTitle": "Design: DNS Server Select Schema Refactor"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-20T05:34:06.339Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768887072904_qp74rh1vj",
+      "approvalTitle": "Design: DNS Server Select Schema Refactor"
+    }
+  ]
+}
