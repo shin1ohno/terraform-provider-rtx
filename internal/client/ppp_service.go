@@ -3,8 +3,8 @@ package client
 import (
 	"context"
 	"fmt"
-	"log"
 
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
@@ -29,14 +29,14 @@ func NewPPPService(executor Executor, client *rtxClient) *PPPService {
 // List retrieves all PPPoE configurations
 func (s *PPPService) List(ctx context.Context) ([]PPPoEConfig, error) {
 	cmd := "show config"
-	log.Printf("[DEBUG] Getting PPPoE configs with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Getting PPPoE configs with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get PPPoE config: %w", err)
 	}
 
-	log.Printf("[DEBUG] PPPoE raw output length: %d", len(output))
+	logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("PPPoE raw output length: %d", len(output))
 
 	parser := parsers.NewPPPParser()
 	parserConfigs, err := parser.ParsePPPoEConfig(string(output))
@@ -89,7 +89,7 @@ func (s *PPPService) Create(ctx context.Context, config PPPoEConfig) error {
 	// Build and execute commands
 	commands := parsers.BuildPPPoECommand(parserConfig)
 	for _, cmd := range commands {
-		log.Printf("[DEBUG] Executing PPPoE command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Executing PPPoE command: %s", cmd)
 		if _, err := s.executor.Run(ctx, cmd); err != nil {
 			return fmt.Errorf("failed to execute command %q: %w", cmd, err)
 		}
@@ -122,7 +122,7 @@ func (s *PPPService) Update(ctx context.Context, config PPPoEConfig) error {
 
 	// Select PP interface
 	selectCmd := parsers.BuildPPSelectCommand(config.Number)
-	log.Printf("[DEBUG] Selecting PP interface: %s", selectCmd)
+	logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Selecting PP interface: %s", selectCmd)
 	if _, err := s.executor.Run(ctx, selectCmd); err != nil {
 		return fmt.Errorf("failed to select PP interface: %w", err)
 	}
@@ -131,7 +131,7 @@ func (s *PPPService) Update(ctx context.Context, config PPPoEConfig) error {
 	if config.Name != "" {
 		cmd := parsers.BuildPPDescriptionCommand(config.Name)
 		if cmd != "" {
-			log.Printf("[DEBUG] Updating description: %s", cmd)
+			logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Updating description: %s", cmd)
 			if _, err := s.executor.Run(ctx, cmd); err != nil {
 				return fmt.Errorf("failed to set description: %w", err)
 			}
@@ -142,7 +142,7 @@ func (s *PPPService) Update(ctx context.Context, config PPPoEConfig) error {
 	if config.Interface != "" {
 		cmd := parsers.BuildPPPoEUseCommand(config.Interface)
 		if cmd != "" {
-			log.Printf("[DEBUG] Updating PPPoE interface: %s", cmd)
+			logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Updating PPPoE interface: %s", cmd)
 			if _, err := s.executor.Run(ctx, cmd); err != nil {
 				return fmt.Errorf("failed to set PPPoE interface: %w", err)
 			}
@@ -154,7 +154,7 @@ func (s *PPPService) Update(ctx context.Context, config PPPoEConfig) error {
 		if config.Authentication.Method != "" {
 			cmd := parsers.BuildPPPAuthAcceptCommand(config.Authentication.Method)
 			if cmd != "" {
-				log.Printf("[DEBUG] Updating auth accept: %s", cmd)
+				logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Updating auth accept: %s", cmd)
 				if _, err := s.executor.Run(ctx, cmd); err != nil {
 					return fmt.Errorf("failed to set auth accept: %w", err)
 				}
@@ -163,7 +163,7 @@ func (s *PPPService) Update(ctx context.Context, config PPPoEConfig) error {
 		if config.Authentication.Username != "" && config.Authentication.Password != "" {
 			cmd := parsers.BuildPPPAuthMynameCommand(config.Authentication.Username, config.Authentication.Password)
 			if cmd != "" {
-				log.Printf("[DEBUG] Updating auth myname")
+				logging.FromContext(ctx).Debug().Str("service", "UpppService").Msg("Updating auth myname")
 				if _, err := s.executor.Run(ctx, cmd); err != nil {
 					return fmt.Errorf("failed to set auth myname: %w", err)
 				}
@@ -173,7 +173,7 @@ func (s *PPPService) Update(ctx context.Context, config PPPoEConfig) error {
 
 	// Update always-on
 	cmd := parsers.BuildPPAlwaysOnCommand(config.AlwaysOn)
-	log.Printf("[DEBUG] Updating always-on: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Updating always-on: %s", cmd)
 	if _, err := s.executor.Run(ctx, cmd); err != nil {
 		return fmt.Errorf("failed to set always-on: %w", err)
 	}
@@ -183,7 +183,7 @@ func (s *PPPService) Update(ctx context.Context, config PPPoEConfig) error {
 		if config.IPConfig.Address != "" {
 			cmd := parsers.BuildIPPPAddressCommand(config.IPConfig.Address)
 			if cmd != "" {
-				log.Printf("[DEBUG] Updating IP address: %s", cmd)
+				logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Updating IP address: %s", cmd)
 				if _, err := s.executor.Run(ctx, cmd); err != nil {
 					return fmt.Errorf("failed to set IP address: %w", err)
 				}
@@ -192,7 +192,7 @@ func (s *PPPService) Update(ctx context.Context, config PPPoEConfig) error {
 		if config.IPConfig.MTU > 0 {
 			cmd := parsers.BuildIPPPMTUCommand(config.IPConfig.MTU)
 			if cmd != "" {
-				log.Printf("[DEBUG] Updating MTU: %s", cmd)
+				logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Updating MTU: %s", cmd)
 				if _, err := s.executor.Run(ctx, cmd); err != nil {
 					return fmt.Errorf("failed to set MTU: %w", err)
 				}
@@ -201,7 +201,7 @@ func (s *PPPService) Update(ctx context.Context, config PPPoEConfig) error {
 		if config.IPConfig.TCPMSSLimit > 0 {
 			cmd := parsers.BuildIPPPTCPMSSLimitCommand(config.IPConfig.TCPMSSLimit)
 			if cmd != "" {
-				log.Printf("[DEBUG] Updating TCP MSS: %s", cmd)
+				logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Updating TCP MSS: %s", cmd)
 				if _, err := s.executor.Run(ctx, cmd); err != nil {
 					return fmt.Errorf("failed to set TCP MSS: %w", err)
 				}
@@ -210,7 +210,7 @@ func (s *PPPService) Update(ctx context.Context, config PPPoEConfig) error {
 		if config.IPConfig.NATDescriptor > 0 {
 			cmd := parsers.BuildIPPPNATDescriptorCommand(config.IPConfig.NATDescriptor)
 			if cmd != "" {
-				log.Printf("[DEBUG] Updating NAT descriptor: %s", cmd)
+				logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Updating NAT descriptor: %s", cmd)
 				if _, err := s.executor.Run(ctx, cmd); err != nil {
 					return fmt.Errorf("failed to set NAT descriptor: %w", err)
 				}
@@ -221,13 +221,13 @@ func (s *PPPService) Update(ctx context.Context, config PPPoEConfig) error {
 	// Enable/disable PP interface
 	if config.Enabled {
 		cmd := parsers.BuildPPEnableCommand(config.Number)
-		log.Printf("[DEBUG] Enabling PP interface: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Enabling PP interface: %s", cmd)
 		if _, err := s.executor.Run(ctx, cmd); err != nil {
 			return fmt.Errorf("failed to enable PP interface: %w", err)
 		}
 	} else {
 		cmd := parsers.BuildPPDisableCommand(config.Number)
-		log.Printf("[DEBUG] Disabling PP interface: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Disabling PP interface: %s", cmd)
 		if _, err := s.executor.Run(ctx, cmd); err != nil {
 			return fmt.Errorf("failed to disable PP interface: %w", err)
 		}
@@ -257,10 +257,10 @@ func (s *PPPService) Delete(ctx context.Context, ppNum int) error {
 	// Build and execute delete commands
 	commands := parsers.BuildDeletePPPoECommand(ppNum)
 	for _, cmd := range commands {
-		log.Printf("[DEBUG] Deleting PPPoE config with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Deleting PPPoE config with command: %s", cmd)
 		if _, err := s.executor.Run(ctx, cmd); err != nil {
 			// Log but continue - some commands may fail if config doesn't exist
-			log.Printf("[DEBUG] Command %q returned error (may be normal): %v", cmd, err)
+			logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Command %q returned error (may be normal): %v", cmd, err)
 		}
 	}
 
@@ -279,7 +279,7 @@ func (s *PPPService) Delete(ctx context.Context, ppNum int) error {
 // GetIPConfig retrieves PP interface IP configuration
 func (s *PPPService) GetIPConfig(ctx context.Context, ppNum int) (*PPIPConfig, error) {
 	cmd := "show config"
-	log.Printf("[DEBUG] Getting PP IP config with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Getting PP IP config with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -313,7 +313,7 @@ func (s *PPPService) ConfigureIPConfig(ctx context.Context, ppNum int, config PP
 
 	// Select PP interface
 	selectCmd := parsers.BuildPPSelectCommand(ppNum)
-	log.Printf("[DEBUG] Selecting PP interface: %s", selectCmd)
+	logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Selecting PP interface: %s", selectCmd)
 	if _, err := s.executor.Run(ctx, selectCmd); err != nil {
 		return fmt.Errorf("failed to select PP interface: %w", err)
 	}
@@ -321,7 +321,7 @@ func (s *PPPService) ConfigureIPConfig(ctx context.Context, ppNum int, config PP
 	// Configure IP address
 	if config.Address != "" {
 		cmd := parsers.BuildIPPPAddressCommand(config.Address)
-		log.Printf("[DEBUG] Setting IP address: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Setting IP address: %s", cmd)
 		if _, err := s.executor.Run(ctx, cmd); err != nil {
 			return fmt.Errorf("failed to set IP address: %w", err)
 		}
@@ -330,7 +330,7 @@ func (s *PPPService) ConfigureIPConfig(ctx context.Context, ppNum int, config PP
 	// Configure MTU
 	if config.MTU > 0 {
 		cmd := parsers.BuildIPPPMTUCommand(config.MTU)
-		log.Printf("[DEBUG] Setting MTU: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Setting MTU: %s", cmd)
 		if _, err := s.executor.Run(ctx, cmd); err != nil {
 			return fmt.Errorf("failed to set MTU: %w", err)
 		}
@@ -339,7 +339,7 @@ func (s *PPPService) ConfigureIPConfig(ctx context.Context, ppNum int, config PP
 	// Configure TCP MSS limit
 	if config.TCPMSSLimit > 0 {
 		cmd := parsers.BuildIPPPTCPMSSLimitCommand(config.TCPMSSLimit)
-		log.Printf("[DEBUG] Setting TCP MSS: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Setting TCP MSS: %s", cmd)
 		if _, err := s.executor.Run(ctx, cmd); err != nil {
 			return fmt.Errorf("failed to set TCP MSS: %w", err)
 		}
@@ -348,7 +348,7 @@ func (s *PPPService) ConfigureIPConfig(ctx context.Context, ppNum int, config PP
 	// Configure NAT descriptor
 	if config.NATDescriptor > 0 {
 		cmd := parsers.BuildIPPPNATDescriptorCommand(config.NATDescriptor)
-		log.Printf("[DEBUG] Setting NAT descriptor: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Setting NAT descriptor: %s", cmd)
 		if _, err := s.executor.Run(ctx, cmd); err != nil {
 			return fmt.Errorf("failed to set NAT descriptor: %w", err)
 		}
@@ -357,16 +357,173 @@ func (s *PPPService) ConfigureIPConfig(ctx context.Context, ppNum int, config PP
 	// Configure secure filters
 	if len(config.SecureFilterIn) > 0 {
 		cmd := parsers.BuildIPPPSecureFilterInCommand(config.SecureFilterIn)
-		log.Printf("[DEBUG] Setting secure filter in: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Setting secure filter in: %s", cmd)
 		if _, err := s.executor.Run(ctx, cmd); err != nil {
 			return fmt.Errorf("failed to set secure filter in: %w", err)
 		}
 	}
 	if len(config.SecureFilterOut) > 0 {
 		cmd := parsers.BuildIPPPSecureFilterOutCommand(config.SecureFilterOut)
-		log.Printf("[DEBUG] Setting secure filter out: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Setting secure filter out: %s", cmd)
 		if _, err := s.executor.Run(ctx, cmd); err != nil {
 			return fmt.Errorf("failed to set secure filter out: %w", err)
+		}
+	}
+
+	// Save configuration
+	if err := s.client.SaveConfig(ctx); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
+	}
+
+	return nil
+}
+
+// ============================================================================
+// PP Interface IP Configuration Operations
+// ============================================================================
+
+// GetIPConfigForPP retrieves PP interface IP configuration by PP number
+func (s *PPPService) GetIPConfigForPP(ctx context.Context, ppNum int) (*PPIPConfig, error) {
+	cmd := "show config"
+	logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Getting PP IP config for PP %d", ppNum)
+
+	output, err := s.executor.Run(ctx, cmd)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get PP IP config: %w", err)
+	}
+
+	parser := parsers.NewPPPParser()
+	parserConfig, err := parser.ParsePPInterfaceConfig(string(output), ppNum)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse PP IP config: %w", err)
+	}
+
+	config := s.fromParserPPIPConfig(parserConfig)
+	return &config, nil
+}
+
+// ConfigureIPForPP configures PP interface IP settings
+func (s *PPPService) ConfigureIPForPP(ctx context.Context, ppNum int, config PPIPConfig) error {
+	// Validate input
+	parserConfig := s.toParserPPIPConfig(config)
+	if err := parsers.ValidatePPIPConfig(parserConfig); err != nil {
+		return fmt.Errorf("invalid PP IP config: %w", err)
+	}
+
+	// Check context
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	// Select PP interface
+	selectCmd := parsers.BuildPPSelectCommand(ppNum)
+	logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Selecting PP interface: %s", selectCmd)
+	if _, err := s.executor.Run(ctx, selectCmd); err != nil {
+		return fmt.Errorf("failed to select PP interface: %w", err)
+	}
+
+	// Configure IP address
+	if config.Address != "" {
+		cmd := parsers.BuildIPPPAddressCommand(config.Address)
+		logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Setting IP address: %s", cmd)
+		if _, err := s.executor.Run(ctx, cmd); err != nil {
+			return fmt.Errorf("failed to set IP address: %w", err)
+		}
+	}
+
+	// Configure MTU
+	if config.MTU > 0 {
+		cmd := parsers.BuildIPPPMTUCommand(config.MTU)
+		logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Setting MTU: %s", cmd)
+		if _, err := s.executor.Run(ctx, cmd); err != nil {
+			return fmt.Errorf("failed to set MTU: %w", err)
+		}
+	}
+
+	// Configure TCP MSS limit
+	if config.TCPMSSLimit > 0 {
+		cmd := parsers.BuildIPPPTCPMSSLimitCommand(config.TCPMSSLimit)
+		logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Setting TCP MSS: %s", cmd)
+		if _, err := s.executor.Run(ctx, cmd); err != nil {
+			return fmt.Errorf("failed to set TCP MSS: %w", err)
+		}
+	}
+
+	// Configure NAT descriptor
+	if config.NATDescriptor > 0 {
+		cmd := parsers.BuildIPPPNATDescriptorCommand(config.NATDescriptor)
+		logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Setting NAT descriptor: %s", cmd)
+		if _, err := s.executor.Run(ctx, cmd); err != nil {
+			return fmt.Errorf("failed to set NAT descriptor: %w", err)
+		}
+	}
+
+	// Configure secure filters
+	if len(config.SecureFilterIn) > 0 {
+		cmd := parsers.BuildIPPPSecureFilterInCommand(config.SecureFilterIn)
+		logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Setting secure filter in: %s", cmd)
+		if _, err := s.executor.Run(ctx, cmd); err != nil {
+			return fmt.Errorf("failed to set secure filter in: %w", err)
+		}
+	}
+	if len(config.SecureFilterOut) > 0 {
+		cmd := parsers.BuildIPPPSecureFilterOutCommand(config.SecureFilterOut)
+		logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Setting secure filter out: %s", cmd)
+		if _, err := s.executor.Run(ctx, cmd); err != nil {
+			return fmt.Errorf("failed to set secure filter out: %w", err)
+		}
+	}
+
+	// Save configuration
+	if err := s.client.SaveConfig(ctx); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateIPConfigForPP updates PP interface IP settings
+func (s *PPPService) UpdateIPConfigForPP(ctx context.Context, ppNum int, config PPIPConfig) error {
+	// Same implementation as ConfigureIPForPP - it's an upsert operation
+	return s.ConfigureIPForPP(ctx, ppNum, config)
+}
+
+// ResetIPConfigForPP resets PP interface IP configuration
+func (s *PPPService) ResetIPConfigForPP(ctx context.Context, ppNum int) error {
+	if ppNum < 1 {
+		return fmt.Errorf("invalid PP number: %d", ppNum)
+	}
+
+	// Check context
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	// Select PP interface
+	selectCmd := parsers.BuildPPSelectCommand(ppNum)
+	logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Selecting PP interface: %s", selectCmd)
+	if _, err := s.executor.Run(ctx, selectCmd); err != nil {
+		return fmt.Errorf("failed to select PP interface: %w", err)
+	}
+
+	// Reset IP configuration commands
+	resetCommands := []string{
+		parsers.BuildDeleteIPPPAddressCommand(),
+		parsers.BuildDeleteIPPPMTUCommand(),
+		parsers.BuildDeleteIPPPNATDescriptorCommand(),
+		parsers.BuildDeleteIPPPSecureFilterInCommand(),
+		parsers.BuildDeleteIPPPSecureFilterOutCommand(),
+	}
+
+	for _, cmd := range resetCommands {
+		logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Resetting PP IP config with command: %s", cmd)
+		if _, err := s.executor.Run(ctx, cmd); err != nil {
+			// Log but continue - some commands may fail if config doesn't exist
+			logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Command %q returned error (may be normal): %v", cmd, err)
 		}
 	}
 
@@ -385,7 +542,7 @@ func (s *PPPService) ConfigureIPConfig(ctx context.Context, ppNum int, config PP
 // GetConnectionStatus retrieves PP interface connection status
 func (s *PPPService) GetConnectionStatus(ctx context.Context, ppNum int) (*PPConnectionStatus, error) {
 	cmd := fmt.Sprintf("show status pp %d", ppNum)
-	log.Printf("[DEBUG] Getting PP connection status with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Getting PP connection status with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {

@@ -95,7 +95,7 @@
 
 ## Phase 3: Provider Layer
 
-- [ ] 11. Create PPPoE Terraform resource
+- [x] 11. Create PPPoE Terraform resource
   - File: internal/provider/resource_rtx_pppoe.go
   - Define schema with all PPPoE attributes
   - Implement Create, Read, Update, Delete functions
@@ -104,7 +104,7 @@
   - _Requirements: REQ-1, REQ-3_
   - _Prompt: Role: Terraform Provider Developer | Task: Create rtx_pppoe resource with full CRUD | Restrictions: Mark password as sensitive | Success: Resource CRUD works_
 
-- [ ] 12. Add PPPoE resource import support
+- [x] 12. Add PPPoE resource import support
   - File: internal/provider/resource_rtx_pppoe.go
   - Implement Importer function
   - Handle encrypted password preservation
@@ -113,7 +113,7 @@
   - _Requirements: REQ-4_
   - _Prompt: Role: Terraform Provider Developer | Task: Add import support for rtx_pppoe | Success: Import works correctly_
 
-- [ ] 13. Create PP interface Terraform resource
+- [x] 13. Create PP interface Terraform resource
   - File: internal/provider/resource_rtx_pp_interface.go
   - Define schema with IP, MTU, NAT attributes
   - Implement Create, Read, Update, Delete functions
@@ -122,7 +122,7 @@
   - _Requirements: REQ-2, REQ-5_
   - _Prompt: Role: Terraform Provider Developer | Task: Create rtx_pp_interface resource with full CRUD | Success: Resource CRUD works_
 
-- [ ] 14. Register resources in provider
+- [x] 14. Register resources in provider
   - File: internal/provider/provider.go
   - Add rtx_pppoe and rtx_pp_interface to ResourcesMap
   - Purpose: Make resources available in Terraform

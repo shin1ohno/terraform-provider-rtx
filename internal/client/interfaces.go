@@ -644,6 +644,77 @@ type Client interface {
 
 	// ListInterfaceMACACLs retrieves all interface MAC ACL bindings
 	ListInterfaceMACACLs(ctx context.Context) ([]InterfaceMACACL, error)
+
+	// DDNS - NetVolante DNS methods
+	// GetNetVolanteDNS retrieves all NetVolante DNS configurations
+	GetNetVolanteDNS(ctx context.Context) ([]NetVolanteConfig, error)
+
+	// GetNetVolanteDNSByInterface retrieves NetVolante DNS configuration by interface
+	GetNetVolanteDNSByInterface(ctx context.Context, iface string) (*NetVolanteConfig, error)
+
+	// ConfigureNetVolanteDNS creates a NetVolante DNS configuration
+	ConfigureNetVolanteDNS(ctx context.Context, config NetVolanteConfig) error
+
+	// UpdateNetVolanteDNS updates a NetVolante DNS configuration
+	UpdateNetVolanteDNS(ctx context.Context, config NetVolanteConfig) error
+
+	// DeleteNetVolanteDNS removes a NetVolante DNS configuration
+	DeleteNetVolanteDNS(ctx context.Context, iface string) error
+
+	// DDNS - Custom DDNS methods
+	// GetDDNS retrieves all custom DDNS configurations
+	GetDDNS(ctx context.Context) ([]DDNSServerConfig, error)
+
+	// GetDDNSByID retrieves custom DDNS configuration by server ID
+	GetDDNSByID(ctx context.Context, id int) (*DDNSServerConfig, error)
+
+	// ConfigureDDNS creates a custom DDNS configuration
+	ConfigureDDNS(ctx context.Context, config DDNSServerConfig) error
+
+	// UpdateDDNS updates a custom DDNS configuration
+	UpdateDDNS(ctx context.Context, config DDNSServerConfig) error
+
+	// DeleteDDNS removes a custom DDNS configuration
+	DeleteDDNS(ctx context.Context, id int) error
+
+	// DDNS - Status methods
+	// GetNetVolanteDNSStatus retrieves NetVolante DNS registration status
+	GetNetVolanteDNSStatus(ctx context.Context) ([]DDNSStatus, error)
+
+	// GetDDNSStatus retrieves custom DDNS registration status
+	GetDDNSStatus(ctx context.Context) ([]DDNSStatus, error)
+
+	// PPPoE methods
+	// ListPPPoE retrieves all PPPoE configurations
+	ListPPPoE(ctx context.Context) ([]PPPoEConfig, error)
+
+	// GetPPPoE retrieves PPPoE configuration by PP number
+	GetPPPoE(ctx context.Context, ppNum int) (*PPPoEConfig, error)
+
+	// CreatePPPoE creates a PPPoE configuration
+	CreatePPPoE(ctx context.Context, config PPPoEConfig) error
+
+	// UpdatePPPoE updates a PPPoE configuration
+	UpdatePPPoE(ctx context.Context, config PPPoEConfig) error
+
+	// DeletePPPoE removes a PPPoE configuration
+	DeletePPPoE(ctx context.Context, ppNum int) error
+
+	// GetPPConnectionStatus retrieves PP interface connection status
+	GetPPConnectionStatus(ctx context.Context, ppNum int) (*PPConnectionStatus, error)
+
+	// PP Interface IP Configuration methods
+	// GetPPInterfaceConfig retrieves PP interface IP configuration
+	GetPPInterfaceConfig(ctx context.Context, ppNum int) (*PPIPConfig, error)
+
+	// ConfigurePPInterface creates PP interface IP configuration
+	ConfigurePPInterface(ctx context.Context, ppNum int, config PPIPConfig) error
+
+	// UpdatePPInterfaceConfig updates PP interface IP configuration
+	UpdatePPInterfaceConfig(ctx context.Context, ppNum int, config PPIPConfig) error
+
+	// ResetPPInterfaceConfig removes PP interface IP configuration
+	ResetPPInterfaceConfig(ctx context.Context, ppNum int) error
 }
 
 // Interface represents a network interface on an RTX router
@@ -846,12 +917,12 @@ type NATMasquerade struct {
 
 // MasqueradeStaticEntry represents a static port mapping entry for NAT masquerade
 type MasqueradeStaticEntry struct {
-	EntryNumber       int    `json:"entry_number"`        // Entry number for identification
-	InsideLocal       string `json:"inside_local"`        // Internal IP address
-	InsideLocalPort   int    `json:"inside_local_port"`   // Internal port
-	OutsideGlobal     string `json:"outside_global"`      // External IP address (or "ipcp")
-	OutsideGlobalPort int    `json:"outside_global_port"` // External port
-	Protocol          string `json:"protocol,omitempty"`  // "tcp", "udp", or empty for any
+	EntryNumber       int    `json:"entry_number"`                   // Entry number for identification
+	InsideLocal       string `json:"inside_local"`                   // Internal IP address
+	InsideLocalPort   *int   `json:"inside_local_port,omitempty"`    // Internal port (nil for protocol-only like ESP/AH/GRE)
+	OutsideGlobal     string `json:"outside_global"`                 // External IP address (or "ipcp")
+	OutsideGlobalPort *int   `json:"outside_global_port,omitempty"`  // External port (nil for protocol-only)
+	Protocol          string `json:"protocol,omitempty"`             // "tcp", "udp", "esp", "ah", "gre", or empty
 }
 
 // NATStatic represents a static NAT descriptor configuration on an RTX router
@@ -862,11 +933,11 @@ type NATStatic struct {
 
 // NATStaticEntry represents a single static NAT mapping entry
 type NATStaticEntry struct {
-	InsideLocal       string `json:"inside_local"`                  // Inside local IP address
-	InsideLocalPort   int    `json:"inside_local_port,omitempty"`   // Inside local port (for port NAT)
-	OutsideGlobal     string `json:"outside_global"`                // Outside global IP address
-	OutsideGlobalPort int    `json:"outside_global_port,omitempty"` // Outside global port (for port NAT)
-	Protocol          string `json:"protocol,omitempty"`            // Protocol: tcp, udp (for port NAT)
+	InsideLocal       string `json:"inside_local"`                   // Inside local IP address
+	InsideLocalPort   *int   `json:"inside_local_port,omitempty"`    // Inside local port (for port NAT)
+	OutsideGlobal     string `json:"outside_global"`                 // Outside global IP address
+	OutsideGlobalPort *int   `json:"outside_global_port,omitempty"`  // Outside global port (for port NAT)
+	Protocol          string `json:"protocol,omitempty"`             // Protocol: tcp, udp (for port NAT)
 }
 
 // EthernetFilter represents an Ethernet (Layer 2) filter configuration on an RTX router
@@ -895,11 +966,15 @@ type IPFilter struct {
 
 // IPFilterDynamic represents a dynamic (stateful) IP filter on an RTX router
 type IPFilterDynamic struct {
-	Number   int    `json:"number"`            // Filter number (1-65535)
-	Source   string `json:"source"`            // Source address or "*"
-	Dest     string `json:"dest"`              // Destination address or "*"
-	Protocol string `json:"protocol"`          // Protocol (ftp, www, smtp, etc.)
-	SyslogOn bool   `json:"syslog,omitempty"`  // Enable syslog for this filter
+	Number        int    `json:"number"`                    // Filter number (1-65535)
+	Source        string `json:"source"`                    // Source address or "*"
+	Dest          string `json:"dest"`                      // Destination address or "*"
+	Protocol      string `json:"protocol"`                  // Protocol (ftp, www, smtp, etc.) - Form 1
+	SyslogOn      bool   `json:"syslog,omitempty"`          // Enable syslog for this filter
+	FilterList    []int  `json:"filter_list,omitempty"`     // Form 2: filter <list>
+	InFilterList  []int  `json:"in_filter_list,omitempty"`  // Form 2: in <list>
+	OutFilterList []int  `json:"out_filter_list,omitempty"` // Form 2: out <list>
+	Timeout       *int   `json:"timeout,omitempty"`         // Optional timeout parameter
 }
 
 // BGPConfig represents BGP configuration on an RTX router
@@ -1376,11 +1451,15 @@ type IPFilterDynamicConfig struct {
 
 // IPFilterDynamicEntry represents a single dynamic IP filter entry
 type IPFilterDynamicEntry struct {
-	Number   int    `json:"number"`            // Filter number (unique identifier)
-	Source   string `json:"source"`            // Source address or "*"
-	Dest     string `json:"dest"`              // Destination address or "*"
-	Protocol string `json:"protocol"`          // Protocol (ftp, www, smtp, etc.)
-	Syslog   bool   `json:"syslog,omitempty"`  // Enable syslog for this filter
+	Number        int    `json:"number"`                    // Filter number (unique identifier)
+	Source        string `json:"source"`                    // Source address or "*"
+	Dest          string `json:"dest"`                      // Destination address or "*"
+	Protocol      string `json:"protocol"`                  // Protocol (ftp, www, smtp, etc.) - Form 1
+	Syslog        bool   `json:"syslog,omitempty"`          // Enable syslog for this filter
+	FilterList    []int  `json:"filter_list,omitempty"`     // Form 2: filter <list>
+	InFilterList  []int  `json:"in_filter_list,omitempty"`  // Form 2: in <list>
+	OutFilterList []int  `json:"out_filter_list,omitempty"` // Form 2: out <list>
+	Timeout       *int   `json:"timeout,omitempty"`         // Optional timeout parameter
 }
 
 // IPv6FilterDynamicConfig represents a collection of IPv6 dynamic filters

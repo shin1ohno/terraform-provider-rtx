@@ -48,6 +48,8 @@ type rtxClient struct {
 	serviceManager          *ServiceManager
 	bridgeService           *BridgeService
 	ipv6InterfaceService    *IPv6InterfaceService
+	ddnsService             *DDNSService
+	pppService              *PPPService
 }
 
 // NewClient creates a new RTX client instance
@@ -171,6 +173,8 @@ func (c *rtxClient) Dial(ctx context.Context) error {
 	c.serviceManager = NewServiceManager(c.executor, c)
 	c.bridgeService = NewBridgeService(c.executor, c)
 	c.ipv6InterfaceService = NewIPv6InterfaceService(c.executor, c)
+	c.ddnsService = NewDDNSService(c.executor, c)
+	c.pppService = NewPPPService(c.executor, c)
 	c.active = true
 	return nil
 }
@@ -3408,4 +3412,386 @@ func (c *rtxClient) DeleteInterfaceMACACL(ctx context.Context, iface string) err
 
 func (c *rtxClient) ListInterfaceMACACLs(ctx context.Context) ([]InterfaceMACACL, error) {
 	return nil, fmt.Errorf("interface MAC ACL not implemented")
+}
+
+// ========== DDNS - NetVolante DNS Methods ==========
+
+// GetNetVolanteDNS retrieves all NetVolante DNS configurations
+func (c *rtxClient) GetNetVolanteDNS(ctx context.Context) ([]NetVolanteConfig, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	ddnsService := c.ddnsService
+	c.mu.Unlock()
+
+	if ddnsService == nil {
+		return nil, fmt.Errorf("DDNS service not initialized")
+	}
+
+	return ddnsService.GetNetVolante(ctx)
+}
+
+// GetNetVolanteDNSByInterface retrieves NetVolante DNS configuration by interface
+func (c *rtxClient) GetNetVolanteDNSByInterface(ctx context.Context, iface string) (*NetVolanteConfig, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	ddnsService := c.ddnsService
+	c.mu.Unlock()
+
+	if ddnsService == nil {
+		return nil, fmt.Errorf("DDNS service not initialized")
+	}
+
+	return ddnsService.GetNetVolanteByInterface(ctx, iface)
+}
+
+// ConfigureNetVolanteDNS creates a NetVolante DNS configuration
+func (c *rtxClient) ConfigureNetVolanteDNS(ctx context.Context, config NetVolanteConfig) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	ddnsService := c.ddnsService
+	c.mu.Unlock()
+
+	if ddnsService == nil {
+		return fmt.Errorf("DDNS service not initialized")
+	}
+
+	return ddnsService.ConfigureNetVolante(ctx, config)
+}
+
+// UpdateNetVolanteDNS updates a NetVolante DNS configuration
+func (c *rtxClient) UpdateNetVolanteDNS(ctx context.Context, config NetVolanteConfig) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	ddnsService := c.ddnsService
+	c.mu.Unlock()
+
+	if ddnsService == nil {
+		return fmt.Errorf("DDNS service not initialized")
+	}
+
+	return ddnsService.UpdateNetVolante(ctx, config)
+}
+
+// DeleteNetVolanteDNS removes a NetVolante DNS configuration
+func (c *rtxClient) DeleteNetVolanteDNS(ctx context.Context, iface string) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	ddnsService := c.ddnsService
+	c.mu.Unlock()
+
+	if ddnsService == nil {
+		return fmt.Errorf("DDNS service not initialized")
+	}
+
+	return ddnsService.DeleteNetVolante(ctx, iface)
+}
+
+// ========== DDNS - Custom DDNS Methods ==========
+
+// GetDDNS retrieves all custom DDNS configurations
+func (c *rtxClient) GetDDNS(ctx context.Context) ([]DDNSServerConfig, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	ddnsService := c.ddnsService
+	c.mu.Unlock()
+
+	if ddnsService == nil {
+		return nil, fmt.Errorf("DDNS service not initialized")
+	}
+
+	return ddnsService.GetDDNS(ctx)
+}
+
+// GetDDNSByID retrieves custom DDNS configuration by server ID
+func (c *rtxClient) GetDDNSByID(ctx context.Context, id int) (*DDNSServerConfig, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	ddnsService := c.ddnsService
+	c.mu.Unlock()
+
+	if ddnsService == nil {
+		return nil, fmt.Errorf("DDNS service not initialized")
+	}
+
+	return ddnsService.GetDDNSByID(ctx, id)
+}
+
+// ConfigureDDNS creates a custom DDNS configuration
+func (c *rtxClient) ConfigureDDNS(ctx context.Context, config DDNSServerConfig) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	ddnsService := c.ddnsService
+	c.mu.Unlock()
+
+	if ddnsService == nil {
+		return fmt.Errorf("DDNS service not initialized")
+	}
+
+	return ddnsService.ConfigureDDNS(ctx, config)
+}
+
+// UpdateDDNS updates a custom DDNS configuration
+func (c *rtxClient) UpdateDDNS(ctx context.Context, config DDNSServerConfig) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	ddnsService := c.ddnsService
+	c.mu.Unlock()
+
+	if ddnsService == nil {
+		return fmt.Errorf("DDNS service not initialized")
+	}
+
+	return ddnsService.UpdateDDNS(ctx, config)
+}
+
+// DeleteDDNS removes a custom DDNS configuration
+func (c *rtxClient) DeleteDDNS(ctx context.Context, id int) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	ddnsService := c.ddnsService
+	c.mu.Unlock()
+
+	if ddnsService == nil {
+		return fmt.Errorf("DDNS service not initialized")
+	}
+
+	return ddnsService.DeleteDDNS(ctx, id)
+}
+
+// ========== DDNS - Status Methods ==========
+
+// GetNetVolanteDNSStatus retrieves NetVolante DNS registration status
+func (c *rtxClient) GetNetVolanteDNSStatus(ctx context.Context) ([]DDNSStatus, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	ddnsService := c.ddnsService
+	c.mu.Unlock()
+
+	if ddnsService == nil {
+		return nil, fmt.Errorf("DDNS service not initialized")
+	}
+
+	return ddnsService.GetNetVolanteStatus(ctx)
+}
+
+// GetDDNSStatus retrieves custom DDNS registration status
+func (c *rtxClient) GetDDNSStatus(ctx context.Context) ([]DDNSStatus, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	ddnsService := c.ddnsService
+	c.mu.Unlock()
+
+	if ddnsService == nil {
+		return nil, fmt.Errorf("DDNS service not initialized")
+	}
+
+	return ddnsService.GetDDNSStatus(ctx)
+}
+
+// ========== PPPoE Methods ==========
+
+// ListPPPoE retrieves all PPPoE configurations
+func (c *rtxClient) ListPPPoE(ctx context.Context) ([]PPPoEConfig, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	pppService := c.pppService
+	c.mu.Unlock()
+
+	if pppService == nil {
+		return nil, fmt.Errorf("PPP service not initialized")
+	}
+
+	return pppService.List(ctx)
+}
+
+// GetPPPoE retrieves PPPoE configuration by PP number
+func (c *rtxClient) GetPPPoE(ctx context.Context, ppNum int) (*PPPoEConfig, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	pppService := c.pppService
+	c.mu.Unlock()
+
+	if pppService == nil {
+		return nil, fmt.Errorf("PPP service not initialized")
+	}
+
+	return pppService.Get(ctx, ppNum)
+}
+
+// CreatePPPoE creates a PPPoE configuration
+func (c *rtxClient) CreatePPPoE(ctx context.Context, config PPPoEConfig) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	pppService := c.pppService
+	c.mu.Unlock()
+
+	if pppService == nil {
+		return fmt.Errorf("PPP service not initialized")
+	}
+
+	return pppService.Create(ctx, config)
+}
+
+// UpdatePPPoE updates a PPPoE configuration
+func (c *rtxClient) UpdatePPPoE(ctx context.Context, config PPPoEConfig) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	pppService := c.pppService
+	c.mu.Unlock()
+
+	if pppService == nil {
+		return fmt.Errorf("PPP service not initialized")
+	}
+
+	return pppService.Update(ctx, config)
+}
+
+// DeletePPPoE removes a PPPoE configuration
+func (c *rtxClient) DeletePPPoE(ctx context.Context, ppNum int) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	pppService := c.pppService
+	c.mu.Unlock()
+
+	if pppService == nil {
+		return fmt.Errorf("PPP service not initialized")
+	}
+
+	return pppService.Delete(ctx, ppNum)
+}
+
+// GetPPConnectionStatus retrieves PP interface connection status
+func (c *rtxClient) GetPPConnectionStatus(ctx context.Context, ppNum int) (*PPConnectionStatus, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	pppService := c.pppService
+	c.mu.Unlock()
+
+	if pppService == nil {
+		return nil, fmt.Errorf("PPP service not initialized")
+	}
+
+	return pppService.GetConnectionStatus(ctx, ppNum)
+}
+
+// GetPPInterfaceConfig retrieves PP interface IP configuration
+func (c *rtxClient) GetPPInterfaceConfig(ctx context.Context, ppNum int) (*PPIPConfig, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	pppService := c.pppService
+	c.mu.Unlock()
+
+	if pppService == nil {
+		return nil, fmt.Errorf("PPP service not initialized")
+	}
+
+	return pppService.GetIPConfigForPP(ctx, ppNum)
+}
+
+// ConfigurePPInterface creates PP interface IP configuration
+func (c *rtxClient) ConfigurePPInterface(ctx context.Context, ppNum int, config PPIPConfig) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	pppService := c.pppService
+	c.mu.Unlock()
+
+	if pppService == nil {
+		return fmt.Errorf("PPP service not initialized")
+	}
+
+	return pppService.ConfigureIPForPP(ctx, ppNum, config)
+}
+
+// UpdatePPInterfaceConfig updates PP interface IP configuration
+func (c *rtxClient) UpdatePPInterfaceConfig(ctx context.Context, ppNum int, config PPIPConfig) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	pppService := c.pppService
+	c.mu.Unlock()
+
+	if pppService == nil {
+		return fmt.Errorf("PPP service not initialized")
+	}
+
+	return pppService.UpdateIPConfigForPP(ctx, ppNum, config)
+}
+
+// ResetPPInterfaceConfig removes PP interface IP configuration
+func (c *rtxClient) ResetPPInterfaceConfig(ctx context.Context, ppNum int) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	pppService := c.pppService
+	c.mu.Unlock()
+
+	if pppService == nil {
+		return fmt.Errorf("PPP service not initialized")
+	}
+
+	return pppService.ResetIPConfigForPP(ctx, ppNum)
 }
