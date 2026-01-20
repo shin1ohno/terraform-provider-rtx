@@ -631,7 +631,7 @@ func TestParseDNSServerSelectEDNS(t *testing.T) {
 			name:               "edns=on without record type",
 			input:              "dns server select 2 10.0.0.1 edns=on example.com",
 			expectedEDNS:       true,
-			expectedRecordType: "a", // default
+			expectedRecordType: "", // not specified in input, preserved as empty
 			expectedPattern:    "example.com",
 		},
 		{
@@ -645,7 +645,7 @@ func TestParseDNSServerSelectEDNS(t *testing.T) {
 			name:               "edns=on with original sender",
 			input:              "dns server select 4 10.0.0.1 edns=on example.com 192.168.1.0/24",
 			expectedEDNS:       true,
-			expectedRecordType: "a",
+			expectedRecordType: "", // not specified in input
 			expectedPattern:    "example.com",
 			expectedSender:     "192.168.1.0/24",
 		},
@@ -653,7 +653,7 @@ func TestParseDNSServerSelectEDNS(t *testing.T) {
 			name:                "edns=on with restrict pp",
 			input:               "dns server select 5 10.0.0.1 edns=on . restrict pp 1",
 			expectedEDNS:        true,
-			expectedRecordType:  "a",
+			expectedRecordType:  "", // not specified in input
 			expectedPattern:     ".",
 			expectedRestrictPP:  1,
 		},
@@ -670,14 +670,14 @@ func TestParseDNSServerSelectEDNS(t *testing.T) {
 			name:               "domain with equals sign (not edns)",
 			input:              "dns server select 7 10.0.0.1 something=test.com",
 			expectedEDNS:       false,
-			expectedRecordType: "a",
+			expectedRecordType: "", // not specified in input
 			expectedPattern:    "something=test.com",
 		},
 		{
 			name:               "edns=on with wildcard domain",
 			input:              "dns server select 8 192.168.1.1 edns=on *.internal.corp",
 			expectedEDNS:       true,
-			expectedRecordType: "a",
+			expectedRecordType: "", // not specified in input
 			expectedPattern:    "*.internal.corp",
 		},
 		{
@@ -733,6 +733,137 @@ func TestParseDNSServerSelectEDNS(t *testing.T) {
 	}
 }
 
+// TestParseDNSServerSelectFieldOrder verifies correct field parsing order per RTX spec (REQ-1)
+// Command format: dns server select <id> <server1> [server2] [edns=on] [record_type] <query_pattern> [original_sender] [restrict pp n]
+func TestParseDNSServerSelectFieldOrder(t *testing.T) {
+	tests := []struct {
+		name            string
+		input           string
+		expectedServers []string
+		expectedEDNS    bool
+		expectedType    string
+		expectedPattern string
+		expectedSender  string
+		expectedPP      int
+	}{
+		{
+			name:            "two servers with aaaa record type",
+			input:           "dns server select 1 10.0.0.1 10.0.0.2 aaaa .",
+			expectedServers: []string{"10.0.0.1", "10.0.0.2"},
+			expectedEDNS:    false,
+			expectedType:    "aaaa",
+			expectedPattern: ".",
+		},
+		{
+			name:            "two servers with dot query pattern only",
+			input:           "dns server select 2 8.8.8.8 8.8.4.4 .",
+			expectedServers: []string{"8.8.8.8", "8.8.4.4"},
+			expectedEDNS:    false,
+			expectedType:    "", // not specified
+			expectedPattern: ".",
+		},
+		{
+			name:            "two servers with edns and any type",
+			input:           "dns server select 3 10.0.0.1 10.0.0.2 edns=on any .",
+			expectedServers: []string{"10.0.0.1", "10.0.0.2"},
+			expectedEDNS:    true,
+			expectedType:    "any",
+			expectedPattern: ".",
+		},
+		{
+			name:            "single server with original_sender after query pattern",
+			input:           "dns server select 4 192.168.1.1 example.com 192.168.0.0/24",
+			expectedServers: []string{"192.168.1.1"},
+			expectedEDNS:    false,
+			expectedType:    "",
+			expectedPattern: "example.com",
+			expectedSender:  "192.168.0.0/24",
+		},
+		{
+			name:            "two servers should not confuse second server as original_sender",
+			input:           "dns server select 5 10.0.0.1 10.0.0.2 example.com",
+			expectedServers: []string{"10.0.0.1", "10.0.0.2"},
+			expectedEDNS:    false,
+			expectedType:    "",
+			expectedPattern: "example.com",
+			expectedSender:  "", // 10.0.0.2 is a server, not original_sender
+		},
+		{
+			name:            "full options in correct order",
+			input:           "dns server select 6 10.0.0.53 10.0.0.54 edns=on aaaa *.corp.example.com 192.168.1.0/24 restrict pp 1",
+			expectedServers: []string{"10.0.0.53", "10.0.0.54"},
+			expectedEDNS:    true,
+			expectedType:    "aaaa",
+			expectedPattern: "*.corp.example.com",
+			expectedSender:  "192.168.1.0/24",
+			expectedPP:      1,
+		},
+		{
+			name:            "aaaa record type preserved not defaulted to a",
+			input:           "dns server select 7 10.0.0.1 aaaa example.com",
+			expectedServers: []string{"10.0.0.1"},
+			expectedEDNS:    false,
+			expectedType:    "aaaa", // must be preserved, not defaulted to "a"
+			expectedPattern: "example.com",
+		},
+		{
+			name:            "dot query pattern not misinterpreted",
+			input:           "dns server select 8 10.0.0.1 10.0.0.2 .",
+			expectedServers: []string{"10.0.0.1", "10.0.0.2"},
+			expectedType:    "",
+			expectedPattern: ".", // dot is query pattern, not record type
+		},
+	}
+
+	parser := NewDNSParser()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config, err := parser.ParseDNSConfig(tt.input)
+			if err != nil {
+				t.Fatalf("Parse failed: %v", err)
+			}
+
+			if len(config.ServerSelect) != 1 {
+				t.Fatalf("Expected 1 server select entry, got %d", len(config.ServerSelect))
+			}
+
+			sel := config.ServerSelect[0]
+
+			// Verify servers array
+			if len(sel.Servers) != len(tt.expectedServers) {
+				t.Errorf("Servers count: expected %d, got %d (servers: %v)",
+					len(tt.expectedServers), len(sel.Servers), sel.Servers)
+			}
+			for i, expected := range tt.expectedServers {
+				if i < len(sel.Servers) && sel.Servers[i] != expected {
+					t.Errorf("Server[%d]: expected %s, got %s", i, expected, sel.Servers[i])
+				}
+			}
+
+			if sel.EDNS != tt.expectedEDNS {
+				t.Errorf("EDNS: expected %v, got %v", tt.expectedEDNS, sel.EDNS)
+			}
+
+			if sel.RecordType != tt.expectedType {
+				t.Errorf("RecordType: expected %q, got %q", tt.expectedType, sel.RecordType)
+			}
+
+			if sel.QueryPattern != tt.expectedPattern {
+				t.Errorf("QueryPattern: expected %q, got %q", tt.expectedPattern, sel.QueryPattern)
+			}
+
+			if sel.OriginalSender != tt.expectedSender {
+				t.Errorf("OriginalSender: expected %q, got %q", tt.expectedSender, sel.OriginalSender)
+			}
+
+			if sel.RestrictPP != tt.expectedPP {
+				t.Errorf("RestrictPP: expected %d, got %d", tt.expectedPP, sel.RestrictPP)
+			}
+		})
+	}
+}
+
 // TestDNSServerSelectRoundTrip verifies that parsing and building produce consistent results
 func TestDNSServerSelectRoundTrip(t *testing.T) {
 	tests := []struct {
@@ -757,7 +888,7 @@ func TestDNSServerSelectRoundTrip(t *testing.T) {
 				ID:           2,
 				Servers:      []string{"192.168.1.1"},
 				EDNS:         false,
-				RecordType:   "a",
+				RecordType:   "", // empty means default, not emitted in command
 				QueryPattern: "example.com",
 			},
 			expected: "dns server select 2 192.168.1.1 example.com",
@@ -809,6 +940,109 @@ func TestDNSServerSelectRoundTrip(t *testing.T) {
 			}
 			if sel.QueryPattern != tt.input.QueryPattern {
 				t.Errorf("QueryPattern: expected %s, got %s", tt.input.QueryPattern, sel.QueryPattern)
+			}
+		})
+	}
+}
+
+// TestParseDNSServerSelectREQ1Cases verifies specific test cases from REQ-1
+// These test cases ensure the parser handles the field order correctly
+func TestParseDNSServerSelectREQ1Cases(t *testing.T) {
+	tests := []struct {
+		name            string
+		input           string
+		expectedServers []string
+		expectedEDNS    bool
+		expectedType    string
+		expectedPattern string
+		expectedSender  string
+		expectedPP      int
+	}{
+		{
+			// Test Case 1: Two servers with dot query pattern and restrict pp
+			// Input: 1.1.1.1 1.0.0.1 . restrict pp 1
+			// Expected: servers=[1.1.1.1, 1.0.0.1], query_pattern=., no original_sender
+			name:            "REQ1-case1: two servers dot restrict",
+			input:           "dns server select 1 1.1.1.1 1.0.0.1 . restrict pp 1",
+			expectedServers: []string{"1.1.1.1", "1.0.0.1"},
+			expectedEDNS:    false,
+			expectedType:    "",
+			expectedPattern: ".",
+			expectedSender:  "",
+			expectedPP:      1,
+		},
+		{
+			// Test Case 2: Single server with edns, aaaa record type, and dot query pattern
+			// Input: 1.1.1.1 edns=on aaaa .
+			// Expected: servers=[1.1.1.1], edns=true, record_type=aaaa, query_pattern=.
+			name:            "REQ1-case2: edns aaaa dot",
+			input:           "dns server select 2 1.1.1.1 edns=on aaaa .",
+			expectedServers: []string{"1.1.1.1"},
+			expectedEDNS:    true,
+			expectedType:    "aaaa",
+			expectedPattern: ".",
+			expectedSender:  "",
+			expectedPP:      0,
+		},
+		{
+			// Test Case 3: Single server with record type 'a', domain pattern, and original_sender
+			// Input: 8.8.8.8 a example.com 192.168.1.0/24
+			// Expected: servers=[8.8.8.8], record_type=a, query_pattern=example.com, original_sender=192.168.1.0/24
+			name:            "REQ1-case3: a type with original_sender",
+			input:           "dns server select 3 8.8.8.8 a example.com 192.168.1.0/24",
+			expectedServers: []string{"8.8.8.8"},
+			expectedEDNS:    false,
+			expectedType:    "a",
+			expectedPattern: "example.com",
+			expectedSender:  "192.168.1.0/24",
+			expectedPP:      0,
+		},
+	}
+
+	parser := NewDNSParser()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config, err := parser.ParseDNSConfig(tt.input)
+			if err != nil {
+				t.Fatalf("Parse failed: %v", err)
+			}
+
+			if len(config.ServerSelect) != 1 {
+				t.Fatalf("Expected 1 server select entry, got %d", len(config.ServerSelect))
+			}
+
+			sel := config.ServerSelect[0]
+
+			// Verify servers array
+			if len(sel.Servers) != len(tt.expectedServers) {
+				t.Errorf("Servers count: expected %d, got %d (servers: %v)",
+					len(tt.expectedServers), len(sel.Servers), sel.Servers)
+			}
+			for i, expected := range tt.expectedServers {
+				if i < len(sel.Servers) && sel.Servers[i] != expected {
+					t.Errorf("Server[%d]: expected %s, got %s", i, expected, sel.Servers[i])
+				}
+			}
+
+			if sel.EDNS != tt.expectedEDNS {
+				t.Errorf("EDNS: expected %v, got %v", tt.expectedEDNS, sel.EDNS)
+			}
+
+			if sel.RecordType != tt.expectedType {
+				t.Errorf("RecordType: expected %q, got %q", tt.expectedType, sel.RecordType)
+			}
+
+			if sel.QueryPattern != tt.expectedPattern {
+				t.Errorf("QueryPattern: expected %q, got %q", tt.expectedPattern, sel.QueryPattern)
+			}
+
+			if sel.OriginalSender != tt.expectedSender {
+				t.Errorf("OriginalSender: expected %q, got %q", tt.expectedSender, sel.OriginalSender)
+			}
+
+			if sel.RestrictPP != tt.expectedPP {
+				t.Errorf("RestrictPP: expected %d, got %d", tt.expectedPP, sel.RestrictPP)
 			}
 		})
 	}
