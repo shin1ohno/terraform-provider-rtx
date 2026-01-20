@@ -49,7 +49,7 @@
   - _Leverage: Existing IPFilterDynamic struct_
   - _Requirements: REQ-3_
 
-- [ ] 7. Create extended dynamic filter parser function
+- [x] 7. Create extended dynamic filter parser function
   - File: internal/rtx/parsers/ip_filter.go
   - Implement `ParseIPFilterDynamicConfigExtended()` to handle both forms
   - Handle Form 1: `ip filter dynamic <id> <src> <dst> <protocol> [options]`
@@ -58,7 +58,7 @@
   - _Leverage: Existing ParseIPFilterDynamicConfig function_
   - _Requirements: REQ-3_
 
-- [ ] 8. Create extended dynamic filter command builder
+- [x] 8. Create extended dynamic filter command builder
   - File: internal/rtx/parsers/ip_filter.go
   - Implement `BuildIPFilterDynamicCommandExtended()` for both forms
   - Handle syslog=on/off and timeout=N options
@@ -111,7 +111,7 @@
 
 ## Phase 3: NAT Protocol-Only Support (REQ-4)
 
-- [ ] 14. Modify MasqueradeStaticEntry struct for optional ports
+- [x] 14. Modify MasqueradeStaticEntry struct for optional ports
   - File: internal/rtx/parsers/nat_masquerade.go
   - Change InsideLocalPort from int to *int (pointer for optional)
   - Change OutsideGlobalPort from int to *int (pointer for optional)
@@ -119,7 +119,7 @@
   - _Leverage: Existing MasqueradeStaticEntry struct_
   - _Requirements: REQ-4_
 
-- [ ] 15. Update NAT masquerade static command builder
+- [x] 15. Update NAT masquerade static command builder
   - File: internal/rtx/parsers/nat_masquerade.go
   - Modify BuildNATMasqueradeStaticCommand() to handle nil port values
   - Generate `nat descriptor masquerade static <id> <num> <ip> <protocol>` when port is nil
@@ -128,7 +128,7 @@
   - _Leverage: Existing command builder logic_
   - _Requirements: REQ-4_
 
-- [ ] 16. Update NAT masquerade parser for protocol-only entries
+- [x] 16. Update NAT masquerade parser for protocol-only entries
   - File: internal/rtx/parsers/nat_masquerade.go
   - Modify ParseNATMasqueradeConfig() to handle entries without port
   - Set port fields to nil when not present in config
@@ -145,7 +145,7 @@
   - _Leverage: Existing NAT masquerade test patterns_
   - _Requirements: REQ-4_
 
-- [ ] 18. Update rtx_nat_masquerade resource schema
+- [x] 18. Update rtx_nat_masquerade resource schema
   - File: internal/provider/resource_rtx_nat_masquerade.go
   - Make inside_local_port optional in static_entry block
   - Make outside_global_port optional in static_entry block
@@ -154,14 +154,14 @@
   - _Leverage: Existing static_entry schema_
   - _Requirements: REQ-4_
 
-- [ ] 19. Update expandStaticEntries and flattenStaticEntries
+- [x] 19. Update expandStaticEntries and flattenStaticEntries
   - File: internal/provider/resource_rtx_nat_masquerade.go
   - Handle nil port values in expansion and flattening
   - Purpose: Correctly convert between Terraform state and Go structs
   - _Leverage: Existing helper functions_
   - _Requirements: REQ-4_
 
-- [ ] 20. Add acceptance tests for protocol-only NAT entries
+- [x] 20. Add acceptance tests for protocol-only NAT entries
   - File: internal/provider/resource_rtx_nat_masquerade_test.go
   - Test creating static entry with ESP protocol only
   - Test import of existing protocol-only entries

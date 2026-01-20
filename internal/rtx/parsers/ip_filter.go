@@ -23,11 +23,15 @@ type IPFilter struct {
 
 // IPFilterDynamic represents a dynamic (stateful) IP filter on an RTX router
 type IPFilterDynamic struct {
-	Number   int    `json:"number"`            // Filter number (1-65535)
-	Source   string `json:"source"`            // Source address or "*"
-	Dest     string `json:"dest"`              // Destination address or "*"
-	Protocol string `json:"protocol"`          // Protocol (ftp, www, smtp, etc.)
-	SyslogOn bool   `json:"syslog,omitempty"`  // Enable syslog for this filter
+	Number        int    `json:"number"`                    // Filter number (1-65535)
+	Source        string `json:"source"`                    // Source address or "*"
+	Dest          string `json:"dest"`                      // Destination address or "*"
+	Protocol      string `json:"protocol"`                  // Protocol (ftp, www, smtp, etc.)
+	SyslogOn      bool   `json:"syslog,omitempty"`          // Enable syslog for this filter
+	FilterList    []int  `json:"filter_list,omitempty"`     // Form 2: filter <list>
+	InFilterList  []int  `json:"in_filter_list,omitempty"`  // Form 2: in <list>
+	OutFilterList []int  `json:"out_filter_list,omitempty"` // Form 2: out <list>
+	Timeout       *int   `json:"timeout,omitempty"`         // Optional timeout parameter
 }
 
 // IPFilterSet represents a set of IP filters grouped together
@@ -37,15 +41,19 @@ type IPFilterSet struct {
 }
 
 // ValidIPFilterActions defines the valid actions for IP filters
-var ValidIPFilterActions = []string{"pass", "reject", "restrict", "restrict-log"}
+var ValidIPFilterActions = []string{"pass", "reject", "restrict", "restrict-log", "restrict-nolog"}
 
 // ValidIPFilterProtocols defines the valid protocols for IP filters
-var ValidIPFilterProtocols = []string{"tcp", "udp", "icmp", "ip", "*", "gre", "esp", "ah", "icmp6"}
+var ValidIPFilterProtocols = []string{"tcp", "udp", "icmp", "ip", "*", "gre", "esp", "ah", "icmp6", "tcpfin", "tcprst", "tcpsyn", "established"}
 
 // ValidDynamicProtocols defines the valid protocols for dynamic filters
 var ValidDynamicProtocols = []string{
 	"ftp", "www", "smtp", "pop3", "dns", "domain", "telnet", "ssh",
 	"tcp", "udp", "*",
+	// Extended protocols
+	"tftp", "submission", "https", "imap", "imaps", "pop3s", "smtps",
+	"ldap", "ldaps", "bgp", "sip", "ipsec-nat-t", "ntp", "snmp",
+	"rtsp", "h323", "pptp", "l2tp", "ike", "esp",
 }
 
 // ParseIPFilterConfig parses the output of "show config" command for IP filter lines
@@ -821,4 +829,171 @@ func BuildInterfaceIPv6SecureFilterWithDynamicCommand(iface string, direction st
 // Command format: no ipv6 <interface> secure filter <direction>
 func BuildDeleteInterfaceIPv6SecureFilterCommand(iface string, direction string) string {
 	return fmt.Sprintf("no ipv6 %s secure filter %s", iface, direction)
+}
+
+// ParseIPFilterDynamicConfigExtended parses the output of "show config" for dynamic IP filter lines
+// Handles both forms:
+// Form 1: ip filter dynamic <id> <src> <dst> <protocol> [syslog on|off] [timeout=N]
+// Form 2: ip filter dynamic <id> <src> <dst> filter <list> [in <list>] [out <list>] [syslog on|off] [timeout=N]
+func ParseIPFilterDynamicConfigExtended(raw string) ([]IPFilterDynamic, error) {
+	filters := []IPFilterDynamic{}
+	lines := strings.Split(raw, "\n")
+
+	// Pattern for dynamic IP filter lines
+	dynamicPattern := regexp.MustCompile(`^\s*ip\s+filter\s+dynamic\s+(\d+)\s+(\S+)\s+(\S+)\s+(.+)$`)
+	syslogOnPattern := regexp.MustCompile(`\bsyslog\s+on\b`)
+	timeoutPattern := regexp.MustCompile(`\btimeout=(\d+)\b`)
+	filterListPattern := regexp.MustCompile(`^filter\s+(.+)`)
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		if matches := dynamicPattern.FindStringSubmatch(line); len(matches) >= 5 {
+			number, err := strconv.Atoi(matches[1])
+			if err != nil {
+				continue
+			}
+
+			filter := IPFilterDynamic{
+				Number: number,
+				Source: matches[2],
+				Dest:   matches[3],
+			}
+
+			remainder := strings.TrimSpace(matches[4])
+
+			// Check for syslog option
+			if syslogOnPattern.MatchString(remainder) {
+				filter.SyslogOn = true
+			}
+			// Note: syslog off is the default, so we don't need to set anything
+
+			// Check for timeout option
+			if timeoutMatch := timeoutPattern.FindStringSubmatch(remainder); len(timeoutMatch) >= 2 {
+				timeout, err := strconv.Atoi(timeoutMatch[1])
+				if err == nil {
+					filter.Timeout = &timeout
+				}
+			}
+
+			// Check if this is Form 2 (filter-reference form)
+			if filterListMatch := filterListPattern.FindStringSubmatch(remainder); len(filterListMatch) >= 2 {
+				// Form 2: parse filter lists
+				parseFilterLists(&filter, filterListMatch[1])
+			} else {
+				// Form 1: extract protocol (first token before options)
+				parts := strings.Fields(remainder)
+				if len(parts) > 0 {
+					// The first part is the protocol
+					filter.Protocol = parts[0]
+				}
+			}
+
+			filters = append(filters, filter)
+		}
+	}
+
+	return filters, nil
+}
+
+// parseFilterLists parses the filter/in/out lists from Form 2 dynamic filter
+// Example: "100 101 in 200 201 out 300 syslog on timeout=60"
+func parseFilterLists(filter *IPFilterDynamic, remainder string) {
+	parts := strings.Fields(remainder)
+
+	// State machine to parse the filter lists
+	// States: filter (default), in, out, options
+	state := "filter"
+	var filterList, inList, outList []int
+
+	for i := 0; i < len(parts); i++ {
+		part := parts[i]
+
+		// Check for state changes
+		if part == "in" {
+			state = "in"
+			continue
+		}
+		if part == "out" {
+			state = "out"
+			continue
+		}
+		// Check for options (syslog, timeout)
+		if part == "syslog" || strings.HasPrefix(part, "timeout=") {
+			break // Options are handled separately
+		}
+
+		// Try to parse as number
+		num, err := strconv.Atoi(part)
+		if err != nil {
+			continue
+		}
+
+		switch state {
+		case "filter":
+			filterList = append(filterList, num)
+		case "in":
+			inList = append(inList, num)
+		case "out":
+			outList = append(outList, num)
+		}
+	}
+
+	filter.FilterList = filterList
+	filter.InFilterList = inList
+	filter.OutFilterList = outList
+}
+
+// BuildIPFilterDynamicCommandExtended builds the command to create a dynamic IP filter
+// Handles both forms:
+// Form 1: ip filter dynamic <id> <src> <dst> <protocol> [syslog on|off] [timeout=N]
+// Form 2: ip filter dynamic <id> <src> <dst> filter <list> [in <list>] [out <list>] [syslog on|off] [timeout=N]
+func BuildIPFilterDynamicCommandExtended(filter IPFilterDynamic) string {
+	parts := []string{
+		"ip", "filter", "dynamic",
+		strconv.Itoa(filter.Number),
+		filter.Source,
+		filter.Dest,
+	}
+
+	// Check if this is Form 2 (filter-reference form)
+	if len(filter.FilterList) > 0 {
+		// Form 2: filter <list> [in <list>] [out <list>]
+		parts = append(parts, "filter")
+		for _, num := range filter.FilterList {
+			parts = append(parts, strconv.Itoa(num))
+		}
+
+		if len(filter.InFilterList) > 0 {
+			parts = append(parts, "in")
+			for _, num := range filter.InFilterList {
+				parts = append(parts, strconv.Itoa(num))
+			}
+		}
+
+		if len(filter.OutFilterList) > 0 {
+			parts = append(parts, "out")
+			for _, num := range filter.OutFilterList {
+				parts = append(parts, strconv.Itoa(num))
+			}
+		}
+	} else {
+		// Form 1: <protocol>
+		parts = append(parts, filter.Protocol)
+	}
+
+	// Add syslog option
+	if filter.SyslogOn {
+		parts = append(parts, "syslog", "on")
+	}
+
+	// Add timeout option
+	if filter.Timeout != nil {
+		parts = append(parts, fmt.Sprintf("timeout=%d", *filter.Timeout))
+	}
+
+	return strings.Join(parts, " ")
 }
