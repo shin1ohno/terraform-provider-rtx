@@ -9,13 +9,21 @@ import (
 
 // EthernetFilter represents an Ethernet (Layer 2) filter configuration on an RTX router
 type EthernetFilter struct {
-	Number    int    `json:"number"`               // Filter number (1-65535)
-	Action    string `json:"action"`               // pass or reject
-	SourceMAC string `json:"source_mac"`           // Source MAC address (* for any)
-	DestMAC   string `json:"dest_mac"`             // Destination MAC address (* for any)
-	EtherType string `json:"ether_type,omitempty"` // Ethernet type (e.g., 0x0800, 0x0806)
-	VlanID    int    `json:"vlan_id,omitempty"`    // VLAN ID (1-4094, 0 means not specified)
+	Number         int      `json:"number"`                    // Filter number (1-512)
+	Action         string   `json:"action"`                    // pass-log, pass-nolog, reject-log, reject-nolog
+	SourceMAC      string   `json:"source_mac,omitempty"`      // Source MAC address (* for any)
+	DestinationMAC string   `json:"destination_mac,omitempty"` // Destination MAC address (* for any)
+	DestMAC        string   `json:"dest_mac,omitempty"`        // Deprecated: Use DestinationMAC instead
+	EtherType      string   `json:"ether_type,omitempty"`      // Ethernet type (e.g., 0x0800, 0x0806)
+	VlanID         int      `json:"vlan_id,omitempty"`         // VLAN ID (1-4094, 0 means not specified)
+	DHCPType       string   `json:"dhcp_type,omitempty"`       // DHCP filter type: dhcp-bind or dhcp-not-bind
+	DHCPScope      int      `json:"dhcp_scope,omitempty"`      // DHCP scope number (for DHCP-based filters)
+	Offset         int      `json:"offset,omitempty"`          // Byte offset for byte-match filtering
+	ByteList       []string `json:"byte_list,omitempty"`       // Byte patterns for byte-match filtering
 }
+
+// ValidEthernetFilterActions defines the valid actions for Ethernet filters
+var ValidEthernetFilterActions = []string{"pass-log", "pass-nolog", "reject-log", "reject-nolog", "pass", "reject"}
 
 // EthernetFilterParser parses Ethernet filter configuration output
 type EthernetFilterParser struct{}
@@ -94,12 +102,24 @@ func ConvertMACToCisco(mac string) string {
 
 // ParseEthernetFilterConfig parses the output of "show config" command
 // and extracts Ethernet filter configurations
+// Handles both MAC-based and DHCP-based filter formats:
+// - MAC-based: ethernet filter <id> <action> <src_mac> [<dst_mac>] [offset=N byte1 byte2 ...]
+// - DHCP-based: ethernet filter <id> <action> dhcp-bind|dhcp-not-bind [<scope>]
 func ParseEthernetFilterConfig(raw string) ([]EthernetFilter, error) {
 	filters := []EthernetFilter{}
 	lines := strings.Split(raw, "\n")
 
-	// Pattern: ethernet filter <n> <action> <src_mac> <dst_mac> [<eth_type>] [vlan <vlan_id>]
-	filterPattern := regexp.MustCompile(`^\s*ethernet\s+filter\s+(\d+)\s+(pass|reject)\s+(\S+)\s+(\S+)(?:\s+(0x[0-9a-fA-F]+|\*))?(?:\s+vlan\s+(\d+))?\s*$`)
+	// Pattern for MAC-based filter:
+	// ethernet filter <n> <action> <src_mac> <dst_mac> [<eth_type>] [vlan <vlan_id>]
+	macFilterPattern := regexp.MustCompile(`^\s*ethernet\s+filter\s+(\d+)\s+(pass-log|pass-nolog|reject-log|reject-nolog|pass|reject)\s+(\S+)\s+(\S+)(?:\s+(0x[0-9a-fA-F]+|\*))?(?:\s+vlan\s+(\d+))?\s*$`)
+
+	// Pattern for DHCP-based filter:
+	// ethernet filter <n> <action> dhcp-bind|dhcp-not-bind [<scope>]
+	dhcpFilterPattern := regexp.MustCompile(`^\s*ethernet\s+filter\s+(\d+)\s+(pass-log|pass-nolog|reject-log|reject-nolog|pass|reject)\s+(dhcp-bind|dhcp-not-bind)(?:\s+(\d+))?\s*$`)
+
+	// Pattern for filter with offset and byte_list:
+	// ethernet filter <n> <action> <src_mac> [<dst_mac>] offset=<N> <byte1> <byte2> ...
+	offsetFilterPattern := regexp.MustCompile(`^\s*ethernet\s+filter\s+(\d+)\s+(pass-log|pass-nolog|reject-log|reject-nolog|pass|reject)\s+(\S+)(?:\s+(\S+))?\s+offset=(\d+)\s+(.+)$`)
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -107,19 +127,74 @@ func ParseEthernetFilterConfig(raw string) ([]EthernetFilter, error) {
 			continue
 		}
 
-		matches := filterPattern.FindStringSubmatch(line)
-		if len(matches) >= 5 {
+		// Try offset filter pattern first (most specific)
+		if matches := offsetFilterPattern.FindStringSubmatch(line); len(matches) >= 7 {
+			number, err := strconv.Atoi(matches[1])
+			if err != nil {
+				continue
+			}
+			offset, err := strconv.Atoi(matches[5])
+			if err != nil {
+				continue
+			}
+
+			filter := EthernetFilter{
+				Number:         number,
+				Action:         matches[2],
+				SourceMAC:      matches[3],
+				DestinationMAC: matches[4],
+				Offset:         offset,
+				ByteList:       strings.Fields(matches[6]),
+			}
+
+			// For backward compatibility
+			filter.DestMAC = filter.DestinationMAC
+
+			filters = append(filters, filter)
+			continue
+		}
+
+		// Try DHCP-based filter pattern
+		if matches := dhcpFilterPattern.FindStringSubmatch(line); len(matches) >= 4 {
 			number, err := strconv.Atoi(matches[1])
 			if err != nil {
 				continue
 			}
 
 			filter := EthernetFilter{
-				Number:    number,
-				Action:    matches[2],
-				SourceMAC: matches[3],
-				DestMAC:   matches[4],
+				Number:   number,
+				Action:   matches[2],
+				DHCPType: matches[3],
 			}
+
+			// DHCP scope (optional)
+			if len(matches) > 4 && matches[4] != "" {
+				scope, err := strconv.Atoi(matches[4])
+				if err == nil {
+					filter.DHCPScope = scope
+				}
+			}
+
+			filters = append(filters, filter)
+			continue
+		}
+
+		// Try MAC-based filter pattern
+		if matches := macFilterPattern.FindStringSubmatch(line); len(matches) >= 5 {
+			number, err := strconv.Atoi(matches[1])
+			if err != nil {
+				continue
+			}
+
+			filter := EthernetFilter{
+				Number:         number,
+				Action:         matches[2],
+				SourceMAC:      matches[3],
+				DestinationMAC: matches[4],
+			}
+
+			// For backward compatibility
+			filter.DestMAC = filter.DestinationMAC
 
 			// EtherType (optional)
 			if len(matches) > 5 && matches[5] != "" && matches[5] != "*" {
@@ -158,19 +233,42 @@ func ParseSingleEthernetFilter(raw string, filterNumber int) (*EthernetFilter, e
 }
 
 // BuildEthernetFilterCommand builds the command to create an Ethernet filter
-// Command format: ethernet filter <n> <action> <src_mac> <dst_mac> [<eth_type>] [vlan <vlan_id>]
+// Handles both MAC-based and DHCP-based filter formats:
+// - MAC-based: ethernet filter <n> <action> <src_mac> [<dst_mac>] [<eth_type>] [vlan <vlan_id>]
+// - DHCP-based: ethernet filter <n> <action> dhcp-bind|dhcp-not-bind [<scope>]
+// - With offset: ethernet filter <n> <action> <src_mac> [<dst_mac>] offset=<N> <byte1> <byte2> ...
 func BuildEthernetFilterCommand(filter EthernetFilter) string {
+	// DHCP-based filter
+	if filter.DHCPType != "" {
+		cmd := fmt.Sprintf("ethernet filter %d %s %s", filter.Number, filter.Action, filter.DHCPType)
+		if filter.DHCPScope > 0 {
+			cmd += fmt.Sprintf(" %d", filter.DHCPScope)
+		}
+		return cmd
+	}
+
+	// MAC-based filter
 	srcMAC := filter.SourceMAC
 	if srcMAC == "" {
 		srcMAC = "*"
 	}
 
-	dstMAC := filter.DestMAC
+	// Use DestinationMAC if set, fall back to DestMAC for backward compatibility
+	dstMAC := filter.DestinationMAC
+	if dstMAC == "" {
+		dstMAC = filter.DestMAC
+	}
 	if dstMAC == "" {
 		dstMAC = "*"
 	}
 
 	cmd := fmt.Sprintf("ethernet filter %d %s %s %s", filter.Number, filter.Action, srcMAC, dstMAC)
+
+	// Add offset and byte_list if specified
+	if filter.Offset > 0 && len(filter.ByteList) > 0 {
+		cmd += fmt.Sprintf(" offset=%d %s", filter.Offset, strings.Join(filter.ByteList, " "))
+		return cmd
+	}
 
 	// Add EtherType if specified
 	if filter.EtherType != "" {
@@ -225,11 +323,37 @@ func BuildShowAllEthernetFiltersCommand() string {
 	return "show config | grep \"ethernet filter\""
 }
 
-// ValidateEthernetFilterNumber validates that the filter number is in valid range (1-65535)
+// ValidateEthernetFilterNumber validates that the filter number is in valid range (1-512)
 func ValidateEthernetFilterNumber(n int) error {
-	if n < 1 || n > 65535 {
-		return fmt.Errorf("ethernet filter number must be between 1 and 65535, got %d", n)
+	if n < 1 || n > 512 {
+		return fmt.Errorf("ethernet filter number must be between 1 and 512, got %d", n)
 	}
+	return nil
+}
+
+// ValidateMACAddress validates a MAC address format for ethernet filters
+// Valid formats:
+//   - xx:xx:xx:xx:xx:xx (colon-separated)
+//   - * (wildcard)
+func ValidateMACAddress(mac string) error {
+	mac = strings.TrimSpace(mac)
+
+	// Empty is valid (will default to *)
+	if mac == "" {
+		return nil
+	}
+
+	// Wildcard is valid
+	if mac == "*" {
+		return nil
+	}
+
+	// Pattern for colon-separated MAC address: xx:xx:xx:xx:xx:xx
+	macPattern := regexp.MustCompile(`^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$`)
+	if !macPattern.MatchString(mac) {
+		return fmt.Errorf("invalid MAC address format: %s (expected xx:xx:xx:xx:xx:xx or *)", mac)
+	}
+
 	return nil
 }
 
@@ -317,11 +441,27 @@ func ValidateVlanID(id int) error {
 	return nil
 }
 
-// ValidateEthernetFilterAction validates the filter action (pass or reject)
+// ValidateEthernetFilterAction validates the filter action
+// Valid actions: pass-log, pass-nolog, reject-log, reject-nolog, pass, reject
 func ValidateEthernetFilterAction(action string) error {
 	action = strings.ToLower(strings.TrimSpace(action))
-	if action != "pass" && action != "reject" {
-		return fmt.Errorf("action must be 'pass' or 'reject', got '%s'", action)
+	for _, valid := range ValidEthernetFilterActions {
+		if action == valid {
+			return nil
+		}
+	}
+	return fmt.Errorf("action must be one of %v, got '%s'", ValidEthernetFilterActions, action)
+}
+
+// ValidateDHCPType validates the DHCP filter type
+// Valid types: dhcp-bind, dhcp-not-bind
+func ValidateDHCPType(dhcpType string) error {
+	dhcpType = strings.ToLower(strings.TrimSpace(dhcpType))
+	if dhcpType == "" {
+		return nil // Empty is valid for non-DHCP filters
+	}
+	if dhcpType != "dhcp-bind" && dhcpType != "dhcp-not-bind" {
+		return fmt.Errorf("dhcp_type must be 'dhcp-bind' or 'dhcp-not-bind', got '%s'", dhcpType)
 	}
 	return nil
 }
@@ -345,14 +485,36 @@ func ValidateEthernetFilter(filter EthernetFilter) error {
 		return err
 	}
 
+	// DHCP-based filter validation
+	if filter.DHCPType != "" {
+		if err := ValidateDHCPType(filter.DHCPType); err != nil {
+			return err
+		}
+		// DHCP filters should not have MAC addresses set
+		if filter.SourceMAC != "" && filter.SourceMAC != "*" {
+			return fmt.Errorf("DHCP-based filter should not have source MAC address")
+		}
+		if (filter.DestinationMAC != "" && filter.DestinationMAC != "*") ||
+			(filter.DestMAC != "" && filter.DestMAC != "*") {
+			return fmt.Errorf("DHCP-based filter should not have destination MAC address")
+		}
+		return nil
+	}
+
+	// MAC-based filter validation
 	if filter.SourceMAC != "" {
 		if err := ValidateMAC(filter.SourceMAC); err != nil {
 			return fmt.Errorf("invalid source MAC: %w", err)
 		}
 	}
 
-	if filter.DestMAC != "" {
-		if err := ValidateMAC(filter.DestMAC); err != nil {
+	// Check both DestinationMAC and DestMAC for backward compatibility
+	destMAC := filter.DestinationMAC
+	if destMAC == "" {
+		destMAC = filter.DestMAC
+	}
+	if destMAC != "" {
+		if err := ValidateMAC(destMAC); err != nil {
 			return fmt.Errorf("invalid destination MAC: %w", err)
 		}
 	}
@@ -365,6 +527,14 @@ func ValidateEthernetFilter(filter EthernetFilter) error {
 
 	if err := ValidateVlanID(filter.VlanID); err != nil {
 		return err
+	}
+
+	// Validate offset and byte_list consistency
+	if filter.Offset > 0 && len(filter.ByteList) == 0 {
+		return fmt.Errorf("byte_list is required when offset is specified")
+	}
+	if filter.Offset == 0 && len(filter.ByteList) > 0 {
+		return fmt.Errorf("offset is required when byte_list is specified")
 	}
 
 	return nil

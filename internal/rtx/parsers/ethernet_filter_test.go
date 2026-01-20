@@ -568,12 +568,12 @@ func TestValidateEthernetFilterNumber(t *testing.T) {
 		},
 		{
 			name:    "valid maximum",
-			number:  65535,
+			number:  512,
 			wantErr: false,
 		},
 		{
 			name:    "valid middle",
-			number:  1000,
+			number:  256,
 			wantErr: false,
 		},
 		{
@@ -588,7 +588,7 @@ func TestValidateEthernetFilterNumber(t *testing.T) {
 		},
 		{
 			name:    "invalid too large",
-			number:  65536,
+			number:  513,
 			wantErr: true,
 		},
 	}
@@ -967,7 +967,7 @@ func TestValidateEthernetFilter(t *testing.T) {
 				DestMAC:   "*",
 			},
 			wantErr:     true,
-			errContains: "between 1 and 65535",
+			errContains: "between 1 and 512",
 		},
 		{
 			name: "invalid action",
@@ -1040,6 +1040,738 @@ func TestValidateEthernetFilter(t *testing.T) {
 			} else {
 				if err != nil {
 					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestParseDHCPBasedEthernetFilter(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []EthernetFilter
+	}{
+		{
+			name:  "dhcp-bind filter without scope",
+			input: `ethernet filter 1 pass-log dhcp-bind`,
+			expected: []EthernetFilter{
+				{
+					Number:   1,
+					Action:   "pass-log",
+					DHCPType: "dhcp-bind",
+				},
+			},
+		},
+		{
+			name:  "dhcp-not-bind filter without scope",
+			input: `ethernet filter 2 reject-nolog dhcp-not-bind`,
+			expected: []EthernetFilter{
+				{
+					Number:   2,
+					Action:   "reject-nolog",
+					DHCPType: "dhcp-not-bind",
+				},
+			},
+		},
+		{
+			name:  "dhcp-bind filter with scope",
+			input: `ethernet filter 3 pass-nolog dhcp-bind 1`,
+			expected: []EthernetFilter{
+				{
+					Number:    3,
+					Action:    "pass-nolog",
+					DHCPType:  "dhcp-bind",
+					DHCPScope: 1,
+				},
+			},
+		},
+		{
+			name:  "dhcp-not-bind filter with scope",
+			input: `ethernet filter 4 reject-log dhcp-not-bind 2`,
+			expected: []EthernetFilter{
+				{
+					Number:    4,
+					Action:    "reject-log",
+					DHCPType:  "dhcp-not-bind",
+					DHCPScope: 2,
+				},
+			},
+		},
+		{
+			name: "mixed DHCP and MAC filters",
+			input: `ethernet filter 1 pass-log dhcp-bind
+ethernet filter 2 reject-nolog 00:11:22:33:44:55 *
+ethernet filter 3 pass-nolog dhcp-not-bind 1`,
+			expected: []EthernetFilter{
+				{
+					Number:   1,
+					Action:   "pass-log",
+					DHCPType: "dhcp-bind",
+				},
+				{
+					Number:         2,
+					Action:         "reject-nolog",
+					SourceMAC:      "00:11:22:33:44:55",
+					DestinationMAC: "*",
+					DestMAC:        "*",
+				},
+				{
+					Number:    3,
+					Action:    "pass-nolog",
+					DHCPType:  "dhcp-not-bind",
+					DHCPScope: 1,
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ParseEthernetFilterConfig(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if len(result) != len(tt.expected) {
+				t.Fatalf("expected %d filters, got %d", len(tt.expected), len(result))
+			}
+
+			for i, expected := range tt.expected {
+				got := result[i]
+				if got.Number != expected.Number {
+					t.Errorf("filter[%d].Number = %d, want %d", i, got.Number, expected.Number)
+				}
+				if got.Action != expected.Action {
+					t.Errorf("filter[%d].Action = %q, want %q", i, got.Action, expected.Action)
+				}
+				if got.DHCPType != expected.DHCPType {
+					t.Errorf("filter[%d].DHCPType = %q, want %q", i, got.DHCPType, expected.DHCPType)
+				}
+				if got.DHCPScope != expected.DHCPScope {
+					t.Errorf("filter[%d].DHCPScope = %d, want %d", i, got.DHCPScope, expected.DHCPScope)
+				}
+				if got.SourceMAC != expected.SourceMAC {
+					t.Errorf("filter[%d].SourceMAC = %q, want %q", i, got.SourceMAC, expected.SourceMAC)
+				}
+				if got.DestinationMAC != expected.DestinationMAC {
+					t.Errorf("filter[%d].DestinationMAC = %q, want %q", i, got.DestinationMAC, expected.DestinationMAC)
+				}
+			}
+		})
+	}
+}
+
+func TestBuildDHCPBasedEthernetFilterCommand(t *testing.T) {
+	tests := []struct {
+		name     string
+		filter   EthernetFilter
+		expected string
+	}{
+		{
+			name: "dhcp-bind without scope",
+			filter: EthernetFilter{
+				Number:   1,
+				Action:   "pass-log",
+				DHCPType: "dhcp-bind",
+			},
+			expected: "ethernet filter 1 pass-log dhcp-bind",
+		},
+		{
+			name: "dhcp-not-bind without scope",
+			filter: EthernetFilter{
+				Number:   2,
+				Action:   "reject-nolog",
+				DHCPType: "dhcp-not-bind",
+			},
+			expected: "ethernet filter 2 reject-nolog dhcp-not-bind",
+		},
+		{
+			name: "dhcp-bind with scope",
+			filter: EthernetFilter{
+				Number:    3,
+				Action:    "pass-nolog",
+				DHCPType:  "dhcp-bind",
+				DHCPScope: 1,
+			},
+			expected: "ethernet filter 3 pass-nolog dhcp-bind 1",
+		},
+		{
+			name: "dhcp-not-bind with scope",
+			filter: EthernetFilter{
+				Number:    4,
+				Action:    "reject-log",
+				DHCPType:  "dhcp-not-bind",
+				DHCPScope: 2,
+			},
+			expected: "ethernet filter 4 reject-log dhcp-not-bind 2",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := BuildEthernetFilterCommand(tt.filter)
+			if result != tt.expected {
+				t.Errorf("BuildEthernetFilterCommand() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestParseOffsetBasedEthernetFilter(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []EthernetFilter
+	}{
+		{
+			name:  "filter with offset and byte_list",
+			input: `ethernet filter 1 pass-log * * offset=14 0x08 0x00`,
+			expected: []EthernetFilter{
+				{
+					Number:         1,
+					Action:         "pass-log",
+					SourceMAC:      "*",
+					DestinationMAC: "*",
+					DestMAC:        "*",
+					Offset:         14,
+					ByteList:       []string{"0x08", "0x00"},
+				},
+			},
+		},
+		{
+			name:  "filter with offset and multiple bytes",
+			input: `ethernet filter 2 reject-nolog 00:11:22:33:44:55 * offset=20 0xff 0xff 0xff 0xff`,
+			expected: []EthernetFilter{
+				{
+					Number:         2,
+					Action:         "reject-nolog",
+					SourceMAC:      "00:11:22:33:44:55",
+					DestinationMAC: "*",
+					DestMAC:        "*",
+					Offset:         20,
+					ByteList:       []string{"0xff", "0xff", "0xff", "0xff"},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ParseEthernetFilterConfig(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if len(result) != len(tt.expected) {
+				t.Fatalf("expected %d filters, got %d", len(tt.expected), len(result))
+			}
+
+			for i, expected := range tt.expected {
+				got := result[i]
+				if got.Number != expected.Number {
+					t.Errorf("filter[%d].Number = %d, want %d", i, got.Number, expected.Number)
+				}
+				if got.Action != expected.Action {
+					t.Errorf("filter[%d].Action = %q, want %q", i, got.Action, expected.Action)
+				}
+				if got.SourceMAC != expected.SourceMAC {
+					t.Errorf("filter[%d].SourceMAC = %q, want %q", i, got.SourceMAC, expected.SourceMAC)
+				}
+				if got.DestinationMAC != expected.DestinationMAC {
+					t.Errorf("filter[%d].DestinationMAC = %q, want %q", i, got.DestinationMAC, expected.DestinationMAC)
+				}
+				if got.Offset != expected.Offset {
+					t.Errorf("filter[%d].Offset = %d, want %d", i, got.Offset, expected.Offset)
+				}
+				if len(got.ByteList) != len(expected.ByteList) {
+					t.Errorf("filter[%d].ByteList length = %d, want %d", i, len(got.ByteList), len(expected.ByteList))
+				} else {
+					for j, b := range expected.ByteList {
+						if got.ByteList[j] != b {
+							t.Errorf("filter[%d].ByteList[%d] = %q, want %q", i, j, got.ByteList[j], b)
+						}
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestBuildOffsetBasedEthernetFilterCommand(t *testing.T) {
+	tests := []struct {
+		name     string
+		filter   EthernetFilter
+		expected string
+	}{
+		{
+			name: "filter with offset and byte_list",
+			filter: EthernetFilter{
+				Number:         1,
+				Action:         "pass-log",
+				SourceMAC:      "*",
+				DestinationMAC: "*",
+				Offset:         14,
+				ByteList:       []string{"0x08", "0x00"},
+			},
+			expected: "ethernet filter 1 pass-log * * offset=14 0x08 0x00",
+		},
+		{
+			name: "filter with offset and multiple bytes",
+			filter: EthernetFilter{
+				Number:         2,
+				Action:         "reject-nolog",
+				SourceMAC:      "00:11:22:33:44:55",
+				DestinationMAC: "*",
+				Offset:         20,
+				ByteList:       []string{"0xff", "0xff", "0xff", "0xff"},
+			},
+			expected: "ethernet filter 2 reject-nolog 00:11:22:33:44:55 * offset=20 0xff 0xff 0xff 0xff",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := BuildEthernetFilterCommand(tt.filter)
+			if result != tt.expected {
+				t.Errorf("BuildEthernetFilterCommand() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestValidateMACAddress(t *testing.T) {
+	tests := []struct {
+		name    string
+		mac     string
+		wantErr bool
+	}{
+		{
+			name:    "valid colon-separated",
+			mac:     "00:11:22:33:44:55",
+			wantErr: false,
+		},
+		{
+			name:    "valid wildcard",
+			mac:     "*",
+			wantErr: false,
+		},
+		{
+			name:    "valid empty",
+			mac:     "",
+			wantErr: false,
+		},
+		{
+			name:    "valid uppercase",
+			mac:     "AA:BB:CC:DD:EE:FF",
+			wantErr: false,
+		},
+		{
+			name:    "invalid Cisco notation",
+			mac:     "0011.2233.4455",
+			wantErr: true,
+		},
+		{
+			name:    "invalid hyphen-separated",
+			mac:     "00-11-22-33-44-55",
+			wantErr: true,
+		},
+		{
+			name:    "invalid no separator",
+			mac:     "001122334455",
+			wantErr: true,
+		},
+		{
+			name:    "invalid too short",
+			mac:     "00:11:22",
+			wantErr: true,
+		},
+		{
+			name:    "invalid non-hex",
+			mac:     "00:11:22:33:44:GG",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateMACAddress(tt.mac)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error for MAC %q, got nil", tt.mac)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error for MAC %q: %v", tt.mac, err)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateDHCPType(t *testing.T) {
+	tests := []struct {
+		name     string
+		dhcpType string
+		wantErr  bool
+	}{
+		{
+			name:     "valid dhcp-bind",
+			dhcpType: "dhcp-bind",
+			wantErr:  false,
+		},
+		{
+			name:     "valid dhcp-not-bind",
+			dhcpType: "dhcp-not-bind",
+			wantErr:  false,
+		},
+		{
+			name:     "valid empty",
+			dhcpType: "",
+			wantErr:  false,
+		},
+		{
+			name:     "invalid dhcp-bound",
+			dhcpType: "dhcp-bound",
+			wantErr:  true,
+		},
+		{
+			name:     "invalid other",
+			dhcpType: "other",
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateDHCPType(tt.dhcpType)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error for DHCP type %q, got nil", tt.dhcpType)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error for DHCP type %q: %v", tt.dhcpType, err)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateEthernetFilterWithNewActions(t *testing.T) {
+	tests := []struct {
+		name    string
+		filter  EthernetFilter
+		wantErr bool
+	}{
+		{
+			name: "valid pass-log action",
+			filter: EthernetFilter{
+				Number:   1,
+				Action:   "pass-log",
+				DHCPType: "dhcp-bind",
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid pass-nolog action",
+			filter: EthernetFilter{
+				Number:   2,
+				Action:   "pass-nolog",
+				DHCPType: "dhcp-not-bind",
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid reject-log action",
+			filter: EthernetFilter{
+				Number:    3,
+				Action:    "reject-log",
+				DHCPType:  "dhcp-bind",
+				DHCPScope: 1,
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid reject-nolog action",
+			filter: EthernetFilter{
+				Number:    4,
+				Action:    "reject-nolog",
+				DHCPType:  "dhcp-not-bind",
+				DHCPScope: 2,
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid DHCP filter with scope",
+			filter: EthernetFilter{
+				Number:    5,
+				Action:    "pass-log",
+				DHCPType:  "dhcp-bind",
+				DHCPScope: 10,
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid filter with offset and byte_list",
+			filter: EthernetFilter{
+				Number:         6,
+				Action:         "pass-nolog",
+				SourceMAC:      "*",
+				DestinationMAC: "*",
+				Offset:         14,
+				ByteList:       []string{"0x08", "0x00"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid filter number too large",
+			filter: EthernetFilter{
+				Number:   513,
+				Action:   "pass-log",
+				DHCPType: "dhcp-bind",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid DHCP filter with source MAC",
+			filter: EthernetFilter{
+				Number:    1,
+				Action:    "pass-log",
+				DHCPType:  "dhcp-bind",
+				SourceMAC: "00:11:22:33:44:55",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid offset without byte_list",
+			filter: EthernetFilter{
+				Number:         1,
+				Action:         "pass-log",
+				SourceMAC:      "*",
+				DestinationMAC: "*",
+				Offset:         14,
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid byte_list without offset",
+			filter: EthernetFilter{
+				Number:         1,
+				Action:         "pass-log",
+				SourceMAC:      "*",
+				DestinationMAC: "*",
+				ByteList:       []string{"0x08", "0x00"},
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateEthernetFilter(tt.filter)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error, got nil")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestParseEthernetFilterConfigWithNewActions(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []EthernetFilter
+	}{
+		{
+			name:  "pass-log action",
+			input: `ethernet filter 1 pass-log * * 0x0800`,
+			expected: []EthernetFilter{
+				{
+					Number:         1,
+					Action:         "pass-log",
+					SourceMAC:      "*",
+					DestinationMAC: "*",
+					DestMAC:        "*",
+					EtherType:      "0x0800",
+				},
+			},
+		},
+		{
+			name:  "pass-nolog action",
+			input: `ethernet filter 2 pass-nolog 00:11:22:33:44:55 *`,
+			expected: []EthernetFilter{
+				{
+					Number:         2,
+					Action:         "pass-nolog",
+					SourceMAC:      "00:11:22:33:44:55",
+					DestinationMAC: "*",
+					DestMAC:        "*",
+				},
+			},
+		},
+		{
+			name:  "reject-log action",
+			input: `ethernet filter 3 reject-log * ff:ff:ff:ff:ff:ff`,
+			expected: []EthernetFilter{
+				{
+					Number:         3,
+					Action:         "reject-log",
+					SourceMAC:      "*",
+					DestinationMAC: "ff:ff:ff:ff:ff:ff",
+					DestMAC:        "ff:ff:ff:ff:ff:ff",
+				},
+			},
+		},
+		{
+			name:  "reject-nolog action",
+			input: `ethernet filter 4 reject-nolog 00:11:22:33:44:55 ff:ff:ff:ff:ff:ff 0x0806`,
+			expected: []EthernetFilter{
+				{
+					Number:         4,
+					Action:         "reject-nolog",
+					SourceMAC:      "00:11:22:33:44:55",
+					DestinationMAC: "ff:ff:ff:ff:ff:ff",
+					DestMAC:        "ff:ff:ff:ff:ff:ff",
+					EtherType:      "0x0806",
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ParseEthernetFilterConfig(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if len(result) != len(tt.expected) {
+				t.Fatalf("expected %d filters, got %d", len(tt.expected), len(result))
+			}
+
+			for i, expected := range tt.expected {
+				got := result[i]
+				if got.Number != expected.Number {
+					t.Errorf("filter[%d].Number = %d, want %d", i, got.Number, expected.Number)
+				}
+				if got.Action != expected.Action {
+					t.Errorf("filter[%d].Action = %q, want %q", i, got.Action, expected.Action)
+				}
+				if got.SourceMAC != expected.SourceMAC {
+					t.Errorf("filter[%d].SourceMAC = %q, want %q", i, got.SourceMAC, expected.SourceMAC)
+				}
+				if got.DestinationMAC != expected.DestinationMAC {
+					t.Errorf("filter[%d].DestinationMAC = %q, want %q", i, got.DestinationMAC, expected.DestinationMAC)
+				}
+				if got.EtherType != expected.EtherType {
+					t.Errorf("filter[%d].EtherType = %q, want %q", i, got.EtherType, expected.EtherType)
+				}
+			}
+		})
+	}
+}
+
+func TestBuildEthernetFilterCommandWithNewActions(t *testing.T) {
+	tests := []struct {
+		name     string
+		filter   EthernetFilter
+		expected string
+	}{
+		{
+			name: "pass-log with EtherType",
+			filter: EthernetFilter{
+				Number:         1,
+				Action:         "pass-log",
+				SourceMAC:      "*",
+				DestinationMAC: "*",
+				EtherType:      "0x0800",
+			},
+			expected: "ethernet filter 1 pass-log * * 0x0800",
+		},
+		{
+			name: "pass-nolog with source MAC",
+			filter: EthernetFilter{
+				Number:         2,
+				Action:         "pass-nolog",
+				SourceMAC:      "00:11:22:33:44:55",
+				DestinationMAC: "*",
+			},
+			expected: "ethernet filter 2 pass-nolog 00:11:22:33:44:55 *",
+		},
+		{
+			name: "reject-log with dest MAC",
+			filter: EthernetFilter{
+				Number:         3,
+				Action:         "reject-log",
+				SourceMAC:      "*",
+				DestinationMAC: "ff:ff:ff:ff:ff:ff",
+			},
+			expected: "ethernet filter 3 reject-log * ff:ff:ff:ff:ff:ff",
+		},
+		{
+			name: "reject-nolog with all options",
+			filter: EthernetFilter{
+				Number:         4,
+				Action:         "reject-nolog",
+				SourceMAC:      "00:11:22:33:44:55",
+				DestinationMAC: "ff:ff:ff:ff:ff:ff",
+				EtherType:      "0x0806",
+				VlanID:         100,
+			},
+			expected: "ethernet filter 4 reject-nolog 00:11:22:33:44:55 ff:ff:ff:ff:ff:ff 0x0806 vlan 100",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := BuildEthernetFilterCommand(tt.filter)
+			if result != tt.expected {
+				t.Errorf("BuildEthernetFilterCommand() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestValidateEthernetFilterNumber512(t *testing.T) {
+	tests := []struct {
+		name    string
+		number  int
+		wantErr bool
+	}{
+		{
+			name:    "valid 512",
+			number:  512,
+			wantErr: false,
+		},
+		{
+			name:    "invalid 513",
+			number:  513,
+			wantErr: true,
+		},
+		{
+			name:    "invalid 65535 (old max)",
+			number:  65535,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateEthernetFilterNumber(tt.number)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error for number %d, got nil", tt.number)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error for number %d: %v", tt.number, err)
 				}
 			}
 		})

@@ -171,7 +171,7 @@
 
 ## Phase 4: Ethernet Filter Resource (REQ-5)
 
-- [ ] 21. Create ethernet filter parser module
+- [x] 21. Create ethernet filter parser module
   - File: internal/rtx/parsers/ethernet_filter.go
   - Define EthernetFilter struct with fields: Number, Action, SourceMAC, DestinationMAC, DHCPType, DHCPScope, Offset, ByteList
   - Define ValidEthernetFilterActions: pass-log, pass-nolog, reject-log, reject-nolog
@@ -179,7 +179,7 @@
   - _Leverage: ip_filter.go as template_
   - _Requirements: REQ-5_
 
-- [ ] 22. Implement ethernet filter parser function
+- [x] 22. Implement ethernet filter parser function
   - File: internal/rtx/parsers/ethernet_filter.go
   - Implement ParseEthernetFilterConfig() to parse `show config` output
   - Handle MAC-based filters: `ethernet filter <id> <action> <src_mac> [<dst_mac>]`
@@ -189,7 +189,7 @@
   - _Leverage: ParseIPFilterConfig pattern_
   - _Requirements: REQ-5_
 
-- [ ] 23. Implement ethernet filter command builders
+- [x] 23. Implement ethernet filter command builders
   - File: internal/rtx/parsers/ethernet_filter.go
   - Implement BuildEthernetFilterCommand() for MAC-based and DHCP-based filters
   - Implement BuildDeleteEthernetFilterCommand() for filter removal
@@ -198,7 +198,7 @@
   - _Leverage: Existing command builder patterns_
   - _Requirements: REQ-5_
 
-- [ ] 24. Implement ethernet filter validators
+- [x] 24. Implement ethernet filter validators
   - File: internal/rtx/parsers/ethernet_filter.go
   - Implement ValidateMACAddress() with regex for xx:xx:xx:xx:xx:xx or * format
   - Implement ValidateEthernetFilterNumber() for range 1-512
@@ -207,7 +207,7 @@
   - _Leverage: Existing validation patterns_
   - _Requirements: REQ-5_
 
-- [ ] 25. Add ethernet filter parser tests
+- [x] 25. Add ethernet filter parser tests
   - File: internal/rtx/parsers/ethernet_filter_test.go
   - Test parsing MAC-based filters with various MAC formats
   - Test parsing DHCP-based filters with and without scope
