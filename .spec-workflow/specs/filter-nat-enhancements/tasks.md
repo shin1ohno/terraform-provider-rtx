@@ -66,7 +66,7 @@
   - _Leverage: Existing BuildIPFilterDynamicCommand function_
   - _Requirements: REQ-3_
 
-- [ ] 9. Add parser tests for extended dynamic filters
+- [x] 9. Add parser tests for extended dynamic filters
   - File: internal/rtx/parsers/ip_filter_test.go
   - Add test cases for Form 1 with various protocols
   - Add test cases for Form 2 with filter/in/out lists

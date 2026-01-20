@@ -133,6 +133,58 @@ ip lan1 secure filter in 100`,
 			input:    "# This is a comment\n# Another comment",
 			expected: []IPFilter{},
 		},
+		{
+			name:  "restrict-nolog action",
+			input: "ip filter 110 restrict-nolog 192.168.0.0/16 * ip",
+			expected: []IPFilter{
+				{
+					Number:        110,
+					Action:        "restrict-nolog",
+					SourceAddress: "192.168.0.0/16",
+					DestAddress:   "*",
+					Protocol:      "ip",
+				},
+			},
+		},
+		{
+			name:  "tcpfin protocol filter",
+			input: "ip filter 111 pass * * tcpfin",
+			expected: []IPFilter{
+				{
+					Number:        111,
+					Action:        "pass",
+					SourceAddress: "*",
+					DestAddress:   "*",
+					Protocol:      "tcpfin",
+				},
+			},
+		},
+		{
+			name:  "tcprst protocol filter",
+			input: "ip filter 112 reject * * tcprst",
+			expected: []IPFilter{
+				{
+					Number:        112,
+					Action:        "reject",
+					SourceAddress: "*",
+					DestAddress:   "*",
+					Protocol:      "tcprst",
+				},
+			},
+		},
+		{
+			name:  "tcpsyn protocol filter",
+			input: "ip filter 113 reject 0.0.0.0/0 * tcpsyn",
+			expected: []IPFilter{
+				{
+					Number:        113,
+					Action:        "reject",
+					SourceAddress: "0.0.0.0/0",
+					DestAddress:   "*",
+					Protocol:      "tcpsyn",
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -479,6 +531,50 @@ func TestBuildIPFilterCommand(t *testing.T) {
 			},
 			expected: "ip filter 105 restrict-log 10.0.0.0/8 * ip",
 		},
+		{
+			name: "restrict-nolog action",
+			filter: IPFilter{
+				Number:        106,
+				Action:        "restrict-nolog",
+				SourceAddress: "10.0.0.0/8",
+				DestAddress:   "*",
+				Protocol:      "ip",
+			},
+			expected: "ip filter 106 restrict-nolog 10.0.0.0/8 * ip",
+		},
+		{
+			name: "tcpfin protocol",
+			filter: IPFilter{
+				Number:        107,
+				Action:        "pass",
+				SourceAddress: "*",
+				DestAddress:   "*",
+				Protocol:      "tcpfin",
+			},
+			expected: "ip filter 107 pass * * tcpfin",
+		},
+		{
+			name: "tcprst protocol",
+			filter: IPFilter{
+				Number:        108,
+				Action:        "reject",
+				SourceAddress: "*",
+				DestAddress:   "*",
+				Protocol:      "tcprst",
+			},
+			expected: "ip filter 108 reject * * tcprst",
+		},
+		{
+			name: "tcpsyn protocol",
+			filter: IPFilter{
+				Number:        109,
+				Action:        "reject",
+				SourceAddress: "*",
+				DestAddress:   "*",
+				Protocol:      "tcpsyn",
+			},
+			expected: "ip filter 109 reject * * tcpsyn",
+		},
 	}
 
 	for _, tt := range tests {
@@ -799,6 +895,10 @@ func TestValidateIPFilterProtocol(t *testing.T) {
 		{name: "esp", protocol: "esp", wantErr: false},
 		{name: "ah", protocol: "ah", wantErr: false},
 		{name: "icmp6", protocol: "icmp6", wantErr: false},
+		{name: "tcpfin", protocol: "tcpfin", wantErr: false},
+		{name: "tcprst", protocol: "tcprst", wantErr: false},
+		{name: "tcpsyn", protocol: "tcpsyn", wantErr: false},
+		{name: "established", protocol: "established", wantErr: false},
 		{name: "uppercase TCP", protocol: "TCP", wantErr: false},
 		{name: "invalid protocol", protocol: "invalid", wantErr: true},
 		{name: "empty", protocol: "", wantErr: true},
@@ -830,6 +930,7 @@ func TestValidateIPFilterAction(t *testing.T) {
 		{name: "reject", action: "reject", wantErr: false},
 		{name: "restrict", action: "restrict", wantErr: false},
 		{name: "restrict-log", action: "restrict-log", wantErr: false},
+		{name: "restrict-nolog", action: "restrict-nolog", wantErr: false},
 		{name: "uppercase PASS", action: "PASS", wantErr: false},
 		{name: "invalid action", action: "allow", wantErr: true},
 		{name: "deny", action: "deny", wantErr: true},
@@ -1107,4 +1208,751 @@ func TestValidateIPFilterDirection(t *testing.T) {
 			}
 		})
 	}
+}
+
+// ============================================================================
+// Tests for Extended Dynamic IP Filter Parser and Builder
+// ============================================================================
+
+func TestParseIPFilterDynamicConfigExtended(t *testing.T) {
+	timeout60 := 60
+	timeout120 := 120
+	timeout3600 := 3600
+
+	tests := []struct {
+		name     string
+		input    string
+		expected []IPFilterDynamic
+		wantErr  bool
+	}{
+		// Form 1: Protocol-based dynamic filters
+		{
+			name:  "Form 1 - basic ftp protocol",
+			input: "ip filter dynamic 10 * * ftp",
+			expected: []IPFilterDynamic{
+				{
+					Number:   10,
+					Source:   "*",
+					Dest:     "*",
+					Protocol: "ftp",
+				},
+			},
+		},
+		{
+			name:  "Form 1 - www protocol",
+			input: "ip filter dynamic 20 * * www",
+			expected: []IPFilterDynamic{
+				{
+					Number:   20,
+					Source:   "*",
+					Dest:     "*",
+					Protocol: "www",
+				},
+			},
+		},
+		{
+			name:  "Form 1 - smtp protocol with network",
+			input: "ip filter dynamic 30 192.168.1.0/24 10.0.0.0/8 smtp",
+			expected: []IPFilterDynamic{
+				{
+					Number:   30,
+					Source:   "192.168.1.0/24",
+					Dest:     "10.0.0.0/8",
+					Protocol: "smtp",
+				},
+			},
+		},
+		{
+			name:  "Form 1 - tcp protocol",
+			input: "ip filter dynamic 40 * * tcp",
+			expected: []IPFilterDynamic{
+				{
+					Number:   40,
+					Source:   "*",
+					Dest:     "*",
+					Protocol: "tcp",
+				},
+			},
+		},
+		{
+			name:  "Form 1 - udp protocol",
+			input: "ip filter dynamic 50 * * udp",
+			expected: []IPFilterDynamic{
+				{
+					Number:   50,
+					Source:   "*",
+					Dest:     "*",
+					Protocol: "udp",
+				},
+			},
+		},
+		{
+			name:  "Form 1 - wildcard protocol",
+			input: "ip filter dynamic 60 * * *",
+			expected: []IPFilterDynamic{
+				{
+					Number:   60,
+					Source:   "*",
+					Dest:     "*",
+					Protocol: "*",
+				},
+			},
+		},
+		{
+			name:  "Form 1 - extended protocol https",
+			input: "ip filter dynamic 70 * * https",
+			expected: []IPFilterDynamic{
+				{
+					Number:   70,
+					Source:   "*",
+					Dest:     "*",
+					Protocol: "https",
+				},
+			},
+		},
+		{
+			name:  "Form 1 - extended protocol sip",
+			input: "ip filter dynamic 80 * * sip",
+			expected: []IPFilterDynamic{
+				{
+					Number:   80,
+					Source:   "*",
+					Dest:     "*",
+					Protocol: "sip",
+				},
+			},
+		},
+		{
+			name:  "Form 1 - extended protocol pptp",
+			input: "ip filter dynamic 90 * * pptp",
+			expected: []IPFilterDynamic{
+				{
+					Number:   90,
+					Source:   "*",
+					Dest:     "*",
+					Protocol: "pptp",
+				},
+			},
+		},
+		// Form 1 with syslog option
+		{
+			name:  "Form 1 - with syslog on",
+			input: "ip filter dynamic 100 * * ftp syslog on",
+			expected: []IPFilterDynamic{
+				{
+					Number:   100,
+					Source:   "*",
+					Dest:     "*",
+					Protocol: "ftp",
+					SyslogOn: true,
+				},
+			},
+		},
+		{
+			name:  "Form 1 - with syslog off (default)",
+			input: "ip filter dynamic 110 * * www syslog off",
+			expected: []IPFilterDynamic{
+				{
+					Number:   110,
+					Source:   "*",
+					Dest:     "*",
+					Protocol: "www",
+					SyslogOn: false,
+				},
+			},
+		},
+		// Form 1 with timeout option
+		{
+			name:  "Form 1 - with timeout",
+			input: "ip filter dynamic 120 * * tcp timeout=60",
+			expected: []IPFilterDynamic{
+				{
+					Number:   120,
+					Source:   "*",
+					Dest:     "*",
+					Protocol: "tcp",
+					Timeout:  &timeout60,
+				},
+			},
+		},
+		{
+			name:  "Form 1 - with timeout 3600",
+			input: "ip filter dynamic 130 * * udp timeout=3600",
+			expected: []IPFilterDynamic{
+				{
+					Number:   130,
+					Source:   "*",
+					Dest:     "*",
+					Protocol: "udp",
+					Timeout:  &timeout3600,
+				},
+			},
+		},
+		// Form 1 with combined options
+		{
+			name:  "Form 1 - syslog on and timeout",
+			input: "ip filter dynamic 140 * * smtp syslog on timeout=120",
+			expected: []IPFilterDynamic{
+				{
+					Number:   140,
+					Source:   "*",
+					Dest:     "*",
+					Protocol: "smtp",
+					SyslogOn: true,
+					Timeout:  &timeout120,
+				},
+			},
+		},
+		{
+			name:  "Form 1 - timeout and syslog on (reverse order)",
+			input: "ip filter dynamic 150 * * pop3 timeout=60 syslog on",
+			expected: []IPFilterDynamic{
+				{
+					Number:   150,
+					Source:   "*",
+					Dest:     "*",
+					Protocol: "pop3",
+					SyslogOn: true,
+					Timeout:  &timeout60,
+				},
+			},
+		},
+		// Form 2: Filter-reference form
+		{
+			name:  "Form 2 - single filter list",
+			input: "ip filter dynamic 200 * * filter 100",
+			expected: []IPFilterDynamic{
+				{
+					Number:     200,
+					Source:     "*",
+					Dest:       "*",
+					FilterList: []int{100},
+				},
+			},
+		},
+		{
+			name:  "Form 2 - multiple filter list",
+			input: "ip filter dynamic 210 * * filter 100 101 102",
+			expected: []IPFilterDynamic{
+				{
+					Number:     210,
+					Source:     "*",
+					Dest:       "*",
+					FilterList: []int{100, 101, 102},
+				},
+			},
+		},
+		{
+			name:  "Form 2 - filter with in list",
+			input: "ip filter dynamic 220 * * filter 100 in 200",
+			expected: []IPFilterDynamic{
+				{
+					Number:       220,
+					Source:       "*",
+					Dest:         "*",
+					FilterList:   []int{100},
+					InFilterList: []int{200},
+				},
+			},
+		},
+		{
+			name:  "Form 2 - filter with out list",
+			input: "ip filter dynamic 230 * * filter 100 out 300",
+			expected: []IPFilterDynamic{
+				{
+					Number:        230,
+					Source:        "*",
+					Dest:          "*",
+					FilterList:    []int{100},
+					OutFilterList: []int{300},
+				},
+			},
+		},
+		{
+			name:  "Form 2 - filter with in and out lists",
+			input: "ip filter dynamic 240 * * filter 100 101 in 200 201 out 300 301",
+			expected: []IPFilterDynamic{
+				{
+					Number:        240,
+					Source:        "*",
+					Dest:          "*",
+					FilterList:    []int{100, 101},
+					InFilterList:  []int{200, 201},
+					OutFilterList: []int{300, 301},
+				},
+			},
+		},
+		{
+			name:  "Form 2 - filter with only in and out (no main filter)",
+			input: "ip filter dynamic 250 * * filter 100 in 200 202 204 out 300",
+			expected: []IPFilterDynamic{
+				{
+					Number:        250,
+					Source:        "*",
+					Dest:          "*",
+					FilterList:    []int{100},
+					InFilterList:  []int{200, 202, 204},
+					OutFilterList: []int{300},
+				},
+			},
+		},
+		// Form 2 with options
+		{
+			name:  "Form 2 - filter with syslog on",
+			input: "ip filter dynamic 260 * * filter 100 syslog on",
+			expected: []IPFilterDynamic{
+				{
+					Number:     260,
+					Source:     "*",
+					Dest:       "*",
+					FilterList: []int{100},
+					SyslogOn:   true,
+				},
+			},
+		},
+		{
+			name:  "Form 2 - filter with timeout",
+			input: "ip filter dynamic 270 * * filter 100 timeout=60",
+			expected: []IPFilterDynamic{
+				{
+					Number:     270,
+					Source:     "*",
+					Dest:       "*",
+					FilterList: []int{100},
+					Timeout:    &timeout60,
+				},
+			},
+		},
+		{
+			name:  "Form 2 - full configuration",
+			input: "ip filter dynamic 280 192.168.1.0/24 10.0.0.0/8 filter 100 101 in 200 out 300 syslog on timeout=120",
+			expected: []IPFilterDynamic{
+				{
+					Number:        280,
+					Source:        "192.168.1.0/24",
+					Dest:          "10.0.0.0/8",
+					FilterList:    []int{100, 101},
+					InFilterList:  []int{200},
+					OutFilterList: []int{300},
+					SyslogOn:      true,
+					Timeout:       &timeout120,
+				},
+			},
+		},
+		// Multiple filters
+		{
+			name: "Multiple dynamic filters - mixed forms",
+			input: `ip filter dynamic 10 * * ftp
+ip filter dynamic 20 * * www syslog on
+ip filter dynamic 30 * * filter 100 101 in 200 out 300
+ip filter dynamic 40 192.168.1.0/24 * tcp timeout=60`,
+			expected: []IPFilterDynamic{
+				{Number: 10, Source: "*", Dest: "*", Protocol: "ftp"},
+				{Number: 20, Source: "*", Dest: "*", Protocol: "www", SyslogOn: true},
+				{Number: 30, Source: "*", Dest: "*", FilterList: []int{100, 101}, InFilterList: []int{200}, OutFilterList: []int{300}},
+				{Number: 40, Source: "192.168.1.0/24", Dest: "*", Protocol: "tcp", Timeout: &timeout60},
+			},
+		},
+		// Edge cases
+		{
+			name:     "Empty input",
+			input:    "",
+			expected: []IPFilterDynamic{},
+		},
+		{
+			name:     "Only comments",
+			input:    "# This is a comment\n# Another comment",
+			expected: []IPFilterDynamic{},
+		},
+		{
+			name:     "Skip static filter lines",
+			input:    "ip filter 100 pass * * tcp",
+			expected: []IPFilterDynamic{},
+		},
+		{
+			name: "Mixed static and dynamic filters",
+			input: `ip filter 100 pass * * tcp
+ip filter dynamic 10 * * ftp
+ip lan1 secure filter in 100`,
+			expected: []IPFilterDynamic{
+				{Number: 10, Source: "*", Dest: "*", Protocol: "ftp"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ParseIPFilterDynamicConfigExtended(tt.input)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error, got nil")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			if len(result) != len(tt.expected) {
+				t.Errorf("expected %d filters, got %d", len(tt.expected), len(result))
+				return
+			}
+
+			for i, expected := range tt.expected {
+				got := result[i]
+				if got.Number != expected.Number {
+					t.Errorf("filter[%d].Number = %d, want %d", i, got.Number, expected.Number)
+				}
+				if got.Source != expected.Source {
+					t.Errorf("filter[%d].Source = %q, want %q", i, got.Source, expected.Source)
+				}
+				if got.Dest != expected.Dest {
+					t.Errorf("filter[%d].Dest = %q, want %q", i, got.Dest, expected.Dest)
+				}
+				if got.Protocol != expected.Protocol {
+					t.Errorf("filter[%d].Protocol = %q, want %q", i, got.Protocol, expected.Protocol)
+				}
+				if got.SyslogOn != expected.SyslogOn {
+					t.Errorf("filter[%d].SyslogOn = %v, want %v", i, got.SyslogOn, expected.SyslogOn)
+				}
+				// Compare Timeout
+				if (got.Timeout == nil) != (expected.Timeout == nil) {
+					t.Errorf("filter[%d].Timeout = %v, want %v", i, got.Timeout, expected.Timeout)
+				} else if got.Timeout != nil && *got.Timeout != *expected.Timeout {
+					t.Errorf("filter[%d].Timeout = %d, want %d", i, *got.Timeout, *expected.Timeout)
+				}
+				// Compare FilterList
+				if !equalIntSlice(got.FilterList, expected.FilterList) {
+					t.Errorf("filter[%d].FilterList = %v, want %v", i, got.FilterList, expected.FilterList)
+				}
+				// Compare InFilterList
+				if !equalIntSlice(got.InFilterList, expected.InFilterList) {
+					t.Errorf("filter[%d].InFilterList = %v, want %v", i, got.InFilterList, expected.InFilterList)
+				}
+				// Compare OutFilterList
+				if !equalIntSlice(got.OutFilterList, expected.OutFilterList) {
+					t.Errorf("filter[%d].OutFilterList = %v, want %v", i, got.OutFilterList, expected.OutFilterList)
+				}
+			}
+		})
+	}
+}
+
+func TestBuildIPFilterDynamicCommandExtended(t *testing.T) {
+	timeout60 := 60
+	timeout120 := 120
+
+	tests := []struct {
+		name     string
+		filter   IPFilterDynamic
+		expected string
+	}{
+		// Form 1: Protocol-based dynamic filters
+		{
+			name: "Form 1 - basic ftp protocol",
+			filter: IPFilterDynamic{
+				Number:   10,
+				Source:   "*",
+				Dest:     "*",
+				Protocol: "ftp",
+			},
+			expected: "ip filter dynamic 10 * * ftp",
+		},
+		{
+			name: "Form 1 - www protocol with network",
+			filter: IPFilterDynamic{
+				Number:   20,
+				Source:   "192.168.1.0/24",
+				Dest:     "10.0.0.0/8",
+				Protocol: "www",
+			},
+			expected: "ip filter dynamic 20 192.168.1.0/24 10.0.0.0/8 www",
+		},
+		{
+			name: "Form 1 - with syslog on",
+			filter: IPFilterDynamic{
+				Number:   30,
+				Source:   "*",
+				Dest:     "*",
+				Protocol: "smtp",
+				SyslogOn: true,
+			},
+			expected: "ip filter dynamic 30 * * smtp syslog on",
+		},
+		{
+			name: "Form 1 - with timeout",
+			filter: IPFilterDynamic{
+				Number:   40,
+				Source:   "*",
+				Dest:     "*",
+				Protocol: "tcp",
+				Timeout:  &timeout60,
+			},
+			expected: "ip filter dynamic 40 * * tcp timeout=60",
+		},
+		{
+			name: "Form 1 - with syslog on and timeout",
+			filter: IPFilterDynamic{
+				Number:   50,
+				Source:   "*",
+				Dest:     "*",
+				Protocol: "udp",
+				SyslogOn: true,
+				Timeout:  &timeout120,
+			},
+			expected: "ip filter dynamic 50 * * udp syslog on timeout=120",
+		},
+		{
+			name: "Form 1 - extended protocol https",
+			filter: IPFilterDynamic{
+				Number:   60,
+				Source:   "*",
+				Dest:     "*",
+				Protocol: "https",
+			},
+			expected: "ip filter dynamic 60 * * https",
+		},
+		{
+			name: "Form 1 - extended protocol sip",
+			filter: IPFilterDynamic{
+				Number:   70,
+				Source:   "*",
+				Dest:     "*",
+				Protocol: "sip",
+			},
+			expected: "ip filter dynamic 70 * * sip",
+		},
+		{
+			name: "Form 1 - extended protocol pptp",
+			filter: IPFilterDynamic{
+				Number:   80,
+				Source:   "*",
+				Dest:     "*",
+				Protocol: "pptp",
+			},
+			expected: "ip filter dynamic 80 * * pptp",
+		},
+		{
+			name: "Form 1 - extended protocol ipsec-nat-t",
+			filter: IPFilterDynamic{
+				Number:   90,
+				Source:   "*",
+				Dest:     "*",
+				Protocol: "ipsec-nat-t",
+			},
+			expected: "ip filter dynamic 90 * * ipsec-nat-t",
+		},
+		// Form 2: Filter-reference form
+		{
+			name: "Form 2 - single filter list",
+			filter: IPFilterDynamic{
+				Number:     100,
+				Source:     "*",
+				Dest:       "*",
+				FilterList: []int{100},
+			},
+			expected: "ip filter dynamic 100 * * filter 100",
+		},
+		{
+			name: "Form 2 - multiple filter list",
+			filter: IPFilterDynamic{
+				Number:     110,
+				Source:     "*",
+				Dest:       "*",
+				FilterList: []int{100, 101, 102},
+			},
+			expected: "ip filter dynamic 110 * * filter 100 101 102",
+		},
+		{
+			name: "Form 2 - filter with in list",
+			filter: IPFilterDynamic{
+				Number:       120,
+				Source:       "*",
+				Dest:         "*",
+				FilterList:   []int{100},
+				InFilterList: []int{200, 201},
+			},
+			expected: "ip filter dynamic 120 * * filter 100 in 200 201",
+		},
+		{
+			name: "Form 2 - filter with out list",
+			filter: IPFilterDynamic{
+				Number:        130,
+				Source:        "*",
+				Dest:          "*",
+				FilterList:    []int{100},
+				OutFilterList: []int{300, 301},
+			},
+			expected: "ip filter dynamic 130 * * filter 100 out 300 301",
+		},
+		{
+			name: "Form 2 - filter with in and out lists",
+			filter: IPFilterDynamic{
+				Number:        140,
+				Source:        "*",
+				Dest:          "*",
+				FilterList:    []int{100, 101},
+				InFilterList:  []int{200},
+				OutFilterList: []int{300},
+			},
+			expected: "ip filter dynamic 140 * * filter 100 101 in 200 out 300",
+		},
+		{
+			name: "Form 2 - filter with syslog on",
+			filter: IPFilterDynamic{
+				Number:     150,
+				Source:     "*",
+				Dest:       "*",
+				FilterList: []int{100},
+				SyslogOn:   true,
+			},
+			expected: "ip filter dynamic 150 * * filter 100 syslog on",
+		},
+		{
+			name: "Form 2 - filter with timeout",
+			filter: IPFilterDynamic{
+				Number:     160,
+				Source:     "*",
+				Dest:       "*",
+				FilterList: []int{100},
+				Timeout:    &timeout60,
+			},
+			expected: "ip filter dynamic 160 * * filter 100 timeout=60",
+		},
+		{
+			name: "Form 2 - full configuration",
+			filter: IPFilterDynamic{
+				Number:        170,
+				Source:        "192.168.1.0/24",
+				Dest:          "10.0.0.0/8",
+				FilterList:    []int{100, 101},
+				InFilterList:  []int{200, 201},
+				OutFilterList: []int{300, 301},
+				SyslogOn:      true,
+				Timeout:       &timeout120,
+			},
+			expected: "ip filter dynamic 170 192.168.1.0/24 10.0.0.0/8 filter 100 101 in 200 201 out 300 301 syslog on timeout=120",
+		},
+		// Edge cases
+		{
+			name: "Form 2 - empty in list",
+			filter: IPFilterDynamic{
+				Number:        180,
+				Source:        "*",
+				Dest:          "*",
+				FilterList:    []int{100},
+				InFilterList:  []int{},
+				OutFilterList: []int{300},
+			},
+			expected: "ip filter dynamic 180 * * filter 100 out 300",
+		},
+		{
+			name: "Form 2 - empty out list",
+			filter: IPFilterDynamic{
+				Number:       190,
+				Source:       "*",
+				Dest:         "*",
+				FilterList:   []int{100},
+				InFilterList: []int{200},
+			},
+			expected: "ip filter dynamic 190 * * filter 100 in 200",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := BuildIPFilterDynamicCommandExtended(tt.filter)
+			if result != tt.expected {
+				t.Errorf("BuildIPFilterDynamicCommandExtended() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestParseAndBuildRoundTripExtended tests that parsing and building produces the same command
+func TestParseAndBuildRoundTripExtended(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		// Form 1 cases
+		{
+			name:  "Form 1 - basic ftp",
+			input: "ip filter dynamic 10 * * ftp",
+		},
+		{
+			name:  "Form 1 - with network",
+			input: "ip filter dynamic 20 192.168.1.0/24 10.0.0.0/8 www",
+		},
+		{
+			name:  "Form 1 - with syslog",
+			input: "ip filter dynamic 30 * * smtp syslog on",
+		},
+		{
+			name:  "Form 1 - with timeout",
+			input: "ip filter dynamic 40 * * tcp timeout=60",
+		},
+		{
+			name:  "Form 1 - with syslog and timeout",
+			input: "ip filter dynamic 50 * * udp syslog on timeout=120",
+		},
+		// Form 2 cases
+		{
+			name:  "Form 2 - single filter",
+			input: "ip filter dynamic 100 * * filter 100",
+		},
+		{
+			name:  "Form 2 - multiple filters",
+			input: "ip filter dynamic 110 * * filter 100 101 102",
+		},
+		{
+			name:  "Form 2 - with in list",
+			input: "ip filter dynamic 120 * * filter 100 in 200 201",
+		},
+		{
+			name:  "Form 2 - with out list",
+			input: "ip filter dynamic 130 * * filter 100 out 300",
+		},
+		{
+			name:  "Form 2 - full config",
+			input: "ip filter dynamic 140 192.168.1.0/24 * filter 100 101 in 200 out 300 syslog on timeout=60",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Parse the input
+			filters, err := ParseIPFilterDynamicConfigExtended(tt.input)
+			if err != nil {
+				t.Fatalf("Failed to parse: %v", err)
+			}
+			if len(filters) != 1 {
+				t.Fatalf("Expected 1 filter, got %d", len(filters))
+			}
+
+			// Build command from parsed filter
+			result := BuildIPFilterDynamicCommandExtended(filters[0])
+
+			// Compare (should match original input)
+			if result != tt.input {
+				t.Errorf("Round-trip failed:\n  input:  %q\n  output: %q", tt.input, result)
+			}
+		})
+	}
+}
+
+// Helper function to compare int slices
+func equalIntSlice(a, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
