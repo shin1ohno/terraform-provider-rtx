@@ -316,6 +316,27 @@ func (m *MockClient) ListIPFilters(ctx context.Context) ([]client.IPFilter, erro
 	panic("not implemented")
 }
 
+// IPv6 Filter methods
+func (m *MockClient) GetIPv6Filter(ctx context.Context, number int) (*client.IPFilter, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) CreateIPv6Filter(ctx context.Context, filter client.IPFilter) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) UpdateIPv6Filter(ctx context.Context, filter client.IPFilter) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) DeleteIPv6Filter(ctx context.Context, number int) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) ListIPv6Filters(ctx context.Context) ([]client.IPFilter, error) {
+	panic("not implemented")
+}
+
 // IP Filter Dynamic methods
 func (m *MockClient) GetIPFilterDynamic(ctx context.Context, number int) (*client.IPFilterDynamic, error) {
 	panic("not implemented")
@@ -409,6 +430,27 @@ func (m *MockClient) ListIPsecTunnels(ctx context.Context) ([]client.IPsecTunnel
 	panic("not implemented")
 }
 
+// IPsec Transport methods
+func (m *MockClient) GetIPsecTransport(ctx context.Context, transportID int) (*client.IPsecTransportConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) CreateIPsecTransport(ctx context.Context, transport client.IPsecTransportConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) UpdateIPsecTransport(ctx context.Context, transport client.IPsecTransportConfig) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) DeleteIPsecTransport(ctx context.Context, transportID int) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) ListIPsecTransports(ctx context.Context) ([]client.IPsecTransportConfig, error) {
+	panic("not implemented")
+}
+
 // L2TP methods
 func (m *MockClient) GetL2TP(ctx context.Context, tunnelID int) (*client.L2TPConfig, error) {
 	panic("not implemented")
@@ -427,6 +469,14 @@ func (m *MockClient) DeleteL2TP(ctx context.Context, tunnelID int) error {
 }
 
 func (m *MockClient) ListL2TPs(ctx context.Context) ([]client.L2TPConfig, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) GetL2TPServiceState(ctx context.Context) (*client.L2TPServiceState, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) SetL2TPServiceState(ctx context.Context, enabled bool, protocols []string) error {
 	panic("not implemented")
 }
 

@@ -1241,3 +1241,194 @@ func (s *IPFilterService) fromParserFilterToExtendedIPv6Entry(filter parsers.IPF
 
 	return entry
 }
+
+// CreateIPv6Filter creates a new static IPv6 filter
+func (s *IPFilterService) CreateIPv6Filter(ctx context.Context, filter IPFilter) error {
+	// Convert client.IPFilter to parsers.IPFilter
+	parserFilter := s.toParserFilter(filter)
+
+	// Validate input
+	if err := parsers.ValidateIPFilterNumber(parserFilter.Number); err != nil {
+		return fmt.Errorf("invalid IPv6 filter: %w", err)
+	}
+	if err := parsers.ValidateIPFilterAction(parserFilter.Action); err != nil {
+		return fmt.Errorf("invalid IPv6 filter: %w", err)
+	}
+
+	// Check context
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	// Build and execute filter creation command
+	cmd := parsers.BuildIPv6FilterCommand(parserFilter)
+	log.Printf("[DEBUG] Creating IPv6 filter with command: %s", cmd)
+
+	output, err := s.executor.Run(ctx, cmd)
+	if err != nil {
+		return fmt.Errorf("failed to create IPv6 filter: %w", err)
+	}
+
+	if len(output) > 0 && containsError(string(output)) {
+		return fmt.Errorf("command failed: %s", string(output))
+	}
+
+	// Save configuration
+	if s.client != nil {
+		if err := s.client.SaveConfig(ctx); err != nil {
+			return fmt.Errorf("IPv6 filter created but failed to save configuration: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// GetIPv6Filter retrieves an IPv6 filter configuration by number
+func (s *IPFilterService) GetIPv6Filter(ctx context.Context, number int) (*IPFilter, error) {
+	// Check context
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	cmd := parsers.BuildShowIPv6FilterByNumberCommand(number)
+	log.Printf("[DEBUG] Getting IPv6 filter with command: %s", cmd)
+
+	output, err := s.executor.Run(ctx, cmd)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get IPv6 filter: %w", err)
+	}
+
+	log.Printf("[DEBUG] IPv6 filter raw output: %q", string(output))
+
+	// Parse the output
+	parserFilters, err := parsers.ParseIPv6FilterConfig(string(output))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse IPv6 filter: %w", err)
+	}
+
+	// Find the specific filter
+	for _, pf := range parserFilters {
+		if pf.Number == number {
+			filter := s.fromParserFilter(pf)
+			return &filter, nil
+		}
+	}
+
+	return nil, fmt.Errorf("IPv6 filter %d not found", number)
+}
+
+// UpdateIPv6Filter updates an existing IPv6 filter
+func (s *IPFilterService) UpdateIPv6Filter(ctx context.Context, filter IPFilter) error {
+	parserFilter := s.toParserFilter(filter)
+
+	// Validate input
+	if err := parsers.ValidateIPFilterNumber(parserFilter.Number); err != nil {
+		return fmt.Errorf("invalid IPv6 filter: %w", err)
+	}
+	if err := parsers.ValidateIPFilterAction(parserFilter.Action); err != nil {
+		return fmt.Errorf("invalid IPv6 filter: %w", err)
+	}
+
+	// Check context
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	// For RTX routers, update is done by re-running the filter command
+	// This will overwrite the existing filter with the same number
+	cmd := parsers.BuildIPv6FilterCommand(parserFilter)
+	log.Printf("[DEBUG] Updating IPv6 filter with command: %s", cmd)
+
+	output, err := s.executor.Run(ctx, cmd)
+	if err != nil {
+		return fmt.Errorf("failed to update IPv6 filter: %w", err)
+	}
+
+	if len(output) > 0 && containsError(string(output)) {
+		return fmt.Errorf("command failed: %s", string(output))
+	}
+
+	// Save configuration
+	if s.client != nil {
+		if err := s.client.SaveConfig(ctx); err != nil {
+			return fmt.Errorf("IPv6 filter updated but failed to save configuration: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// DeleteIPv6Filter removes an IPv6 filter
+func (s *IPFilterService) DeleteIPv6Filter(ctx context.Context, number int) error {
+	// Check context
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	cmd := parsers.BuildDeleteIPv6FilterCommand(number)
+	log.Printf("[DEBUG] Deleting IPv6 filter with command: %s", cmd)
+
+	output, err := s.executor.Run(ctx, cmd)
+	if err != nil {
+		return fmt.Errorf("failed to delete IPv6 filter: %w", err)
+	}
+
+	if len(output) > 0 && containsError(string(output)) {
+		// Check if it's already gone
+		if strings.Contains(strings.ToLower(string(output)), "not found") {
+			return nil
+		}
+		return fmt.Errorf("command failed: %s", string(output))
+	}
+
+	// Save configuration
+	if s.client != nil {
+		if err := s.client.SaveConfig(ctx); err != nil {
+			return fmt.Errorf("IPv6 filter deleted but failed to save configuration: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// ListIPv6Filters retrieves all static IPv6 filters
+func (s *IPFilterService) ListIPv6Filters(ctx context.Context) ([]IPFilter, error) {
+	// Check context
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	cmd := parsers.BuildShowIPv6FilterCommand()
+	log.Printf("[DEBUG] Listing IPv6 filters with command: %s", cmd)
+
+	output, err := s.executor.Run(ctx, cmd)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list IPv6 filters: %w", err)
+	}
+
+	log.Printf("[DEBUG] IPv6 filters raw output: %q", string(output))
+
+	// Parse the output
+	parserFilters, err := parsers.ParseIPv6FilterConfig(string(output))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse IPv6 filters: %w", err)
+	}
+
+	// Convert parsers.IPFilter to client.IPFilter
+	filters := make([]IPFilter, len(parserFilters))
+	for i, pf := range parserFilters {
+		filters[i] = s.fromParserFilter(pf)
+	}
+
+	return filters, nil
+}

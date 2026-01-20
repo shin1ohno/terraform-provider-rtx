@@ -363,3 +363,49 @@ func convertFromParserL2TPConfig(p parsers.L2TPConfig) L2TPConfig {
 
 	return config
 }
+
+// GetL2TPServiceState retrieves the current L2TP service state
+func (s *L2TPService) GetL2TPServiceState(ctx context.Context) (*L2TPServiceState, error) {
+	cmd := parsers.BuildShowL2TPConfigCommand()
+	log.Printf("[DEBUG] L2TP GetServiceState: executing command: %s", cmd)
+
+	output, err := s.executor.Run(ctx, cmd)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get L2TP service state: %w", err)
+	}
+
+	parsed, err := parsers.ParseL2TPServiceConfig(string(output))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse L2TP service state: %w", err)
+	}
+
+	log.Printf("[DEBUG] L2TP GetServiceState: enabled=%v, protocols=%v", parsed.Enabled, parsed.Protocols)
+
+	return &L2TPServiceState{
+		Enabled:   parsed.Enabled,
+		Protocols: parsed.Protocols,
+	}, nil
+}
+
+// SetL2TPServiceState enables or disables the L2TP service with optional protocols
+func (s *L2TPService) SetL2TPServiceState(ctx context.Context, enabled bool, protocols []string) error {
+	cmd := parsers.BuildL2TPServiceCommandWithProtocols(enabled, protocols)
+	log.Printf("[DEBUG] L2TP SetServiceState: executing command: %s", cmd)
+
+	output, err := s.executor.Run(ctx, cmd)
+	if err != nil {
+		return fmt.Errorf("failed to set L2TP service state: %w", err)
+	}
+
+	if containsError(string(output)) {
+		return fmt.Errorf("failed to set L2TP service state: %s", string(output))
+	}
+
+	// Save configuration
+	if err := s.client.SaveConfig(ctx); err != nil {
+		return fmt.Errorf("failed to save L2TP service config: %w", err)
+	}
+
+	log.Printf("[DEBUG] L2TP SetServiceState: successfully set enabled=%v, protocols=%v", enabled, protocols)
+	return nil
+}

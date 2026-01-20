@@ -592,6 +592,40 @@ func BuildDeleteIPv6FilterCommand(number int) string {
 	return fmt.Sprintf("no ipv6 filter %d", number)
 }
 
+// BuildIPv6FilterCommand builds the command to create an IPv6 filter
+// Command format: ipv6 filter <n> <action> <src> <dst> <protocol> [<src_port>] [<dst_port>]
+func BuildIPv6FilterCommand(filter IPFilter) string {
+	parts := []string{
+		"ipv6", "filter",
+		strconv.Itoa(filter.Number),
+		filter.Action,
+		filter.SourceAddress,
+		filter.DestAddress,
+		filter.Protocol,
+	}
+
+	// Add source port if specified
+	if filter.SourcePort != "" {
+		parts = append(parts, filter.SourcePort)
+	} else if filter.DestPort != "" {
+		// If only dest port is specified, we need a placeholder for source port
+		parts = append(parts, "*")
+	}
+
+	// Add destination port if specified
+	if filter.DestPort != "" {
+		parts = append(parts, filter.DestPort)
+	}
+
+	return strings.Join(parts, " ")
+}
+
+// BuildShowIPv6FilterByNumberCommand builds the command to show a specific IPv6 filter
+// Command format: show config | grep "ipv6 filter <n>"
+func BuildShowIPv6FilterByNumberCommand(number int) string {
+	return fmt.Sprintf("show config | grep \"ipv6 filter %d\"", number)
+}
+
 // BuildShowIPv6FilterCommand builds the command to show IPv6 filter configuration
 func BuildShowIPv6FilterCommand() string {
 	return "show config | grep \"ipv6 filter\""

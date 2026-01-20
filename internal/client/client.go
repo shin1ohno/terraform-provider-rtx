@@ -36,6 +36,7 @@ type rtxClient struct {
 	bgpService              *BGPService
 	ospfService             *OSPFService
 	ipsecTunnelService      *IPsecTunnelService
+	ipsecTransportService   *IPsecTransportService
 	l2tpService             *L2TPService
 	pptpService             *PPTPService
 	syslogService           *SyslogService
@@ -158,6 +159,7 @@ func (c *rtxClient) Dial(ctx context.Context) error {
 	c.bgpService = NewBGPService(c.executor, c)
 	c.ospfService = NewOSPFService(c.executor, c)
 	c.ipsecTunnelService = NewIPsecTunnelService(c.executor, c)
+	c.ipsecTransportService = NewIPsecTransportService(c.executor, c)
 	c.l2tpService = NewL2TPService(c.executor, c)
 	c.pptpService = NewPPTPService(c.executor, c)
 	c.syslogService = NewSyslogService(c.executor, c)
@@ -203,6 +205,7 @@ func (c *rtxClient) Close() error {
 	c.bgpService = nil
 	c.ospfService = nil
 	c.ipsecTunnelService = nil
+	c.ipsecTransportService = nil
 	c.l2tpService = nil
 	c.pptpService = nil
 	c.syslogService = nil
@@ -1316,6 +1319,91 @@ func (c *rtxClient) ListIPFilters(ctx context.Context) ([]IPFilter, error) {
 	return ipFilterService.ListFilters(ctx)
 }
 
+// GetIPv6Filter retrieves an IPv6 filter configuration
+func (c *rtxClient) GetIPv6Filter(ctx context.Context, number int) (*IPFilter, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	ipFilterService := c.ipFilterService
+	c.mu.Unlock()
+
+	if ipFilterService == nil {
+		return nil, fmt.Errorf("IP filter service not initialized")
+	}
+
+	return ipFilterService.GetIPv6Filter(ctx, number)
+}
+
+// CreateIPv6Filter creates a new IPv6 filter
+func (c *rtxClient) CreateIPv6Filter(ctx context.Context, filter IPFilter) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	ipFilterService := c.ipFilterService
+	c.mu.Unlock()
+
+	if ipFilterService == nil {
+		return fmt.Errorf("IP filter service not initialized")
+	}
+
+	return ipFilterService.CreateIPv6Filter(ctx, filter)
+}
+
+// UpdateIPv6Filter updates an existing IPv6 filter
+func (c *rtxClient) UpdateIPv6Filter(ctx context.Context, filter IPFilter) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	ipFilterService := c.ipFilterService
+	c.mu.Unlock()
+
+	if ipFilterService == nil {
+		return fmt.Errorf("IP filter service not initialized")
+	}
+
+	return ipFilterService.UpdateIPv6Filter(ctx, filter)
+}
+
+// DeleteIPv6Filter removes an IPv6 filter
+func (c *rtxClient) DeleteIPv6Filter(ctx context.Context, number int) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	ipFilterService := c.ipFilterService
+	c.mu.Unlock()
+
+	if ipFilterService == nil {
+		return fmt.Errorf("IP filter service not initialized")
+	}
+
+	return ipFilterService.DeleteIPv6Filter(ctx, number)
+}
+
+// ListIPv6Filters retrieves all IPv6 filters
+func (c *rtxClient) ListIPv6Filters(ctx context.Context) ([]IPFilter, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	ipFilterService := c.ipFilterService
+	c.mu.Unlock()
+
+	if ipFilterService == nil {
+		return nil, fmt.Errorf("IP filter service not initialized")
+	}
+
+	return ipFilterService.ListIPv6Filters(ctx)
+}
+
 // GetIPFilterDynamic retrieves a dynamic IP filter configuration
 func (c *rtxClient) GetIPFilterDynamic(ctx context.Context, number int) (*IPFilterDynamic, error) {
 	c.mu.Lock()
@@ -1605,6 +1693,130 @@ func (c *rtxClient) ListIPsecTunnels(ctx context.Context) ([]IPsecTunnel, error)
 	return ipsecService.List(ctx)
 }
 
+// GetIPsecTransport retrieves an IPsec transport configuration
+func (c *rtxClient) GetIPsecTransport(ctx context.Context, transportID int) (*IPsecTransportConfig, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	ipsecTransportService := c.ipsecTransportService
+	c.mu.Unlock()
+
+	if ipsecTransportService == nil {
+		return nil, fmt.Errorf("IPsec transport service not initialized")
+	}
+
+	transport, err := ipsecTransportService.Get(ctx, transportID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &IPsecTransportConfig{
+		TransportID: transport.TransportID,
+		TunnelID:    transport.TunnelID,
+		Protocol:    transport.Protocol,
+		Port:        transport.Port,
+	}, nil
+}
+
+// CreateIPsecTransport creates an IPsec transport
+func (c *rtxClient) CreateIPsecTransport(ctx context.Context, transport IPsecTransportConfig) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	ipsecTransportService := c.ipsecTransportService
+	c.mu.Unlock()
+
+	if ipsecTransportService == nil {
+		return fmt.Errorf("IPsec transport service not initialized")
+	}
+
+	parserTransport := parsers.IPsecTransport{
+		TransportID: transport.TransportID,
+		TunnelID:    transport.TunnelID,
+		Protocol:    transport.Protocol,
+		Port:        transport.Port,
+	}
+
+	return ipsecTransportService.Create(ctx, parserTransport)
+}
+
+// UpdateIPsecTransport updates an IPsec transport
+func (c *rtxClient) UpdateIPsecTransport(ctx context.Context, transport IPsecTransportConfig) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	ipsecTransportService := c.ipsecTransportService
+	c.mu.Unlock()
+
+	if ipsecTransportService == nil {
+		return fmt.Errorf("IPsec transport service not initialized")
+	}
+
+	parserTransport := parsers.IPsecTransport{
+		TransportID: transport.TransportID,
+		TunnelID:    transport.TunnelID,
+		Protocol:    transport.Protocol,
+		Port:        transport.Port,
+	}
+
+	return ipsecTransportService.Update(ctx, parserTransport)
+}
+
+// DeleteIPsecTransport removes an IPsec transport
+func (c *rtxClient) DeleteIPsecTransport(ctx context.Context, transportID int) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	ipsecTransportService := c.ipsecTransportService
+	c.mu.Unlock()
+
+	if ipsecTransportService == nil {
+		return fmt.Errorf("IPsec transport service not initialized")
+	}
+
+	return ipsecTransportService.Delete(ctx, transportID)
+}
+
+// ListIPsecTransports retrieves all IPsec transports
+func (c *rtxClient) ListIPsecTransports(ctx context.Context) ([]IPsecTransportConfig, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	ipsecTransportService := c.ipsecTransportService
+	c.mu.Unlock()
+
+	if ipsecTransportService == nil {
+		return nil, fmt.Errorf("IPsec transport service not initialized")
+	}
+
+	transports, err := ipsecTransportService.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]IPsecTransportConfig, len(transports))
+	for i, t := range transports {
+		result[i] = IPsecTransportConfig{
+			TransportID: t.TransportID,
+			TunnelID:    t.TunnelID,
+			Protocol:    t.Protocol,
+			Port:        t.Port,
+		}
+	}
+
+	return result, nil
+}
+
 // GetL2TP retrieves an L2TP/L2TPv3 tunnel configuration
 func (c *rtxClient) GetL2TP(ctx context.Context, tunnelID int) (*L2TPConfig, error) {
 	c.mu.Lock()
@@ -1688,6 +1900,40 @@ func (c *rtxClient) ListL2TPs(ctx context.Context) ([]L2TPConfig, error) {
 	}
 
 	return l2tpService.List(ctx)
+}
+
+// GetL2TPServiceState retrieves the L2TP service state (singleton)
+func (c *rtxClient) GetL2TPServiceState(ctx context.Context) (*L2TPServiceState, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	l2tpService := c.l2tpService
+	c.mu.Unlock()
+
+	if l2tpService == nil {
+		return nil, fmt.Errorf("L2TP service not initialized")
+	}
+
+	return l2tpService.GetL2TPServiceState(ctx)
+}
+
+// SetL2TPServiceState sets the L2TP service state
+func (c *rtxClient) SetL2TPServiceState(ctx context.Context, enabled bool, protocols []string) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	l2tpService := c.l2tpService
+	c.mu.Unlock()
+
+	if l2tpService == nil {
+		return fmt.Errorf("L2TP service not initialized")
+	}
+
+	return l2tpService.SetL2TPServiceState(ctx, enabled, protocols)
 }
 
 // GetPPTP retrieves PPTP configuration

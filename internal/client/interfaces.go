@@ -169,6 +169,21 @@ type Client interface {
 	// ListIPFilters retrieves all IP filters
 	ListIPFilters(ctx context.Context) ([]IPFilter, error)
 
+	// GetIPv6Filter retrieves an IPv6 filter configuration
+	GetIPv6Filter(ctx context.Context, number int) (*IPFilter, error)
+
+	// CreateIPv6Filter creates a new IPv6 filter
+	CreateIPv6Filter(ctx context.Context, filter IPFilter) error
+
+	// UpdateIPv6Filter updates an existing IPv6 filter
+	UpdateIPv6Filter(ctx context.Context, filter IPFilter) error
+
+	// DeleteIPv6Filter removes an IPv6 filter
+	DeleteIPv6Filter(ctx context.Context, number int) error
+
+	// ListIPv6Filters retrieves all IPv6 filters
+	ListIPv6Filters(ctx context.Context) ([]IPFilter, error)
+
 	// GetIPFilterDynamic retrieves a dynamic IP filter configuration
 	GetIPFilterDynamic(ctx context.Context, number int) (*IPFilterDynamic, error)
 
@@ -238,6 +253,22 @@ type Client interface {
 	// ListIPsecTunnels retrieves all IPsec tunnels
 	ListIPsecTunnels(ctx context.Context) ([]IPsecTunnel, error)
 
+	// IPsec Transport methods
+	// GetIPsecTransport retrieves an IPsec transport configuration
+	GetIPsecTransport(ctx context.Context, transportID int) (*IPsecTransportConfig, error)
+
+	// CreateIPsecTransport creates an IPsec transport
+	CreateIPsecTransport(ctx context.Context, transport IPsecTransportConfig) error
+
+	// UpdateIPsecTransport updates an IPsec transport
+	UpdateIPsecTransport(ctx context.Context, transport IPsecTransportConfig) error
+
+	// DeleteIPsecTransport removes an IPsec transport
+	DeleteIPsecTransport(ctx context.Context, transportID int) error
+
+	// ListIPsecTransports retrieves all IPsec transports
+	ListIPsecTransports(ctx context.Context) ([]IPsecTransportConfig, error)
+
 	// L2TP methods
 	// GetL2TP retrieves an L2TP/L2TPv3 tunnel configuration
 	GetL2TP(ctx context.Context, tunnelID int) (*L2TPConfig, error)
@@ -253,6 +284,12 @@ type Client interface {
 
 	// ListL2TPs retrieves all L2TP/L2TPv3 tunnels
 	ListL2TPs(ctx context.Context) ([]L2TPConfig, error)
+
+	// GetL2TPServiceState retrieves the L2TP service state (singleton)
+	GetL2TPServiceState(ctx context.Context) (*L2TPServiceState, error)
+
+	// SetL2TPServiceState sets the L2TP service state
+	SetL2TPServiceState(ctx context.Context, enabled bool, protocols []string) error
 
 	// PPTP methods
 	// GetPPTP retrieves PPTP configuration
@@ -1041,6 +1078,12 @@ type L2TPKeepalive struct {
 	Retry    int `json:"retry"`    // Retry count
 }
 
+// L2TPServiceState represents the L2TP service state (singleton)
+type L2TPServiceState struct {
+	Enabled   bool     `json:"enabled"`             // Service enabled/disabled
+	Protocols []string `json:"protocols,omitempty"` // Enabled protocols: "l2tpv3", "l2tp"
+}
+
 // PPTPConfig represents PPTP configuration on an RTX router
 type PPTPConfig struct {
 	Shutdown         bool            `json:"shutdown"`                    // Administratively shut down
@@ -1393,4 +1436,12 @@ type InterfaceMACACL struct {
 	Interface         string `json:"interface"`                     // Interface name (lan1, lan2, etc.)
 	MACAccessGroupIn  string `json:"mac_access_group_in,omitempty"` // Inbound MAC ACL name
 	MACAccessGroupOut string `json:"mac_access_group_out,omitempty"` // Outbound MAC ACL name
+}
+
+// IPsecTransportConfig represents an IPsec transport mode configuration on an RTX router
+type IPsecTransportConfig struct {
+	TransportID int    `json:"transport_id"` // Transport number
+	TunnelID    int    `json:"tunnel_id"`    // Associated tunnel number
+	Protocol    string `json:"protocol"`     // Protocol ("udp" typically)
+	Port        int    `json:"port"`         // Port number (1701 for L2TP)
 }

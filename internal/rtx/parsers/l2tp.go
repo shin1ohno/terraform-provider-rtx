@@ -534,3 +534,73 @@ func ValidateL2TPConfig(config L2TPConfig) error {
 
 	return nil
 }
+
+// L2TPService represents the L2TP service state
+type L2TPService struct {
+	Enabled   bool     `json:"enabled"`
+	Protocols []string `json:"protocols,omitempty"` // ["l2tpv3", "l2tp"]
+}
+
+// ParseL2TPServiceConfig parses the output containing "l2tp service on/off [protocols...]"
+// RTX command format: l2tp service on [l2tpv3] [l2tp]
+// or: l2tp service off
+func ParseL2TPServiceConfig(raw string) (*L2TPService, error) {
+	lines := strings.Split(raw, "\n")
+
+	// Pattern: l2tp service on [l2tpv3] [l2tp]
+	// or: l2tp service off
+	servicePattern := regexp.MustCompile(`^\s*l2tp\s+service\s+(on|off)(?:\s+(.+))?\s*$`)
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		if matches := servicePattern.FindStringSubmatch(line); len(matches) >= 2 {
+			service := &L2TPService{
+				Enabled:   matches[1] == "on",
+				Protocols: []string{},
+			}
+
+			// Parse protocols if service is on and protocols are specified
+			if service.Enabled && len(matches) >= 3 && matches[2] != "" {
+				protocolsPart := strings.TrimSpace(matches[2])
+				if protocolsPart != "" {
+					protocols := strings.Fields(protocolsPart)
+					for _, proto := range protocols {
+						// Valid protocols: l2tpv3, l2tp
+						if proto == "l2tpv3" || proto == "l2tp" {
+							service.Protocols = append(service.Protocols, proto)
+						}
+					}
+				}
+			}
+
+			return service, nil
+		}
+	}
+
+	// If no l2tp service line found, assume service is off (default state)
+	return &L2TPService{
+		Enabled:   false,
+		Protocols: []string{},
+	}, nil
+}
+
+// BuildL2TPServiceCommandWithProtocols builds the command to enable/disable L2TP service with protocols
+// Command format: l2tp service on [l2tpv3] [l2tp]
+// or: l2tp service off
+func BuildL2TPServiceCommandWithProtocols(enabled bool, protocols []string) string {
+	if !enabled {
+		return "l2tp service off"
+	}
+
+	if len(protocols) == 0 {
+		return "l2tp service on"
+	}
+
+	// Build command with protocols
+	// Example: l2tp service on l2tpv3 l2tp
+	return fmt.Sprintf("l2tp service on %s", strings.Join(protocols, " "))
+}

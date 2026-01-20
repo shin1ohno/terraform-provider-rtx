@@ -251,6 +251,137 @@ func TestBuildL2TPCommands(t *testing.T) {
 	})
 }
 
+func TestParseL2TPServiceConfig(t *testing.T) {
+	tests := []struct {
+		name              string
+		input             string
+		expectedEnabled   bool
+		expectedProtocols []string
+	}{
+		{
+			name:              "service on without protocols",
+			input:             "l2tp service on",
+			expectedEnabled:   true,
+			expectedProtocols: []string{},
+		},
+		{
+			name:              "service on with l2tpv3",
+			input:             "l2tp service on l2tpv3",
+			expectedEnabled:   true,
+			expectedProtocols: []string{"l2tpv3"},
+		},
+		{
+			name:              "service on with l2tp",
+			input:             "l2tp service on l2tp",
+			expectedEnabled:   true,
+			expectedProtocols: []string{"l2tp"},
+		},
+		{
+			name:              "service on with both protocols",
+			input:             "l2tp service on l2tpv3 l2tp",
+			expectedEnabled:   true,
+			expectedProtocols: []string{"l2tpv3", "l2tp"},
+		},
+		{
+			name:              "service off",
+			input:             "l2tp service off",
+			expectedEnabled:   false,
+			expectedProtocols: []string{},
+		},
+		{
+			name:              "empty input (default off)",
+			input:             "",
+			expectedEnabled:   false,
+			expectedProtocols: []string{},
+		},
+		{
+			name:              "no l2tp service line (default off)",
+			input:             "tunnel select 1\ntunnel encapsulation l2tpv3",
+			expectedEnabled:   false,
+			expectedProtocols: []string{},
+		},
+		{
+			name: "service on in multiline config",
+			input: `# other config
+l2tp service on l2tpv3 l2tp
+tunnel select 1`,
+			expectedEnabled:   true,
+			expectedProtocols: []string{"l2tpv3", "l2tp"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseL2TPServiceConfig(tt.input)
+			if err != nil {
+				t.Errorf("ParseL2TPServiceConfig() error = %v", err)
+				return
+			}
+			if got.Enabled != tt.expectedEnabled {
+				t.Errorf("Enabled = %v, want %v", got.Enabled, tt.expectedEnabled)
+			}
+			if len(got.Protocols) != len(tt.expectedProtocols) {
+				t.Errorf("Protocols count = %v, want %v", len(got.Protocols), len(tt.expectedProtocols))
+				return
+			}
+			for i, p := range got.Protocols {
+				if p != tt.expectedProtocols[i] {
+					t.Errorf("Protocol[%d] = %v, want %v", i, p, tt.expectedProtocols[i])
+				}
+			}
+		})
+	}
+}
+
+func TestBuildL2TPServiceCommandWithProtocols(t *testing.T) {
+	tests := []struct {
+		name      string
+		enabled   bool
+		protocols []string
+		expected  string
+	}{
+		{
+			name:      "service on without protocols",
+			enabled:   true,
+			protocols: nil,
+			expected:  "l2tp service on",
+		},
+		{
+			name:      "service on with empty protocols",
+			enabled:   true,
+			protocols: []string{},
+			expected:  "l2tp service on",
+		},
+		{
+			name:      "service on with l2tpv3",
+			enabled:   true,
+			protocols: []string{"l2tpv3"},
+			expected:  "l2tp service on l2tpv3",
+		},
+		{
+			name:      "service on with both protocols",
+			enabled:   true,
+			protocols: []string{"l2tpv3", "l2tp"},
+			expected:  "l2tp service on l2tpv3 l2tp",
+		},
+		{
+			name:      "service off (protocols ignored)",
+			enabled:   false,
+			protocols: []string{"l2tpv3", "l2tp"},
+			expected:  "l2tp service off",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := BuildL2TPServiceCommandWithProtocols(tt.enabled, tt.protocols)
+			if got != tt.expected {
+				t.Errorf("BuildL2TPServiceCommandWithProtocols() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
 func TestValidateL2TPConfig(t *testing.T) {
 	tests := []struct {
 		name    string
