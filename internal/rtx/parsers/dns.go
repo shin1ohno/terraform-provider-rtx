@@ -20,15 +20,30 @@ type DNSConfig struct {
 
 // DNSServerSelect represents a domain-based DNS server selection entry
 type DNSServerSelect struct {
-	ID      int      `json:"id"`      // Selector ID (1-65535)
-	Servers []string `json:"servers"` // DNS server IPs
-	Domains []string `json:"domains"` // Domain patterns (e.g., "*.example.com")
+	ID             int      `json:"id"`              // Selector ID (1-65535)
+	Servers        []string `json:"servers"`         // DNS server IPs
+	EDNS           bool     `json:"edns"`            // Enable EDNS (Extension mechanisms for DNS)
+	RecordType     string   `json:"record_type"`     // DNS record type: a, aaaa, ptr, mx, ns, cname, any
+	QueryPattern   string   `json:"query_pattern"`   // Domain pattern: ".", "*.example.com", etc.
+	OriginalSender string   `json:"original_sender"` // Source IP/CIDR restriction
+	RestrictPP     int      `json:"restrict_pp"`     // PP session restriction (0=none)
 }
 
 // DNSHost represents a static DNS host entry
 type DNSHost struct {
 	Name    string `json:"name"`    // Hostname
 	Address string `json:"address"` // IP address
+}
+
+// validRecordTypes contains the valid DNS record types for server select
+var validRecordTypes = map[string]bool{
+	"a":     true,
+	"aaaa":  true,
+	"ptr":   true,
+	"mx":    true,
+	"ns":    true,
+	"cname": true,
+	"any":   true,
 }
 
 // DNSParser parses DNS configuration output
@@ -108,32 +123,9 @@ func (p *DNSParser) ParseDNSConfig(raw string) (*DNSConfig, error) {
 				continue
 			}
 
-			// Parse the rest: servers and domains
-			rest := strings.Fields(matches[2])
-			if len(rest) < 2 {
-				continue
-			}
-
-			// Separate servers from domains
-			// Servers are IPs, domains contain dots but may be wildcards
-			servers := []string{}
-			domains := []string{}
-
-			for _, item := range rest {
-				if isValidIPForDNS(item) {
-					servers = append(servers, item)
-				} else {
-					// It's a domain
-					domains = append(domains, item)
-				}
-			}
-
-			if len(servers) > 0 && len(domains) > 0 {
-				config.ServerSelect = append(config.ServerSelect, DNSServerSelect{
-					ID:      id,
-					Servers: servers,
-					Domains: domains,
-				})
+			sel := parseDNSServerSelectFields(id, matches[2])
+			if sel != nil {
+				config.ServerSelect = append(config.ServerSelect, *sel)
 			}
 			continue
 		}
@@ -186,6 +178,103 @@ func isValidIPForDNS(s string) bool {
 	return false
 }
 
+// isIPOrCIDR checks if a string looks like an IP address or CIDR notation
+func isIPOrCIDR(s string) bool {
+	// Check for CIDR notation
+	if strings.Contains(s, "/") {
+		parts := strings.Split(s, "/")
+		if len(parts) == 2 && isValidIPForDNS(parts[0]) {
+			return true
+		}
+	}
+	// Check for IP range (192.168.1.0-192.168.1.255)
+	if strings.Contains(s, "-") {
+		parts := strings.Split(s, "-")
+		if len(parts) == 2 && isValidIPForDNS(parts[0]) && isValidIPForDNS(parts[1]) {
+			return true
+		}
+	}
+	return isValidIPForDNS(s)
+}
+
+// parseDNSServerSelectFields parses the fields after "dns server select <id>"
+// Format: <server1> [<server2>] [edns=on] [type] <query-pattern> [original-sender] [restrict pp n]
+func parseDNSServerSelectFields(id int, rest string) *DNSServerSelect {
+	fields := strings.Fields(rest)
+	if len(fields) < 2 {
+		return nil
+	}
+
+	sel := &DNSServerSelect{
+		ID:         id,
+		Servers:    []string{},
+		RecordType: "a", // Default record type
+	}
+
+	i := 0
+
+	// Parse servers (at the beginning, 1-2 IPs)
+	for i < len(fields) && isValidIPForDNS(fields[i]) {
+		sel.Servers = append(sel.Servers, fields[i])
+		i++
+	}
+
+	if len(sel.Servers) == 0 {
+		return nil
+	}
+
+	// Parse remaining fields
+	for i < len(fields) {
+		field := fields[i]
+
+		// Check for edns=on
+		if field == "edns=on" {
+			sel.EDNS = true
+			i++
+			continue
+		}
+
+		// Check for record type
+		if validRecordTypes[field] {
+			sel.RecordType = field
+			i++
+			continue
+		}
+
+		// Check for "restrict pp n"
+		if field == "restrict" && i+2 < len(fields) && fields[i+1] == "pp" {
+			if pp, err := strconv.Atoi(fields[i+2]); err == nil {
+				sel.RestrictPP = pp
+			}
+			i += 3
+			continue
+		}
+
+		// Check if it looks like an IP/CIDR (original sender)
+		if isIPOrCIDR(field) {
+			sel.OriginalSender = field
+			i++
+			continue
+		}
+
+		// Must be the query pattern (domain)
+		if sel.QueryPattern == "" {
+			sel.QueryPattern = field
+			i++
+			continue
+		}
+
+		// Unknown field, skip
+		i++
+	}
+
+	if sel.QueryPattern == "" {
+		return nil
+	}
+
+	return sel
+}
+
 // BuildDNSServerCommand builds the command to set DNS servers
 // Command format: dns server <ip1> [<ip2>] [<ip3>]
 func BuildDNSServerCommand(servers []string) string {
@@ -202,12 +291,44 @@ func BuildDeleteDNSServerCommand() string {
 }
 
 // BuildDNSServerSelectCommand builds the command for domain-based DNS server selection
-// Command format: dns server select <id> <server1> [<server2>] <domain1> [<domain2>...]
+// Command format: dns server select <id> <server1> [<server2>] [edns=on] [type] <query-pattern> [original-sender] [restrict pp n]
 func BuildDNSServerSelectCommand(sel DNSServerSelect) string {
-	if sel.ID < 1 || len(sel.Servers) == 0 || len(sel.Domains) == 0 {
+	if sel.ID < 1 || len(sel.Servers) == 0 || sel.QueryPattern == "" {
 		return ""
 	}
-	return fmt.Sprintf("dns server select %d %s %s", sel.ID, strings.Join(sel.Servers, " "), strings.Join(sel.Domains, " "))
+
+	parts := []string{
+		"dns server select",
+		strconv.Itoa(sel.ID),
+	}
+
+	// Add servers
+	parts = append(parts, sel.Servers...)
+
+	// Add EDNS option if enabled
+	if sel.EDNS {
+		parts = append(parts, "edns=on")
+	}
+
+	// Add record type if not default "a"
+	if sel.RecordType != "" && sel.RecordType != "a" {
+		parts = append(parts, sel.RecordType)
+	}
+
+	// Add query pattern (required)
+	parts = append(parts, sel.QueryPattern)
+
+	// Add original sender if specified
+	if sel.OriginalSender != "" {
+		parts = append(parts, sel.OriginalSender)
+	}
+
+	// Add restrict pp if specified
+	if sel.RestrictPP > 0 {
+		parts = append(parts, "restrict", "pp", strconv.Itoa(sel.RestrictPP))
+	}
+
+	return strings.Join(parts, " ")
 }
 
 // BuildDeleteDNSServerSelectCommand builds the command to remove a DNS server select entry
@@ -310,8 +431,12 @@ func ValidateDNSConfig(config DNSConfig) error {
 		if len(sel.Servers) == 0 {
 			return fmt.Errorf("dns server select %d must have at least one server", sel.ID)
 		}
-		if len(sel.Domains) == 0 {
-			return fmt.Errorf("dns server select %d must have at least one domain", sel.ID)
+		if sel.QueryPattern == "" {
+			return fmt.Errorf("dns server select %d must have a query pattern", sel.ID)
+		}
+		// Validate record type if specified
+		if sel.RecordType != "" && !validRecordTypes[sel.RecordType] {
+			return fmt.Errorf("dns server select %d: invalid record type %q, must be one of: a, aaaa, ptr, mx, ns, cname, any", sel.ID, sel.RecordType)
 		}
 		for _, server := range sel.Servers {
 			if !isValidIP(server) {

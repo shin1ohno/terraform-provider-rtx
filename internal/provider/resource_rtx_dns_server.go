@@ -66,14 +66,35 @@ func resourceRTXDNSServer() *schema.Resource {
 								ValidateFunc: validateIPAddressAny,
 							},
 						},
-						"domains": {
-							Type:        schema.TypeList,
+						"edns": {
+							Type:        schema.TypeBool,
+							Optional:    true,
+							Default:     false,
+							Description: "Enable EDNS (Extension mechanisms for DNS)",
+						},
+						"record_type": {
+							Type:         schema.TypeString,
+							Optional:     true,
+							Default:      "a",
+							Description:  "DNS record type to match: a, aaaa, ptr, mx, ns, cname, any",
+							ValidateFunc: validation.StringInSlice([]string{"a", "aaaa", "ptr", "mx", "ns", "cname", "any"}, false),
+						},
+						"query_pattern": {
+							Type:        schema.TypeString,
 							Required:    true,
-							Description: "Domain patterns to match (e.g., '*.example.com', 'internal.net')",
-							MinItems:    1,
-							Elem: &schema.Schema{
-								Type: schema.TypeString,
-							},
+							Description: "Domain pattern to match (e.g., '.', '*.example.com', 'internal.net')",
+						},
+						"original_sender": {
+							Type:        schema.TypeString,
+							Optional:    true,
+							Description: "Source IP/CIDR restriction for DNS queries",
+						},
+						"restrict_pp": {
+							Type:         schema.TypeInt,
+							Optional:     true,
+							Default:      0,
+							Description:  "PP session restriction (0 = no restriction)",
+							ValidateFunc: validation.IntAtLeast(0),
 						},
 					},
 				},
@@ -164,9 +185,13 @@ func resourceRTXDNSServerRead(ctx context.Context, d *schema.ResourceData, meta 
 	serverSelects := make([]map[string]interface{}, len(config.ServerSelect))
 	for i, sel := range config.ServerSelect {
 		serverSelects[i] = map[string]interface{}{
-			"id":      sel.ID,
-			"servers": sel.Servers,
-			"domains": sel.Domains,
+			"id":              sel.ID,
+			"servers":         sel.Servers,
+			"edns":            sel.EDNS,
+			"record_type":     sel.RecordType,
+			"query_pattern":   sel.QueryPattern,
+			"original_sender": sel.OriginalSender,
+			"restrict_pp":     sel.RestrictPP,
 		}
 	}
 	if err := d.Set("server_select", serverSelects); err != nil {
@@ -247,9 +272,13 @@ func resourceRTXDNSServerImport(ctx context.Context, d *schema.ResourceData, met
 	serverSelects := make([]map[string]interface{}, len(config.ServerSelect))
 	for i, sel := range config.ServerSelect {
 		serverSelects[i] = map[string]interface{}{
-			"id":      sel.ID,
-			"servers": sel.Servers,
-			"domains": sel.Domains,
+			"id":              sel.ID,
+			"servers":         sel.Servers,
+			"edns":            sel.EDNS,
+			"record_type":     sel.RecordType,
+			"query_pattern":   sel.QueryPattern,
+			"original_sender": sel.OriginalSender,
+			"restrict_pp":     sel.RestrictPP,
 		}
 	}
 	d.Set("server_select", serverSelects)
@@ -301,18 +330,40 @@ func buildDNSConfigFromResourceData(d *schema.ResourceData) client.DNSConfig {
 				}
 			}
 
-			// Extract domains
-			domains := []string{}
-			if domainsRaw, ok := selMap["domains"].([]interface{}); ok {
-				for _, d := range domainsRaw {
-					domains = append(domains, d.(string))
-				}
+			// Extract new fields
+			edns := false
+			if v, ok := selMap["edns"].(bool); ok {
+				edns = v
+			}
+
+			recordType := "a"
+			if v, ok := selMap["record_type"].(string); ok && v != "" {
+				recordType = v
+			}
+
+			queryPattern := ""
+			if v, ok := selMap["query_pattern"].(string); ok {
+				queryPattern = v
+			}
+
+			originalSender := ""
+			if v, ok := selMap["original_sender"].(string); ok {
+				originalSender = v
+			}
+
+			restrictPP := 0
+			if v, ok := selMap["restrict_pp"].(int); ok {
+				restrictPP = v
 			}
 
 			config.ServerSelect = append(config.ServerSelect, client.DNSServerSelect{
-				ID:      selMap["id"].(int),
-				Servers: servers,
-				Domains: domains,
+				ID:             selMap["id"].(int),
+				Servers:        servers,
+				EDNS:           edns,
+				RecordType:     recordType,
+				QueryPattern:   queryPattern,
+				OriginalSender: originalSender,
+				RestrictPP:     restrictPP,
 			})
 		}
 	}

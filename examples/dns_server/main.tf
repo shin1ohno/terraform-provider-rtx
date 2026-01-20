@@ -35,17 +35,26 @@ resource "rtx_dns_server" "full" {
   name_servers = ["8.8.8.8", "1.1.1.1"]
 
   # Domain-based DNS server selection
-  # Use different DNS servers for specific domains
+  # Use different DNS servers for specific domains/patterns
   server_select {
-    id      = 1
-    servers = ["192.168.1.1"]
-    domains = ["internal.example.com", "corp.example.com"]
+    id            = 1
+    servers       = ["192.168.1.1"]
+    query_pattern = "internal.example.com"
   }
 
   server_select {
-    id      = 2
-    servers = ["10.0.0.1", "10.0.0.2"]
-    domains = ["*.local"]
+    id            = 2
+    servers       = ["10.0.0.1", "10.0.0.2"]
+    query_pattern = "*.local"
+  }
+
+  # Advanced server select with EDNS and record type filtering
+  server_select {
+    id            = 10
+    servers       = ["10.0.0.53"]
+    edns          = true
+    record_type   = "any"  # a, aaaa, ptr, mx, ns, cname, any
+    query_pattern = "."    # Match all queries
   }
 
   # Static DNS host entries (local DNS overrides)

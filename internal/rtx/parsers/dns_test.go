@@ -48,7 +48,7 @@ func TestParseDNSConfig_ServerSelect(t *testing.T) {
 	raw := `
 dns server 8.8.8.8
 dns server select 1 192.168.1.1 example.com
-dns server select 2 10.0.0.1 10.0.0.2 *.local internal.net
+dns server select 2 10.0.0.1 10.0.0.2 edns=on any .
 `
 	parser := NewDNSParser()
 	config, err := parser.ParseDNSConfig(raw)
@@ -68,11 +68,11 @@ dns server select 2 10.0.0.1 10.0.0.2 *.local internal.net
 	if len(sel1.Servers) != 1 || sel1.Servers[0] != "192.168.1.1" {
 		t.Errorf("Expected server ['192.168.1.1'], got %v", sel1.Servers)
 	}
-	if len(sel1.Domains) != 1 || sel1.Domains[0] != "example.com" {
-		t.Errorf("Expected domains ['example.com'], got %v", sel1.Domains)
+	if sel1.QueryPattern != "example.com" {
+		t.Errorf("Expected query pattern 'example.com', got '%s'", sel1.QueryPattern)
 	}
 
-	// Check second server select with multiple servers and domains
+	// Check second server select with EDNS and record type
 	sel2 := config.ServerSelect[1]
 	if sel2.ID != 2 {
 		t.Errorf("Expected server select ID 2, got %d", sel2.ID)
@@ -80,8 +80,14 @@ dns server select 2 10.0.0.1 10.0.0.2 *.local internal.net
 	if len(sel2.Servers) != 2 {
 		t.Errorf("Expected 2 servers, got %d", len(sel2.Servers))
 	}
-	if len(sel2.Domains) != 2 {
-		t.Errorf("Expected 2 domains, got %d", len(sel2.Domains))
+	if !sel2.EDNS {
+		t.Error("Expected EDNS to be true")
+	}
+	if sel2.RecordType != "any" {
+		t.Errorf("Expected record type 'any', got '%s'", sel2.RecordType)
+	}
+	if sel2.QueryPattern != "." {
+		t.Errorf("Expected query pattern '.', got '%s'", sel2.QueryPattern)
 	}
 }
 
@@ -288,38 +294,73 @@ func TestBuildDNSServerSelectCommand(t *testing.T) {
 		expected string
 	}{
 		{
-			name: "single server single domain",
+			name: "single server simple pattern",
 			sel: DNSServerSelect{
-				ID:      1,
-				Servers: []string{"192.168.1.1"},
-				Domains: []string{"example.com"},
+				ID:           1,
+				Servers:      []string{"192.168.1.1"},
+				QueryPattern: "example.com",
 			},
 			expected: "dns server select 1 192.168.1.1 example.com",
 		},
 		{
-			name: "multiple servers multiple domains",
+			name: "multiple servers with EDNS and any record type",
 			sel: DNSServerSelect{
-				ID:      2,
-				Servers: []string{"10.0.0.1", "10.0.0.2"},
-				Domains: []string{"*.local", "internal.net"},
+				ID:           2,
+				Servers:      []string{"10.0.0.1", "10.0.0.2"},
+				EDNS:         true,
+				RecordType:   "any",
+				QueryPattern: ".",
 			},
-			expected: "dns server select 2 10.0.0.1 10.0.0.2 *.local internal.net",
+			expected: "dns server select 2 10.0.0.1 10.0.0.2 edns=on any .",
+		},
+		{
+			name: "with original sender",
+			sel: DNSServerSelect{
+				ID:             3,
+				Servers:        []string{"192.168.1.1"},
+				QueryPattern:   "*.corp.example.com",
+				OriginalSender: "192.168.1.0/24",
+			},
+			expected: "dns server select 3 192.168.1.1 *.corp.example.com 192.168.1.0/24",
+		},
+		{
+			name: "with restrict pp",
+			sel: DNSServerSelect{
+				ID:           4,
+				Servers:      []string{"10.0.0.53"},
+				QueryPattern: ".",
+				RestrictPP:   1,
+			},
+			expected: "dns server select 4 10.0.0.53 . restrict pp 1",
+		},
+		{
+			name: "full options",
+			sel: DNSServerSelect{
+				ID:             10,
+				Servers:        []string{"10.0.0.53"},
+				EDNS:           true,
+				RecordType:     "aaaa",
+				QueryPattern:   "*.corp.example.com",
+				OriginalSender: "192.168.1.0/24",
+				RestrictPP:     1,
+			},
+			expected: "dns server select 10 10.0.0.53 edns=on aaaa *.corp.example.com 192.168.1.0/24 restrict pp 1",
 		},
 		{
 			name: "invalid - no servers",
 			sel: DNSServerSelect{
-				ID:      1,
-				Servers: []string{},
-				Domains: []string{"example.com"},
+				ID:           1,
+				Servers:      []string{},
+				QueryPattern: "example.com",
 			},
 			expected: "",
 		},
 		{
-			name: "invalid - no domains",
+			name: "invalid - no query pattern",
 			sel: DNSServerSelect{
-				ID:      1,
-				Servers: []string{"192.168.1.1"},
-				Domains: []string{},
+				ID:           1,
+				Servers:      []string{"192.168.1.1"},
+				QueryPattern: "",
 			},
 			expected: "",
 		},
@@ -450,7 +491,7 @@ func TestValidateDNSConfig(t *testing.T) {
 			name: "valid server select",
 			config: DNSConfig{
 				ServerSelect: []DNSServerSelect{
-					{ID: 1, Servers: []string{"192.168.1.1"}, Domains: []string{"example.com"}},
+					{ID: 1, Servers: []string{"192.168.1.1"}, QueryPattern: "example.com"},
 				},
 			},
 			expectErr: false,
@@ -459,7 +500,7 @@ func TestValidateDNSConfig(t *testing.T) {
 			name: "invalid server select ID",
 			config: DNSConfig{
 				ServerSelect: []DNSServerSelect{
-					{ID: 0, Servers: []string{"192.168.1.1"}, Domains: []string{"example.com"}},
+					{ID: 0, Servers: []string{"192.168.1.1"}, QueryPattern: "example.com"},
 				},
 			},
 			expectErr: true,
@@ -468,19 +509,37 @@ func TestValidateDNSConfig(t *testing.T) {
 			name: "server select no servers",
 			config: DNSConfig{
 				ServerSelect: []DNSServerSelect{
-					{ID: 1, Servers: []string{}, Domains: []string{"example.com"}},
+					{ID: 1, Servers: []string{}, QueryPattern: "example.com"},
 				},
 			},
 			expectErr: true,
 		},
 		{
-			name: "server select no domains",
+			name: "server select no query pattern",
 			config: DNSConfig{
 				ServerSelect: []DNSServerSelect{
-					{ID: 1, Servers: []string{"192.168.1.1"}, Domains: []string{}},
+					{ID: 1, Servers: []string{"192.168.1.1"}, QueryPattern: ""},
 				},
 			},
 			expectErr: true,
+		},
+		{
+			name: "server select invalid record type",
+			config: DNSConfig{
+				ServerSelect: []DNSServerSelect{
+					{ID: 1, Servers: []string{"192.168.1.1"}, QueryPattern: ".", RecordType: "invalid"},
+				},
+			},
+			expectErr: true,
+		},
+		{
+			name: "server select valid record type",
+			config: DNSConfig{
+				ServerSelect: []DNSServerSelect{
+					{ID: 1, Servers: []string{"192.168.1.1"}, QueryPattern: ".", RecordType: "aaaa"},
+				},
+			},
+			expectErr: false,
 		},
 		{
 			name: "valid static host",

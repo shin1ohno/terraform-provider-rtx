@@ -92,9 +92,13 @@ func (s *DNSService) Configure(ctx context.Context, config DNSConfig) error {
 	// Configure server select entries
 	for _, sel := range config.ServerSelect {
 		parserSel := parsers.DNSServerSelect{
-			ID:      sel.ID,
-			Servers: sel.Servers,
-			Domains: sel.Domains,
+			ID:             sel.ID,
+			Servers:        sel.Servers,
+			EDNS:           sel.EDNS,
+			RecordType:     sel.RecordType,
+			QueryPattern:   sel.QueryPattern,
+			OriginalSender: sel.OriginalSender,
+			RestrictPP:     sel.RestrictPP,
 		}
 		cmd := parsers.BuildDNSServerSelectCommand(parserSel)
 		if cmd == "" {
@@ -231,9 +235,13 @@ func (s *DNSService) Update(ctx context.Context, config DNSConfig) error {
 	// Add/update new entries
 	for _, sel := range config.ServerSelect {
 		parserSel := parsers.DNSServerSelect{
-			ID:      sel.ID,
-			Servers: sel.Servers,
-			Domains: sel.Domains,
+			ID:             sel.ID,
+			Servers:        sel.Servers,
+			EDNS:           sel.EDNS,
+			RecordType:     sel.RecordType,
+			QueryPattern:   sel.QueryPattern,
+			OriginalSender: sel.OriginalSender,
+			RestrictPP:     sel.RestrictPP,
 		}
 		cmd := parsers.BuildDNSServerSelectCommand(parserSel)
 		if cmd == "" {
@@ -359,9 +367,13 @@ func (s *DNSService) toParserConfig(config DNSConfig) parsers.DNSConfig {
 	serverSelect := make([]parsers.DNSServerSelect, len(config.ServerSelect))
 	for i, sel := range config.ServerSelect {
 		serverSelect[i] = parsers.DNSServerSelect{
-			ID:      sel.ID,
-			Servers: sel.Servers,
-			Domains: sel.Domains,
+			ID:             sel.ID,
+			Servers:        sel.Servers,
+			EDNS:           sel.EDNS,
+			RecordType:     sel.RecordType,
+			QueryPattern:   sel.QueryPattern,
+			OriginalSender: sel.OriginalSender,
+			RestrictPP:     sel.RestrictPP,
 		}
 	}
 
@@ -389,9 +401,13 @@ func (s *DNSService) fromParserConfig(parserConfig *parsers.DNSConfig) DNSConfig
 	serverSelect := make([]DNSServerSelect, len(parserConfig.ServerSelect))
 	for i, sel := range parserConfig.ServerSelect {
 		serverSelect[i] = DNSServerSelect{
-			ID:      sel.ID,
-			Servers: sel.Servers,
-			Domains: sel.Domains,
+			ID:             sel.ID,
+			Servers:        sel.Servers,
+			EDNS:           sel.EDNS,
+			RecordType:     sel.RecordType,
+			QueryPattern:   sel.QueryPattern,
+			OriginalSender: sel.OriginalSender,
+			RestrictPP:     sel.RestrictPP,
 		}
 	}
 

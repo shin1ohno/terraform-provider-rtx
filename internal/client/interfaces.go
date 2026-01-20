@@ -1086,9 +1086,13 @@ type DNSConfig struct {
 
 // DNSServerSelect represents a domain-based DNS server selection entry
 type DNSServerSelect struct {
-	ID      int      `json:"id"`      // Selector ID (1-65535)
-	Servers []string `json:"servers"` // DNS server IPs
-	Domains []string `json:"domains"` // Domain patterns (e.g., "*.example.com")
+	ID             int      `json:"id"`              // Selector ID (1-65535)
+	Servers        []string `json:"servers"`         // DNS server IPs
+	EDNS           bool     `json:"edns"`            // Enable EDNS (Extension mechanisms for DNS)
+	RecordType     string   `json:"record_type"`     // DNS record type: a, aaaa, ptr, mx, ns, cname, any
+	QueryPattern   string   `json:"query_pattern"`   // Domain pattern: ".", "*.example.com", etc.
+	OriginalSender string   `json:"original_sender"` // Source IP/CIDR restriction
+	RestrictPP     int      `json:"restrict_pp"`     // PP session restriction (0=none)
 }
 
 // DNSHost represents a static DNS host entry

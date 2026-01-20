@@ -53,7 +53,7 @@ dns service on
 				DomainName:   "",
 				NameServers:  []string{"8.8.8.8"},
 				ServerSelect: []DNSServerSelect{
-					{ID: 1, Servers: []string{"192.168.1.1"}, Domains: []string{"internal.example.com"}},
+					{ID: 1, Servers: []string{"192.168.1.1"}, RecordType: "a", QueryPattern: "internal.example.com"},
 				},
 				Hosts: []DNSHost{
 					{Name: "router", Address: "192.168.1.1"},
@@ -192,7 +192,7 @@ func TestDNSService_Configure(t *testing.T) {
 				DomainLookup: true,
 				NameServers:  []string{"8.8.8.8"},
 				ServerSelect: []DNSServerSelect{
-					{ID: 1, Servers: []string{"192.168.1.1"}, Domains: []string{"internal.example.com"}},
+					{ID: 1, Servers: []string{"192.168.1.1"}, QueryPattern: "internal.example.com"},
 				},
 				Hosts: []DNSHost{
 					{Name: "router", Address: "192.168.1.1"},
