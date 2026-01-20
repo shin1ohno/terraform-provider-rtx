@@ -57,7 +57,7 @@
 
 ## Phase 3: P2 - Medium Priority Fixes
 
-- [ ] 5. Fix L2TP tunnel_auth parsing (REQ-4)
+- [x] 5. Fix L2TP tunnel_auth parsing (REQ-4)
   - File: `internal/rtx/parsers/l2tp.go`
   - Add debug logging to track currentTunnelID during parsing
   - Verify `tunnel select N` sets currentTunnelID correctly
@@ -67,7 +67,7 @@
   - Purpose: Ensure L2TPv3 VPN security settings are preserved
   - _Leverage: `internal/rtx/parsers/l2tp.go` l2tpTunnelAuthPattern_
   - _Requirements: REQ-4_
-  - _Prompt: Implement the task for spec import-fidelity-fix, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Developer debugging stateful parsers | Task: Fix L2TP tunnel_auth parsing by ensuring correct tunnel context for REQ-4 | Restrictions: Do not change L2TPConfig struct, maintain tunnel select state | _Leverage: internal/rtx/parsers/l2tp.go | _Requirements: REQ-4 | Success: Tunnel with auth on shows tunnel_auth_enabled=true | After completing, use log-implementation tool, then mark [x]_
+  - _Completed: 2026-01-20 - Parser was correct. Fixed resourceRTXL2TPImport to set l2tpv3_config including tunnel_auth. Added REQ-4 test cases._
 
 - [ ] 6. Relax schema constraints for import compatibility (REQ-6)
   - File: Various `internal/provider/resource_rtx_*.go`

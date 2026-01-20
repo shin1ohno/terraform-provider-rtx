@@ -193,6 +193,35 @@ tunnel enable 1`,
 			expectedEnabled:  false,
 			expectedPassword: "",
 		},
+		{
+			name: "tunnel auth with special characters in password (REQ-4)",
+			input: `tunnel select 1
+ tunnel encapsulation l2tpv3
+ tunnel endpoint address 192.168.1.1 192.168.2.1
+ l2tp local router-id 10.0.0.1
+ l2tp remote router-id 10.0.0.2
+ l2tp tunnel auth on Example!Pass123
+tunnel enable 1`,
+			expectedEnabled:  true,
+			expectedPassword: "Example!Pass123",
+		},
+		{
+			name: "realistic RTX config with tunnel auth (REQ-4)",
+			input: `# L2TPv3 tunnel configuration
+tunnel select 1
+ tunnel encapsulation l2tpv3
+ tunnel endpoint address 203.0.113.1 198.51.100.1
+ l2tp local router-id 1.1.1.1
+ l2tp remote router-id 2.2.2.2
+ l2tp remote end-id remote-site
+ l2tp tunnel auth on TEST_PASSWORD_2
+ l2tp always-on on
+ l2tp keepalive use on 30 5
+ description Site-to-Site L2VPN
+tunnel enable 1`,
+			expectedEnabled:  true,
+			expectedPassword: "TEST_PASSWORD_2",
+		},
 	}
 
 	parser := NewL2TPParser()

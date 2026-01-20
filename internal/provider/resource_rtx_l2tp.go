@@ -54,7 +54,7 @@ func resourceRTXL2TP() *schema.Resource {
 			"shutdown": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     false,
+				Computed:    true,
 				Description: "Administratively shut down the tunnel.",
 			},
 			"tunnel_source": {
@@ -133,7 +133,7 @@ func resourceRTXL2TP() *schema.Resource {
 						"enabled": {
 							Type:        schema.TypeBool,
 							Optional:    true,
-							Default:     true,
+							Computed:    true,
 							Description: "Enable IPsec encryption.",
 						},
 						"pre_shared_key": {
@@ -182,7 +182,7 @@ func resourceRTXL2TP() *schema.Resource {
 						"cookie_size": {
 							Type:         schema.TypeInt,
 							Optional:     true,
-							Default:      0,
+							Computed:     true,
 							Description:  "Cookie size: 0, 4, or 8 bytes.",
 							ValidateFunc: validation.IntInSlice([]int{0, 4, 8}),
 						},
@@ -194,7 +194,7 @@ func resourceRTXL2TP() *schema.Resource {
 						"tunnel_auth_enabled": {
 							Type:        schema.TypeBool,
 							Optional:    true,
-							Default:     false,
+							Computed:    true,
 							Description: "Enable tunnel authentication.",
 						},
 						"tunnel_auth_password": {
@@ -209,7 +209,7 @@ func resourceRTXL2TP() *schema.Resource {
 			"keepalive_enabled": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     false,
+				Computed:    true,
 				Description: "Enable keepalive.",
 			},
 			"keepalive_interval": {
@@ -229,20 +229,20 @@ func resourceRTXL2TP() *schema.Resource {
 			"disconnect_time": {
 				Type:         schema.TypeInt,
 				Optional:     true,
-				Default:      0,
+				Computed:     true,
 				Description:  "Idle disconnect time in seconds. 0 means no timeout.",
 				ValidateFunc: validation.IntAtLeast(0),
 			},
 			"always_on": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     false,
+				Computed:    true,
 				Description: "Enable always-on mode.",
 			},
 			"enabled": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     true,
+				Computed:    true,
 				Description: "Enable the L2TP tunnel.",
 			},
 		},
@@ -464,6 +464,67 @@ func resourceRTXL2TPImport(ctx context.Context, d *schema.ResourceData, meta int
 	d.Set("disconnect_time", config.DisconnectTime)
 	d.Set("always_on", config.AlwaysOn)
 	d.Set("enabled", config.Enabled)
+
+	// Set authentication
+	if config.Authentication != nil {
+		auth := []map[string]interface{}{
+			{
+				"method":   config.Authentication.Method,
+				"username": config.Authentication.Username,
+				"password": config.Authentication.Password,
+			},
+		}
+		d.Set("authentication", auth)
+	}
+
+	// Set IP pool
+	if config.IPPool != nil {
+		ipPool := []map[string]interface{}{
+			{
+				"start": config.IPPool.Start,
+				"end":   config.IPPool.End,
+			},
+		}
+		d.Set("ip_pool", ipPool)
+	}
+
+	// Set IPsec profile
+	if config.IPsecProfile != nil {
+		ipsec := []map[string]interface{}{
+			{
+				"enabled":        config.IPsecProfile.Enabled,
+				"pre_shared_key": config.IPsecProfile.PreSharedKey,
+				"tunnel_id":      config.IPsecProfile.TunnelID,
+			},
+		}
+		d.Set("ipsec_profile", ipsec)
+	}
+
+	// Set L2TPv3 config (including tunnel_auth)
+	if config.L2TPv3Config != nil {
+		l2tpv3 := []map[string]interface{}{
+			{
+				"local_router_id":      config.L2TPv3Config.LocalRouterID,
+				"remote_router_id":     config.L2TPv3Config.RemoteRouterID,
+				"remote_end_id":        config.L2TPv3Config.RemoteEndID,
+				"session_id":           config.L2TPv3Config.SessionID,
+				"cookie_size":          config.L2TPv3Config.CookieSize,
+				"bridge_interface":     config.L2TPv3Config.BridgeInterface,
+				"tunnel_auth_enabled":  config.L2TPv3Config.TunnelAuth != nil && config.L2TPv3Config.TunnelAuth.Enabled,
+				"tunnel_auth_password": "",
+			},
+		}
+		if config.L2TPv3Config.TunnelAuth != nil {
+			l2tpv3[0]["tunnel_auth_password"] = config.L2TPv3Config.TunnelAuth.Password
+		}
+		d.Set("l2tpv3_config", l2tpv3)
+	}
+
+	// Set keepalive config
+	if config.KeepaliveConfig != nil {
+		d.Set("keepalive_interval", config.KeepaliveConfig.Interval)
+		d.Set("keepalive_retry", config.KeepaliveConfig.Retry)
+	}
 
 	return []*schema.ResourceData{d}, nil
 }
