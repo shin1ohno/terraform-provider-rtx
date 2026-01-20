@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -26,7 +26,8 @@ type workingSession struct {
 
 // newWorkingSession creates a new working session
 func newWorkingSession(client *ssh.Client) (*workingSession, error) {
-	log.Printf("[DEBUG] Creating new working session")
+	logger := logging.Global()
+	logger.Debug().Msg("Creating new working session")
 	
 	// Create session first
 	session, err := client.NewSession()
@@ -54,7 +55,10 @@ func newWorkingSession(client *ssh.Client) (*workingSession, error) {
 		ssh.TTY_OP_OSPEED: 14400,
 	}
 
-	if err := session.RequestPty("vt100", 80, 40, modes); err != nil {
+	// Use wide terminal to prevent line wrapping for long filter lists
+	// RTX config lines can exceed 200 characters (e.g., secure filter with 13+ IDs)
+	// RequestPty parameters: term, height, width, modes
+	if err := session.RequestPty("vt100", 40, 512, modes); err != nil {
 		session.Close()
 		return nil, fmt.Errorf("failed to request PTY: %w", err)
 	}
@@ -73,25 +77,25 @@ func newWorkingSession(client *ssh.Client) (*workingSession, error) {
 	}
 
 	// Wait for initial prompt
-	log.Printf("[DEBUG] Waiting for initial prompt")
+	logger.Debug().Msg("Waiting for initial prompt")
 	initialOutput, err := s.readUntilPrompt(10 * time.Second)
 	if err != nil {
 		s.Close()
 		return nil, fmt.Errorf("failed to get initial prompt: %w", err)
 	}
-	log.Printf("[DEBUG] Got initial output: %d bytes", len(initialOutput))
-	log.Printf("[DEBUG] Initial output content: %q", string(initialOutput))
+	logger.Debug().Int("bytes", len(initialOutput)).Msg("Got initial output")
+	logger.Debug().Str("content", string(initialOutput)).Msg("Initial output content")
 
 	// Optional: Set character encoding (some routers don't support this)
-	log.Printf("[DEBUG] Setting character encoding")
+	logger.Debug().Msg("Setting character encoding")
 	if _, err := s.executeCommand("console character en.ascii", 5*time.Second); err != nil {
-		log.Printf("[WARN] Failed to set character encoding: %v (continuing anyway)", err)
+		logger.Warn().Err(err).Msg("Failed to set character encoding (continuing anyway)")
 	}
 
 	// Disable paging to get full output from commands like "show config"
-	log.Printf("[DEBUG] Disabling console paging")
+	logger.Debug().Msg("Disabling console paging")
 	if _, err := s.executeCommand("console lines infinity", 5*time.Second); err != nil {
-		log.Printf("[WARN] Failed to disable paging: %v (continuing anyway)", err)
+		logger.Warn().Err(err).Msg("Failed to disable paging (continuing anyway)")
 	}
 
 	return s, nil
@@ -99,10 +103,11 @@ func newWorkingSession(client *ssh.Client) (*workingSession, error) {
 
 // Send executes a command and returns the output
 func (s *workingSession) Send(cmd string) ([]byte, error) {
+	logger := logging.Global()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	log.Printf("[DEBUG] workingSession.Send called with command: %s, closed: %v", cmd, s.closed)
+	logger.Debug().Str("command", SanitizeCommandForLog(cmd)).Bool("closed", s.closed).Msg("workingSession.Send called")
 	
 	if s.closed {
 		return nil, fmt.Errorf("session is closed")
@@ -121,7 +126,7 @@ func (s *workingSession) Send(cmd string) ([]byte, error) {
 	}
 	output, err := s.executeCommandRaw(cmd, timeout)
 	if err != nil {
-		log.Printf("[ERROR] workingSession.Send failed: %v", err)
+		logger.Error().Err(err).Msg("workingSession.Send failed")
 		return nil, err
 	}
 
@@ -130,7 +135,8 @@ func (s *workingSession) Send(cmd string) ([]byte, error) {
 
 // executeCommand sends command and reads response (cleaned)
 func (s *workingSession) executeCommand(cmd string, timeout time.Duration) ([]byte, error) {
-	log.Printf("[DEBUG] Executing command: %s", cmd)
+	logger := logging.Global()
+	logger.Debug().Str("command", cmd).Msg("Executing command")
 
 	// Send command with carriage return (like expect script)
 	if _, err := fmt.Fprintf(s.stdin, "%s\r", cmd); err != nil {
@@ -145,14 +151,15 @@ func (s *workingSession) executeCommand(cmd string, timeout time.Duration) ([]by
 
 	// Clean output - remove command echo and prompt
 	cleanOutput := s.cleanOutput(string(output), cmd)
-	
-	log.Printf("[DEBUG] Command completed, output length: %d bytes", len(cleanOutput))
+
+	logger.Debug().Int("bytes", len(cleanOutput)).Msg("Command completed")
 	return []byte(cleanOutput), nil
 }
 
 // executeCommandRaw sends command and returns raw response including prompt
 func (s *workingSession) executeCommandRaw(cmd string, timeout time.Duration) ([]byte, error) {
-	log.Printf("[DEBUG] Executing command (raw): %s", cmd)
+	logger := logging.Global()
+	logger.Debug().Str("command", cmd).Msg("Executing command (raw)")
 
 	// Send command with carriage return
 	if _, err := fmt.Fprintf(s.stdin, "%s\r", cmd); err != nil {
@@ -165,19 +172,20 @@ func (s *workingSession) executeCommandRaw(cmd string, timeout time.Duration) ([
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
-	log.Printf("[DEBUG] Command completed (raw), output length: %d bytes", len(output))
+	logger.Debug().Int("bytes", len(output)).Msg("Command completed (raw)")
 	return output, nil
 }
 
 // readUntilPrompt reads until we see a prompt character
 func (s *workingSession) readUntilPrompt(timeout time.Duration) ([]byte, error) {
+	logger := logging.Global()
 	var buffer bytes.Buffer
 	deadline := time.Now().Add(timeout)
 	buf := make([]byte, 1)
 
 	for {
 		if time.Now().After(deadline) {
-			log.Printf("[DEBUG] readUntilPrompt: Timeout waiting for prompt. Buffer content: %q", buffer.String())
+			logger.Debug().Str("buffer", buffer.String()).Msg("readUntilPrompt: Timeout waiting for prompt")
 			return buffer.Bytes(), fmt.Errorf("timeout waiting for prompt")
 		}
 
@@ -307,11 +315,12 @@ func (s *workingSession) cleanOutput(output, cmd string) string {
 
 // Close closes the session
 func (s *workingSession) Close() error {
+	logger := logging.Global()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	log.Printf("[DEBUG] workingSession.Close() called, already closed: %v", s.closed)
-	
+	logger.Debug().Bool("already_closed", s.closed).Msg("workingSession.Close() called")
+
 	if s.closed {
 		return nil
 	}
@@ -320,32 +329,32 @@ func (s *workingSession) Close() error {
 
 	// Send appropriate exit commands based on current mode
 	if s.adminMode {
-		log.Printf("[DEBUG] Session is in administrator mode, sending two exit commands")
+		logger.Debug().Msg("Session is in administrator mode, sending two exit commands")
 		// First exit: leave administrator mode (back to user mode)
 		if err := s.exitAdminMode(); err != nil {
-			log.Printf("[WARN] Failed to exit administrator mode properly: %v", err)
+			logger.Warn().Err(err).Msg("Failed to exit administrator mode properly")
 		}
 		s.adminMode = false
-		
+
 		// Small delay before second exit
 		time.Sleep(500 * time.Millisecond)
-		
+
 		// Second exit: disconnect from router
 		if _, err := fmt.Fprintf(s.stdin, "exit\r"); err != nil {
-			log.Printf("[WARN] Failed to send second exit command: %v", err)
+			logger.Warn().Err(err).Msg("Failed to send second exit command")
 		}
 		time.Sleep(300 * time.Millisecond)
 	} else {
-		log.Printf("[DEBUG] Session is in user mode, sending one exit command")
+		logger.Debug().Msg("Session is in user mode, sending one exit command")
 		if _, err := fmt.Fprintf(s.stdin, "exit\r"); err != nil {
-			log.Printf("[WARN] Failed to send exit command: %v", err)
+			logger.Warn().Err(err).Msg("Failed to send exit command")
 		}
 		time.Sleep(300 * time.Millisecond)
 	}
 
 	// Close session
 	if s.session != nil {
-		log.Printf("[DEBUG] Closing SSH session")
+		logger.Debug().Msg("Closing SSH session")
 		return s.session.Close()
 	}
 
@@ -361,52 +370,54 @@ func (s *workingSession) SetAdminMode(admin bool) {
 
 // exitAdminMode safely exits administrator mode handling configuration save prompts
 func (s *workingSession) exitAdminMode() error {
-	log.Printf("[DEBUG] Exiting administrator mode")
-	
+	logger := logging.Global()
+	logger.Debug().Msg("Exiting administrator mode")
+
 	// Send exit command
 	if _, err := fmt.Fprintf(s.stdin, "exit\r"); err != nil {
 		return fmt.Errorf("failed to send exit command: %w", err)
 	}
-	
+
 	// Read response and check for configuration save prompt
 	response, err := s.readUntilPromptOrSaveConfirmation(5 * time.Second)
 	if err != nil {
-		log.Printf("[WARN] Error reading response after exit: %v", err)
+		logger.Warn().Err(err).Msg("Error reading response after exit")
 		return err
 	}
-	
+
 	responseStr := string(response)
-	log.Printf("[DEBUG] Exit response: %q", responseStr)
-	
+	logger.Debug().Str("response", responseStr).Msg("Exit response")
+
 	// Check if we got a configuration save confirmation prompt
 	if s.isSaveConfigurationPrompt(responseStr) {
-		log.Printf("[DEBUG] Configuration save prompt detected, responding with 'N'")
+		logger.Debug().Msg("Configuration save prompt detected, responding with 'N'")
 		// Respond with 'N' to not save configuration
 		if _, err := fmt.Fprintf(s.stdin, "N\r"); err != nil {
 			return fmt.Errorf("failed to respond to save prompt: %w", err)
 		}
-		
+
 		// Read final response after save confirmation
 		finalResponse, err := s.readUntilPrompt(3 * time.Second)
 		if err != nil {
-			log.Printf("[WARN] Error reading final response: %v", err)
+			logger.Warn().Err(err).Msg("Error reading final response")
 			return err
 		}
-		log.Printf("[DEBUG] Final exit response: %q", string(finalResponse))
+		logger.Debug().Str("response", string(finalResponse)).Msg("Final exit response")
 	}
-	
+
 	return nil
 }
 
 // readUntilPromptOrSaveConfirmation reads until we see a prompt or save confirmation
 func (s *workingSession) readUntilPromptOrSaveConfirmation(timeout time.Duration) ([]byte, error) {
+	logger := logging.Global()
 	var buffer bytes.Buffer
 	deadline := time.Now().Add(timeout)
 	buf := make([]byte, 1)
 
 	for {
 		if time.Now().After(deadline) {
-			log.Printf("[DEBUG] readUntilPromptOrSaveConfirmation: Timeout. Buffer content: %q", buffer.String())
+			logger.Debug().Str("buffer", buffer.String()).Msg("readUntilPromptOrSaveConfirmation: Timeout")
 			return buffer.Bytes(), fmt.Errorf("timeout waiting for prompt or save confirmation")
 		}
 

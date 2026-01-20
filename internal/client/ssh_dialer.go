@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"log"
 	"net"
 	"strings"
 	"time"
-	
+
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 )
@@ -18,8 +18,9 @@ type sshDialer struct{}
 
 // Dial creates an SSH connection to the router
 func (d *sshDialer) Dial(ctx context.Context, host string, config *Config) (Session, error) {
+	logger := logging.FromContext(ctx)
 	hostKeyCallback := d.getHostKeyCallback(config)
-	
+
 	sshConfig := &ssh.ClientConfig{
 		User: config.Username,
 		Auth: []ssh.AuthMethod{
@@ -28,7 +29,7 @@ func (d *sshDialer) Dial(ctx context.Context, host string, config *Config) (Sess
 				// RTXルーターは通常パスワードプロンプトに対して単一の応答を期待
 				answers := make([]string, len(questions))
 				for i := range questions {
-					log.Printf("[DEBUG] Keyboard interactive question %d: %s", i, questions[i])
+					logger.Debug().Int("question_index", i).Str("question", questions[i]).Msg("Keyboard interactive question")
 					answers[i] = config.Password
 				}
 				return answers, nil
@@ -37,11 +38,11 @@ func (d *sshDialer) Dial(ctx context.Context, host string, config *Config) (Sess
 		HostKeyCallback: hostKeyCallback,
 		Timeout:         time.Duration(config.Timeout) * time.Second,
 	}
-	
+
 	addr := fmt.Sprintf("%s:%d", config.Host, config.Port)
-	
+
 	// Use DialContext to prevent goroutine leaks
-	log.Printf("[DEBUG] Dialing SSH to %s", addr)
+	logger.Debug().Str("addr", addr).Msg("Dialing SSH")
 	client, err := DialContext(ctx, "tcp", addr, sshConfig)
 	if err != nil {
 		// Check if it's an authentication error by examining the error message
@@ -51,7 +52,7 @@ func (d *sshDialer) Dial(ctx context.Context, host string, config *Config) (Sess
 		}
 		return nil, err
 	}
-	log.Printf("[DEBUG] SSH connection established")
+	logger.Debug().Msg("SSH connection established")
 	
 	// Use the working session implementation that matches our successful test
 	session, err := newWorkingSession(client)
@@ -70,12 +71,12 @@ func (d *sshDialer) getHostKeyCallback(config *Config) ssh.HostKeyCallback {
 	if config.SkipHostKeyCheck {
 		return ssh.InsecureIgnoreHostKey()
 	}
-	
+
 	// If a fixed host key is provided, use it for verification
 	if config.HostKey != "" {
 		return d.createFixedHostKeyCallback(config.HostKey)
 	}
-	
+
 	// If known_hosts file is provided, use it for verification
 	if config.KnownHostsFile != "" {
 		callback, err := d.createKnownHostsCallback(config.KnownHostsFile)
@@ -87,8 +88,12 @@ func (d *sshDialer) getHostKeyCallback(config *Config) ssh.HostKeyCallback {
 		}
 		return callback
 	}
-	
+
 	// Default to insecure (backward compatibility)
+	logger := logging.Global()
+	logger.Warn().Msg("SSH host key verification is disabled. " +
+		"This makes the connection vulnerable to man-in-the-middle attacks. " +
+		"Consider using 'known_hosts_file' or 'host_key' for production environments.")
 	return ssh.InsecureIgnoreHostKey()
 }
 

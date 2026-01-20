@@ -3,10 +3,10 @@ package client
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -30,7 +30,8 @@ func NewSimpleExecutor(config *ssh.ClientConfig, addr string, promptDetector Pro
 
 // Run executes a command by creating a new SSH connection
 func (e *simpleExecutor) Run(ctx context.Context, cmd string) ([]byte, error) {
-	log.Printf("[DEBUG] SimpleExecutor: Running command: %s", cmd)
+	logger := logging.FromContext(ctx)
+	logger.Debug().Str("command", logging.SanitizeString(cmd)).Msg("SimpleExecutor: Running command")
 	
 	// Create a new SSH connection for each command
 	client, err := ssh.Dial("tcp", e.addr, e.config)
@@ -48,11 +49,11 @@ func (e *simpleExecutor) Run(ctx context.Context, cmd string) ([]byte, error) {
 	
 	// Check if this command requires administrator privileges
 	if e.requiresAdminPrivileges(cmd) {
-		log.Printf("[DEBUG] SimpleExecutor: Command requires administrator privileges, authenticating...")
-		if err := e.authenticateAsAdmin(session); err != nil {
+		logger.Debug().Msg("SimpleExecutor: Command requires administrator privileges, authenticating...")
+		if err := e.authenticateAsAdmin(ctx, session); err != nil {
 			return nil, fmt.Errorf("failed to authenticate as administrator: %w", err)
 		}
-		
+
 		// Mark session as being in administrator mode
 		session.SetAdminMode(true)
 	}
@@ -66,10 +67,10 @@ func (e *simpleExecutor) Run(ctx context.Context, cmd string) ([]byte, error) {
 	// Check for prompt
 	matched, prompt := e.promptDetector.DetectPrompt(output)
 	if !matched {
-		log.Printf("[DEBUG] SimpleExecutor: Prompt detection failed. Output: %q", string(output))
+		logger.Debug().Str("output", string(output)).Msg("SimpleExecutor: Prompt detection failed")
 		return nil, fmt.Errorf("%w: output does not contain expected prompt", ErrPrompt)
 	}
-	log.Printf("[DEBUG] SimpleExecutor: Prompt detected: %q", prompt)
+	logger.Debug().Str("prompt", prompt).Msg("SimpleExecutor: Prompt detected")
 	
 	return output, nil
 }
@@ -86,8 +87,9 @@ func (e *simpleExecutor) requiresAdminPrivileges(cmd string) bool {
 }
 
 // authenticateAsAdmin authenticates as administrator using the administrator command
-func (e *simpleExecutor) authenticateAsAdmin(session Session) error {
-	log.Printf("[DEBUG] SimpleExecutor: Authenticating as administrator")
+func (e *simpleExecutor) authenticateAsAdmin(ctx context.Context, session Session) error {
+	logger := logging.FromContext(ctx)
+	logger.Debug().Msg("SimpleExecutor: Authenticating as administrator")
 	
 	// Cast session to workingSession to access low-level methods
 	ws, ok := session.(*workingSession)
@@ -96,24 +98,25 @@ func (e *simpleExecutor) authenticateAsAdmin(session Session) error {
 	}
 	
 	// Send administrator command and wait for password prompt
-	if err := e.sendAdministratorCommand(ws); err != nil {
+	if err := e.sendAdministratorCommand(ctx, ws); err != nil {
 		return fmt.Errorf("failed to authenticate as administrator: %w", err)
 	}
-	
-	log.Printf("[DEBUG] SimpleExecutor: Administrator authentication completed")
+
+	logger.Debug().Msg("SimpleExecutor: Administrator authentication completed")
 	return nil
 }
 
 // sendAdministratorCommand sends the administrator command and handles password prompt
-func (e *simpleExecutor) sendAdministratorCommand(ws *workingSession) error {
+func (e *simpleExecutor) sendAdministratorCommand(ctx context.Context, ws *workingSession) error {
+	logger := logging.FromContext(ctx)
 	ws.mu.Lock()
 	defer ws.mu.Unlock()
-	
+
 	if ws.closed {
 		return fmt.Errorf("session is closed")
 	}
-	
-	log.Printf("[DEBUG] SimpleExecutor: Sending administrator command")
+
+	logger.Debug().Msg("SimpleExecutor: Sending administrator command")
 	
 	// Send administrator command
 	if _, err := fmt.Fprintf(ws.stdin, "administrator\r"); err != nil {
@@ -121,14 +124,14 @@ func (e *simpleExecutor) sendAdministratorCommand(ws *workingSession) error {
 	}
 	
 	// Read until we get password prompt
-	passwordPrompt, err := ws.readUntilString("Password:", 10*time.Second)
+	_, err := ws.readUntilString("Password:", 10*time.Second)
 	if err != nil {
 		return fmt.Errorf("failed to get password prompt: %w", err)
 	}
-	log.Printf("[DEBUG] SimpleExecutor: Password prompt received: %q", string(passwordPrompt))
-	
+	logger.Debug().Msg("SimpleExecutor: Password prompt received")
+
 	// Send password
-	log.Printf("[DEBUG] SimpleExecutor: Sending administrator password")
+	logger.Debug().Msg("SimpleExecutor: Sending administrator password")
 	if _, err := fmt.Fprintf(ws.stdin, "%s\r", e.rtxConfig.AdminPassword); err != nil {
 		return fmt.Errorf("failed to send password: %w", err)
 	}
@@ -140,13 +143,13 @@ func (e *simpleExecutor) sendAdministratorCommand(ws *workingSession) error {
 	}
 	
 	responseStr := string(response)
-	log.Printf("[DEBUG] SimpleExecutor: Password response: %q", responseStr)
-	
+	logger.Debug().Msg("SimpleExecutor: Password authentication response received")
+
 	// Check for authentication success (look for # prompt or no error message)
 	if strings.Contains(responseStr, "incorrect") || strings.Contains(responseStr, "failed") || strings.Contains(responseStr, "Invalid") {
 		return fmt.Errorf("administrator authentication failed: %s", responseStr)
 	}
-	
-	log.Printf("[DEBUG] SimpleExecutor: Administrator authentication successful")
+
+	logger.Debug().Msg("SimpleExecutor: Administrator authentication successful")
 	return nil
 }
