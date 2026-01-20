@@ -113,7 +113,7 @@
 
 ## Phase 3: Provider Layer
 
-- [ ] 13. Create NetVolante DNS Terraform resource
+- [x] 13. Create NetVolante DNS Terraform resource
   - File: internal/provider/resource_rtx_netvolante_dns.go
   - Define schema with hostname, server, interface, update_interval, ipv6_enabled
   - Implement Create, Read, Update, Delete functions
@@ -122,7 +122,7 @@
   - _Requirements: REQ-3_
   - _Prompt: Role: Terraform Provider Developer | Task: Create rtx_netvolante_dns resource with full CRUD | Success: Resource CRUD works_
 
-- [ ] 14. Create custom DDNS Terraform resource
+- [x] 14. Create custom DDNS Terraform resource
   - File: internal/provider/resource_rtx_ddns.go
   - Define schema with provider_url, hostname, username, password, interface
   - Implement Create, Read, Update, Delete functions
@@ -131,7 +131,7 @@
   - _Requirements: REQ-1, REQ-2_
   - _Prompt: Role: Terraform Provider Developer | Task: Create rtx_ddns resource with full CRUD | Restrictions: Mark password as sensitive | Success: Resource CRUD works_
 
-- [ ] 15. Create DDNS status data source
+- [x] 15. Create DDNS status data source
   - File: internal/provider/data_source_rtx_ddns_status.go
   - Define schema for status output
   - Implement Read function
@@ -140,7 +140,7 @@
   - _Requirements: REQ-4_
   - _Prompt: Role: Terraform Provider Developer | Task: Create rtx_ddns_status data source | Success: Data source works_
 
-- [ ] 16. Add import support to resources
+- [x] 16. Add import support to resources
   - File: internal/provider/resource_rtx_netvolante_dns.go, resource_rtx_ddns.go
   - Implement Importer functions
   - Handle credential preservation
@@ -149,7 +149,7 @@
   - _Requirements: REQ-1, REQ-3_
   - _Prompt: Role: Terraform Provider Developer | Task: Add import support for DDNS resources | Success: Import works_
 
-- [ ] 17. Register resources in provider
+- [x] 17. Register resources in provider
   - File: internal/provider/provider.go
   - Add rtx_netvolante_dns, rtx_ddns to ResourcesMap
   - Add rtx_ddns_status to DataSourcesMap

@@ -125,6 +125,8 @@ func New(version string) *schema.Provider {
 			"rtx_nat_static":                resourceRTXNATStatic(),
 			"rtx_ospf":                      resourceRTXOSPF(),
 			"rtx_policy_map":                resourceRTXPolicyMap(),
+			"rtx_pp_interface":              resourceRTXPPInterface(),
+			"rtx_pppoe":                     resourceRTXPPPoE(),
 			"rtx_pptp":                      resourceRTXPPTP(),
 			"rtx_service_policy":            resourceRTXServicePolicy(),
 			"rtx_sftpd":                     resourceRTXSFTPD(),
