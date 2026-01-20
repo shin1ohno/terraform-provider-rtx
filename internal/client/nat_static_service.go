@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
@@ -42,7 +42,7 @@ func (s *NATStaticService) Create(ctx context.Context, nat NATStatic) error {
 
 	// Build and execute the NAT descriptor type command
 	typeCmd := parsers.BuildNATDescriptorTypeStaticCommand(nat.DescriptorID)
-	log.Printf("[DEBUG] Creating NAT static with command: %s", typeCmd)
+	logging.FromContext(ctx).Debug().Str("service", "nat_static").Msgf("Creating NAT static with command: %s", typeCmd)
 
 	output, err := s.executor.Run(ctx, typeCmd)
 	if err != nil {
@@ -64,7 +64,7 @@ func (s *NATStaticService) Create(ctx context.Context, nat NATStatic) error {
 			entryCmd = parsers.BuildNATStaticMappingCommand(nat.DescriptorID, parserEntry)
 		}
 
-		log.Printf("[DEBUG] Adding NAT static entry with command: %s", entryCmd)
+		logging.FromContext(ctx).Debug().Str("service", "nat_static").Msgf("Adding NAT static entry with command: %s", entryCmd)
 
 		output, err = s.executor.Run(ctx, entryCmd)
 		if err != nil {
@@ -96,14 +96,14 @@ func (s *NATStaticService) Get(ctx context.Context, descriptorID int) (*NATStati
 	}
 
 	cmd := parsers.BuildShowNATStaticCommand(descriptorID)
-	log.Printf("[DEBUG] Getting NAT static with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "nat_static").Msgf("Getting NAT static with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get NAT static: %w", err)
 	}
 
-	log.Printf("[DEBUG] NAT static raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "nat_static").Msgf("NAT static raw output: %q", string(output))
 
 	parser := parsers.NewNATStaticParser()
 	parserNAT, err := parser.ParseSingleNATStatic(string(output), descriptorID)
@@ -155,7 +155,7 @@ func (s *NATStaticService) Update(ctx context.Context, nat NATStatic) error {
 			} else {
 				deleteCmd = parsers.BuildDeleteNATStaticMappingCommand(nat.DescriptorID, parserOldEntry)
 			}
-			log.Printf("[DEBUG] Removing NAT static entry with command: %s", deleteCmd)
+			logging.FromContext(ctx).Debug().Str("service", "nat_static").Msgf("Removing NAT static entry with command: %s", deleteCmd)
 			_, _ = s.executor.Run(ctx, deleteCmd) // Ignore errors for cleanup
 		}
 	}
@@ -177,7 +177,7 @@ func (s *NATStaticService) Update(ctx context.Context, nat NATStatic) error {
 			} else {
 				entryCmd = parsers.BuildNATStaticMappingCommand(nat.DescriptorID, parserNewEntry)
 			}
-			log.Printf("[DEBUG] Adding NAT static entry with command: %s", entryCmd)
+			logging.FromContext(ctx).Debug().Str("service", "nat_static").Msgf("Adding NAT static entry with command: %s", entryCmd)
 
 			output, err := s.executor.Run(ctx, entryCmd)
 			if err != nil {
@@ -210,7 +210,7 @@ func (s *NATStaticService) Delete(ctx context.Context, descriptorID int) error {
 	}
 
 	cmd := parsers.BuildDeleteNATStaticCommand(descriptorID)
-	log.Printf("[DEBUG] Deleting NAT static with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "nat_static").Msgf("Deleting NAT static with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -245,14 +245,14 @@ func (s *NATStaticService) List(ctx context.Context) ([]NATStatic, error) {
 	}
 
 	cmd := parsers.BuildShowAllNATStaticCommand()
-	log.Printf("[DEBUG] Listing NAT statics with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "nat_static").Msgf("Listing NAT statics with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list NAT statics: %w", err)
 	}
 
-	log.Printf("[DEBUG] NAT statics raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "nat_static").Msgf("NAT statics raw output: %q", string(output))
 
 	parserNATs, err := parsers.ParseNATStaticConfig(string(output))
 	if err != nil {

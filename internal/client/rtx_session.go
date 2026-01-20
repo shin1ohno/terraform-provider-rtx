@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"sync"
 	"time"
 
@@ -83,7 +83,7 @@ func newRTXShellSession(ctx context.Context, client *ssh.Client) (*rtxShellSessi
 		r.Close()
 		return nil, fmt.Errorf("failed to read initial prompt: %w", err)
 	}
-	log.Printf("[DEBUG] RTX initial prompt: %q", string(initialOutput))
+	logging.FromContext(r.ctx).Debug().Str("component", "rtx-session").Msgf("RTX initial prompt: %q", string(initialOutput))
 
 	// Set character encoding to ASCII
 	encodingOutput, err := r.executeCommand("console character en.ascii")
@@ -91,7 +91,7 @@ func newRTXShellSession(ctx context.Context, client *ssh.Client) (*rtxShellSessi
 		r.Close()
 		return nil, fmt.Errorf("failed to set character encoding: %w", err)
 	}
-	log.Printf("[DEBUG] RTX encoding command output: %q", string(encodingOutput))
+	logging.FromContext(r.ctx).Debug().Str("component", "rtx-session").Msgf("RTX encoding command output: %q", string(encodingOutput))
 
 	return r, nil
 }
@@ -101,13 +101,13 @@ func (r *rtxShellSession) Send(cmd string) ([]byte, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	log.Printf("[DEBUG] RTX sending command: %q", cmd)
+	logging.FromContext(r.ctx).Debug().Str("component", "rtx-session").Msgf("RTX sending command: %q", cmd)
 	output, err := r.executeCommand(cmd)
 	if err != nil {
-		log.Printf("[ERROR] RTX command failed: %v", err)
+		logging.FromContext(r.ctx).Error().Str("component", "rtx-session").Msgf("RTX command failed: %v", err)
 		return nil, err
 	}
-	log.Printf("[DEBUG] RTX command output: %q", string(output))
+	logging.FromContext(r.ctx).Debug().Str("component", "rtx-session").Msgf("RTX command output: %q", string(output))
 
 	return output, nil
 }
@@ -124,7 +124,7 @@ func (r *rtxShellSession) executeCommand(cmd string) ([]byte, error) {
 	// Send command with retry
 	for retry := 0; retry < 3; retry++ {
 		if retry > 0 {
-			log.Printf("[DEBUG] RTX retrying command (attempt %d)", retry+1)
+			logging.FromContext(r.ctx).Debug().Str("component", "rtx-session").Msgf("RTX retrying command (attempt %d)", retry+1)
 			time.Sleep(100 * time.Millisecond)
 		}
 

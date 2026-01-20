@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"net"
 	"strings"
 
@@ -99,7 +99,7 @@ func (s *DHCPService) ListBindings(ctx context.Context, scopeID int) ([]DHCPBind
 		return nil, fmt.Errorf("failed to list DHCP bindings: %w", err)
 	}
 	
-	log.Printf("[DEBUG] DHCP bindings raw output for scope %d: %q", scopeID, string(output))
+	logging.FromContext(ctx).Debug().Str("service", "dhcp").Msgf("DHCP bindings raw output for scope %d: %q", scopeID, string(output))
 	
 	// Parse the output
 	parser := parsers.NewDHCPBindingsParser()

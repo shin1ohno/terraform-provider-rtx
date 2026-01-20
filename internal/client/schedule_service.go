@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
@@ -61,7 +61,7 @@ func (s *ScheduleService) CreateSchedule(ctx context.Context, schedule Schedule)
 			cmd = parsers.BuildScheduleAtCommand(schedule.ID, schedule.AtTime, command)
 		}
 
-		log.Printf("[DEBUG] Creating schedule with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "schedule").Msgf("Creating schedule with command: %s", cmd)
 
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
@@ -86,14 +86,14 @@ func (s *ScheduleService) CreateSchedule(ctx context.Context, schedule Schedule)
 // GetSchedule retrieves a schedule configuration
 func (s *ScheduleService) GetSchedule(ctx context.Context, id int) (*Schedule, error) {
 	cmd := parsers.BuildShowScheduleByIDCommand(id)
-	log.Printf("[DEBUG] Getting schedule with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "schedule").Msgf("Getting schedule with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get schedule: %w", err)
 	}
 
-	log.Printf("[DEBUG] Schedule raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "schedule").Msgf("Schedule raw output: %q", string(output))
 
 	parser := parsers.NewScheduleParser()
 	parserSchedule, err := parser.ParseSingleSchedule(string(output), id)
@@ -125,7 +125,7 @@ func (s *ScheduleService) UpdateSchedule(ctx context.Context, schedule Schedule)
 	// Delete existing schedule first
 	if err := s.deleteScheduleCommands(ctx, schedule.ID); err != nil {
 		// Continue even if delete fails (schedule might not exist)
-		log.Printf("[DEBUG] Delete existing schedule warning: %v", err)
+		logging.FromContext(ctx).Debug().Str("service", "schedule").Msgf("Delete existing schedule warning: %v", err)
 	}
 
 	// Create new schedule with updated values
@@ -162,7 +162,7 @@ func (s *ScheduleService) DeleteSchedule(ctx context.Context, id int) error {
 // deleteScheduleCommands deletes all schedule commands with the given ID
 func (s *ScheduleService) deleteScheduleCommands(ctx context.Context, id int) error {
 	cmd := parsers.BuildDeleteScheduleCommand(id)
-	log.Printf("[DEBUG] Deleting schedule with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "schedule").Msgf("Deleting schedule with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -183,14 +183,14 @@ func (s *ScheduleService) deleteScheduleCommands(ctx context.Context, id int) er
 // ListSchedules retrieves all schedules
 func (s *ScheduleService) ListSchedules(ctx context.Context) ([]Schedule, error) {
 	cmd := parsers.BuildShowScheduleCommand()
-	log.Printf("[DEBUG] Listing schedules with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "schedule").Msgf("Listing schedules with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list schedules: %w", err)
 	}
 
-	log.Printf("[DEBUG] Schedules raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "schedule").Msgf("Schedules raw output: %q", string(output))
 
 	parser := parsers.NewScheduleParser()
 	parserSchedules, err := parser.ParseScheduleConfig(string(output))
@@ -226,7 +226,7 @@ func (s *ScheduleService) CreateKronPolicy(ctx context.Context, policy KronPolic
 	// For RTX routers, we don't actually have a native kron policy command
 	// The policy is just a logical grouping that will be referenced when creating schedules
 	// We can store it as a comment in the configuration for documentation purposes
-	log.Printf("[DEBUG] KronPolicy %s created with %d commands (stored as logical grouping)",
+	logging.FromContext(ctx).Debug().Str("service", "schedule").Msgf("KronPolicy %s created with %d commands (stored as logical grouping)",
 		policy.Name, len(policy.Commands))
 
 	return nil
@@ -247,13 +247,13 @@ func (s *ScheduleService) UpdateKronPolicy(ctx context.Context, policy KronPolic
 		return fmt.Errorf("invalid policy: %w", err)
 	}
 
-	log.Printf("[DEBUG] KronPolicy %s updated with %d commands", policy.Name, len(policy.Commands))
+	logging.FromContext(ctx).Debug().Str("service", "schedule").Msgf("KronPolicy %s updated with %d commands", policy.Name, len(policy.Commands))
 	return nil
 }
 
 // DeleteKronPolicy removes a kron policy
 func (s *ScheduleService) DeleteKronPolicy(ctx context.Context, name string) error {
-	log.Printf("[DEBUG] KronPolicy %s deleted", name)
+	logging.FromContext(ctx).Debug().Str("service", "schedule").Msgf("KronPolicy %s deleted", name)
 	return nil
 }
 

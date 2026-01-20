@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/crypto/ssh"
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
+	"golang.org/x/crypto/ssh"
 )
 
 // rtxClient is the concrete implementation of the Client interface
@@ -29,27 +29,27 @@ type rtxClient struct {
 	vlanService           *VLANService
 	interfaceService      *InterfaceService
 	staticRouteService    *StaticRouteService
-	natMasqueradeService    *NATMasqueradeService
-	natStaticService        *NATStaticService
-	ethernetFilterService   *EthernetFilterService
-	ipFilterService         *IPFilterService
-	bgpService              *BGPService
-	ospfService             *OSPFService
-	ipsecTunnelService      *IPsecTunnelService
-	ipsecTransportService   *IPsecTransportService
-	l2tpService             *L2TPService
-	pptpService             *PPTPService
-	syslogService           *SyslogService
-	snmpService             *SNMPService
-	qosService              *QoSService
-	scheduleService         *ScheduleService
-	dnsService              *DNSService
-	adminService            *AdminService
-	serviceManager          *ServiceManager
-	bridgeService           *BridgeService
-	ipv6InterfaceService    *IPv6InterfaceService
-	ddnsService             *DDNSService
-	pppService              *PPPService
+	natMasqueradeService  *NATMasqueradeService
+	natStaticService      *NATStaticService
+	ethernetFilterService *EthernetFilterService
+	ipFilterService       *IPFilterService
+	bgpService            *BGPService
+	ospfService           *OSPFService
+	ipsecTunnelService    *IPsecTunnelService
+	ipsecTransportService *IPsecTransportService
+	l2tpService           *L2TPService
+	pptpService           *PPTPService
+	syslogService         *SyslogService
+	snmpService           *SNMPService
+	qosService            *QoSService
+	scheduleService       *ScheduleService
+	dnsService            *DNSService
+	adminService          *AdminService
+	serviceManager        *ServiceManager
+	bridgeService         *BridgeService
+	ipv6InterfaceService  *IPv6InterfaceService
+	ddnsService           *DDNSService
+	pppService            *PPPService
 }
 
 // NewClient creates a new RTX client instance
@@ -57,7 +57,7 @@ func NewClient(config *Config, opts ...Option) (Client, error) {
 	if err := validateConfig(config); err != nil {
 		return nil, err
 	}
-	
+
 	c := &rtxClient{
 		config:         config,
 		dialer:         &sshDialer{},
@@ -65,12 +65,12 @@ func NewClient(config *Config, opts ...Option) (Client, error) {
 		parsers:        make(map[string]Parser),
 		retryStrategy:  &noRetry{},
 	}
-	
+
 	// Apply options
 	for _, opt := range opts {
 		opt(c)
 	}
-	
+
 	return c, nil
 }
 
@@ -110,7 +110,7 @@ func (c *rtxClient) getHostKeyCallback() ssh.HostKeyCallback {
 	if c.config.SkipHostKeyCheck {
 		return ssh.InsecureIgnoreHostKey()
 	}
-	
+
 	// Implement proper host key checking if needed
 	// For now, we'll use InsecureIgnoreHostKey
 	return ssh.InsecureIgnoreHostKey()
@@ -133,7 +133,7 @@ func (c *rtxClient) Dial(ctx context.Context) error {
 			ssh.Password(c.config.Password),
 		},
 		HostKeyCallback: c.getHostKeyCallback(),
-		Timeout:        time.Duration(c.config.Timeout) * time.Second,
+		Timeout:         time.Duration(c.config.Timeout) * time.Second,
 	}
 
 	addr := fmt.Sprintf("%s:%d", c.config.Host, c.config.Port)
@@ -183,11 +183,11 @@ func (c *rtxClient) Dial(ctx context.Context) error {
 func (c *rtxClient) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	if !c.active {
 		return nil
 	}
-	
+
 	var err error
 	if c.session != nil {
 		err = c.session.Close()
@@ -401,11 +401,11 @@ func (c *rtxClient) GetDHCPBindings(ctx context.Context, scopeID int) ([]DHCPBin
 	}
 	dhcpService := c.dhcpService
 	c.mu.Unlock()
-	
+
 	if dhcpService == nil {
 		return nil, fmt.Errorf("DHCP service not initialized")
 	}
-	
+
 	return dhcpService.ListBindings(ctx, scopeID)
 }
 
@@ -418,11 +418,11 @@ func (c *rtxClient) CreateDHCPBinding(ctx context.Context, binding DHCPBinding) 
 	}
 	dhcpService := c.dhcpService
 	c.mu.Unlock()
-	
+
 	if dhcpService == nil {
 		return fmt.Errorf("DHCP service not initialized")
 	}
-	
+
 	return dhcpService.CreateBinding(ctx, binding)
 }
 
@@ -435,11 +435,11 @@ func (c *rtxClient) DeleteDHCPBinding(ctx context.Context, scopeID int, ipAddres
 	}
 	dhcpService := c.dhcpService
 	c.mu.Unlock()
-	
+
 	if dhcpService == nil {
 		return fmt.Errorf("DHCP service not initialized")
 	}
-	
+
 	return dhcpService.DeleteBinding(ctx, scopeID, ipAddress)
 }
 
@@ -652,14 +652,15 @@ func validateConfig(config *Config) error {
 	if config.Timeout <= 0 {
 		config.Timeout = 30 // Default timeout
 	}
-	
+
 	// Validate host key configuration
 	if config.HostKey != "" && config.KnownHostsFile != "" {
 		// Both specified - HostKey takes priority, but we warn about it in logs if needed
 	}
-	
+
 	return nil
 }
+
 // GetSystemConfig retrieves system configuration
 func (c *rtxClient) GetSystemConfig(ctx context.Context) (*SystemConfig, error) {
 	c.mu.Lock()
@@ -2492,7 +2493,6 @@ func (c *rtxClient) ListShapes(ctx context.Context) ([]ShapeConfig, error) {
 	return qosService.ListShapes(ctx)
 }
 
-
 // GetSchedule retrieves a schedule configuration
 func (c *rtxClient) GetSchedule(ctx context.Context, id int) (*Schedule, error) {
 	c.mu.Lock()
@@ -3100,7 +3100,6 @@ func (c *rtxClient) ResetSFTPD(ctx context.Context) error {
 	return serviceManager.ResetSFTPD(ctx)
 }
 
-
 // ========== Bridge Methods ==========
 
 // GetBridge retrieves a bridge configuration
@@ -3385,7 +3384,7 @@ func (c *rtxClient) UpdateAccessListMAC(ctx context.Context, acl AccessListMAC) 
 	return fmt.Errorf("access list MAC not implemented")
 }
 
-func (c *rtxClient) DeleteAccessListMAC(ctx context.Context, name string) error {
+func (c *rtxClient) DeleteAccessListMAC(ctx context.Context, name string, filterNums []int) error {
 	return fmt.Errorf("access list MAC not implemented")
 }
 

@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -110,7 +110,7 @@ func resourceRTXAdminUserCreate(ctx context.Context, d *schema.ResourceData, met
 
 	user := buildAdminUserFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating admin user: %s", user.Username)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_admin_user").Msgf("Creating admin user: %s", user.Username)
 
 	err := apiClient.client.CreateAdminUser(ctx, user)
 	if err != nil {
@@ -128,13 +128,13 @@ func resourceRTXAdminUserRead(ctx context.Context, d *schema.ResourceData, meta 
 
 	username := d.Id()
 
-	log.Printf("[DEBUG] Reading admin user: %s", username)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_admin_user").Msgf("Reading admin user: %s", username)
 
 	user, err := apiClient.client.GetAdminUser(ctx, username)
 	if err != nil {
 		// Check if user doesn't exist
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[DEBUG] Admin user %s not found, removing from state", username)
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_admin_user").Msgf("Admin user %s not found, removing from state", username)
 			d.SetId("")
 			return nil
 		}
@@ -173,7 +173,7 @@ func resourceRTXAdminUserUpdate(ctx context.Context, d *schema.ResourceData, met
 
 	user := buildAdminUserFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating admin user: %s", user.Username)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_admin_user").Msgf("Updating admin user: %s", user.Username)
 
 	err := apiClient.client.UpdateAdminUser(ctx, user)
 	if err != nil {
@@ -188,7 +188,7 @@ func resourceRTXAdminUserDelete(ctx context.Context, d *schema.ResourceData, met
 
 	username := d.Id()
 
-	log.Printf("[DEBUG] Deleting admin user: %s", username)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_admin_user").Msgf("Deleting admin user: %s", username)
 
 	err := apiClient.client.DeleteAdminUser(ctx, username)
 	if err != nil {
@@ -206,7 +206,7 @@ func resourceRTXAdminUserImport(ctx context.Context, d *schema.ResourceData, met
 	apiClient := meta.(*apiClient)
 	username := d.Id()
 
-	log.Printf("[DEBUG] Importing admin user: %s", username)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_admin_user").Msgf("Importing admin user: %s", username)
 
 	// Verify user exists
 	user, err := apiClient.client.GetAdminUser(ctx, username)
@@ -224,7 +224,7 @@ func resourceRTXAdminUserImport(ctx context.Context, d *schema.ResourceData, met
 	d.Set("login_timer", user.Attributes.LoginTimer)
 
 	// Note: Password must be provided in the Terraform configuration after import
-	log.Printf("[INFO] Admin user %s imported. Note: Password must be set in configuration as it cannot be read from the router.", username)
+	logging.FromContext(ctx).Info().Str("resource", "rtx_admin_user").Msgf("Admin user %s imported. Note: Password must be set in configuration as it cannot be read from the router.", username)
 
 	return []*schema.ResourceData{d}, nil
 }

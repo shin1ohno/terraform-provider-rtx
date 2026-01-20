@@ -910,7 +910,7 @@ func (m *MockClient) UpdateAccessListMAC(ctx context.Context, acl client.AccessL
 	return fmt.Errorf("not implemented")
 }
 
-func (m *MockClient) DeleteAccessListMAC(ctx context.Context, name string) error {
+func (m *MockClient) DeleteAccessListMAC(ctx context.Context, name string, filterNums []int) error {
 	return fmt.Errorf("not implemented")
 }
 
@@ -1034,7 +1034,7 @@ func (m *MockClient) GetPPConnectionStatus(ctx context.Context, ppNum int) (*cli
 
 func TestRTXSystemInfoDataSourceSchema(t *testing.T) {
 	dataSource := dataSourceRTXSystemInfo()
-	
+
 	// Test that the data source is properly configured
 	assert.NotNil(t, dataSource)
 	assert.NotNil(t, dataSource.Schema)
@@ -1042,7 +1042,7 @@ func TestRTXSystemInfoDataSourceSchema(t *testing.T) {
 
 	// Test schema structure
 	schemaMap := dataSource.Schema
-	
+
 	// Check required fields
 	requiredFields := []string{"model", "firmware_version", "serial_number", "mac_address", "uptime"}
 	for _, field := range requiredFields {
@@ -1059,7 +1059,7 @@ func TestRTXSystemInfoDataSourceSchema(t *testing.T) {
 
 func TestRTXSystemInfoDataSourceRead_Success(t *testing.T) {
 	mockClient := &MockClient{}
-	
+
 	// Mock successful system info retrieval
 	expectedSystemInfo := &client.SystemInfo{
 		Model:           "RTX1210",
@@ -1073,7 +1073,7 @@ func TestRTXSystemInfoDataSourceRead_Success(t *testing.T) {
 
 	// Create a resource data mock
 	d := schema.TestResourceDataRaw(t, dataSourceRTXSystemInfo().Schema, map[string]interface{}{})
-	
+
 	// Create mock API client
 	apiClient := &apiClient{client: mockClient}
 
@@ -1097,14 +1097,14 @@ func TestRTXSystemInfoDataSourceRead_Success(t *testing.T) {
 
 func TestRTXSystemInfoDataSourceRead_ClientError(t *testing.T) {
 	mockClient := &MockClient{}
-	
+
 	// Mock client error
 	expectedError := errors.New("SSH connection failed")
 	mockClient.On("GetSystemInfo", mock.Anything).Return((*client.SystemInfo)(nil), expectedError)
 
 	// Create a resource data mock
 	d := schema.TestResourceDataRaw(t, dataSourceRTXSystemInfo().Schema, map[string]interface{}{})
-	
+
 	// Create mock API client
 	apiClient := &apiClient{client: mockClient}
 
@@ -1201,12 +1201,12 @@ Uptime: 2:15:30`,
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := parseSystemInfo(tt.output)
-			
+
 			if tt.shouldError {
 				assert.Error(t, err)
 				return
 			}
-			
+
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expectedModel, result.Model)
 			assert.Equal(t, tt.expectedFW, result.FirmwareVersion)
@@ -1321,14 +1321,14 @@ func testAccPreCheck(t *testing.T) {
 	if !isAccTest() {
 		t.Skip("Skipping acceptance test")
 	}
-	
+
 	// Check required environment variables for Docker test environment
 	requiredEnvVars := []string{
 		"RTX_HOST",
-		"RTX_USERNAME", 
+		"RTX_USERNAME",
 		"RTX_PASSWORD",
 	}
-	
+
 	for _, envVar := range requiredEnvVars {
 		if value := getEnvVar(envVar); value == "" {
 			t.Fatalf("Environment variable %s must be set for acceptance tests", envVar)
@@ -1361,21 +1361,21 @@ func parseSystemInfo(output string) (*client.SystemInfo, error) {
 
 	info := &client.SystemInfo{}
 	lines := strings.Split(output, "\n")
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		
+
 		parts := strings.SplitN(line, ":", 2)
 		if len(parts) != 2 {
 			continue
 		}
-		
+
 		key := strings.TrimSpace(parts[0])
 		value := strings.TrimSpace(parts[1])
-		
+
 		switch key {
 		case "Model":
 			info.Model = value
@@ -1389,7 +1389,7 @@ func parseSystemInfo(output string) (*client.SystemInfo, error) {
 			info.Uptime = value
 		}
 	}
-	
+
 	// Validate that we got all required fields
 	if info.Model == "" {
 		return nil, errors.New("model not found in output")
@@ -1398,7 +1398,7 @@ func parseSystemInfo(output string) (*client.SystemInfo, error) {
 		return nil, errors.New("firmware version not found in output")
 	}
 	if info.SerialNumber == "" {
-		return nil, errors.New("serial number not found in output")  
+		return nil, errors.New("serial number not found in output")
 	}
 	if info.MACAddress == "" {
 		return nil, errors.New("MAC address not found in output")
@@ -1406,6 +1406,6 @@ func parseSystemInfo(output string) (*client.SystemInfo, error) {
 	if info.Uptime == "" {
 		return nil, errors.New("uptime not found in output")
 	}
-	
+
 	return info, nil
 }

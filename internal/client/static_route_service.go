@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
@@ -42,7 +42,7 @@ func (s *StaticRouteService) CreateRoute(ctx context.Context, route StaticRoute)
 	for _, hop := range route.NextHops {
 		parserHop := s.toParserHop(hop)
 		cmd := parsers.BuildIPRouteCommand(parserRoute, parserHop)
-		log.Printf("[DEBUG] Creating static route with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "static_route").Msgf("Creating static route with command: %s", cmd)
 
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
@@ -67,14 +67,14 @@ func (s *StaticRouteService) CreateRoute(ctx context.Context, route StaticRoute)
 // GetRoute retrieves a static route configuration
 func (s *StaticRouteService) GetRoute(ctx context.Context, prefix, mask string) (*StaticRoute, error) {
 	cmd := parsers.BuildShowSingleRouteConfigCommand(prefix, mask)
-	log.Printf("[DEBUG] Getting static route with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "static_route").Msgf("Getting static route with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get static route: %w", err)
 	}
 
-	log.Printf("[DEBUG] Static route raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "static_route").Msgf("Static route raw output: %q", string(output))
 
 	parser := parsers.NewStaticRouteParser()
 	parserRoute, err := parser.ParseSingleRoute(string(output), prefix, mask)
@@ -116,11 +116,11 @@ func (s *StaticRouteService) UpdateRoute(ctx context.Context, route StaticRoute)
 	for _, hop := range currentRoute.NextHops {
 		parserHop := s.toParserHop(hop)
 		cmd := parsers.BuildDeleteIPRouteCommand(route.Prefix, route.Mask, &parserHop)
-		log.Printf("[DEBUG] Deleting old next hop with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "static_route").Msgf("Deleting old next hop with command: %s", cmd)
 
 		_, err := s.executor.Run(ctx, cmd)
 		if err != nil {
-			log.Printf("[WARN] Failed to delete old next hop: %v", err)
+			logging.FromContext(ctx).Warn().Str("service", "static_route").Msgf("Failed to delete old next hop: %v", err)
 		}
 	}
 
@@ -128,7 +128,7 @@ func (s *StaticRouteService) UpdateRoute(ctx context.Context, route StaticRoute)
 	for _, hop := range route.NextHops {
 		parserHop := s.toParserHop(hop)
 		cmd := parsers.BuildIPRouteCommand(parserRoute, parserHop)
-		log.Printf("[DEBUG] Creating new next hop with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "static_route").Msgf("Creating new next hop with command: %s", cmd)
 
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
@@ -173,7 +173,7 @@ func (s *StaticRouteService) DeleteRoute(ctx context.Context, prefix, mask strin
 	for _, hop := range currentRoute.NextHops {
 		parserHop := s.toParserHop(hop)
 		cmd := parsers.BuildDeleteIPRouteCommand(prefix, mask, &parserHop)
-		log.Printf("[DEBUG] Deleting static route with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "static_route").Msgf("Deleting static route with command: %s", cmd)
 
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
@@ -202,14 +202,14 @@ func (s *StaticRouteService) DeleteRoute(ctx context.Context, prefix, mask strin
 // ListRoutes retrieves all static routes
 func (s *StaticRouteService) ListRoutes(ctx context.Context) ([]StaticRoute, error) {
 	cmd := parsers.BuildShowIPRouteConfigCommand()
-	log.Printf("[DEBUG] Listing static routes with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "static_route").Msgf("Listing static routes with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list static routes: %w", err)
 	}
 
-	log.Printf("[DEBUG] Static routes raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "static_route").Msgf("Static routes raw output: %q", string(output))
 
 	parser := parsers.NewStaticRouteParser()
 	parserRoutes, err := parser.ParseRouteConfig(string(output))

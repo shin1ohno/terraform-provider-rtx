@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
@@ -29,14 +29,14 @@ func NewDDNSService(executor Executor, client *rtxClient) *DDNSService {
 // GetNetVolante retrieves NetVolante DNS configuration
 func (s *DDNSService) GetNetVolante(ctx context.Context) ([]NetVolanteConfig, error) {
 	cmd := "show config | grep netvolante-dns"
-	log.Printf("[DEBUG] Getting NetVolante config with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "ddns").Msgf("Getting NetVolante config with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get NetVolante config: %w", err)
 	}
 
-	log.Printf("[DEBUG] NetVolante raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "ddns").Msgf("NetVolante raw output: %q", string(output))
 
 	parser := parsers.NewDDNSParser()
 	parserConfigs, err := parser.ParseNetVolanteDNS(string(output))
@@ -89,7 +89,7 @@ func (s *DDNSService) ConfigureNetVolante(ctx context.Context, config NetVolante
 	// Build and execute commands
 	commands := parsers.BuildNetVolanteCommand(parserConfig)
 	for _, cmd := range commands {
-		log.Printf("[DEBUG] Executing NetVolante command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "ddns").Msgf("Executing NetVolante command: %s", cmd)
 		if _, err := s.executor.Run(ctx, cmd); err != nil {
 			return fmt.Errorf("failed to execute command %q: %w", cmd, err)
 		}
@@ -107,7 +107,7 @@ func (s *DDNSService) ConfigureNetVolante(ctx context.Context, config NetVolante
 func (s *DDNSService) UpdateNetVolante(ctx context.Context, config NetVolanteConfig) error {
 	// Delete existing config first
 	if err := s.DeleteNetVolante(ctx, config.Interface); err != nil {
-		log.Printf("[DEBUG] Failed to delete existing NetVolante config (may not exist): %v", err)
+		logging.FromContext(ctx).Debug().Str("service", "ddns").Msgf("Failed to delete existing NetVolante config (may not exist): %v", err)
 	}
 
 	// Configure new settings
@@ -128,7 +128,7 @@ func (s *DDNSService) DeleteNetVolante(ctx context.Context, iface string) error 
 	}
 
 	cmd := parsers.BuildDeleteNetVolanteHostnameCommand(iface)
-	log.Printf("[DEBUG] Deleting NetVolante config with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "ddns").Msgf("Deleting NetVolante config with command: %s", cmd)
 
 	if _, err := s.executor.Run(ctx, cmd); err != nil {
 		return fmt.Errorf("failed to delete NetVolante config: %w", err)
@@ -149,7 +149,7 @@ func (s *DDNSService) TriggerNetVolanteUpdate(ctx context.Context, iface string)
 	}
 
 	cmd := parsers.BuildNetVolanteGoCommand(iface)
-	log.Printf("[DEBUG] Triggering NetVolante update with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "ddns").Msgf("Triggering NetVolante update with command: %s", cmd)
 
 	if _, err := s.executor.Run(ctx, cmd); err != nil {
 		return fmt.Errorf("failed to trigger NetVolante update: %w", err)
@@ -165,14 +165,14 @@ func (s *DDNSService) TriggerNetVolanteUpdate(ctx context.Context, iface string)
 // GetDDNS retrieves custom DDNS configuration
 func (s *DDNSService) GetDDNS(ctx context.Context) ([]DDNSServerConfig, error) {
 	cmd := "show config | grep \"ddns server\""
-	log.Printf("[DEBUG] Getting DDNS config with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "ddns").Msgf("Getting DDNS config with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get DDNS config: %w", err)
 	}
 
-	log.Printf("[DEBUG] DDNS raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "ddns").Msgf("DDNS raw output: %q", string(output))
 
 	parser := parsers.NewDDNSParser()
 	parserConfigs, err := parser.ParseDDNSConfig(string(output))
@@ -225,7 +225,7 @@ func (s *DDNSService) ConfigureDDNS(ctx context.Context, config DDNSServerConfig
 	// Build and execute commands
 	commands := parsers.BuildDDNSCommand(parserConfig)
 	for _, cmd := range commands {
-		log.Printf("[DEBUG] Executing DDNS command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "ddns").Msgf("Executing DDNS command: %s", cmd)
 		if _, err := s.executor.Run(ctx, cmd); err != nil {
 			return fmt.Errorf("failed to execute command %q: %w", cmd, err)
 		}
@@ -243,7 +243,7 @@ func (s *DDNSService) ConfigureDDNS(ctx context.Context, config DDNSServerConfig
 func (s *DDNSService) UpdateDDNS(ctx context.Context, config DDNSServerConfig) error {
 	// Delete existing config first
 	if err := s.DeleteDDNS(ctx, config.ID); err != nil {
-		log.Printf("[DEBUG] Failed to delete existing DDNS config (may not exist): %v", err)
+		logging.FromContext(ctx).Debug().Str("service", "ddns").Msgf("Failed to delete existing DDNS config (may not exist): %v", err)
 	}
 
 	// Configure new settings
@@ -265,7 +265,7 @@ func (s *DDNSService) DeleteDDNS(ctx context.Context, id int) error {
 
 	commands := parsers.BuildDeleteDDNSCommand(id)
 	for _, cmd := range commands {
-		log.Printf("[DEBUG] Deleting DDNS config with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "ddns").Msgf("Deleting DDNS config with command: %s", cmd)
 		if _, err := s.executor.Run(ctx, cmd); err != nil {
 			return fmt.Errorf("failed to delete DDNS config: %w", err)
 		}
@@ -286,7 +286,7 @@ func (s *DDNSService) TriggerDDNSUpdate(ctx context.Context, id int) error {
 	}
 
 	cmd := parsers.BuildDDNSGoCommand(id)
-	log.Printf("[DEBUG] Triggering DDNS update with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "ddns").Msgf("Triggering DDNS update with command: %s", cmd)
 
 	if _, err := s.executor.Run(ctx, cmd); err != nil {
 		return fmt.Errorf("failed to trigger DDNS update: %w", err)
@@ -302,14 +302,14 @@ func (s *DDNSService) TriggerDDNSUpdate(ctx context.Context, id int) error {
 // GetNetVolanteStatus retrieves NetVolante DNS registration status
 func (s *DDNSService) GetNetVolanteStatus(ctx context.Context) ([]DDNSStatus, error) {
 	cmd := parsers.BuildShowNetVolanteStatusCommand()
-	log.Printf("[DEBUG] Getting NetVolante status with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "ddns").Msgf("Getting NetVolante status with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get NetVolante status: %w", err)
 	}
 
-	log.Printf("[DEBUG] NetVolante status raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "ddns").Msgf("NetVolante status raw output: %q", string(output))
 
 	parser := parsers.NewDDNSParser()
 	parserStatuses, err := parser.ParseDDNSStatus(string(output), "netvolante")
@@ -329,14 +329,14 @@ func (s *DDNSService) GetNetVolanteStatus(ctx context.Context) ([]DDNSStatus, er
 // GetDDNSStatus retrieves custom DDNS registration status
 func (s *DDNSService) GetDDNSStatus(ctx context.Context) ([]DDNSStatus, error) {
 	cmd := parsers.BuildShowDDNSStatusCommand()
-	log.Printf("[DEBUG] Getting DDNS status with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "ddns").Msgf("Getting DDNS status with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get DDNS status: %w", err)
 	}
 
-	log.Printf("[DEBUG] DDNS status raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "ddns").Msgf("DDNS status raw output: %q", string(output))
 
 	parser := parsers.NewDDNSParser()
 	parserStatuses, err := parser.ParseDDNSStatus(string(output), "custom")

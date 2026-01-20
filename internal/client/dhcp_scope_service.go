@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
@@ -42,7 +42,7 @@ func (s *DHCPScopeService) CreateScope(ctx context.Context, scope DHCPScope) err
 
 	// Build and execute scope creation command
 	cmd := parsers.BuildDHCPScopeCommand(parserScope)
-	log.Printf("[DEBUG] Creating DHCP scope with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "dhcp_scope").Msgf("Creating DHCP scope with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -56,7 +56,7 @@ func (s *DHCPScopeService) CreateScope(ctx context.Context, scope DHCPScope) err
 	// Configure DHCP options (DNS, routers, domain) if any are specified
 	if len(scope.Options.DNSServers) > 0 || len(scope.Options.Routers) > 0 || scope.Options.DomainName != "" {
 		optsCmd := parsers.BuildDHCPScopeOptionsCommand(scope.ScopeID, parserScope.Options)
-		log.Printf("[DEBUG] Setting DHCP options with command: %s", optsCmd)
+		logging.FromContext(ctx).Debug().Str("service", "dhcp_scope").Msgf("Setting DHCP options with command: %s", optsCmd)
 
 		output, err = s.executor.Run(ctx, optsCmd)
 		if err != nil {
@@ -75,7 +75,7 @@ func (s *DHCPScopeService) CreateScope(ctx context.Context, scope DHCPScope) err
 			End:   excludeRange.End,
 		}
 		exceptCmd := parsers.BuildDHCPScopeExceptCommand(scope.ScopeID, parserRange)
-		log.Printf("[DEBUG] Adding exclusion range with command: %s", exceptCmd)
+		logging.FromContext(ctx).Debug().Str("service", "dhcp_scope").Msgf("Adding exclusion range with command: %s", exceptCmd)
 
 		output, err = s.executor.Run(ctx, exceptCmd)
 		if err != nil {
@@ -100,14 +100,14 @@ func (s *DHCPScopeService) CreateScope(ctx context.Context, scope DHCPScope) err
 // GetScope retrieves a DHCP scope configuration
 func (s *DHCPScopeService) GetScope(ctx context.Context, scopeID int) (*DHCPScope, error) {
 	cmd := parsers.BuildShowDHCPScopeCommand(scopeID)
-	log.Printf("[DEBUG] Getting DHCP scope with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "dhcp_scope").Msgf("Getting DHCP scope with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get DHCP scope: %w", err)
 	}
 
-	log.Printf("[DEBUG] DHCP scope raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "dhcp_scope").Msgf("DHCP scope raw output: %q", string(output))
 
 	parser := parsers.NewDHCPScopeParser()
 	parserScope, err := parser.ParseSingleScope(string(output), scopeID)
@@ -151,7 +151,7 @@ func (s *DHCPScopeService) UpdateScope(ctx context.Context, scope DHCPScope) err
 	// Update gateway and lease time by recreating the base scope command
 	// RTX routers allow re-running the scope command to update these values
 	cmd := parsers.BuildDHCPScopeCommand(parserScope)
-	log.Printf("[DEBUG] Updating DHCP scope with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "dhcp_scope").Msgf("Updating DHCP scope with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -167,7 +167,7 @@ func (s *DHCPScopeService) UpdateScope(ctx context.Context, scope DHCPScope) err
 	hasCurrentOptions := len(currentScope.Options.DNSServers) > 0 || len(currentScope.Options.Routers) > 0 || currentScope.Options.DomainName != ""
 	if hasCurrentOptions {
 		deleteCmd := parsers.BuildDeleteDHCPScopeOptionsCommand(scope.ScopeID)
-		log.Printf("[DEBUG] Removing existing options with command: %s", deleteCmd)
+		logging.FromContext(ctx).Debug().Str("service", "dhcp_scope").Msgf("Removing existing options with command: %s", deleteCmd)
 		_, _ = s.executor.Run(ctx, deleteCmd) // Ignore errors for cleanup
 	}
 
@@ -175,7 +175,7 @@ func (s *DHCPScopeService) UpdateScope(ctx context.Context, scope DHCPScope) err
 	hasNewOptions := len(scope.Options.DNSServers) > 0 || len(scope.Options.Routers) > 0 || scope.Options.DomainName != ""
 	if hasNewOptions {
 		optsCmd := parsers.BuildDHCPScopeOptionsCommand(scope.ScopeID, parserScope.Options)
-		log.Printf("[DEBUG] Setting DHCP options with command: %s", optsCmd)
+		logging.FromContext(ctx).Debug().Str("service", "dhcp_scope").Msgf("Setting DHCP options with command: %s", optsCmd)
 
 		output, err = s.executor.Run(ctx, optsCmd)
 		if err != nil {
@@ -203,7 +203,7 @@ func (s *DHCPScopeService) UpdateScope(ctx context.Context, scope DHCPScope) err
 				End:   oldRange.End,
 			}
 			deleteCmd := parsers.BuildDeleteDHCPScopeExceptCommand(scope.ScopeID, parserRange)
-			log.Printf("[DEBUG] Removing exclusion range with command: %s", deleteCmd)
+			logging.FromContext(ctx).Debug().Str("service", "dhcp_scope").Msgf("Removing exclusion range with command: %s", deleteCmd)
 			_, _ = s.executor.Run(ctx, deleteCmd)
 		}
 	}
@@ -223,7 +223,7 @@ func (s *DHCPScopeService) UpdateScope(ctx context.Context, scope DHCPScope) err
 				End:   newRange.End,
 			}
 			exceptCmd := parsers.BuildDHCPScopeExceptCommand(scope.ScopeID, parserRange)
-			log.Printf("[DEBUG] Adding exclusion range with command: %s", exceptCmd)
+			logging.FromContext(ctx).Debug().Str("service", "dhcp_scope").Msgf("Adding exclusion range with command: %s", exceptCmd)
 
 			output, err = s.executor.Run(ctx, exceptCmd)
 			if err != nil {
@@ -256,7 +256,7 @@ func (s *DHCPScopeService) DeleteScope(ctx context.Context, scopeID int) error {
 	}
 
 	cmd := parsers.BuildDeleteDHCPScopeCommand(scopeID)
-	log.Printf("[DEBUG] Deleting DHCP scope with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "dhcp_scope").Msgf("Deleting DHCP scope with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -284,14 +284,14 @@ func (s *DHCPScopeService) DeleteScope(ctx context.Context, scopeID int) error {
 // ListScopes retrieves all DHCP scopes
 func (s *DHCPScopeService) ListScopes(ctx context.Context) ([]DHCPScope, error) {
 	cmd := parsers.BuildShowAllDHCPScopesCommand()
-	log.Printf("[DEBUG] Listing DHCP scopes with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "dhcp_scope").Msgf("Listing DHCP scopes with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list DHCP scopes: %w", err)
 	}
 
-	log.Printf("[DEBUG] DHCP scopes raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "dhcp_scope").Msgf("DHCP scopes raw output: %q", string(output))
 
 	parser := parsers.NewDHCPScopeParser()
 	parserScopes, err := parser.ParseScopeConfig(string(output))

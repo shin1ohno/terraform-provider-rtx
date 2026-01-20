@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -52,7 +52,7 @@ func resourceRTXL2TPServiceCreate(ctx context.Context, d *schema.ResourceData, m
 	enabled := d.Get("enabled").(bool)
 	protocols := expandStringList(d.Get("protocols").([]interface{}))
 
-	log.Printf("[DEBUG] Creating L2TP service configuration: enabled=%v, protocols=%v", enabled, protocols)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_l2tp_service").Msgf("Creating L2TP service configuration: enabled=%v, protocols=%v", enabled, protocols)
 
 	err := apiClient.client.SetL2TPServiceState(ctx, enabled, protocols)
 	if err != nil {
@@ -69,13 +69,13 @@ func resourceRTXL2TPServiceCreate(ctx context.Context, d *schema.ResourceData, m
 func resourceRTXL2TPServiceRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
-	log.Printf("[DEBUG] Reading L2TP service configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_l2tp_service").Msg("Reading L2TP service configuration")
 
 	state, err := apiClient.client.GetL2TPServiceState(ctx)
 	if err != nil {
 		// Check if service is not configured
 		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "not configured") {
-			log.Printf("[DEBUG] L2TP service not configured, removing from state")
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_l2tp_service").Msg("L2TP service not configured, removing from state")
 			d.SetId("")
 			return nil
 		}
@@ -99,7 +99,7 @@ func resourceRTXL2TPServiceUpdate(ctx context.Context, d *schema.ResourceData, m
 	enabled := d.Get("enabled").(bool)
 	protocols := expandStringList(d.Get("protocols").([]interface{}))
 
-	log.Printf("[DEBUG] Updating L2TP service configuration: enabled=%v, protocols=%v", enabled, protocols)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_l2tp_service").Msgf("Updating L2TP service configuration: enabled=%v, protocols=%v", enabled, protocols)
 
 	err := apiClient.client.SetL2TPServiceState(ctx, enabled, protocols)
 	if err != nil {
@@ -112,7 +112,7 @@ func resourceRTXL2TPServiceUpdate(ctx context.Context, d *schema.ResourceData, m
 func resourceRTXL2TPServiceDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
-	log.Printf("[DEBUG] Deleting L2TP service configuration (disabling service)")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_l2tp_service").Msg("Deleting L2TP service configuration (disabling service)")
 
 	// Disable L2TP service on delete
 	err := apiClient.client.SetL2TPServiceState(ctx, false, nil)
@@ -136,7 +136,7 @@ func resourceRTXL2TPServiceImport(ctx context.Context, d *schema.ResourceData, m
 		return nil, fmt.Errorf("invalid import ID format, expected 'default', got %q", importID)
 	}
 
-	log.Printf("[DEBUG] Importing L2TP service configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_l2tp_service").Msg("Importing L2TP service configuration")
 
 	// Verify L2TP service state
 	state, err := apiClient.client.GetL2TPServiceState(ctx)

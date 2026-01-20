@@ -70,9 +70,9 @@ func shouldUseJSON() bool {
 	return false
 }
 
-// Global returns the global logger.
-func Global() zerolog.Logger {
-	return globalLogger
+// Global returns a pointer to the global logger.
+func Global() *zerolog.Logger {
+	return &globalLogger
 }
 
 // SetGlobal sets the global logger.

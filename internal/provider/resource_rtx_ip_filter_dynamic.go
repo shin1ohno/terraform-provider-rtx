@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strconv"
 	"strings"
 
@@ -140,7 +140,7 @@ func resourceRTXIPFilterDynamicCreate(ctx context.Context, d *schema.ResourceDat
 		return diag.FromErr(err)
 	}
 
-	log.Printf("[DEBUG] Creating dynamic IP filter: %+v", filter)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ip_filter_dynamic").Msgf("Creating dynamic IP filter: %+v", filter)
 
 	err = apiClient.client.CreateIPFilterDynamic(ctx, filter)
 	if err != nil {
@@ -161,12 +161,12 @@ func resourceRTXIPFilterDynamicRead(ctx context.Context, d *schema.ResourceData,
 		return diag.Errorf("Invalid filter ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Reading dynamic IP filter %d", filterID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ip_filter_dynamic").Msgf("Reading dynamic IP filter %d", filterID)
 
 	filter, err := apiClient.client.GetIPFilterDynamic(ctx, filterID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[DEBUG] Dynamic IP filter %d not found, removing from state", filterID)
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_ip_filter_dynamic").Msgf("Dynamic IP filter %d not found, removing from state", filterID)
 			d.SetId("")
 			return nil
 		}
@@ -189,7 +189,7 @@ func resourceRTXIPFilterDynamicUpdate(ctx context.Context, d *schema.ResourceDat
 		return diag.FromErr(err)
 	}
 
-	log.Printf("[DEBUG] Updating dynamic IP filter: %+v", filter)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ip_filter_dynamic").Msgf("Updating dynamic IP filter: %+v", filter)
 
 	// For RTX routers, update is done by re-creating the filter with the same number
 	err = apiClient.client.CreateIPFilterDynamic(ctx, filter)
@@ -208,7 +208,7 @@ func resourceRTXIPFilterDynamicDelete(ctx context.Context, d *schema.ResourceDat
 		return diag.Errorf("Invalid filter ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Deleting dynamic IP filter %d", filterID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ip_filter_dynamic").Msgf("Deleting dynamic IP filter %d", filterID)
 
 	err = apiClient.client.DeleteIPFilterDynamic(ctx, filterID)
 	if err != nil {
@@ -232,7 +232,7 @@ func resourceRTXIPFilterDynamicImport(ctx context.Context, d *schema.ResourceDat
 		return nil, fmt.Errorf("invalid import ID format, expected filter number (integer): %v", err)
 	}
 
-	log.Printf("[DEBUG] Importing dynamic IP filter %d", filterID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ip_filter_dynamic").Msgf("Importing dynamic IP filter %d", filterID)
 
 	// Retrieve the filter to verify it exists
 	filter, err := apiClient.client.GetIPFilterDynamic(ctx, filterID)

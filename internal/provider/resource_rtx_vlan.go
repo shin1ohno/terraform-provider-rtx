@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strconv"
 	"strings"
 
@@ -91,7 +91,7 @@ func resourceRTXVLANCreate(ctx context.Context, d *schema.ResourceData, meta int
 
 	vlan := buildVLANFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating VLAN: %+v", vlan)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_vlan").Msgf("Creating VLAN: %+v", vlan)
 
 	err := apiClient.client.CreateVLAN(ctx, vlan)
 	if err != nil {
@@ -114,13 +114,13 @@ func resourceRTXVLANRead(ctx context.Context, d *schema.ResourceData, meta inter
 		return diag.Errorf("Invalid resource ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Reading VLAN: %s/%d", iface, vlanID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_vlan").Msgf("Reading VLAN: %s/%d", iface, vlanID)
 
 	vlan, err := apiClient.client.GetVLAN(ctx, iface, vlanID)
 	if err != nil {
 		// Check if VLAN doesn't exist
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[DEBUG] VLAN %s/%d not found, removing from state", iface, vlanID)
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_vlan").Msgf("VLAN %s/%d not found, removing from state", iface, vlanID)
 			d.SetId("")
 			return nil
 		}
@@ -163,7 +163,7 @@ func resourceRTXVLANUpdate(ctx context.Context, d *schema.ResourceData, meta int
 		vlan.VlanInterface = v.(string)
 	}
 
-	log.Printf("[DEBUG] Updating VLAN: %+v", vlan)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_vlan").Msgf("Updating VLAN: %+v", vlan)
 
 	err := apiClient.client.UpdateVLAN(ctx, vlan)
 	if err != nil {
@@ -182,7 +182,7 @@ func resourceRTXVLANDelete(ctx context.Context, d *schema.ResourceData, meta int
 		return diag.Errorf("Invalid resource ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Deleting VLAN: %s/%d", iface, vlanID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_vlan").Msgf("Deleting VLAN: %s/%d", iface, vlanID)
 
 	err = apiClient.client.DeleteVLAN(ctx, iface, vlanID)
 	if err != nil {
@@ -206,7 +206,7 @@ func resourceRTXVLANImport(ctx context.Context, d *schema.ResourceData, meta int
 		return nil, fmt.Errorf("invalid import ID format, expected 'interface/vlan_id' (e.g., 'lan1/10'): %v", err)
 	}
 
-	log.Printf("[DEBUG] Importing VLAN: %s/%d", iface, vlanID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_vlan").Msgf("Importing VLAN: %s/%d", iface, vlanID)
 
 	// Verify VLAN exists
 	vlan, err := apiClient.client.GetVLAN(ctx, iface, vlanID)

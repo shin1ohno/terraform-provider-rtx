@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"regexp"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -50,7 +50,7 @@ func resourceRTXKronPolicyCreate(ctx context.Context, d *schema.ResourceData, me
 
 	policy := buildKronPolicyFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating kron policy: %+v", policy)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_kron_policy").Msgf("Creating kron policy: %+v", policy)
 
 	err := apiClient.client.CreateKronPolicy(ctx, policy)
 	if err != nil {
@@ -67,7 +67,7 @@ func resourceRTXKronPolicyRead(ctx context.Context, d *schema.ResourceData, meta
 	// Policies are managed at the Terraform level only.
 	// We simply read back the values from the state.
 
-	log.Printf("[DEBUG] Reading kron policy: %s", d.Id())
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_kron_policy").Msgf("Reading kron policy: %s", d.Id())
 
 	// For RTX, the policy is stored locally in Terraform state
 	// No actual device query needed since RTX doesn't have native kron policy
@@ -84,7 +84,7 @@ func resourceRTXKronPolicyUpdate(ctx context.Context, d *schema.ResourceData, me
 
 	policy := buildKronPolicyFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating kron policy: %+v", policy)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_kron_policy").Msgf("Updating kron policy: %+v", policy)
 
 	err := apiClient.client.UpdateKronPolicy(ctx, policy)
 	if err != nil {
@@ -99,7 +99,7 @@ func resourceRTXKronPolicyDelete(ctx context.Context, d *schema.ResourceData, me
 
 	name := d.Id()
 
-	log.Printf("[DEBUG] Deleting kron policy: %s", name)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_kron_policy").Msgf("Deleting kron policy: %s", name)
 
 	err := apiClient.client.DeleteKronPolicy(ctx, name)
 	if err != nil {
@@ -112,7 +112,7 @@ func resourceRTXKronPolicyDelete(ctx context.Context, d *schema.ResourceData, me
 func resourceRTXKronPolicyImport(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
 	name := d.Id()
 
-	log.Printf("[DEBUG] Importing kron policy: %s", name)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_kron_policy").Msgf("Importing kron policy: %s", name)
 
 	// Validate the name format
 	if err := validateKronPolicyNameValue(name); err != nil {

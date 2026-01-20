@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"time"
 )
 
@@ -80,10 +80,10 @@ func (e *sshExecutor) Run(ctx context.Context, cmd string) ([]byte, error) {
 	// Check for prompt
 	matched, prompt := e.promptDetector.DetectPrompt(raw)
 	if !matched {
-		log.Printf("[DEBUG] Prompt detection failed. Output: %q", string(raw))
+		logging.FromContext(ctx).Debug().Str("component", "executor").Msgf("Prompt detection failed. Output: %q", string(raw))
 		return nil, fmt.Errorf("%w: output does not contain expected prompt", ErrPrompt)
 	}
-	log.Printf("[DEBUG] Prompt detected: %q", prompt)
+	logging.FromContext(ctx).Debug().Str("component", "executor").Msgf("Prompt detected: %q", prompt)
 
 	return raw, nil
 }

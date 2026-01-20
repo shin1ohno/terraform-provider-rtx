@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
@@ -42,7 +42,7 @@ func (s *SystemService) Configure(ctx context.Context, config SystemConfig) erro
 	// Apply timezone
 	if config.Timezone != "" {
 		cmd := parsers.BuildTimezoneCommand(config.Timezone)
-		log.Printf("[DEBUG] Setting timezone with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Setting timezone with command: %s", cmd)
 
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
@@ -58,7 +58,7 @@ func (s *SystemService) Configure(ctx context.Context, config SystemConfig) erro
 	if config.Console != nil {
 		if config.Console.Character != "" {
 			cmd := parsers.BuildConsoleCharacterCommand(config.Console.Character)
-			log.Printf("[DEBUG] Setting console character with command: %s", cmd)
+			logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Setting console character with command: %s", cmd)
 
 			output, err := s.executor.Run(ctx, cmd)
 			if err != nil {
@@ -72,7 +72,7 @@ func (s *SystemService) Configure(ctx context.Context, config SystemConfig) erro
 
 		if config.Console.Lines != "" {
 			cmd := parsers.BuildConsoleLinesCommand(config.Console.Lines)
-			log.Printf("[DEBUG] Setting console lines with command: %s", cmd)
+			logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Setting console lines with command: %s", cmd)
 
 			output, err := s.executor.Run(ctx, cmd)
 			if err != nil {
@@ -86,7 +86,7 @@ func (s *SystemService) Configure(ctx context.Context, config SystemConfig) erro
 
 		if config.Console.Prompt != "" {
 			cmd := parsers.BuildConsolePromptCommand(config.Console.Prompt)
-			log.Printf("[DEBUG] Setting console prompt with command: %s", cmd)
+			logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Setting console prompt with command: %s", cmd)
 
 			output, err := s.executor.Run(ctx, cmd)
 			if err != nil {
@@ -107,7 +107,7 @@ func (s *SystemService) Configure(ctx context.Context, config SystemConfig) erro
 			MaxFree:   pb.MaxFree,
 		}
 		cmd := parsers.BuildPacketBufferCommand(parserPB)
-		log.Printf("[DEBUG] Setting packet buffer with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Setting packet buffer with command: %s", cmd)
 
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
@@ -122,7 +122,7 @@ func (s *SystemService) Configure(ctx context.Context, config SystemConfig) erro
 	// Apply statistics settings
 	if config.Statistics != nil {
 		cmd := parsers.BuildStatisticsTrafficCommand(config.Statistics.Traffic)
-		log.Printf("[DEBUG] Setting statistics traffic with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Setting statistics traffic with command: %s", cmd)
 
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
@@ -134,7 +134,7 @@ func (s *SystemService) Configure(ctx context.Context, config SystemConfig) erro
 		}
 
 		cmd = parsers.BuildStatisticsNATCommand(config.Statistics.NAT)
-		log.Printf("[DEBUG] Setting statistics NAT with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Setting statistics NAT with command: %s", cmd)
 
 		output, err = s.executor.Run(ctx, cmd)
 		if err != nil {
@@ -159,14 +159,14 @@ func (s *SystemService) Configure(ctx context.Context, config SystemConfig) erro
 // Get retrieves system configuration
 func (s *SystemService) Get(ctx context.Context) (*SystemConfig, error) {
 	cmd := parsers.BuildShowSystemConfigCommand()
-	log.Printf("[DEBUG] Getting system config with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Getting system config with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get system config: %w", err)
 	}
 
-	log.Printf("[DEBUG] System config raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "system").Msgf("System config raw output: %q", string(output))
 
 	parser := parsers.NewSystemParser()
 	parserConfig, err := parser.ParseSystemConfig(string(output))
@@ -206,7 +206,7 @@ func (s *SystemService) Update(ctx context.Context, config SystemConfig) error {
 	if config.Timezone != current.Timezone {
 		if config.Timezone != "" {
 			cmd := parsers.BuildTimezoneCommand(config.Timezone)
-			log.Printf("[DEBUG] Updating timezone with command: %s", cmd)
+			logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Updating timezone with command: %s", cmd)
 
 			output, err := s.executor.Run(ctx, cmd)
 			if err != nil {
@@ -219,7 +219,7 @@ func (s *SystemService) Update(ctx context.Context, config SystemConfig) error {
 		} else if current.Timezone != "" {
 			// Remove timezone setting
 			cmd := parsers.BuildDeleteTimezoneCommand()
-			log.Printf("[DEBUG] Removing timezone with command: %s", cmd)
+			logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Removing timezone with command: %s", cmd)
 			_, _ = s.executor.Run(ctx, cmd)
 		}
 	}
@@ -234,7 +234,7 @@ func (s *SystemService) Update(ctx context.Context, config SystemConfig) error {
 		if config.Console.Character != currentConsole.Character {
 			if config.Console.Character != "" {
 				cmd := parsers.BuildConsoleCharacterCommand(config.Console.Character)
-				log.Printf("[DEBUG] Updating console character with command: %s", cmd)
+				logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Updating console character with command: %s", cmd)
 
 				output, err := s.executor.Run(ctx, cmd)
 				if err != nil {
@@ -253,7 +253,7 @@ func (s *SystemService) Update(ctx context.Context, config SystemConfig) error {
 		if config.Console.Lines != currentConsole.Lines {
 			if config.Console.Lines != "" {
 				cmd := parsers.BuildConsoleLinesCommand(config.Console.Lines)
-				log.Printf("[DEBUG] Updating console lines with command: %s", cmd)
+				logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Updating console lines with command: %s", cmd)
 
 				output, err := s.executor.Run(ctx, cmd)
 				if err != nil {
@@ -272,7 +272,7 @@ func (s *SystemService) Update(ctx context.Context, config SystemConfig) error {
 		if config.Console.Prompt != currentConsole.Prompt {
 			if config.Console.Prompt != "" {
 				cmd := parsers.BuildConsolePromptCommand(config.Console.Prompt)
-				log.Printf("[DEBUG] Updating console prompt with command: %s", cmd)
+				logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Updating console prompt with command: %s", cmd)
 
 				output, err := s.executor.Run(ctx, cmd)
 				if err != nil {
@@ -319,7 +319,7 @@ func (s *SystemService) Update(ctx context.Context, config SystemConfig) error {
 	for size := range currentPBMap {
 		if _, exists := newPBMap[size]; !exists {
 			cmd := parsers.BuildDeletePacketBufferCommand(size)
-			log.Printf("[DEBUG] Removing packet buffer with command: %s", cmd)
+			logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Removing packet buffer with command: %s", cmd)
 			_, _ = s.executor.Run(ctx, cmd)
 		}
 	}
@@ -334,7 +334,7 @@ func (s *SystemService) Update(ctx context.Context, config SystemConfig) error {
 				MaxFree:   pb.MaxFree,
 			}
 			cmd := parsers.BuildPacketBufferCommand(parserPB)
-			log.Printf("[DEBUG] Updating packet buffer with command: %s", cmd)
+			logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Updating packet buffer with command: %s", cmd)
 
 			output, err := s.executor.Run(ctx, cmd)
 			if err != nil {
@@ -356,7 +356,7 @@ func (s *SystemService) Update(ctx context.Context, config SystemConfig) error {
 
 		if config.Statistics.Traffic != currentStats.Traffic {
 			cmd := parsers.BuildStatisticsTrafficCommand(config.Statistics.Traffic)
-			log.Printf("[DEBUG] Updating statistics traffic with command: %s", cmd)
+			logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Updating statistics traffic with command: %s", cmd)
 
 			output, err := s.executor.Run(ctx, cmd)
 			if err != nil {
@@ -370,7 +370,7 @@ func (s *SystemService) Update(ctx context.Context, config SystemConfig) error {
 
 		if config.Statistics.NAT != currentStats.NAT {
 			cmd := parsers.BuildStatisticsNATCommand(config.Statistics.NAT)
-			log.Printf("[DEBUG] Updating statistics NAT with command: %s", cmd)
+			logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Updating statistics NAT with command: %s", cmd)
 
 			output, err := s.executor.Run(ctx, cmd)
 			if err != nil {
@@ -419,17 +419,17 @@ func (s *SystemService) Reset(ctx context.Context) error {
 	commands := parsers.BuildDeleteSystemCommands(&parserConfig)
 
 	for _, cmd := range commands {
-		log.Printf("[DEBUG] Resetting system config with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Resetting system config with command: %s", cmd)
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
 			// Log but continue - some settings might not exist
-			log.Printf("[DEBUG] Warning: command failed: %v", err)
+			logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Warning: command failed: %v", err)
 			continue
 		}
 
 		if len(output) > 0 && containsError(string(output)) {
 			// Log but continue
-			log.Printf("[DEBUG] Warning: command output indicates error: %s", string(output))
+			logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Warning: command output indicates error: %s", string(output))
 		}
 	}
 

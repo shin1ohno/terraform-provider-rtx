@@ -2,7 +2,7 @@ package provider
 
 import (
 	"context"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -79,7 +79,7 @@ func dataSourceRTXDDNSStatusRead(ctx context.Context, d *schema.ResourceData, me
 	apiClient := meta.(*apiClient)
 
 	statusType := d.Get("type").(string)
-	log.Printf("[DEBUG] Reading DDNS status: type=%s", statusType)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ddns_status").Msgf("Reading DDNS status: type=%s", statusType)
 
 	var statuses []map[string]interface{}
 

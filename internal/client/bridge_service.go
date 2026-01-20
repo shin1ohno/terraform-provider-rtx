@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
@@ -48,7 +48,7 @@ func (s *BridgeService) CreateBridge(ctx context.Context, bridge BridgeConfig) e
 
 	// Build and execute bridge creation command
 	cmd := parsers.BuildBridgeMemberCommand(bridge.Name, bridge.Members)
-	log.Printf("[DEBUG] Creating bridge with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "bridge").Msgf("Creating bridge with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -77,14 +77,14 @@ func (s *BridgeService) GetBridge(ctx context.Context, name string) (*BridgeConf
 	}
 
 	cmd := parsers.BuildShowBridgeCommand(name)
-	log.Printf("[DEBUG] Getting bridge with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "bridge").Msgf("Getting bridge with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get bridge: %w", err)
 	}
 
-	log.Printf("[DEBUG] Bridge raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "bridge").Msgf("Bridge raw output: %q", string(output))
 
 	parser := parsers.NewBridgeParser()
 	parserBridge, err := parser.ParseSingleBridge(string(output), name)
@@ -122,7 +122,7 @@ func (s *BridgeService) UpdateBridge(ctx context.Context, bridge BridgeConfig) e
 	// Update by replacing the bridge member command
 	// RTX routers replace the entire bridge member list with a new command
 	cmd := parsers.BuildBridgeMemberCommand(bridge.Name, bridge.Members)
-	log.Printf("[DEBUG] Updating bridge with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "bridge").Msgf("Updating bridge with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -165,11 +165,11 @@ func (s *BridgeService) DeleteBridge(ctx context.Context, name string) error {
 			return nil
 		}
 		// For other errors, we try to delete anyway
-		log.Printf("[DEBUG] Could not verify bridge existence: %v, attempting delete anyway", err)
+		logging.FromContext(ctx).Debug().Str("service", "bridge").Msgf("Could not verify bridge existence: %v, attempting delete anyway", err)
 	}
 
 	cmd := parsers.BuildDeleteBridgeCommand(name)
-	log.Printf("[DEBUG] Deleting bridge with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "bridge").Msgf("Deleting bridge with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -197,14 +197,14 @@ func (s *BridgeService) DeleteBridge(ctx context.Context, name string) error {
 // ListBridges retrieves all bridges
 func (s *BridgeService) ListBridges(ctx context.Context) ([]BridgeConfig, error) {
 	cmd := parsers.BuildShowAllBridgesCommand()
-	log.Printf("[DEBUG] Listing bridges with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "bridge").Msgf("Listing bridges with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list bridges: %w", err)
 	}
 
-	log.Printf("[DEBUG] Bridges raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "bridge").Msgf("Bridges raw output: %q", string(output))
 
 	parser := parsers.NewBridgeParser()
 	parserBridges, err := parser.ParseBridgeConfig(string(output))

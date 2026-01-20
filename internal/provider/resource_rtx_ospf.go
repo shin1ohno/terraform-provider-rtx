@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -152,7 +152,7 @@ func resourceRTXOSPFCreate(ctx context.Context, d *schema.ResourceData, meta int
 
 	config := buildOSPFConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating OSPF configuration: %+v", config)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ospf").Msgf("Creating OSPF configuration: %+v", config)
 
 	err := apiClient.client.CreateOSPF(ctx, config)
 	if err != nil {
@@ -168,12 +168,12 @@ func resourceRTXOSPFCreate(ctx context.Context, d *schema.ResourceData, meta int
 func resourceRTXOSPFRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
-	log.Printf("[DEBUG] Reading OSPF configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ospf").Msg("Reading OSPF configuration")
 
 	config, err := apiClient.client.GetOSPF(ctx)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "not configured") {
-			log.Printf("[DEBUG] OSPF configuration not found, removing from state")
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_ospf").Msg("OSPF configuration not found, removing from state")
 			d.SetId("")
 			return nil
 		}
@@ -181,7 +181,7 @@ func resourceRTXOSPFRead(ctx context.Context, d *schema.ResourceData, meta inter
 	}
 
 	if !config.Enabled {
-		log.Printf("[DEBUG] OSPF is disabled, removing from state")
+		logging.FromContext(ctx).Debug().Str("resource", "rtx_ospf").Msg("OSPF is disabled, removing from state")
 		d.SetId("")
 		return nil
 	}
@@ -253,7 +253,7 @@ func resourceRTXOSPFUpdate(ctx context.Context, d *schema.ResourceData, meta int
 
 	config := buildOSPFConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating OSPF configuration: %+v", config)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ospf").Msgf("Updating OSPF configuration: %+v", config)
 
 	err := apiClient.client.UpdateOSPF(ctx, config)
 	if err != nil {
@@ -266,7 +266,7 @@ func resourceRTXOSPFUpdate(ctx context.Context, d *schema.ResourceData, meta int
 func resourceRTXOSPFDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
-	log.Printf("[DEBUG] Disabling OSPF configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ospf").Msg("Disabling OSPF configuration")
 
 	err := apiClient.client.DeleteOSPF(ctx)
 	if err != nil {
@@ -287,7 +287,7 @@ func resourceRTXOSPFImport(ctx context.Context, d *schema.ResourceData, meta int
 		return nil, fmt.Errorf("import ID must be 'ospf' for this singleton resource")
 	}
 
-	log.Printf("[DEBUG] Importing OSPF configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ospf").Msg("Importing OSPF configuration")
 
 	config, err := apiClient.client.GetOSPF(ctx)
 	if err != nil {

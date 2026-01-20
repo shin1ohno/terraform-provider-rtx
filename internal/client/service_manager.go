@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
@@ -28,14 +28,14 @@ func NewServiceManager(executor Executor, client *rtxClient) *ServiceManager {
 // GetHTTPD retrieves the current HTTPD configuration
 func (s *ServiceManager) GetHTTPD(ctx context.Context) (*HTTPDConfig, error) {
 	cmd := parsers.BuildShowHTTPDConfigCommand()
-	log.Printf("[DEBUG] Getting HTTPD config with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("component", "service-manager").Msgf("Getting HTTPD config with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get HTTPD configuration: %w", err)
 	}
 
-	log.Printf("[DEBUG] HTTPD config raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("component", "service-manager").Msgf("HTTPD config raw output: %q", string(output))
 
 	parser := parsers.NewServiceParser()
 	parserConfig, err := parser.ParseHTTPDConfig(string(output))
@@ -72,7 +72,7 @@ func (s *ServiceManager) ConfigureHTTPD(ctx context.Context, config HTTPDConfig)
 
 	// Set host
 	cmd := parsers.BuildHTTPDHostCommand(config.Host)
-	log.Printf("[DEBUG] Setting HTTPD host with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("component", "service-manager").Msgf("Setting HTTPD host with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -85,7 +85,7 @@ func (s *ServiceManager) ConfigureHTTPD(ctx context.Context, config HTTPDConfig)
 
 	// Set proxy access
 	proxyCmd := parsers.BuildHTTPDProxyAccessCommand(config.ProxyAccess)
-	log.Printf("[DEBUG] Setting HTTPD proxy access with command: %s", proxyCmd)
+	logging.FromContext(ctx).Debug().Str("component", "service-manager").Msgf("Setting HTTPD proxy access with command: %s", proxyCmd)
 
 	output, err = s.executor.Run(ctx, proxyCmd)
 	if err != nil {
@@ -123,7 +123,7 @@ func (s *ServiceManager) ResetHTTPD(ctx context.Context) error {
 
 	// Remove host configuration
 	cmd := parsers.BuildDeleteHTTPDHostCommand()
-	log.Printf("[DEBUG] Removing HTTPD host with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("component", "service-manager").Msgf("Removing HTTPD host with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -139,7 +139,7 @@ func (s *ServiceManager) ResetHTTPD(ctx context.Context) error {
 
 	// Disable proxy access
 	proxyCmd := parsers.BuildDeleteHTTPDProxyAccessCommand()
-	log.Printf("[DEBUG] Disabling HTTPD proxy access with command: %s", proxyCmd)
+	logging.FromContext(ctx).Debug().Str("component", "service-manager").Msgf("Disabling HTTPD proxy access with command: %s", proxyCmd)
 
 	_, _ = s.executor.Run(ctx, proxyCmd) // Ignore errors for cleanup
 
@@ -158,14 +158,14 @@ func (s *ServiceManager) ResetHTTPD(ctx context.Context) error {
 // GetSSHD retrieves the current SSHD configuration
 func (s *ServiceManager) GetSSHD(ctx context.Context) (*SSHDConfig, error) {
 	cmd := parsers.BuildShowSSHDConfigCommand()
-	log.Printf("[DEBUG] Getting SSHD config with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("component", "service-manager").Msgf("Getting SSHD config with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get SSHD configuration: %w", err)
 	}
 
-	log.Printf("[DEBUG] SSHD config raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("component", "service-manager").Msgf("SSHD config raw output: %q", string(output))
 
 	parser := parsers.NewServiceParser()
 	parserConfig, err := parser.ParseSSHDConfig(string(output))
@@ -205,7 +205,7 @@ func (s *ServiceManager) ConfigureSSHD(ctx context.Context, config SSHDConfig) e
 	// Set hosts if specified
 	if len(config.Hosts) > 0 {
 		cmd := parsers.BuildSSHDHostCommand(config.Hosts)
-		log.Printf("[DEBUG] Setting SSHD hosts with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("component", "service-manager").Msgf("Setting SSHD hosts with command: %s", cmd)
 
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
@@ -219,7 +219,7 @@ func (s *ServiceManager) ConfigureSSHD(ctx context.Context, config SSHDConfig) e
 
 	// Enable/disable service
 	serviceCmd := parsers.BuildSSHDServiceCommand(config.Enabled)
-	log.Printf("[DEBUG] Setting SSHD service with command: %s", serviceCmd)
+	logging.FromContext(ctx).Debug().Str("component", "service-manager").Msgf("Setting SSHD service with command: %s", serviceCmd)
 
 	output, err := s.executor.Run(ctx, serviceCmd)
 	if err != nil {
@@ -271,14 +271,14 @@ func (s *ServiceManager) UpdateSSHD(ctx context.Context, config SSHDConfig) erro
 		// Remove old hosts first if there were any
 		if len(currentConfig.Hosts) > 0 {
 			deleteCmd := parsers.BuildDeleteSSHDHostCommand()
-			log.Printf("[DEBUG] Removing old SSHD hosts with command: %s", deleteCmd)
+			logging.FromContext(ctx).Debug().Str("component", "service-manager").Msgf("Removing old SSHD hosts with command: %s", deleteCmd)
 			_, _ = s.executor.Run(ctx, deleteCmd) // Ignore errors for cleanup
 		}
 
 		// Set new hosts if specified
 		if len(config.Hosts) > 0 {
 			cmd := parsers.BuildSSHDHostCommand(config.Hosts)
-			log.Printf("[DEBUG] Setting SSHD hosts with command: %s", cmd)
+			logging.FromContext(ctx).Debug().Str("component", "service-manager").Msgf("Setting SSHD hosts with command: %s", cmd)
 
 			output, err := s.executor.Run(ctx, cmd)
 			if err != nil {
@@ -294,7 +294,7 @@ func (s *ServiceManager) UpdateSSHD(ctx context.Context, config SSHDConfig) erro
 	// Update service state if changed
 	if currentConfig.Enabled != config.Enabled {
 		serviceCmd := parsers.BuildSSHDServiceCommand(config.Enabled)
-		log.Printf("[DEBUG] Setting SSHD service with command: %s", serviceCmd)
+		logging.FromContext(ctx).Debug().Str("component", "service-manager").Msgf("Setting SSHD service with command: %s", serviceCmd)
 
 		output, err := s.executor.Run(ctx, serviceCmd)
 		if err != nil {
@@ -327,7 +327,7 @@ func (s *ServiceManager) ResetSSHD(ctx context.Context) error {
 
 	// Disable service first
 	serviceCmd := parsers.BuildDeleteSSHDServiceCommand()
-	log.Printf("[DEBUG] Disabling SSHD service with command: %s", serviceCmd)
+	logging.FromContext(ctx).Debug().Str("component", "service-manager").Msgf("Disabling SSHD service with command: %s", serviceCmd)
 
 	output, err := s.executor.Run(ctx, serviceCmd)
 	if err != nil {
@@ -343,7 +343,7 @@ func (s *ServiceManager) ResetSSHD(ctx context.Context) error {
 
 	// Remove host configuration
 	hostCmd := parsers.BuildDeleteSSHDHostCommand()
-	log.Printf("[DEBUG] Removing SSHD hosts with command: %s", hostCmd)
+	logging.FromContext(ctx).Debug().Str("component", "service-manager").Msgf("Removing SSHD hosts with command: %s", hostCmd)
 
 	_, _ = s.executor.Run(ctx, hostCmd) // Ignore errors for cleanup
 
@@ -362,14 +362,14 @@ func (s *ServiceManager) ResetSSHD(ctx context.Context) error {
 // GetSFTPD retrieves the current SFTPD configuration
 func (s *ServiceManager) GetSFTPD(ctx context.Context) (*SFTPDConfig, error) {
 	cmd := parsers.BuildShowSFTPDConfigCommand()
-	log.Printf("[DEBUG] Getting SFTPD config with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("component", "service-manager").Msgf("Getting SFTPD config with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get SFTPD configuration: %w", err)
 	}
 
-	log.Printf("[DEBUG] SFTPD config raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("component", "service-manager").Msgf("SFTPD config raw output: %q", string(output))
 
 	parser := parsers.NewServiceParser()
 	parserConfig, err := parser.ParseSFTPDConfig(string(output))
@@ -404,7 +404,7 @@ func (s *ServiceManager) ConfigureSFTPD(ctx context.Context, config SFTPDConfig)
 
 	// Set hosts
 	cmd := parsers.BuildSFTPDHostCommand(config.Hosts)
-	log.Printf("[DEBUG] Setting SFTPD hosts with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("component", "service-manager").Msgf("Setting SFTPD hosts with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -454,13 +454,13 @@ func (s *ServiceManager) UpdateSFTPD(ctx context.Context, config SFTPDConfig) er
 		// Remove old hosts first if there were any
 		if len(currentConfig.Hosts) > 0 {
 			deleteCmd := parsers.BuildDeleteSFTPDHostCommand()
-			log.Printf("[DEBUG] Removing old SFTPD hosts with command: %s", deleteCmd)
+			logging.FromContext(ctx).Debug().Str("component", "service-manager").Msgf("Removing old SFTPD hosts with command: %s", deleteCmd)
 			_, _ = s.executor.Run(ctx, deleteCmd) // Ignore errors for cleanup
 		}
 
 		// Set new hosts
 		cmd := parsers.BuildSFTPDHostCommand(config.Hosts)
-		log.Printf("[DEBUG] Setting SFTPD hosts with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("component", "service-manager").Msgf("Setting SFTPD hosts with command: %s", cmd)
 
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
@@ -493,7 +493,7 @@ func (s *ServiceManager) ResetSFTPD(ctx context.Context) error {
 
 	// Remove host configuration
 	cmd := parsers.BuildDeleteSFTPDHostCommand()
-	log.Printf("[DEBUG] Removing SFTPD hosts with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("component", "service-manager").Msgf("Removing SFTPD hosts with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {

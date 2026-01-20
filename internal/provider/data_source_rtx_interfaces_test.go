@@ -909,7 +909,7 @@ func (m *MockClientForInterfaces) UpdateAccessListMAC(ctx context.Context, acl c
 	return fmt.Errorf("not implemented")
 }
 
-func (m *MockClientForInterfaces) DeleteAccessListMAC(ctx context.Context, name string) error {
+func (m *MockClientForInterfaces) DeleteAccessListMAC(ctx context.Context, name string, filterNums []int) error {
 	return fmt.Errorf("not implemented")
 }
 
@@ -1033,7 +1033,7 @@ func (m *MockClientForInterfaces) GetPPConnectionStatus(ctx context.Context, ppN
 
 func TestRTXInterfacesDataSourceSchema(t *testing.T) {
 	dataSource := dataSourceRTXInterfaces()
-	
+
 	// Test that the data source is properly configured
 	assert.NotNil(t, dataSource)
 	assert.NotNil(t, dataSource.Schema)
@@ -1041,7 +1041,7 @@ func TestRTXInterfacesDataSourceSchema(t *testing.T) {
 
 	// Test schema structure
 	schemaMap := dataSource.Schema
-	
+
 	// Check that id field exists and is computed
 	assert.Contains(t, schemaMap, "id")
 	assert.Equal(t, schema.TypeString, schemaMap["id"].Type)
@@ -1065,7 +1065,7 @@ func TestRTXInterfacesDataSourceSchema(t *testing.T) {
 		"admin_up": schema.TypeBool,
 		"link_up":  schema.TypeBool,
 	}
-	
+
 	for field, expectedType := range requiredFields {
 		assert.Contains(t, interfaceSchema, field, "Schema should contain %s field", field)
 		assert.Equal(t, expectedType, interfaceSchema[field].Type, "%s should be of type %v", field, expectedType)
@@ -1097,7 +1097,7 @@ func TestRTXInterfacesDataSourceSchema(t *testing.T) {
 
 func TestRTXInterfacesDataSourceRead_Success(t *testing.T) {
 	mockClient := &MockClientForInterfaces{}
-	
+
 	// Mock successful interfaces retrieval
 	expectedInterfaces := []client.Interface{
 		{
@@ -1141,7 +1141,7 @@ func TestRTXInterfacesDataSourceRead_Success(t *testing.T) {
 
 	// Create a resource data mock
 	d := schema.TestResourceDataRaw(t, dataSourceRTXInterfaces().Schema, map[string]interface{}{})
-	
+
 	// Create mock API client
 	apiClient := &apiClient{client: mockClient}
 
@@ -1217,14 +1217,14 @@ func TestRTXInterfacesDataSourceRead_Success(t *testing.T) {
 
 func TestRTXInterfacesDataSourceRead_ClientError(t *testing.T) {
 	mockClient := &MockClientForInterfaces{}
-	
+
 	// Mock client error
 	expectedError := errors.New("SSH connection failed")
 	mockClient.On("GetInterfaces", mock.Anything).Return([]client.Interface{}, expectedError)
 
 	// Create a resource data mock
 	d := schema.TestResourceDataRaw(t, dataSourceRTXInterfaces().Schema, map[string]interface{}{})
-	
+
 	// Create mock API client
 	apiClient := &apiClient{client: mockClient}
 
@@ -1244,13 +1244,13 @@ func TestRTXInterfacesDataSourceRead_ClientError(t *testing.T) {
 
 func TestRTXInterfacesDataSourceRead_EmptyInterfaces(t *testing.T) {
 	mockClient := &MockClientForInterfaces{}
-	
+
 	// Mock empty interfaces list
 	mockClient.On("GetInterfaces", mock.Anything).Return([]client.Interface{}, nil)
 
 	// Create a resource data mock
 	d := schema.TestResourceDataRaw(t, dataSourceRTXInterfaces().Schema, map[string]interface{}{})
-	
+
 	// Create mock API client
 	apiClient := &apiClient{client: mockClient}
 
@@ -1335,7 +1335,7 @@ func TestRTXInterfacesDataSourceRead_DifferentRTXModels(t *testing.T) {
 
 			// Create a resource data mock
 			d := schema.TestResourceDataRaw(t, dataSourceRTXInterfaces().Schema, map[string]interface{}{})
-			
+
 			// Create mock API client
 			apiClient := &apiClient{client: mockClient}
 

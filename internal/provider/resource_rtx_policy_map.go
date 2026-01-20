@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -95,7 +95,7 @@ func resourceRTXPolicyMapCreate(ctx context.Context, d *schema.ResourceData, met
 
 	pm := buildPolicyMapFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating policy-map: %+v", pm)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_policy_map").Msgf("Creating policy-map: %+v", pm)
 
 	err := apiClient.client.CreatePolicyMap(ctx, pm)
 	if err != nil {
@@ -112,12 +112,12 @@ func resourceRTXPolicyMapRead(ctx context.Context, d *schema.ResourceData, meta 
 
 	name := d.Id()
 
-	log.Printf("[DEBUG] Reading policy-map: %s", name)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_policy_map").Msgf("Reading policy-map: %s", name)
 
 	pm, err := apiClient.client.GetPolicyMap(ctx, name)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[DEBUG] Policy-map %s not found, removing from state", name)
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_policy_map").Msgf("Policy-map %s not found, removing from state", name)
 			d.SetId("")
 			return nil
 		}
@@ -152,7 +152,7 @@ func resourceRTXPolicyMapUpdate(ctx context.Context, d *schema.ResourceData, met
 
 	pm := buildPolicyMapFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating policy-map: %+v", pm)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_policy_map").Msgf("Updating policy-map: %+v", pm)
 
 	err := apiClient.client.UpdatePolicyMap(ctx, pm)
 	if err != nil {
@@ -167,7 +167,7 @@ func resourceRTXPolicyMapDelete(ctx context.Context, d *schema.ResourceData, met
 
 	name := d.Id()
 
-	log.Printf("[DEBUG] Deleting policy-map: %s", name)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_policy_map").Msgf("Deleting policy-map: %s", name)
 
 	err := apiClient.client.DeletePolicyMap(ctx, name)
 	if err != nil {
@@ -184,7 +184,7 @@ func resourceRTXPolicyMapImport(ctx context.Context, d *schema.ResourceData, met
 	apiClient := meta.(*apiClient)
 	name := d.Id()
 
-	log.Printf("[DEBUG] Importing policy-map: %s", name)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_policy_map").Msgf("Importing policy-map: %s", name)
 
 	pm, err := apiClient.client.GetPolicyMap(ctx, name)
 	if err != nil {

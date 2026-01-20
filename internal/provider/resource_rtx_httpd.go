@@ -2,7 +2,7 @@ package provider
 
 import (
 	"context"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"regexp"
 	"strings"
 
@@ -50,7 +50,7 @@ func resourceRTXHTTPDCreate(ctx context.Context, d *schema.ResourceData, meta in
 
 	config := buildHTTPDConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating HTTPD configuration: %+v", config)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_httpd").Msgf("Creating HTTPD configuration: %+v", config)
 
 	err := apiClient.client.ConfigureHTTPD(ctx, config)
 	if err != nil {
@@ -67,13 +67,13 @@ func resourceRTXHTTPDCreate(ctx context.Context, d *schema.ResourceData, meta in
 func resourceRTXHTTPDRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
-	log.Printf("[DEBUG] Reading HTTPD configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_httpd").Msg("Reading HTTPD configuration")
 
 	config, err := apiClient.client.GetHTTPD(ctx)
 	if err != nil {
 		// Check if not configured
 		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "not configured") {
-			log.Printf("[DEBUG] HTTPD not configured, removing from state")
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_httpd").Msg("HTTPD not configured, removing from state")
 			d.SetId("")
 			return nil
 		}
@@ -82,7 +82,7 @@ func resourceRTXHTTPDRead(ctx context.Context, d *schema.ResourceData, meta inte
 
 	// If no host is configured, the resource doesn't exist
 	if config.Host == "" {
-		log.Printf("[DEBUG] HTTPD host not configured, removing from state")
+		logging.FromContext(ctx).Debug().Str("resource", "rtx_httpd").Msg("HTTPD host not configured, removing from state")
 		d.SetId("")
 		return nil
 	}
@@ -103,7 +103,7 @@ func resourceRTXHTTPDUpdate(ctx context.Context, d *schema.ResourceData, meta in
 
 	config := buildHTTPDConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating HTTPD configuration: %+v", config)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_httpd").Msgf("Updating HTTPD configuration: %+v", config)
 
 	err := apiClient.client.UpdateHTTPD(ctx, config)
 	if err != nil {
@@ -116,7 +116,7 @@ func resourceRTXHTTPDUpdate(ctx context.Context, d *schema.ResourceData, meta in
 func resourceRTXHTTPDDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
-	log.Printf("[DEBUG] Deleting HTTPD configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_httpd").Msg("Deleting HTTPD configuration")
 
 	err := apiClient.client.ResetHTTPD(ctx)
 	if err != nil {
@@ -133,7 +133,7 @@ func resourceRTXHTTPDDelete(ctx context.Context, d *schema.ResourceData, meta in
 func resourceRTXHTTPDImport(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
 	apiClient := meta.(*apiClient)
 
-	log.Printf("[DEBUG] Importing HTTPD configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_httpd").Msg("Importing HTTPD configuration")
 
 	// Verify HTTPD is configured
 	config, err := apiClient.client.GetHTTPD(ctx)

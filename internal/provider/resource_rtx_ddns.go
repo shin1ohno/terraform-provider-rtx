@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -61,7 +61,7 @@ func resourceRTXDDNSCreate(ctx context.Context, d *schema.ResourceData, meta int
 
 	config := buildDDNSServerConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating DDNS configuration: server_id=%d, hostname=%s", config.ID, config.Hostname)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ddns").Msgf("Creating DDNS configuration: server_id=%d, hostname=%s", config.ID, config.Hostname)
 
 	err := apiClient.client.ConfigureDDNS(ctx, config)
 	if err != nil {
@@ -81,7 +81,7 @@ func resourceRTXDDNSRead(ctx context.Context, d *schema.ResourceData, meta inter
 		return diag.Errorf("Invalid DDNS server ID: %s", d.Id())
 	}
 
-	log.Printf("[DEBUG] Reading DDNS configuration for server_id: %d", id)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ddns").Msgf("Reading DDNS configuration for server_id: %d", id)
 
 	config, err := apiClient.client.GetDDNSByID(ctx, id)
 	if err != nil {
@@ -115,7 +115,7 @@ func resourceRTXDDNSUpdate(ctx context.Context, d *schema.ResourceData, meta int
 
 	config := buildDDNSServerConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating DDNS configuration: server_id=%d, hostname=%s", config.ID, config.Hostname)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ddns").Msgf("Updating DDNS configuration: server_id=%d, hostname=%s", config.ID, config.Hostname)
 
 	err := apiClient.client.UpdateDDNS(ctx, config)
 	if err != nil {
@@ -133,7 +133,7 @@ func resourceRTXDDNSDelete(ctx context.Context, d *schema.ResourceData, meta int
 		return diag.Errorf("Invalid DDNS server ID: %s", d.Id())
 	}
 
-	log.Printf("[DEBUG] Deleting DDNS configuration for server_id: %d", id)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ddns").Msgf("Deleting DDNS configuration for server_id: %d", id)
 
 	err = apiClient.client.DeleteDDNS(ctx, id)
 	if err != nil {
@@ -154,7 +154,7 @@ func resourceRTXDDNSImport(ctx context.Context, d *schema.ResourceData, meta int
 		return nil, fmt.Errorf("invalid DDNS server ID: %d (must be 1-4)", id)
 	}
 
-	log.Printf("[DEBUG] Importing DDNS configuration for server_id: %d", id)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ddns").Msgf("Importing DDNS configuration for server_id: %d", id)
 
 	config, err := apiClient.client.GetDDNSByID(ctx, id)
 	if err != nil {

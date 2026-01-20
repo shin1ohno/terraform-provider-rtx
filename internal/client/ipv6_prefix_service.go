@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
@@ -42,7 +42,7 @@ func (s *IPv6PrefixService) CreatePrefix(ctx context.Context, prefix IPv6Prefix)
 
 	// Build and execute prefix creation command
 	cmd := parsers.BuildIPv6PrefixCommand(parserPrefix)
-	log.Printf("[DEBUG] Creating IPv6 prefix with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "ipv6_prefix").Msgf("Creating IPv6 prefix with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -66,14 +66,14 @@ func (s *IPv6PrefixService) CreatePrefix(ctx context.Context, prefix IPv6Prefix)
 // GetPrefix retrieves an IPv6 prefix configuration
 func (s *IPv6PrefixService) GetPrefix(ctx context.Context, prefixID int) (*IPv6Prefix, error) {
 	cmd := parsers.BuildShowIPv6PrefixCommand(prefixID)
-	log.Printf("[DEBUG] Getting IPv6 prefix with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "ipv6_prefix").Msgf("Getting IPv6 prefix with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get IPv6 prefix: %w", err)
 	}
 
-	log.Printf("[DEBUG] IPv6 prefix raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "ipv6_prefix").Msgf("IPv6 prefix raw output: %q", string(output))
 
 	parser := parsers.NewIPv6PrefixParser()
 	parserPrefix, err := parser.ParseSinglePrefix(string(output), prefixID)
@@ -122,7 +122,7 @@ func (s *IPv6PrefixService) UpdatePrefix(ctx context.Context, prefix IPv6Prefix)
 	// Update by re-issuing the prefix command
 	// RTX routers allow re-running the prefix command to update values
 	cmd := parsers.BuildIPv6PrefixCommand(parserPrefix)
-	log.Printf("[DEBUG] Updating IPv6 prefix with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "ipv6_prefix").Msgf("Updating IPv6 prefix with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -153,7 +153,7 @@ func (s *IPv6PrefixService) DeletePrefix(ctx context.Context, prefixID int) erro
 	}
 
 	cmd := parsers.BuildDeleteIPv6PrefixCommand(prefixID)
-	log.Printf("[DEBUG] Deleting IPv6 prefix with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "ipv6_prefix").Msgf("Deleting IPv6 prefix with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -181,14 +181,14 @@ func (s *IPv6PrefixService) DeletePrefix(ctx context.Context, prefixID int) erro
 // ListPrefixes retrieves all IPv6 prefixes
 func (s *IPv6PrefixService) ListPrefixes(ctx context.Context) ([]IPv6Prefix, error) {
 	cmd := parsers.BuildShowAllIPv6PrefixesCommand()
-	log.Printf("[DEBUG] Listing IPv6 prefixes with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "ipv6_prefix").Msgf("Listing IPv6 prefixes with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list IPv6 prefixes: %w", err)
 	}
 
-	log.Printf("[DEBUG] IPv6 prefixes raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "ipv6_prefix").Msgf("IPv6 prefixes raw output: %q", string(output))
 
 	parser := parsers.NewIPv6PrefixParser()
 	parserPrefixes, err := parser.ParseIPv6PrefixConfig(string(output))

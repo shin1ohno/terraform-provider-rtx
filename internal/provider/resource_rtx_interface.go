@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"regexp"
 	"strings"
 
@@ -116,7 +116,7 @@ func resourceRTXInterfaceCreate(ctx context.Context, d *schema.ResourceData, met
 
 	config := buildInterfaceConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating interface configuration: %+v", config)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_interface").Msgf("Creating interface configuration: %+v", config)
 
 	err := apiClient.client.ConfigureInterface(ctx, config)
 	if err != nil {
@@ -135,13 +135,13 @@ func resourceRTXInterfaceRead(ctx context.Context, d *schema.ResourceData, meta 
 
 	interfaceName := d.Id()
 
-	log.Printf("[DEBUG] Reading interface configuration: %s", interfaceName)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_interface").Msgf("Reading interface configuration: %s", interfaceName)
 
 	config, err := apiClient.client.GetInterfaceConfig(ctx, interfaceName)
 	if err != nil {
 		// Check if interface doesn't have any configuration
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[DEBUG] Interface %s configuration not found, removing from state", interfaceName)
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_interface").Msgf("Interface %s configuration not found, removing from state", interfaceName)
 			d.SetId("")
 			return nil
 		}
@@ -202,7 +202,7 @@ func resourceRTXInterfaceUpdate(ctx context.Context, d *schema.ResourceData, met
 
 	config := buildInterfaceConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating interface configuration: %+v", config)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_interface").Msgf("Updating interface configuration: %+v", config)
 
 	err := apiClient.client.UpdateInterfaceConfig(ctx, config)
 	if err != nil {
@@ -217,7 +217,7 @@ func resourceRTXInterfaceDelete(ctx context.Context, d *schema.ResourceData, met
 
 	interfaceName := d.Id()
 
-	log.Printf("[DEBUG] Resetting interface configuration: %s", interfaceName)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_interface").Msgf("Resetting interface configuration: %s", interfaceName)
 
 	err := apiClient.client.ResetInterface(ctx, interfaceName)
 	if err != nil {
@@ -240,7 +240,7 @@ func resourceRTXInterfaceImport(ctx context.Context, d *schema.ResourceData, met
 		return nil, fmt.Errorf("invalid import ID format: %v", err)
 	}
 
-	log.Printf("[DEBUG] Importing interface configuration: %s", importID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_interface").Msgf("Importing interface configuration: %s", importID)
 
 	// Verify interface exists and retrieve configuration
 	config, err := apiClient.client.GetInterfaceConfig(ctx, importID)

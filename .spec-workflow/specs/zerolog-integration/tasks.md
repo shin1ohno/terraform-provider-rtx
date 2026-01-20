@@ -79,7 +79,7 @@
   - _Requirements: REQ-3_
   - _Prompt: Implement the task for spec zerolog-integration, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Developer | Task: Replace log.Printf in working_session.go, ssh_dialer.go, rtx_session.go with zerolog, add Str("host"), Int("port"), Str("user") fields for connection context | Restrictions: Do not log passwords or keys, maintain existing log levels, preserve error context | Success: All session-related logs use zerolog with structured fields, no sensitive data in logs | After completion: Mark task as [-] in tasks.md before starting, use log-implementation tool to record what was done, then mark as [x]_
 
-- [ ] 9. Migrate client/service logs to zerolog
+- [x] 9. Migrate client/service logs to zerolog
   - Files: internal/client/*_service.go (all service files)
   - Replace log.Printf with zerolog structured logging
   - Add fields: service_name, operation
@@ -90,7 +90,7 @@
 
 ## Phase 3: Provider Layer Migration
 
-- [ ] 10. Migrate provider/resource logs to zerolog
+- [x] 10. Migrate provider/resource logs to zerolog
   - Files: internal/provider/resource_*.go (all resource files)
   - Replace log.Printf with zerolog structured logging
   - Add fields: resource_type, resource_id, operation (create/read/update/delete)
@@ -101,7 +101,7 @@
 
 ## Phase 4: Validation
 
-- [ ] 11. Remove standard log package imports
+- [x] 11. Remove standard log package imports
   - Files: All .go files that import "log"
   - Remove `import "log"` statements
   - Ensure no remaining log.Printf calls
@@ -110,7 +110,7 @@
   - _Requirements: REQ-1, REQ-2_
   - _Prompt: Implement the task for spec zerolog-integration, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Developer | Task: Search for remaining `import "log"` and `log.Printf` in all .go files, remove unused imports, fix any missed conversions | Restrictions: Do not remove log imports from test files if needed for test output, verify each file compiles after changes | Success: No production code imports standard log package, `go build ./...` succeeds | After completion: Mark task as [-] in tasks.md before starting, use log-implementation tool to record what was done, then mark as [x]_
 
-- [ ] 12. Run full test suite and fix failures
+- [x] 12. Run full test suite and fix failures
   - Files: All *_test.go files as needed
   - Run `go test ./...`
   - Fix any test failures related to logging changes
@@ -120,7 +120,7 @@
   - _Requirements: REQ-6_
   - _Prompt: Implement the task for spec zerolog-integration, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Test Engineer | Task: Run `go test ./...`, identify failures related to logging changes, fix tests by updating log capture methods or assertions, ensure all tests pass | Restrictions: Do not change test logic unrelated to logging, preserve test coverage, document any test changes | Success: `go test ./...` passes with no failures, test coverage maintained | After completion: Mark task as [-] in tasks.md before starting, use log-implementation tool to record what was done, then mark as [x]_
 
-- [ ] 13. Manual verification with Terraform operations
+- [x] 13. Manual verification with Terraform operations
   - Test provider with TF_LOG=DEBUG
   - Verify structured log output
   - Verify ConsoleWriter formatting

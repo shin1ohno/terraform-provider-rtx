@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strconv"
 	"strings"
 
@@ -99,7 +99,7 @@ func resourceRTXPPPoECreate(ctx context.Context, d *schema.ResourceData, meta in
 
 	config := buildPPPoEConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating PPPoE configuration for PP %d", config.Number)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_pppoe").Msgf("Creating PPPoE configuration for PP %d", config.Number)
 
 	err := apiClient.client.CreatePPPoE(ctx, config)
 	if err != nil {
@@ -121,13 +121,13 @@ func resourceRTXPPPoERead(ctx context.Context, d *schema.ResourceData, meta inte
 		return diag.Errorf("Invalid PP number in resource ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Reading PPPoE configuration for PP %d", ppNum)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_pppoe").Msgf("Reading PPPoE configuration for PP %d", ppNum)
 
 	config, err := apiClient.client.GetPPPoE(ctx, ppNum)
 	if err != nil {
 		// Check if the configuration doesn't exist
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[DEBUG] PPPoE configuration for PP %d not found, removing from state", ppNum)
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_pppoe").Msgf("PPPoE configuration for PP %d not found, removing from state", ppNum)
 			d.SetId("")
 			return nil
 		}
@@ -180,7 +180,7 @@ func resourceRTXPPPoEUpdate(ctx context.Context, d *schema.ResourceData, meta in
 
 	config := buildPPPoEConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating PPPoE configuration for PP %d", config.Number)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_pppoe").Msgf("Updating PPPoE configuration for PP %d", config.Number)
 
 	err := apiClient.client.UpdatePPPoE(ctx, config)
 	if err != nil {
@@ -198,7 +198,7 @@ func resourceRTXPPPoEDelete(ctx context.Context, d *schema.ResourceData, meta in
 		return diag.Errorf("Invalid PP number in resource ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Deleting PPPoE configuration for PP %d", ppNum)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_pppoe").Msgf("Deleting PPPoE configuration for PP %d", ppNum)
 
 	err = apiClient.client.DeletePPPoE(ctx, ppNum)
 	if err != nil {
@@ -226,7 +226,7 @@ func resourceRTXPPPoEImport(ctx context.Context, d *schema.ResourceData, meta in
 		return nil, fmt.Errorf("invalid PP number: must be >= 1")
 	}
 
-	log.Printf("[DEBUG] Importing PPPoE configuration for PP %d", ppNum)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_pppoe").Msgf("Importing PPPoE configuration for PP %d", ppNum)
 
 	// Verify the configuration exists and retrieve it
 	config, err := apiClient.client.GetPPPoE(ctx, ppNum)

@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strconv"
 	"strings"
 
@@ -117,7 +117,7 @@ func resourceRTXIPv6PrefixCreate(ctx context.Context, d *schema.ResourceData, me
 
 	prefix := buildIPv6PrefixFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating IPv6 prefix: %+v", prefix)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_prefix").Msgf("Creating IPv6 prefix: %+v", prefix)
 
 	err := apiClient.client.CreateIPv6Prefix(ctx, prefix)
 	if err != nil {
@@ -139,13 +139,13 @@ func resourceRTXIPv6PrefixRead(ctx context.Context, d *schema.ResourceData, meta
 		return diag.Errorf("Invalid resource ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Reading IPv6 prefix: %d", prefixID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_prefix").Msgf("Reading IPv6 prefix: %d", prefixID)
 
 	prefix, err := apiClient.client.GetIPv6Prefix(ctx, prefixID)
 	if err != nil {
 		// Check if prefix doesn't exist
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[DEBUG] IPv6 prefix %d not found, removing from state", prefixID)
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_prefix").Msgf("IPv6 prefix %d not found, removing from state", prefixID)
 			d.SetId("")
 			return nil
 		}
@@ -177,7 +177,7 @@ func resourceRTXIPv6PrefixUpdate(ctx context.Context, d *schema.ResourceData, me
 
 	prefix := buildIPv6PrefixFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating IPv6 prefix: %+v", prefix)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_prefix").Msgf("Updating IPv6 prefix: %+v", prefix)
 
 	err := apiClient.client.UpdateIPv6Prefix(ctx, prefix)
 	if err != nil {
@@ -195,7 +195,7 @@ func resourceRTXIPv6PrefixDelete(ctx context.Context, d *schema.ResourceData, me
 		return diag.Errorf("Invalid resource ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Deleting IPv6 prefix: %d", prefixID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_prefix").Msgf("Deleting IPv6 prefix: %d", prefixID)
 
 	err = apiClient.client.DeleteIPv6Prefix(ctx, prefixID)
 	if err != nil {
@@ -219,7 +219,7 @@ func resourceRTXIPv6PrefixImport(ctx context.Context, d *schema.ResourceData, me
 		return nil, fmt.Errorf("invalid import ID format, expected prefix_id (integer): %v", err)
 	}
 
-	log.Printf("[DEBUG] Importing IPv6 prefix: %d", prefixID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_prefix").Msgf("Importing IPv6 prefix: %d", prefixID)
 
 	// Verify prefix exists
 	prefix, err := apiClient.client.GetIPv6Prefix(ctx, prefixID)

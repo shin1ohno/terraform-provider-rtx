@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -69,7 +69,7 @@ func resourceRTXNetVolanteDNSCreate(ctx context.Context, d *schema.ResourceData,
 
 	config := buildNetVolanteConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating NetVolante DNS configuration: %+v", config)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_netvolante_dns").Msgf("Creating NetVolante DNS configuration: %+v", config)
 
 	err := apiClient.client.ConfigureNetVolanteDNS(ctx, config)
 	if err != nil {
@@ -86,7 +86,7 @@ func resourceRTXNetVolanteDNSRead(ctx context.Context, d *schema.ResourceData, m
 	apiClient := meta.(*apiClient)
 
 	iface := d.Id()
-	log.Printf("[DEBUG] Reading NetVolante DNS configuration for interface: %s", iface)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_netvolante_dns").Msgf("Reading NetVolante DNS configuration for interface: %s", iface)
 
 	config, err := apiClient.client.GetNetVolanteDNSByInterface(ctx, iface)
 	if err != nil {
@@ -125,7 +125,7 @@ func resourceRTXNetVolanteDNSUpdate(ctx context.Context, d *schema.ResourceData,
 
 	config := buildNetVolanteConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating NetVolante DNS configuration: %+v", config)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_netvolante_dns").Msgf("Updating NetVolante DNS configuration: %+v", config)
 
 	err := apiClient.client.UpdateNetVolanteDNS(ctx, config)
 	if err != nil {
@@ -139,7 +139,7 @@ func resourceRTXNetVolanteDNSDelete(ctx context.Context, d *schema.ResourceData,
 	apiClient := meta.(*apiClient)
 
 	iface := d.Id()
-	log.Printf("[DEBUG] Deleting NetVolante DNS configuration for interface: %s", iface)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_netvolante_dns").Msgf("Deleting NetVolante DNS configuration for interface: %s", iface)
 
 	err := apiClient.client.DeleteNetVolanteDNS(ctx, iface)
 	if err != nil {
@@ -153,7 +153,7 @@ func resourceRTXNetVolanteDNSImport(ctx context.Context, d *schema.ResourceData,
 	apiClient := meta.(*apiClient)
 	importID := d.Id()
 
-	log.Printf("[DEBUG] Importing NetVolante DNS configuration for interface: %s", importID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_netvolante_dns").Msgf("Importing NetVolante DNS configuration for interface: %s", importID)
 
 	config, err := apiClient.client.GetNetVolanteDNSByInterface(ctx, importID)
 	if err != nil {

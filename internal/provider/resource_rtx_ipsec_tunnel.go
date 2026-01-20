@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strconv"
 	"strings"
 
@@ -250,7 +250,7 @@ func resourceRTXIPsecTunnelCreate(ctx context.Context, d *schema.ResourceData, m
 
 	tunnel := buildIPsecTunnelFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating IPsec tunnel: %+v", tunnel)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipsec_tunnel").Msgf("Creating IPsec tunnel: %+v", tunnel)
 
 	err := apiClient.client.CreateIPsecTunnel(ctx, tunnel)
 	if err != nil {
@@ -270,12 +270,12 @@ func resourceRTXIPsecTunnelRead(ctx context.Context, d *schema.ResourceData, met
 		return diag.Errorf("Invalid tunnel ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Reading IPsec tunnel: %d", tunnelID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipsec_tunnel").Msgf("Reading IPsec tunnel: %d", tunnelID)
 
 	tunnel, err := apiClient.client.GetIPsecTunnel(ctx, tunnelID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[DEBUG] IPsec tunnel %d not found, removing from state", tunnelID)
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_ipsec_tunnel").Msgf("IPsec tunnel %d not found, removing from state", tunnelID)
 			d.SetId("")
 			return nil
 		}
@@ -362,7 +362,7 @@ func resourceRTXIPsecTunnelUpdate(ctx context.Context, d *schema.ResourceData, m
 
 	tunnel := buildIPsecTunnelFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating IPsec tunnel: %+v", tunnel)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipsec_tunnel").Msgf("Updating IPsec tunnel: %+v", tunnel)
 
 	err := apiClient.client.UpdateIPsecTunnel(ctx, tunnel)
 	if err != nil {
@@ -380,7 +380,7 @@ func resourceRTXIPsecTunnelDelete(ctx context.Context, d *schema.ResourceData, m
 		return diag.Errorf("Invalid tunnel ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Deleting IPsec tunnel: %d", tunnelID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipsec_tunnel").Msgf("Deleting IPsec tunnel: %d", tunnelID)
 
 	err = apiClient.client.DeleteIPsecTunnel(ctx, tunnelID)
 	if err != nil {
@@ -401,7 +401,7 @@ func resourceRTXIPsecTunnelImport(ctx context.Context, d *schema.ResourceData, m
 		return nil, fmt.Errorf("invalid import ID, expected tunnel ID as integer: %v", err)
 	}
 
-	log.Printf("[DEBUG] Importing IPsec tunnel: %d", tunnelID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipsec_tunnel").Msgf("Importing IPsec tunnel: %d", tunnelID)
 
 	tunnel, err := apiClient.client.GetIPsecTunnel(ctx, tunnelID)
 	if err != nil {

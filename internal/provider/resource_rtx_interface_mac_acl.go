@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"regexp"
 	"strings"
 
@@ -60,7 +60,7 @@ func resourceRTXInterfaceMACACLCreate(ctx context.Context, d *schema.ResourceDat
 
 	acl := buildInterfaceMACACLFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating interface MAC ACL for: %s", acl.Interface)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_interface_mac_acl").Msgf("Creating interface MAC ACL for: %s", acl.Interface)
 
 	err := apiClient.client.CreateInterfaceMACACL(ctx, acl)
 	if err != nil {
@@ -77,12 +77,12 @@ func resourceRTXInterfaceMACACLRead(ctx context.Context, d *schema.ResourceData,
 
 	iface := d.Id()
 
-	log.Printf("[DEBUG] Reading interface MAC ACL: %s", iface)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_interface_mac_acl").Msgf("Reading interface MAC ACL: %s", iface)
 
 	acl, err := apiClient.client.GetInterfaceMACACL(ctx, iface)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[WARN] Interface MAC ACL %s not found, removing from state", iface)
+			logging.FromContext(ctx).Warn().Str("resource", "rtx_interface_mac_acl").Msgf("Interface MAC ACL %s not found, removing from state", iface)
 			d.SetId("")
 			return nil
 		}
@@ -101,7 +101,7 @@ func resourceRTXInterfaceMACACLUpdate(ctx context.Context, d *schema.ResourceDat
 
 	acl := buildInterfaceMACACLFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating interface MAC ACL for: %s", acl.Interface)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_interface_mac_acl").Msgf("Updating interface MAC ACL for: %s", acl.Interface)
 
 	err := apiClient.client.UpdateInterfaceMACACL(ctx, acl)
 	if err != nil {
@@ -116,7 +116,7 @@ func resourceRTXInterfaceMACACLDelete(ctx context.Context, d *schema.ResourceDat
 
 	iface := d.Id()
 
-	log.Printf("[DEBUG] Deleting interface MAC ACL for: %s", iface)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_interface_mac_acl").Msgf("Deleting interface MAC ACL for: %s", iface)
 
 	err := apiClient.client.DeleteInterfaceMACACL(ctx, iface)
 	if err != nil {
@@ -133,7 +133,7 @@ func resourceRTXInterfaceMACACLImport(ctx context.Context, d *schema.ResourceDat
 	apiClient := meta.(*apiClient)
 	iface := d.Id()
 
-	log.Printf("[DEBUG] Importing interface MAC ACL: %s", iface)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_interface_mac_acl").Msgf("Importing interface MAC ACL: %s", iface)
 
 	acl, err := apiClient.client.GetInterfaceMACACL(ctx, iface)
 	if err != nil {

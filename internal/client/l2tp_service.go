@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
@@ -41,18 +41,18 @@ func (s *L2TPService) Get(ctx context.Context, tunnelID int) (*L2TPConfig, error
 // List retrieves all L2TP tunnel configurations
 func (s *L2TPService) List(ctx context.Context) ([]L2TPConfig, error) {
 	cmd := parsers.BuildShowL2TPConfigCommand()
-	log.Printf("[DEBUG] L2TP List: executing command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "l2tp").Msgf("L2TP List: executing command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get L2TP config: %w", err)
 	}
 
-	log.Printf("[DEBUG] L2TP List: output length: %d bytes", len(output))
+	logging.FromContext(ctx).Debug().Str("service", "l2tp").Msgf("L2TP List: output length: %d bytes", len(output))
 	if len(output) < 1000 {
-		log.Printf("[DEBUG] L2TP List: full output: %s", string(output))
+		logging.FromContext(ctx).Debug().Str("service", "l2tp").Msgf("L2TP List: full output: %s", string(output))
 	} else {
-		log.Printf("[DEBUG] L2TP List: output preview (first 500 chars): %s", string(output[:500]))
+		logging.FromContext(ctx).Debug().Str("service", "l2tp").Msgf("L2TP List: output preview (first 500 chars): %s", string(output[:500]))
 	}
 
 	parser := parsers.NewL2TPParser()
@@ -61,9 +61,9 @@ func (s *L2TPService) List(ctx context.Context) ([]L2TPConfig, error) {
 		return nil, fmt.Errorf("failed to parse L2TP config: %w", err)
 	}
 
-	log.Printf("[DEBUG] L2TP List: parsed %d tunnels", len(parsed))
+	logging.FromContext(ctx).Debug().Str("service", "l2tp").Msgf("L2TP List: parsed %d tunnels", len(parsed))
 	for _, t := range parsed {
-		log.Printf("[DEBUG] L2TP List: tunnel ID=%d, Version=%s, Mode=%s, Enabled=%v", t.ID, t.Version, t.Mode, t.Enabled)
+		logging.FromContext(ctx).Debug().Str("service", "l2tp").Msgf("L2TP List: tunnel ID=%d, Version=%s, Mode=%s, Enabled=%v", t.ID, t.Version, t.Mode, t.Enabled)
 	}
 
 	// Convert from parser types to client types
@@ -379,7 +379,7 @@ func convertFromParserL2TPConfig(p parsers.L2TPConfig) L2TPConfig {
 // GetL2TPServiceState retrieves the current L2TP service state
 func (s *L2TPService) GetL2TPServiceState(ctx context.Context) (*L2TPServiceState, error) {
 	cmd := parsers.BuildShowL2TPConfigCommand()
-	log.Printf("[DEBUG] L2TP GetServiceState: executing command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "l2tp").Msgf("L2TP GetServiceState: executing command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -391,7 +391,7 @@ func (s *L2TPService) GetL2TPServiceState(ctx context.Context) (*L2TPServiceStat
 		return nil, fmt.Errorf("failed to parse L2TP service state: %w", err)
 	}
 
-	log.Printf("[DEBUG] L2TP GetServiceState: enabled=%v, protocols=%v", parsed.Enabled, parsed.Protocols)
+	logging.FromContext(ctx).Debug().Str("service", "l2tp").Msgf("L2TP GetServiceState: enabled=%v, protocols=%v", parsed.Enabled, parsed.Protocols)
 
 	return &L2TPServiceState{
 		Enabled:   parsed.Enabled,
@@ -402,7 +402,7 @@ func (s *L2TPService) GetL2TPServiceState(ctx context.Context) (*L2TPServiceStat
 // SetL2TPServiceState enables or disables the L2TP service with optional protocols
 func (s *L2TPService) SetL2TPServiceState(ctx context.Context, enabled bool, protocols []string) error {
 	cmd := parsers.BuildL2TPServiceCommandWithProtocols(enabled, protocols)
-	log.Printf("[DEBUG] L2TP SetServiceState: executing command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "l2tp").Msgf("L2TP SetServiceState: executing command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -418,6 +418,6 @@ func (s *L2TPService) SetL2TPServiceState(ctx context.Context, enabled bool, pro
 		return fmt.Errorf("failed to save L2TP service config: %w", err)
 	}
 
-	log.Printf("[DEBUG] L2TP SetServiceState: successfully set enabled=%v, protocols=%v", enabled, protocols)
+	logging.FromContext(ctx).Debug().Str("service", "l2tp").Msgf("L2TP SetServiceState: successfully set enabled=%v, protocols=%v", enabled, protocols)
 	return nil
 }

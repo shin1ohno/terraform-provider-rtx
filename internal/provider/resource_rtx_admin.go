@@ -2,7 +2,7 @@ package provider
 
 import (
 	"context"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -42,7 +42,7 @@ func resourceRTXAdminCreate(ctx context.Context, d *schema.ResourceData, meta in
 
 	config := buildAdminConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating admin configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_admin").Msg("Creating admin configuration")
 
 	err := apiClient.client.ConfigureAdmin(ctx, config)
 	if err != nil {
@@ -66,7 +66,7 @@ func resourceRTXAdminRead(ctx context.Context, d *schema.ResourceData, meta inte
 	}
 
 	// Resource still exists - passwords remain as stored in state
-	log.Printf("[DEBUG] Reading admin configuration (passwords cannot be read from router)")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_admin").Msg("Reading admin configuration (passwords cannot be read from router)")
 	return nil
 }
 
@@ -75,7 +75,7 @@ func resourceRTXAdminUpdate(ctx context.Context, d *schema.ResourceData, meta in
 
 	config := buildAdminConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating admin configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_admin").Msg("Updating admin configuration")
 
 	err := apiClient.client.UpdateAdminConfig(ctx, config)
 	if err != nil {
@@ -88,7 +88,7 @@ func resourceRTXAdminUpdate(ctx context.Context, d *schema.ResourceData, meta in
 func resourceRTXAdminDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
-	log.Printf("[DEBUG] Deleting admin configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_admin").Msg("Deleting admin configuration")
 
 	err := apiClient.client.ResetAdmin(ctx)
 	if err != nil {
@@ -103,7 +103,7 @@ func resourceRTXAdminImport(ctx context.Context, d *schema.ResourceData, meta in
 	// Passwords must be provided in the Terraform configuration after import
 	d.SetId("admin")
 
-	log.Printf("[INFO] Admin configuration imported. Note: Passwords must be set in configuration as they cannot be read from the router.")
+	logging.FromContext(ctx).Info().Str("resource", "rtx_admin").Msg("Admin configuration imported. Note: Passwords must be set in configuration as they cannot be read from the router.")
 
 	return []*schema.ResourceData{d}, nil
 }

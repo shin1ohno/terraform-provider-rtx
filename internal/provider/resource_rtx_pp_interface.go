@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strconv"
 	"strings"
 
@@ -88,7 +88,7 @@ func resourceRTXPPInterfaceCreate(ctx context.Context, d *schema.ResourceData, m
 	ppNum := d.Get("pp_number").(int)
 	config := buildPPIPConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating PP interface IP configuration for PP %d", ppNum)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_pp_interface").Msgf("Creating PP interface IP configuration for PP %d", ppNum)
 
 	err := apiClient.client.ConfigurePPInterface(ctx, ppNum, config)
 	if err != nil {
@@ -110,13 +110,13 @@ func resourceRTXPPInterfaceRead(ctx context.Context, d *schema.ResourceData, met
 		return diag.Errorf("Invalid PP number in resource ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Reading PP interface IP configuration for PP %d", ppNum)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_pp_interface").Msgf("Reading PP interface IP configuration for PP %d", ppNum)
 
 	config, err := apiClient.client.GetPPInterfaceConfig(ctx, ppNum)
 	if err != nil {
 		// Check if the configuration doesn't exist
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[DEBUG] PP interface configuration for PP %d not found, removing from state", ppNum)
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_pp_interface").Msgf("PP interface configuration for PP %d not found, removing from state", ppNum)
 			d.SetId("")
 			return nil
 		}
@@ -159,7 +159,7 @@ func resourceRTXPPInterfaceUpdate(ctx context.Context, d *schema.ResourceData, m
 
 	config := buildPPIPConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating PP interface IP configuration for PP %d", ppNum)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_pp_interface").Msgf("Updating PP interface IP configuration for PP %d", ppNum)
 
 	err = apiClient.client.UpdatePPInterfaceConfig(ctx, ppNum, config)
 	if err != nil {
@@ -177,7 +177,7 @@ func resourceRTXPPInterfaceDelete(ctx context.Context, d *schema.ResourceData, m
 		return diag.Errorf("Invalid PP number in resource ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Resetting PP interface IP configuration for PP %d", ppNum)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_pp_interface").Msgf("Resetting PP interface IP configuration for PP %d", ppNum)
 
 	err = apiClient.client.ResetPPInterfaceConfig(ctx, ppNum)
 	if err != nil {
@@ -205,7 +205,7 @@ func resourceRTXPPInterfaceImport(ctx context.Context, d *schema.ResourceData, m
 		return nil, fmt.Errorf("invalid PP number: must be >= 1")
 	}
 
-	log.Printf("[DEBUG] Importing PP interface configuration for PP %d", ppNum)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_pp_interface").Msgf("Importing PP interface configuration for PP %d", ppNum)
 
 	// Verify the configuration exists and retrieve it
 	config, err := apiClient.client.GetPPInterfaceConfig(ctx, ppNum)

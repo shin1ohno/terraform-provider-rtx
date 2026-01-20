@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -34,6 +34,42 @@ func resourceRTXAccessListMAC() *schema.Resource {
 				ForceNew:    true,
 				Description: "Access list name (identifier)",
 			},
+			"filter_id": {
+				Type:         schema.TypeInt,
+				Optional:     true,
+				Description:  "Optional RTX filter ID to enable numeric ethernet filter mode",
+				ValidateFunc: validation.IntAtLeast(1),
+			},
+			"apply": {
+				Type:        schema.TypeList,
+				Optional:    true,
+				MaxItems:    1,
+				Description: "Optional application of ethernet filters to an interface",
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"interface": {
+							Type:        schema.TypeString,
+							Required:    true,
+							Description: "Interface to apply filters (e.g., lan1)",
+						},
+						"direction": {
+							Type:         schema.TypeString,
+							Required:     true,
+							Description:  "Direction to apply filters (in or out)",
+							ValidateFunc: validation.StringInSlice([]string{"in", "out"}, false),
+						},
+						"filter_ids": {
+							Type:        schema.TypeList,
+							Required:    true,
+							Description: "List of filter IDs to apply in order",
+							Elem: &schema.Schema{
+								Type:         schema.TypeInt,
+								ValidateFunc: validation.IntAtLeast(1),
+							},
+						},
+					},
+				},
+			},
 			"entry": {
 				Type:        schema.TypeList,
 				Required:    true,
@@ -49,8 +85,8 @@ func resourceRTXAccessListMAC() *schema.Resource {
 						"ace_action": {
 							Type:         schema.TypeString,
 							Required:     true,
-							Description:  "Action to take (permit or deny)",
-							ValidateFunc: validation.StringInSlice([]string{"permit", "deny"}, false),
+							Description:  "Action to take (permit/deny or RTX pass/reject with log/nolog)",
+							ValidateFunc: validation.StringInSlice([]string{"permit", "deny", "pass-log", "pass-nolog", "reject-log", "reject-nolog", "pass", "reject"}, false),
 						},
 						"source_any": {
 							Type:        schema.TypeBool,
@@ -101,6 +137,48 @@ func resourceRTXAccessListMAC() *schema.Resource {
 							Default:     false,
 							Description: "Enable logging for this entry",
 						},
+						"filter_id": {
+							Type:         schema.TypeInt,
+							Optional:     true,
+							Description:  "Explicit filter number for this entry (overrides sequence)",
+							ValidateFunc: validation.IntAtLeast(1),
+						},
+						"dhcp_match": {
+							Type:        schema.TypeList,
+							Optional:    true,
+							MaxItems:    1,
+							Description: "DHCP-based match settings",
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"type": {
+										Type:         schema.TypeString,
+										Required:     true,
+										Description:  "DHCP match type (dhcp-bind or dhcp-not-bind)",
+										ValidateFunc: validation.StringInSlice([]string{"dhcp-bind", "dhcp-not-bind"}, false),
+									},
+									"scope": {
+										Type:         schema.TypeInt,
+										Optional:     true,
+										Description:  "DHCP scope number",
+										ValidateFunc: validation.IntAtLeast(1),
+									},
+								},
+							},
+						},
+						"offset": {
+							Type:         schema.TypeInt,
+							Optional:     true,
+							Description:  "Offset for byte matching",
+							ValidateFunc: validation.IntAtLeast(0),
+						},
+						"byte_list": {
+							Type:        schema.TypeList,
+							Optional:    true,
+							Description: "Byte list (hex) for offset matching",
+							Elem: &schema.Schema{
+								Type: schema.TypeString,
+							},
+						},
 					},
 				},
 			},
@@ -113,7 +191,7 @@ func resourceRTXAccessListMACCreate(ctx context.Context, d *schema.ResourceData,
 
 	acl := buildAccessListMACFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating MAC access list: %s", acl.Name)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_mac").Msgf("Creating MAC access list: %s", acl.Name)
 
 	err := apiClient.client.CreateAccessListMAC(ctx, acl)
 	if err != nil {
@@ -130,12 +208,12 @@ func resourceRTXAccessListMACRead(ctx context.Context, d *schema.ResourceData, m
 
 	name := d.Id()
 
-	log.Printf("[DEBUG] Reading MAC access list: %s", name)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_mac").Msgf("Reading MAC access list: %s", name)
 
 	acl, err := apiClient.client.GetAccessListMAC(ctx, name)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[WARN] MAC access list %s not found, removing from state", name)
+			logging.FromContext(ctx).Warn().Str("resource", "rtx_access_list_mac").Msgf("MAC access list %s not found, removing from state", name)
 			d.SetId("")
 			return nil
 		}
@@ -143,6 +221,7 @@ func resourceRTXAccessListMACRead(ctx context.Context, d *schema.ResourceData, m
 	}
 
 	d.Set("name", acl.Name)
+	d.Set("filter_id", acl.FilterID)
 
 	entries := make([]map[string]interface{}, 0, len(acl.Entries))
 	for _, entry := range acl.Entries {
@@ -158,10 +237,35 @@ func resourceRTXAccessListMACRead(ctx context.Context, d *schema.ResourceData, m
 			"ether_type":               entry.EtherType,
 			"vlan_id":                  entry.VlanID,
 			"log":                      entry.Log,
+			"filter_id":                entry.FilterID,
+			"offset":                   entry.Offset,
+			"byte_list":                entry.ByteList,
 		}
+
+		if entry.DHCPType != "" {
+			e["dhcp_match"] = []map[string]interface{}{
+				{
+					"type":  entry.DHCPType,
+					"scope": entry.DHCPScope,
+				},
+			}
+		}
+
 		entries = append(entries, e)
 	}
 	d.Set("entry", entries)
+
+	if acl.Apply != nil {
+		d.Set("apply", []map[string]interface{}{
+			{
+				"interface":  acl.Apply.Interface,
+				"direction":  acl.Apply.Direction,
+				"filter_ids": acl.Apply.FilterIDs,
+			},
+		})
+	} else {
+		d.Set("apply", nil)
+	}
 
 	return nil
 }
@@ -171,7 +275,7 @@ func resourceRTXAccessListMACUpdate(ctx context.Context, d *schema.ResourceData,
 
 	acl := buildAccessListMACFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating MAC access list: %s", acl.Name)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_mac").Msgf("Updating MAC access list: %s", acl.Name)
 
 	err := apiClient.client.UpdateAccessListMAC(ctx, acl)
 	if err != nil {
@@ -186,9 +290,23 @@ func resourceRTXAccessListMACDelete(ctx context.Context, d *schema.ResourceData,
 
 	name := d.Id()
 
-	log.Printf("[DEBUG] Deleting MAC access list: %s", name)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_mac").Msgf("Deleting MAC access list: %s", name)
 
-	err := apiClient.client.DeleteAccessListMAC(ctx, name)
+	// Collect filter numbers to delete (filter_id overrides sequence)
+	var filterNums []int
+	entries := d.Get("entry").([]interface{})
+	for _, e := range entries {
+		entry := e.(map[string]interface{})
+		num := entry["filter_id"].(int)
+		if num == 0 {
+			num = entry["sequence"].(int)
+		}
+		if num > 0 {
+			filterNums = append(filterNums, num)
+		}
+	}
+
+	err := apiClient.client.DeleteAccessListMAC(ctx, name, filterNums)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			return nil
@@ -203,7 +321,7 @@ func resourceRTXAccessListMACImport(ctx context.Context, d *schema.ResourceData,
 	apiClient := meta.(*apiClient)
 	name := d.Id()
 
-	log.Printf("[DEBUG] Importing MAC access list: %s", name)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_mac").Msgf("Importing MAC access list: %s", name)
 
 	acl, err := apiClient.client.GetAccessListMAC(ctx, name)
 	if err != nil {
@@ -212,6 +330,7 @@ func resourceRTXAccessListMACImport(ctx context.Context, d *schema.ResourceData,
 
 	d.SetId(name)
 	d.Set("name", acl.Name)
+	d.Set("filter_id", acl.FilterID)
 
 	entries := make([]map[string]interface{}, 0, len(acl.Entries))
 	for _, entry := range acl.Entries {
@@ -227,18 +346,42 @@ func resourceRTXAccessListMACImport(ctx context.Context, d *schema.ResourceData,
 			"ether_type":               entry.EtherType,
 			"vlan_id":                  entry.VlanID,
 			"log":                      entry.Log,
+			"filter_id":                entry.FilterID,
+			"offset":                   entry.Offset,
+			"byte_list":                entry.ByteList,
+		}
+		if entry.DHCPType != "" {
+			e["dhcp_match"] = []map[string]interface{}{
+				{
+					"type":  entry.DHCPType,
+					"scope": entry.DHCPScope,
+				},
+			}
 		}
 		entries = append(entries, e)
 	}
 	d.Set("entry", entries)
+
+	if acl.Apply != nil {
+		d.Set("apply", []map[string]interface{}{
+			{
+				"interface":  acl.Apply.Interface,
+				"direction":  acl.Apply.Direction,
+				"filter_ids": acl.Apply.FilterIDs,
+			},
+		})
+	} else {
+		d.Set("apply", nil)
+	}
 
 	return []*schema.ResourceData{d}, nil
 }
 
 func buildAccessListMACFromResourceData(d *schema.ResourceData) client.AccessListMAC {
 	acl := client.AccessListMAC{
-		Name:    d.Get("name").(string),
-		Entries: make([]client.AccessListMACEntry, 0),
+		Name:     d.Get("name").(string),
+		FilterID: d.Get("filter_id").(int),
+		Entries:  make([]client.AccessListMACEntry, 0),
 	}
 
 	entries := d.Get("entry").([]interface{})
@@ -256,8 +399,45 @@ func buildAccessListMACFromResourceData(d *schema.ResourceData) client.AccessLis
 			EtherType:              entry["ether_type"].(string),
 			VlanID:                 entry["vlan_id"].(int),
 			Log:                    entry["log"].(bool),
+			FilterID:               entry["filter_id"].(int),
+			Offset:                 entry["offset"].(int),
 		}
+
+		if aclEntry.FilterID == 0 && acl.FilterID > 0 {
+			aclEntry.FilterID = acl.FilterID
+		}
+
+		if v, ok := entry["byte_list"].([]interface{}); ok {
+			for _, b := range v {
+				aclEntry.ByteList = append(aclEntry.ByteList, b.(string))
+			}
+		}
+
+		if v, ok := entry["dhcp_match"].([]interface{}); ok && len(v) > 0 {
+			m := v[0].(map[string]interface{})
+			aclEntry.DHCPType = m["type"].(string)
+			aclEntry.DHCPScope = m["scope"].(int)
+		}
+
 		acl.Entries = append(acl.Entries, aclEntry)
+	}
+
+	if v, ok := d.GetOk("apply"); ok {
+		applyList := v.([]interface{})
+		if len(applyList) > 0 {
+			m := applyList[0].(map[string]interface{})
+			var ids []int
+			if rawIDs, ok := m["filter_ids"].([]interface{}); ok {
+				for _, id := range rawIDs {
+					ids = append(ids, id.(int))
+				}
+			}
+			acl.Apply = &client.MACApply{
+				Interface: m["interface"].(string),
+				Direction: m["direction"].(string),
+				FilterIDs: ids,
+			}
+		}
 	}
 
 	return acl

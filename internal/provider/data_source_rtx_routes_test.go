@@ -908,7 +908,7 @@ func (m *MockClientForRoutes) UpdateAccessListMAC(ctx context.Context, acl clien
 	return fmt.Errorf("not implemented")
 }
 
-func (m *MockClientForRoutes) DeleteAccessListMAC(ctx context.Context, name string) error {
+func (m *MockClientForRoutes) DeleteAccessListMAC(ctx context.Context, name string, filterNums []int) error {
 	return fmt.Errorf("not implemented")
 }
 
@@ -1032,7 +1032,7 @@ func (m *MockClientForRoutes) GetPPConnectionStatus(ctx context.Context, ppNum i
 
 func TestRTXRoutesDataSourceSchema(t *testing.T) {
 	dataSource := dataSourceRTXRoutes()
-	
+
 	// Test that the data source is properly configured
 	assert.NotNil(t, dataSource)
 	assert.NotNil(t, dataSource.Schema)
@@ -1040,7 +1040,7 @@ func TestRTXRoutesDataSourceSchema(t *testing.T) {
 
 	// Test schema structure
 	schemaMap := dataSource.Schema
-	
+
 	// Check that id field exists and is computed
 	assert.Contains(t, schemaMap, "id")
 	assert.Equal(t, schema.TypeString, schemaMap["id"].Type)
@@ -1065,7 +1065,7 @@ func TestRTXRoutesDataSourceSchema(t *testing.T) {
 		"protocol":    schema.TypeString,
 		"metric":      schema.TypeInt,
 	}
-	
+
 	for field, expectedType := range requiredFields {
 		assert.Contains(t, routeSchema, field, "Schema should contain %s field", field)
 		assert.Equal(t, expectedType, routeSchema[field].Type, "%s should be of type %v", field, expectedType)
@@ -1075,7 +1075,7 @@ func TestRTXRoutesDataSourceSchema(t *testing.T) {
 
 func TestRTXRoutesDataSourceRead_Success(t *testing.T) {
 	mockClient := &MockClientForRoutes{}
-	
+
 	// Mock successful routes retrieval
 	metric1 := 1
 	metric2 := 10
@@ -1114,7 +1114,7 @@ func TestRTXRoutesDataSourceRead_Success(t *testing.T) {
 
 	// Create a resource data mock
 	d := schema.TestResourceDataRaw(t, dataSourceRTXRoutes().Schema, map[string]interface{}{})
-	
+
 	// Create mock API client
 	apiClient := &apiClient{client: mockClient}
 
@@ -1169,14 +1169,14 @@ func TestRTXRoutesDataSourceRead_Success(t *testing.T) {
 
 func TestRTXRoutesDataSourceRead_ClientError(t *testing.T) {
 	mockClient := &MockClientForRoutes{}
-	
+
 	// Mock client error
 	expectedError := errors.New("SSH connection failed")
 	mockClient.On("GetRoutes", mock.Anything).Return([]client.Route{}, expectedError)
 
 	// Create a resource data mock
 	d := schema.TestResourceDataRaw(t, dataSourceRTXRoutes().Schema, map[string]interface{}{})
-	
+
 	// Create mock API client
 	apiClient := &apiClient{client: mockClient}
 
@@ -1195,13 +1195,13 @@ func TestRTXRoutesDataSourceRead_ClientError(t *testing.T) {
 
 func TestRTXRoutesDataSourceRead_EmptyRoutes(t *testing.T) {
 	mockClient := &MockClientForRoutes{}
-	
+
 	// Mock empty routes list
 	mockClient.On("GetRoutes", mock.Anything).Return([]client.Route{}, nil)
 
 	// Create a resource data mock
 	d := schema.TestResourceDataRaw(t, dataSourceRTXRoutes().Schema, map[string]interface{}{})
-	
+
 	// Create mock API client
 	apiClient := &apiClient{client: mockClient}
 
@@ -1312,7 +1312,7 @@ func TestRTXRoutesDataSourceRead_DifferentRouteTypes(t *testing.T) {
 
 			// Create a resource data mock
 			d := schema.TestResourceDataRaw(t, dataSourceRTXRoutes().Schema, map[string]interface{}{})
-			
+
 			// Create mock API client
 			apiClient := &apiClient{client: mockClient}
 
@@ -1334,7 +1334,7 @@ func TestRTXRoutesDataSourceRead_DifferentRouteTypes(t *testing.T) {
 				assert.Equal(t, expectedRoute.Gateway, actualRoute["gateway"])
 				assert.Equal(t, expectedRoute.Interface, actualRoute["interface"])
 				assert.Equal(t, expectedRoute.Protocol, actualRoute["protocol"])
-				
+
 				if expectedRoute.Metric != nil {
 					assert.Equal(t, *expectedRoute.Metric, actualRoute["metric"])
 				} else {
@@ -1349,11 +1349,11 @@ func TestRTXRoutesDataSourceRead_DifferentRouteTypes(t *testing.T) {
 
 func TestRTXRoutesDataSourceRead_ProtocolValidation(t *testing.T) {
 	validProtocols := []string{"S", "C", "R", "O", "B", "D"}
-	
+
 	for _, protocol := range validProtocols {
 		t.Run(fmt.Sprintf("Protocol_%s", protocol), func(t *testing.T) {
 			mockClient := &MockClientForRoutes{}
-			
+
 			routes := []client.Route{
 				{
 					Destination: "192.168.1.0/24",
@@ -1367,7 +1367,7 @@ func TestRTXRoutesDataSourceRead_ProtocolValidation(t *testing.T) {
 
 			// Create a resource data mock
 			d := schema.TestResourceDataRaw(t, dataSourceRTXRoutes().Schema, map[string]interface{}{})
-			
+
 			// Create mock API client
 			apiClient := &apiClient{client: mockClient}
 
@@ -1381,7 +1381,7 @@ func TestRTXRoutesDataSourceRead_ProtocolValidation(t *testing.T) {
 			// Verify protocol was set correctly
 			routesData := d.Get("routes").([]interface{})
 			assert.Len(t, routesData, 1)
-			
+
 			actualRoute := routesData[0].(map[string]interface{})
 			assert.Equal(t, protocol, actualRoute["protocol"])
 

@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -164,7 +164,7 @@ func resourceRTXAccessListExtendedCreate(ctx context.Context, d *schema.Resource
 
 	acl := buildAccessListExtendedFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating access list extended: %+v", acl)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_extended").Msgf("Creating access list extended: %+v", acl)
 
 	err := apiClient.client.CreateAccessListExtended(ctx, acl)
 	if err != nil {
@@ -181,12 +181,12 @@ func resourceRTXAccessListExtendedRead(ctx context.Context, d *schema.ResourceDa
 
 	name := d.Id()
 
-	log.Printf("[DEBUG] Reading access list extended: %s", name)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_extended").Msgf("Reading access list extended: %s", name)
 
 	acl, err := apiClient.client.GetAccessListExtended(ctx, name)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[DEBUG] Access list extended %s not found, removing from state", name)
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_extended").Msgf("Access list extended %s not found, removing from state", name)
 			d.SetId("")
 			return nil
 		}
@@ -210,7 +210,7 @@ func resourceRTXAccessListExtendedUpdate(ctx context.Context, d *schema.Resource
 
 	acl := buildAccessListExtendedFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating access list extended: %+v", acl)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_extended").Msgf("Updating access list extended: %+v", acl)
 
 	err := apiClient.client.UpdateAccessListExtended(ctx, acl)
 	if err != nil {
@@ -225,7 +225,7 @@ func resourceRTXAccessListExtendedDelete(ctx context.Context, d *schema.Resource
 
 	name := d.Id()
 
-	log.Printf("[DEBUG] Deleting access list extended: %s", name)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_extended").Msgf("Deleting access list extended: %s", name)
 
 	err := apiClient.client.DeleteAccessListExtended(ctx, name)
 	if err != nil {
@@ -242,7 +242,7 @@ func resourceRTXAccessListExtendedImport(ctx context.Context, d *schema.Resource
 	apiClient := meta.(*apiClient)
 	name := d.Id()
 
-	log.Printf("[DEBUG] Importing access list extended: %s", name)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_extended").Msgf("Importing access list extended: %s", name)
 
 	acl, err := apiClient.client.GetAccessListExtended(ctx, name)
 	if err != nil {

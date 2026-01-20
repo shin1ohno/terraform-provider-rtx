@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -166,7 +166,7 @@ func resourceRTXAccessListExtendedIPv6Create(ctx context.Context, d *schema.Reso
 
 	acl := buildAccessListExtendedIPv6FromResourceData(d)
 
-	log.Printf("[DEBUG] Creating IPv6 access list extended: %+v", acl)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_extended_ipv6").Msgf("Creating IPv6 access list extended: %+v", acl)
 
 	err := apiClient.client.CreateAccessListExtendedIPv6(ctx, acl)
 	if err != nil {
@@ -183,12 +183,12 @@ func resourceRTXAccessListExtendedIPv6Read(ctx context.Context, d *schema.Resour
 
 	name := d.Id()
 
-	log.Printf("[DEBUG] Reading IPv6 access list extended: %s", name)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_extended_ipv6").Msgf("Reading IPv6 access list extended: %s", name)
 
 	acl, err := apiClient.client.GetAccessListExtendedIPv6(ctx, name)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[DEBUG] IPv6 access list extended %s not found, removing from state", name)
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_extended_ipv6").Msgf("IPv6 access list extended %s not found, removing from state", name)
 			d.SetId("")
 			return nil
 		}
@@ -212,7 +212,7 @@ func resourceRTXAccessListExtendedIPv6Update(ctx context.Context, d *schema.Reso
 
 	acl := buildAccessListExtendedIPv6FromResourceData(d)
 
-	log.Printf("[DEBUG] Updating IPv6 access list extended: %+v", acl)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_extended_ipv6").Msgf("Updating IPv6 access list extended: %+v", acl)
 
 	err := apiClient.client.UpdateAccessListExtendedIPv6(ctx, acl)
 	if err != nil {
@@ -227,7 +227,7 @@ func resourceRTXAccessListExtendedIPv6Delete(ctx context.Context, d *schema.Reso
 
 	name := d.Id()
 
-	log.Printf("[DEBUG] Deleting IPv6 access list extended: %s", name)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_extended_ipv6").Msgf("Deleting IPv6 access list extended: %s", name)
 
 	err := apiClient.client.DeleteAccessListExtendedIPv6(ctx, name)
 	if err != nil {
@@ -244,7 +244,7 @@ func resourceRTXAccessListExtendedIPv6Import(ctx context.Context, d *schema.Reso
 	apiClient := meta.(*apiClient)
 	name := d.Id()
 
-	log.Printf("[DEBUG] Importing IPv6 access list extended: %s", name)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_extended_ipv6").Msgf("Importing IPv6 access list extended: %s", name)
 
 	acl, err := apiClient.client.GetAccessListExtendedIPv6(ctx, name)
 	if err != nil {

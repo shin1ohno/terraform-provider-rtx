@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 	"sync"
 	"time"
@@ -95,15 +95,15 @@ func (s *simpleRTXSession) Send(cmd string) ([]byte, error) {
 		return nil, fmt.Errorf("session is closed")
 	}
 
-	log.Printf("[DEBUG] Sending RTX command: %s", cmd)
+	logging.Global().Debug().Str("component", "simple-session").Msgf("Sending RTX command: %s", cmd)
 	
 	output, err := s.sendCommand(cmd)
 	if err != nil {
-		log.Printf("[ERROR] RTX command failed: %v", err)
+		logging.Global().Error().Str("component", "simple-session").Msgf("RTX command failed: %v", err)
 		return nil, err
 	}
 	
-	log.Printf("[DEBUG] RTX command output length: %d", len(output))
+	logging.Global().Debug().Str("component", "simple-session").Msgf("RTX command output length: %d", len(output))
 	return output, nil
 }
 

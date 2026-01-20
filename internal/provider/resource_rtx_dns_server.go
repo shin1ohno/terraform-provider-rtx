@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -140,7 +140,7 @@ func resourceRTXDNSServerCreate(ctx context.Context, d *schema.ResourceData, met
 
 	config := buildDNSConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating DNS server configuration: %+v", config)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_dns_server").Msgf("Creating DNS server configuration: %+v", config)
 
 	err := apiClient.client.ConfigureDNS(ctx, config)
 	if err != nil {
@@ -157,7 +157,7 @@ func resourceRTXDNSServerCreate(ctx context.Context, d *schema.ResourceData, met
 func resourceRTXDNSServerRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
-	log.Printf("[DEBUG] Reading DNS server configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_dns_server").Msg("Reading DNS server configuration")
 
 	config, err := apiClient.client.GetDNS(ctx)
 	if err != nil {
@@ -218,7 +218,7 @@ func resourceRTXDNSServerUpdate(ctx context.Context, d *schema.ResourceData, met
 
 	config := buildDNSConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating DNS server configuration: %+v", config)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_dns_server").Msgf("Updating DNS server configuration: %+v", config)
 
 	err := apiClient.client.UpdateDNS(ctx, config)
 	if err != nil {
@@ -231,7 +231,7 @@ func resourceRTXDNSServerUpdate(ctx context.Context, d *schema.ResourceData, met
 func resourceRTXDNSServerDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
-	log.Printf("[DEBUG] Deleting (resetting) DNS server configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_dns_server").Msg("Deleting (resetting) DNS server configuration")
 
 	err := apiClient.client.ResetDNS(ctx)
 	if err != nil {
@@ -250,7 +250,7 @@ func resourceRTXDNSServerImport(ctx context.Context, d *schema.ResourceData, met
 		return nil, fmt.Errorf("invalid import ID format, expected 'dns' for singleton resource, got: %s", importID)
 	}
 
-	log.Printf("[DEBUG] Importing DNS server configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_dns_server").Msg("Importing DNS server configuration")
 
 	// Verify configuration exists and retrieve it
 	config, err := apiClient.client.GetDNS(ctx)

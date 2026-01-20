@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -86,7 +86,7 @@ func resourceRTXSyslogCreate(ctx context.Context, d *schema.ResourceData, meta i
 
 	config := buildSyslogConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating syslog configuration: %+v", config)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_syslog").Msgf("Creating syslog configuration: %+v", config)
 
 	err := apiClient.client.ConfigureSyslog(ctx, config)
 	if err != nil {
@@ -103,13 +103,13 @@ func resourceRTXSyslogCreate(ctx context.Context, d *schema.ResourceData, meta i
 func resourceRTXSyslogRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
-	log.Printf("[DEBUG] Reading syslog configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_syslog").Msg("Reading syslog configuration")
 
 	config, err := apiClient.client.GetSyslogConfig(ctx)
 	if err != nil {
 		// Check if resource doesn't exist (no configuration)
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[DEBUG] Syslog configuration not found, removing from state")
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_syslog").Msg("Syslog configuration not found, removing from state")
 			d.SetId("")
 			return nil
 		}
@@ -152,7 +152,7 @@ func resourceRTXSyslogUpdate(ctx context.Context, d *schema.ResourceData, meta i
 
 	config := buildSyslogConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating syslog configuration: %+v", config)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_syslog").Msgf("Updating syslog configuration: %+v", config)
 
 	err := apiClient.client.UpdateSyslogConfig(ctx, config)
 	if err != nil {
@@ -165,7 +165,7 @@ func resourceRTXSyslogUpdate(ctx context.Context, d *schema.ResourceData, meta i
 func resourceRTXSyslogDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
-	log.Printf("[DEBUG] Deleting syslog configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_syslog").Msg("Deleting syslog configuration")
 
 	err := apiClient.client.ResetSyslog(ctx)
 	if err != nil {
@@ -188,7 +188,7 @@ func resourceRTXSyslogImport(ctx context.Context, d *schema.ResourceData, meta i
 		return nil, fmt.Errorf("invalid import ID format, expected 'syslog', got %q", importID)
 	}
 
-	log.Printf("[DEBUG] Importing syslog configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_syslog").Msg("Importing syslog configuration")
 
 	// Verify syslog configuration exists
 	config, err := apiClient.client.GetSyslogConfig(ctx)

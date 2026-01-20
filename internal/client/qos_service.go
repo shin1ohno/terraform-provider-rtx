@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"regexp"
 	"strconv"
 	"strings"
@@ -46,7 +46,7 @@ func (s *QoSService) CreateClassMap(ctx context.Context, cm ClassMap) error {
 	// We create an IP filter that matches the specified criteria
 	if cm.MatchFilter > 0 {
 		// Class map references an existing filter - nothing to create
-		log.Printf("[DEBUG] Class-map %s references existing filter %d", cm.Name, cm.MatchFilter)
+		logging.FromContext(ctx).Debug().Str("service", "qos").Msgf("Class-map %s references existing filter %d", cm.Name, cm.MatchFilter)
 	}
 
 	// If destination ports are specified, we might need to create filters
@@ -67,7 +67,7 @@ func (s *QoSService) CreateClassMap(ctx context.Context, cm ClassMap) error {
 func (s *QoSService) GetClassMap(ctx context.Context, name string) (*ClassMap, error) {
 	// Get all QoS configuration to find the class map
 	cmd := parsers.BuildShowAllQoSCommand()
-	log.Printf("[DEBUG] Getting class-map with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "qos").Msgf("Getting class-map with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -133,7 +133,7 @@ func (s *QoSService) DeleteClassMap(ctx context.Context, name string) error {
 	// Class-maps in RTX are referenced by queue configurations
 	// Deleting a class-map means removing the queue class filter references
 
-	log.Printf("[DEBUG] Deleting class-map: %s", name)
+	logging.FromContext(ctx).Debug().Str("service", "qos").Msgf("Deleting class-map: %s", name)
 
 	// Save configuration
 	if s.client != nil {
@@ -148,7 +148,7 @@ func (s *QoSService) DeleteClassMap(ctx context.Context, name string) error {
 // ListClassMaps retrieves all class-maps
 func (s *QoSService) ListClassMaps(ctx context.Context) ([]ClassMap, error) {
 	cmd := parsers.BuildShowAllQoSCommand()
-	log.Printf("[DEBUG] Listing class-maps with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "qos").Msgf("Listing class-maps with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -205,7 +205,7 @@ func (s *QoSService) CreatePolicyMap(ctx context.Context, pm PolicyMap) error {
 	// Policy maps in RTX are implemented through queue configurations
 	// We don't create them directly - they're applied via service-policy
 
-	log.Printf("[DEBUG] Policy-map %s created (logical configuration)", pm.Name)
+	logging.FromContext(ctx).Debug().Str("service", "qos").Msgf("Policy-map %s created (logical configuration)", pm.Name)
 
 	// Save configuration
 	if s.client != nil {
@@ -220,7 +220,7 @@ func (s *QoSService) CreatePolicyMap(ctx context.Context, pm PolicyMap) error {
 // GetPolicyMap retrieves a policy-map configuration
 func (s *QoSService) GetPolicyMap(ctx context.Context, name string) (*PolicyMap, error) {
 	cmd := parsers.BuildShowAllQoSCommand()
-	log.Printf("[DEBUG] Getting policy-map with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "qos").Msgf("Getting policy-map with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -297,7 +297,7 @@ func (s *QoSService) DeletePolicyMap(ctx context.Context, name string) error {
 	default:
 	}
 
-	log.Printf("[DEBUG] Deleting policy-map: %s", name)
+	logging.FromContext(ctx).Debug().Str("service", "qos").Msgf("Deleting policy-map: %s", name)
 
 	// Save configuration
 	if s.client != nil {
@@ -312,7 +312,7 @@ func (s *QoSService) DeletePolicyMap(ctx context.Context, name string) error {
 // ListPolicyMaps retrieves all policy-maps
 func (s *QoSService) ListPolicyMaps(ctx context.Context) ([]PolicyMap, error) {
 	cmd := parsers.BuildShowAllQoSCommand()
-	log.Printf("[DEBUG] Listing policy-maps with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "qos").Msgf("Listing policy-maps with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -364,7 +364,7 @@ func (s *QoSService) CreateServicePolicy(ctx context.Context, sp ServicePolicy) 
 
 	// Apply the queue type to the interface
 	cmd := parsers.BuildQueueTypeCommand(sp.Interface, sp.PolicyMap)
-	log.Printf("[DEBUG] Creating service-policy with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "qos").Msgf("Creating service-policy with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -388,7 +388,7 @@ func (s *QoSService) CreateServicePolicy(ctx context.Context, sp ServicePolicy) 
 // GetServicePolicy retrieves a service-policy configuration
 func (s *QoSService) GetServicePolicy(ctx context.Context, iface string, direction string) (*ServicePolicy, error) {
 	cmd := parsers.BuildShowQoSCommand(iface)
-	log.Printf("[DEBUG] Getting service-policy with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "qos").Msgf("Getting service-policy with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -416,7 +416,7 @@ func (s *QoSService) UpdateServicePolicy(ctx context.Context, sp ServicePolicy) 
 	// Delete existing and recreate
 	if err := s.DeleteServicePolicy(ctx, sp.Interface, sp.Direction); err != nil {
 		// Ignore errors during deletion
-		log.Printf("[DEBUG] Ignoring deletion error during update: %v", err)
+		logging.FromContext(ctx).Debug().Str("service", "qos").Msgf("Ignoring deletion error during update: %v", err)
 	}
 
 	return s.CreateServicePolicy(ctx, sp)
@@ -432,7 +432,7 @@ func (s *QoSService) DeleteServicePolicy(ctx context.Context, iface string, dire
 	}
 
 	cmd := parsers.BuildDeleteQueueTypeCommand(iface)
-	log.Printf("[DEBUG] Deleting service-policy with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "qos").Msgf("Deleting service-policy with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -460,7 +460,7 @@ func (s *QoSService) DeleteServicePolicy(ctx context.Context, iface string, dire
 // ListServicePolicies retrieves all service-policies
 func (s *QoSService) ListServicePolicies(ctx context.Context) ([]ServicePolicy, error) {
 	cmd := parsers.BuildShowAllQoSCommand()
-	log.Printf("[DEBUG] Listing service-policies with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "qos").Msgf("Listing service-policies with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -504,7 +504,7 @@ func (s *QoSService) CreateShape(ctx context.Context, sc ShapeConfig) error {
 
 	// Apply speed command
 	cmd := parsers.BuildSpeedCommand(sc.Interface, sc.ShapeAverage)
-	log.Printf("[DEBUG] Creating shape with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "qos").Msgf("Creating shape with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -528,7 +528,7 @@ func (s *QoSService) CreateShape(ctx context.Context, sc ShapeConfig) error {
 // GetShape retrieves a shape configuration
 func (s *QoSService) GetShape(ctx context.Context, iface string, direction string) (*ShapeConfig, error) {
 	cmd := parsers.BuildShowQoSCommand(iface)
-	log.Printf("[DEBUG] Getting shape with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "qos").Msgf("Getting shape with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -555,7 +555,7 @@ func (s *QoSService) UpdateShape(ctx context.Context, sc ShapeConfig) error {
 
 	// Simply re-apply the speed command (RTX allows overwriting)
 	cmd := parsers.BuildSpeedCommand(sc.Interface, sc.ShapeAverage)
-	log.Printf("[DEBUG] Updating shape with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "qos").Msgf("Updating shape with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -586,7 +586,7 @@ func (s *QoSService) DeleteShape(ctx context.Context, iface string, direction st
 	}
 
 	cmd := parsers.BuildDeleteSpeedCommand(iface)
-	log.Printf("[DEBUG] Deleting shape with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "qos").Msgf("Deleting shape with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -614,7 +614,7 @@ func (s *QoSService) DeleteShape(ctx context.Context, iface string, direction st
 // ListShapes retrieves all shape configurations
 func (s *QoSService) ListShapes(ctx context.Context) ([]ShapeConfig, error) {
 	cmd := parsers.BuildShowAllQoSCommand()
-	log.Printf("[DEBUG] Listing shapes with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "qos").Msgf("Listing shapes with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {

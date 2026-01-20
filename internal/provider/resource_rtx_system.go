@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"regexp"
 	"strconv"
 	"strings"
@@ -118,7 +118,7 @@ func resourceRTXSystemCreate(ctx context.Context, d *schema.ResourceData, meta i
 
 	config := buildSystemConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating system configuration: %+v", config)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_system").Msgf("Creating system configuration: %+v", config)
 
 	err := apiClient.client.ConfigureSystem(ctx, config)
 	if err != nil {
@@ -135,7 +135,7 @@ func resourceRTXSystemCreate(ctx context.Context, d *schema.ResourceData, meta i
 func resourceRTXSystemRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
-	log.Printf("[DEBUG] Reading system configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_system").Msg("Reading system configuration")
 
 	config, err := apiClient.client.GetSystemConfig(ctx)
 	if err != nil {
@@ -205,7 +205,7 @@ func resourceRTXSystemUpdate(ctx context.Context, d *schema.ResourceData, meta i
 
 	config := buildSystemConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating system configuration: %+v", config)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_system").Msgf("Updating system configuration: %+v", config)
 
 	err := apiClient.client.UpdateSystemConfig(ctx, config)
 	if err != nil {
@@ -218,7 +218,7 @@ func resourceRTXSystemUpdate(ctx context.Context, d *schema.ResourceData, meta i
 func resourceRTXSystemDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
-	log.Printf("[DEBUG] Deleting (resetting) system configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_system").Msg("Deleting (resetting) system configuration")
 
 	err := apiClient.client.ResetSystem(ctx)
 	if err != nil {
@@ -237,7 +237,7 @@ func resourceRTXSystemImport(ctx context.Context, d *schema.ResourceData, meta i
 		return nil, fmt.Errorf("invalid import ID format, expected 'system' for singleton resource, got: %s", importID)
 	}
 
-	log.Printf("[DEBUG] Importing system configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_system").Msg("Importing system configuration")
 
 	// Verify configuration exists and retrieve it
 	config, err := apiClient.client.GetSystemConfig(ctx)

@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"net"
 	"strconv"
 	"strings"
@@ -108,7 +108,7 @@ func resourceRTXNATStaticCreate(ctx context.Context, d *schema.ResourceData, met
 
 	natStatic := buildNATStaticFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating NAT static: %+v", natStatic)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_nat_static").Msgf("Creating NAT static: %+v", natStatic)
 
 	err := apiClient.client.CreateNATStatic(ctx, natStatic)
 	if err != nil {
@@ -130,13 +130,13 @@ func resourceRTXNATStaticRead(ctx context.Context, d *schema.ResourceData, meta 
 		return diag.Errorf("Invalid resource ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Reading NAT static: %d", descriptorID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_nat_static").Msgf("Reading NAT static: %d", descriptorID)
 
 	natStatic, err := apiClient.client.GetNATStatic(ctx, descriptorID)
 	if err != nil {
 		// Check if NAT static doesn't exist
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[DEBUG] NAT static %d not found, removing from state", descriptorID)
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_nat_static").Msgf("NAT static %d not found, removing from state", descriptorID)
 			d.SetId("")
 			return nil
 		}
@@ -161,7 +161,7 @@ func resourceRTXNATStaticUpdate(ctx context.Context, d *schema.ResourceData, met
 
 	natStatic := buildNATStaticFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating NAT static: %+v", natStatic)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_nat_static").Msgf("Updating NAT static: %+v", natStatic)
 
 	err := apiClient.client.UpdateNATStatic(ctx, natStatic)
 	if err != nil {
@@ -179,7 +179,7 @@ func resourceRTXNATStaticDelete(ctx context.Context, d *schema.ResourceData, met
 		return diag.Errorf("Invalid resource ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Deleting NAT static: %d", descriptorID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_nat_static").Msgf("Deleting NAT static: %d", descriptorID)
 
 	err = apiClient.client.DeleteNATStatic(ctx, descriptorID)
 	if err != nil {
@@ -207,7 +207,7 @@ func resourceRTXNATStaticImport(ctx context.Context, d *schema.ResourceData, met
 		return nil, fmt.Errorf("descriptor_id must be between 1 and 65535, got %d", descriptorID)
 	}
 
-	log.Printf("[DEBUG] Importing NAT static: %d", descriptorID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_nat_static").Msgf("Importing NAT static: %d", descriptorID)
 
 	// Verify NAT static exists
 	natStatic, err := apiClient.client.GetNATStatic(ctx, descriptorID)

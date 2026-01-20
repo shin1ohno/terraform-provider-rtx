@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"net"
 	"strconv"
 	"strings"
@@ -112,7 +112,7 @@ func resourceRTXDHCPScopeCreate(ctx context.Context, d *schema.ResourceData, met
 
 	scope := buildDHCPScopeFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating DHCP scope: %+v", scope)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_dhcp_scope").Msgf("Creating DHCP scope: %+v", scope)
 
 	err := apiClient.client.CreateDHCPScope(ctx, scope)
 	if err != nil {
@@ -134,13 +134,13 @@ func resourceRTXDHCPScopeRead(ctx context.Context, d *schema.ResourceData, meta 
 		return diag.Errorf("Invalid resource ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Reading DHCP scope: %d", scopeID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_dhcp_scope").Msgf("Reading DHCP scope: %d", scopeID)
 
 	scope, err := apiClient.client.GetDHCPScope(ctx, scopeID)
 	if err != nil {
 		// Check if scope doesn't exist
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[DEBUG] DHCP scope %d not found, removing from state", scopeID)
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_dhcp_scope").Msgf("DHCP scope %d not found, removing from state", scopeID)
 			d.SetId("")
 			return nil
 		}
@@ -192,7 +192,7 @@ func resourceRTXDHCPScopeUpdate(ctx context.Context, d *schema.ResourceData, met
 
 	scope := buildDHCPScopeFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating DHCP scope: %+v", scope)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_dhcp_scope").Msgf("Updating DHCP scope: %+v", scope)
 
 	err := apiClient.client.UpdateDHCPScope(ctx, scope)
 	if err != nil {
@@ -210,7 +210,7 @@ func resourceRTXDHCPScopeDelete(ctx context.Context, d *schema.ResourceData, met
 		return diag.Errorf("Invalid resource ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Deleting DHCP scope: %d", scopeID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_dhcp_scope").Msgf("Deleting DHCP scope: %d", scopeID)
 
 	err = apiClient.client.DeleteDHCPScope(ctx, scopeID)
 	if err != nil {
@@ -234,7 +234,7 @@ func resourceRTXDHCPScopeImport(ctx context.Context, d *schema.ResourceData, met
 		return nil, fmt.Errorf("invalid import ID format, expected scope_id (integer): %v", err)
 	}
 
-	log.Printf("[DEBUG] Importing DHCP scope: %d", scopeID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_dhcp_scope").Msgf("Importing DHCP scope: %d", scopeID)
 
 	// Verify scope exists
 	scope, err := apiClient.client.GetDHCPScope(ctx, scopeID)

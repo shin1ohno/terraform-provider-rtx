@@ -189,7 +189,7 @@ func TestGlobalLogger(t *testing.T) {
 	}
 
 	// Restore original
-	SetGlobal(original)
+	SetGlobal(*original)
 }
 
 func TestWithFields(t *testing.T) {

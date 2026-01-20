@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
@@ -25,14 +25,14 @@ func NewDNSService(executor Executor, client *rtxClient) *DNSService {
 // Get retrieves the DNS configuration
 func (s *DNSService) Get(ctx context.Context) (*DNSConfig, error) {
 	cmd := parsers.BuildShowDNSConfigCommand()
-	log.Printf("[DEBUG] Getting DNS config with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Getting DNS config with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get DNS config: %w", err)
 	}
 
-	log.Printf("[DEBUG] DNS raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("DNS raw output: %q", string(output))
 
 	parser := parsers.NewDNSParser()
 	parserConfig, err := parser.ParseDNSConfig(string(output))
@@ -65,7 +65,7 @@ func (s *DNSService) Configure(ctx context.Context, config DNSConfig) error {
 	// Configure domain lookup
 	if !config.DomainLookup {
 		cmd := parsers.BuildDNSDomainLookupCommand(false)
-		log.Printf("[DEBUG] Setting domain lookup with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Setting domain lookup with command: %s", cmd)
 		if _, err := s.executor.Run(ctx, cmd); err != nil {
 			return fmt.Errorf("failed to set domain lookup: %w", err)
 		}
@@ -74,7 +74,7 @@ func (s *DNSService) Configure(ctx context.Context, config DNSConfig) error {
 	// Configure domain name
 	if config.DomainName != "" {
 		cmd := parsers.BuildDNSDomainNameCommand(config.DomainName)
-		log.Printf("[DEBUG] Setting domain name with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Setting domain name with command: %s", cmd)
 		if _, err := s.executor.Run(ctx, cmd); err != nil {
 			return fmt.Errorf("failed to set domain name: %w", err)
 		}
@@ -83,7 +83,7 @@ func (s *DNSService) Configure(ctx context.Context, config DNSConfig) error {
 	// Configure name servers
 	if len(config.NameServers) > 0 {
 		cmd := parsers.BuildDNSServerCommand(config.NameServers)
-		log.Printf("[DEBUG] Setting DNS servers with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Setting DNS servers with command: %s", cmd)
 		if _, err := s.executor.Run(ctx, cmd); err != nil {
 			return fmt.Errorf("failed to set DNS servers: %w", err)
 		}
@@ -104,7 +104,7 @@ func (s *DNSService) Configure(ctx context.Context, config DNSConfig) error {
 		if cmd == "" {
 			continue
 		}
-		log.Printf("[DEBUG] Setting DNS server select with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Setting DNS server select with command: %s", cmd)
 		if _, err := s.executor.Run(ctx, cmd); err != nil {
 			return fmt.Errorf("failed to set DNS server select %d: %w", sel.ID, err)
 		}
@@ -120,7 +120,7 @@ func (s *DNSService) Configure(ctx context.Context, config DNSConfig) error {
 		if cmd == "" {
 			continue
 		}
-		log.Printf("[DEBUG] Setting DNS static host with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Setting DNS static host with command: %s", cmd)
 		if _, err := s.executor.Run(ctx, cmd); err != nil {
 			return fmt.Errorf("failed to set DNS static host %s: %w", host.Name, err)
 		}
@@ -128,14 +128,14 @@ func (s *DNSService) Configure(ctx context.Context, config DNSConfig) error {
 
 	// Configure DNS service
 	cmd := parsers.BuildDNSServiceCommand(config.ServiceOn)
-	log.Printf("[DEBUG] Setting DNS service with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Setting DNS service with command: %s", cmd)
 	if _, err := s.executor.Run(ctx, cmd); err != nil {
 		return fmt.Errorf("failed to set DNS service: %w", err)
 	}
 
 	// Configure private address spoof
 	cmd = parsers.BuildDNSPrivateSpoofCommand(config.PrivateSpoof)
-	log.Printf("[DEBUG] Setting DNS private spoof with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Setting DNS private spoof with command: %s", cmd)
 	if _, err := s.executor.Run(ctx, cmd); err != nil {
 		return fmt.Errorf("failed to set DNS private spoof: %w", err)
 	}
@@ -170,14 +170,14 @@ func (s *DNSService) Update(ctx context.Context, config DNSConfig) error {
 	// Get current configuration
 	currentConfig, err := s.Get(ctx)
 	if err != nil {
-		log.Printf("[DEBUG] Could not get current DNS config, proceeding with update: %v", err)
+		logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Could not get current DNS config, proceeding with update: %v", err)
 		currentConfig = &DNSConfig{}
 	}
 
 	// Update domain lookup
 	if config.DomainLookup != currentConfig.DomainLookup {
 		cmd := parsers.BuildDNSDomainLookupCommand(config.DomainLookup)
-		log.Printf("[DEBUG] Updating domain lookup with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Updating domain lookup with command: %s", cmd)
 		if _, err := s.executor.Run(ctx, cmd); err != nil {
 			return fmt.Errorf("failed to update domain lookup: %w", err)
 		}
@@ -187,12 +187,12 @@ func (s *DNSService) Update(ctx context.Context, config DNSConfig) error {
 	if config.DomainName != currentConfig.DomainName {
 		if currentConfig.DomainName != "" {
 			cmd := parsers.BuildDeleteDNSDomainNameCommand()
-			log.Printf("[DEBUG] Removing old domain name with command: %s", cmd)
+			logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Removing old domain name with command: %s", cmd)
 			_, _ = s.executor.Run(ctx, cmd) // Ignore errors for cleanup
 		}
 		if config.DomainName != "" {
 			cmd := parsers.BuildDNSDomainNameCommand(config.DomainName)
-			log.Printf("[DEBUG] Setting domain name with command: %s", cmd)
+			logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Setting domain name with command: %s", cmd)
 			if _, err := s.executor.Run(ctx, cmd); err != nil {
 				return fmt.Errorf("failed to set domain name: %w", err)
 			}
@@ -203,13 +203,13 @@ func (s *DNSService) Update(ctx context.Context, config DNSConfig) error {
 	if !slicesEqual(config.NameServers, currentConfig.NameServers) {
 		// Remove old servers
 		cmd := parsers.BuildDeleteDNSServerCommand()
-		log.Printf("[DEBUG] Removing old DNS servers with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Removing old DNS servers with command: %s", cmd)
 		_, _ = s.executor.Run(ctx, cmd) // Ignore errors for cleanup
 
 		// Set new servers
 		if len(config.NameServers) > 0 {
 			cmd = parsers.BuildDNSServerCommand(config.NameServers)
-			log.Printf("[DEBUG] Setting DNS servers with command: %s", cmd)
+			logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Setting DNS servers with command: %s", cmd)
 			if _, err := s.executor.Run(ctx, cmd); err != nil {
 				return fmt.Errorf("failed to set DNS servers: %w", err)
 			}
@@ -228,7 +228,7 @@ func (s *DNSService) Update(ctx context.Context, config DNSConfig) error {
 		}
 		if !found {
 			cmd := parsers.BuildDeleteDNSServerSelectCommand(currentSel.ID)
-			log.Printf("[DEBUG] Removing DNS server select %d with command: %s", currentSel.ID, cmd)
+			logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Removing DNS server select %d with command: %s", currentSel.ID, cmd)
 			_, _ = s.executor.Run(ctx, cmd)
 		}
 	}
@@ -247,7 +247,7 @@ func (s *DNSService) Update(ctx context.Context, config DNSConfig) error {
 		if cmd == "" {
 			continue
 		}
-		log.Printf("[DEBUG] Setting DNS server select with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Setting DNS server select with command: %s", cmd)
 		if _, err := s.executor.Run(ctx, cmd); err != nil {
 			return fmt.Errorf("failed to set DNS server select %d: %w", sel.ID, err)
 		}
@@ -265,7 +265,7 @@ func (s *DNSService) Update(ctx context.Context, config DNSConfig) error {
 		}
 		if !found {
 			cmd := parsers.BuildDeleteDNSStaticCommand(currentHost.Name)
-			log.Printf("[DEBUG] Removing DNS static host %s with command: %s", currentHost.Name, cmd)
+			logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Removing DNS static host %s with command: %s", currentHost.Name, cmd)
 			_, _ = s.executor.Run(ctx, cmd)
 		}
 	}
@@ -279,7 +279,7 @@ func (s *DNSService) Update(ctx context.Context, config DNSConfig) error {
 		if cmd == "" {
 			continue
 		}
-		log.Printf("[DEBUG] Setting DNS static host with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Setting DNS static host with command: %s", cmd)
 		if _, err := s.executor.Run(ctx, cmd); err != nil {
 			return fmt.Errorf("failed to set DNS static host %s: %w", host.Name, err)
 		}
@@ -288,7 +288,7 @@ func (s *DNSService) Update(ctx context.Context, config DNSConfig) error {
 	// Update DNS service
 	if config.ServiceOn != currentConfig.ServiceOn {
 		cmd := parsers.BuildDNSServiceCommand(config.ServiceOn)
-		log.Printf("[DEBUG] Updating DNS service with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Updating DNS service with command: %s", cmd)
 		if _, err := s.executor.Run(ctx, cmd); err != nil {
 			return fmt.Errorf("failed to update DNS service: %w", err)
 		}
@@ -297,7 +297,7 @@ func (s *DNSService) Update(ctx context.Context, config DNSConfig) error {
 	// Update private address spoof
 	if config.PrivateSpoof != currentConfig.PrivateSpoof {
 		cmd := parsers.BuildDNSPrivateSpoofCommand(config.PrivateSpoof)
-		log.Printf("[DEBUG] Updating DNS private spoof with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Updating DNS private spoof with command: %s", cmd)
 		if _, err := s.executor.Run(ctx, cmd); err != nil {
 			return fmt.Errorf("failed to update DNS private spoof: %w", err)
 		}
@@ -325,30 +325,30 @@ func (s *DNSService) Reset(ctx context.Context) error {
 	// Get current configuration to clean up server select and static hosts
 	currentConfig, err := s.Get(ctx)
 	if err != nil {
-		log.Printf("[DEBUG] Could not get current DNS config, proceeding with reset: %v", err)
+		logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Could not get current DNS config, proceeding with reset: %v", err)
 		currentConfig = &DNSConfig{}
 	}
 
 	// Remove server select entries
 	for _, sel := range currentConfig.ServerSelect {
 		cmd := parsers.BuildDeleteDNSServerSelectCommand(sel.ID)
-		log.Printf("[DEBUG] Removing DNS server select %d with command: %s", sel.ID, cmd)
+		logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Removing DNS server select %d with command: %s", sel.ID, cmd)
 		_, _ = s.executor.Run(ctx, cmd)
 	}
 
 	// Remove static hosts
 	for _, host := range currentConfig.Hosts {
 		cmd := parsers.BuildDeleteDNSStaticCommand(host.Name)
-		log.Printf("[DEBUG] Removing DNS static host %s with command: %s", host.Name, cmd)
+		logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Removing DNS static host %s with command: %s", host.Name, cmd)
 		_, _ = s.executor.Run(ctx, cmd)
 	}
 
 	// Execute delete commands
 	deleteCommands := parsers.BuildDeleteDNSCommand()
 	for _, cmd := range deleteCommands {
-		log.Printf("[DEBUG] Resetting DNS with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Resetting DNS with command: %s", cmd)
 		if _, err := s.executor.Run(ctx, cmd); err != nil {
-			log.Printf("[DEBUG] Command %s failed: %v (continuing)", cmd, err)
+			logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Command %s failed: %v (continuing)", cmd, err)
 		}
 	}
 

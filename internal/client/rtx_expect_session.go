@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 	"sync"
 	"time"
@@ -82,7 +82,7 @@ func newRTXExpectSession(client *ssh.Client) (*rtxExpectSession, error) {
 
 	// Set character encoding
 	if err := s.sendLine("console character en.ascii"); err != nil {
-		log.Printf("[WARN] Failed to set character encoding: %v", err)
+		logging.Global().Warn().Str("component", "rtx-expect-session").Msgf("Failed to set character encoding: %v", err)
 		// Continue anyway as some RTX models might not support this
 	} else {
 		s.expectPrompt(5 * time.Second)

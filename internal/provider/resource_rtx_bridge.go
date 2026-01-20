@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"regexp"
 	"strings"
 
@@ -49,7 +49,7 @@ func resourceRTXBridgeCreate(ctx context.Context, d *schema.ResourceData, meta i
 
 	bridge := buildBridgeFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating bridge: %+v", bridge)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_bridge").Msgf("Creating bridge: %+v", bridge)
 
 	err := apiClient.client.CreateBridge(ctx, bridge)
 	if err != nil {
@@ -68,13 +68,13 @@ func resourceRTXBridgeRead(ctx context.Context, d *schema.ResourceData, meta int
 
 	name := d.Id()
 
-	log.Printf("[DEBUG] Reading bridge: %s", name)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_bridge").Msgf("Reading bridge: %s", name)
 
 	bridge, err := apiClient.client.GetBridge(ctx, name)
 	if err != nil {
 		// Check if bridge doesn't exist
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[DEBUG] Bridge %s not found, removing from state", name)
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_bridge").Msgf("Bridge %s not found, removing from state", name)
 			d.SetId("")
 			return nil
 		}
@@ -97,7 +97,7 @@ func resourceRTXBridgeUpdate(ctx context.Context, d *schema.ResourceData, meta i
 
 	bridge := buildBridgeFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating bridge: %+v", bridge)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_bridge").Msgf("Updating bridge: %+v", bridge)
 
 	err := apiClient.client.UpdateBridge(ctx, bridge)
 	if err != nil {
@@ -112,7 +112,7 @@ func resourceRTXBridgeDelete(ctx context.Context, d *schema.ResourceData, meta i
 
 	name := d.Id()
 
-	log.Printf("[DEBUG] Deleting bridge: %s", name)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_bridge").Msgf("Deleting bridge: %s", name)
 
 	err := apiClient.client.DeleteBridge(ctx, name)
 	if err != nil {
@@ -135,7 +135,7 @@ func resourceRTXBridgeImport(ctx context.Context, d *schema.ResourceData, meta i
 		return nil, fmt.Errorf("invalid import ID format, expected bridge name (e.g., 'bridge1'): %v", err)
 	}
 
-	log.Printf("[DEBUG] Importing bridge: %s", importID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_bridge").Msgf("Importing bridge: %s", importID)
 
 	// Verify bridge exists
 	bridge, err := apiClient.client.GetBridge(ctx, importID)

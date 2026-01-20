@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -51,7 +51,7 @@ func resourceRTXServicePolicyCreate(ctx context.Context, d *schema.ResourceData,
 
 	sp := buildServicePolicyFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating service-policy: %+v", sp)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_service_policy").Msgf("Creating service-policy: %+v", sp)
 
 	err := apiClient.client.CreateServicePolicy(ctx, sp)
 	if err != nil {
@@ -72,12 +72,12 @@ func resourceRTXServicePolicyRead(ctx context.Context, d *schema.ResourceData, m
 		return diag.Errorf("Invalid resource ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Reading service-policy: %s:%s", iface, direction)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_service_policy").Msgf("Reading service-policy: %s:%s", iface, direction)
 
 	sp, err := apiClient.client.GetServicePolicy(ctx, iface, direction)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[DEBUG] Service-policy %s:%s not found, removing from state", iface, direction)
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_service_policy").Msgf("Service-policy %s:%s not found, removing from state", iface, direction)
 			d.SetId("")
 			return nil
 		}
@@ -102,7 +102,7 @@ func resourceRTXServicePolicyUpdate(ctx context.Context, d *schema.ResourceData,
 
 	sp := buildServicePolicyFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating service-policy: %+v", sp)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_service_policy").Msgf("Updating service-policy: %+v", sp)
 
 	err := apiClient.client.UpdateServicePolicy(ctx, sp)
 	if err != nil {
@@ -120,7 +120,7 @@ func resourceRTXServicePolicyDelete(ctx context.Context, d *schema.ResourceData,
 		return diag.Errorf("Invalid resource ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Deleting service-policy: %s:%s", iface, direction)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_service_policy").Msgf("Deleting service-policy: %s:%s", iface, direction)
 
 	err = apiClient.client.DeleteServicePolicy(ctx, iface, direction)
 	if err != nil {
@@ -143,7 +143,7 @@ func resourceRTXServicePolicyImport(ctx context.Context, d *schema.ResourceData,
 		return nil, fmt.Errorf("invalid import ID format, expected 'interface:direction' (e.g., 'lan1:output'): %v", err)
 	}
 
-	log.Printf("[DEBUG] Importing service-policy: %s:%s", iface, direction)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_service_policy").Msgf("Importing service-policy: %s:%s", iface, direction)
 
 	sp, err := apiClient.client.GetServicePolicy(ctx, iface, direction)
 	if err != nil {

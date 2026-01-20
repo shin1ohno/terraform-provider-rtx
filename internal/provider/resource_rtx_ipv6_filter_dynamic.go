@@ -2,7 +2,7 @@ package provider
 
 import (
 	"context"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -69,7 +69,7 @@ func resourceRTXIPv6FilterDynamicCreate(ctx context.Context, d *schema.ResourceD
 
 	config := buildIPv6FilterDynamicConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating IPv6 filter dynamic: %+v", config)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_filter_dynamic").Msgf("Creating IPv6 filter dynamic: %+v", config)
 
 	err := apiClient.client.CreateIPv6FilterDynamicConfig(ctx, config)
 	if err != nil {
@@ -85,12 +85,12 @@ func resourceRTXIPv6FilterDynamicCreate(ctx context.Context, d *schema.ResourceD
 func resourceRTXIPv6FilterDynamicRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
-	log.Printf("[DEBUG] Reading IPv6 filter dynamic")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_filter_dynamic").Msg("Reading IPv6 filter dynamic")
 
 	config, err := apiClient.client.GetIPv6FilterDynamicConfig(ctx)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[DEBUG] IPv6 filter dynamic not found, removing from state")
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_filter_dynamic").Msg("IPv6 filter dynamic not found, removing from state")
 			d.SetId("")
 			return nil
 		}
@@ -110,7 +110,7 @@ func resourceRTXIPv6FilterDynamicUpdate(ctx context.Context, d *schema.ResourceD
 
 	config := buildIPv6FilterDynamicConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating IPv6 filter dynamic: %+v", config)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_filter_dynamic").Msgf("Updating IPv6 filter dynamic: %+v", config)
 
 	err := apiClient.client.UpdateIPv6FilterDynamicConfig(ctx, config)
 	if err != nil {
@@ -123,7 +123,7 @@ func resourceRTXIPv6FilterDynamicUpdate(ctx context.Context, d *schema.ResourceD
 func resourceRTXIPv6FilterDynamicDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
-	log.Printf("[DEBUG] Deleting IPv6 filter dynamic configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_filter_dynamic").Msg("Deleting IPv6 filter dynamic configuration")
 
 	err := apiClient.client.DeleteIPv6FilterDynamicConfig(ctx)
 	if err != nil {

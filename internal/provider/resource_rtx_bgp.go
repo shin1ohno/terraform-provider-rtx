@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"net"
 	"strconv"
 	"strings"
@@ -149,7 +149,7 @@ func resourceRTXBGPCreate(ctx context.Context, d *schema.ResourceData, meta inte
 
 	config := buildBGPConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating BGP configuration: %+v", config)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_bgp").Msgf("Creating BGP configuration: %+v", config)
 
 	err := apiClient.client.ConfigureBGP(ctx, config)
 	if err != nil {
@@ -165,12 +165,12 @@ func resourceRTXBGPCreate(ctx context.Context, d *schema.ResourceData, meta inte
 func resourceRTXBGPRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
-	log.Printf("[DEBUG] Reading BGP configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_bgp").Msg("Reading BGP configuration")
 
 	config, err := apiClient.client.GetBGPConfig(ctx)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "not configured") {
-			log.Printf("[DEBUG] BGP configuration not found, removing from state")
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_bgp").Msg("BGP configuration not found, removing from state")
 			d.SetId("")
 			return nil
 		}
@@ -178,7 +178,7 @@ func resourceRTXBGPRead(ctx context.Context, d *schema.ResourceData, meta interf
 	}
 
 	if !config.Enabled {
-		log.Printf("[DEBUG] BGP is disabled, removing from state")
+		logging.FromContext(ctx).Debug().Str("resource", "rtx_bgp").Msg("BGP is disabled, removing from state")
 		d.SetId("")
 		return nil
 	}
@@ -241,7 +241,7 @@ func resourceRTXBGPUpdate(ctx context.Context, d *schema.ResourceData, meta inte
 
 	config := buildBGPConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating BGP configuration: %+v", config)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_bgp").Msgf("Updating BGP configuration: %+v", config)
 
 	err := apiClient.client.UpdateBGPConfig(ctx, config)
 	if err != nil {
@@ -254,7 +254,7 @@ func resourceRTXBGPUpdate(ctx context.Context, d *schema.ResourceData, meta inte
 func resourceRTXBGPDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
-	log.Printf("[DEBUG] Disabling BGP configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_bgp").Msg("Disabling BGP configuration")
 
 	err := apiClient.client.ResetBGP(ctx)
 	if err != nil {
@@ -275,7 +275,7 @@ func resourceRTXBGPImport(ctx context.Context, d *schema.ResourceData, meta inte
 		return nil, fmt.Errorf("import ID must be 'bgp' for this singleton resource")
 	}
 
-	log.Printf("[DEBUG] Importing BGP configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_bgp").Msg("Importing BGP configuration")
 
 	config, err := apiClient.client.GetBGPConfig(ctx)
 	if err != nil {

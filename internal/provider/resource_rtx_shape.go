@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -57,7 +57,7 @@ func resourceRTXShapeCreate(ctx context.Context, d *schema.ResourceData, meta in
 
 	sc := buildShapeConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating shape: %+v", sc)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_shape").Msgf("Creating shape: %+v", sc)
 
 	err := apiClient.client.CreateShape(ctx, sc)
 	if err != nil {
@@ -78,12 +78,12 @@ func resourceRTXShapeRead(ctx context.Context, d *schema.ResourceData, meta inte
 		return diag.Errorf("Invalid resource ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Reading shape: %s:%s", iface, direction)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_shape").Msgf("Reading shape: %s:%s", iface, direction)
 
 	sc, err := apiClient.client.GetShape(ctx, iface, direction)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[DEBUG] Shape %s:%s not found, removing from state", iface, direction)
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_shape").Msgf("Shape %s:%s not found, removing from state", iface, direction)
 			d.SetId("")
 			return nil
 		}
@@ -111,7 +111,7 @@ func resourceRTXShapeUpdate(ctx context.Context, d *schema.ResourceData, meta in
 
 	sc := buildShapeConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating shape: %+v", sc)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_shape").Msgf("Updating shape: %+v", sc)
 
 	err := apiClient.client.UpdateShape(ctx, sc)
 	if err != nil {
@@ -129,7 +129,7 @@ func resourceRTXShapeDelete(ctx context.Context, d *schema.ResourceData, meta in
 		return diag.Errorf("Invalid resource ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Deleting shape: %s:%s", iface, direction)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_shape").Msgf("Deleting shape: %s:%s", iface, direction)
 
 	err = apiClient.client.DeleteShape(ctx, iface, direction)
 	if err != nil {
@@ -152,7 +152,7 @@ func resourceRTXShapeImport(ctx context.Context, d *schema.ResourceData, meta in
 		return nil, fmt.Errorf("invalid import ID format, expected 'interface:direction' (e.g., 'lan1:output'): %v", err)
 	}
 
-	log.Printf("[DEBUG] Importing shape: %s:%s", iface, direction)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_shape").Msgf("Importing shape: %s:%s", iface, direction)
 
 	sc, err := apiClient.client.GetShape(ctx, iface, direction)
 	if err != nil {

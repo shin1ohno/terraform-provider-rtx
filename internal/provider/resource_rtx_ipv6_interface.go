@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"regexp"
 	"strings"
 
@@ -149,7 +149,7 @@ func resourceRTXIPv6InterfaceCreate(ctx context.Context, d *schema.ResourceData,
 
 	config := buildIPv6InterfaceConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating IPv6 interface configuration: %+v", config)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_interface").Msgf("Creating IPv6 interface configuration: %+v", config)
 
 	err := apiClient.client.ConfigureIPv6Interface(ctx, config)
 	if err != nil {
@@ -168,13 +168,13 @@ func resourceRTXIPv6InterfaceRead(ctx context.Context, d *schema.ResourceData, m
 
 	interfaceName := d.Id()
 
-	log.Printf("[DEBUG] Reading IPv6 interface configuration: %s", interfaceName)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_interface").Msgf("Reading IPv6 interface configuration: %s", interfaceName)
 
 	config, err := apiClient.client.GetIPv6InterfaceConfig(ctx, interfaceName)
 	if err != nil {
 		// Check if interface doesn't have any configuration
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[DEBUG] IPv6 interface %s configuration not found, removing from state", interfaceName)
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_interface").Msgf("IPv6 interface %s configuration not found, removing from state", interfaceName)
 			d.SetId("")
 			return nil
 		}
@@ -244,7 +244,7 @@ func resourceRTXIPv6InterfaceUpdate(ctx context.Context, d *schema.ResourceData,
 
 	config := buildIPv6InterfaceConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating IPv6 interface configuration: %+v", config)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_interface").Msgf("Updating IPv6 interface configuration: %+v", config)
 
 	err := apiClient.client.UpdateIPv6InterfaceConfig(ctx, config)
 	if err != nil {
@@ -259,7 +259,7 @@ func resourceRTXIPv6InterfaceDelete(ctx context.Context, d *schema.ResourceData,
 
 	interfaceName := d.Id()
 
-	log.Printf("[DEBUG] Resetting IPv6 interface configuration: %s", interfaceName)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_interface").Msgf("Resetting IPv6 interface configuration: %s", interfaceName)
 
 	err := apiClient.client.ResetIPv6Interface(ctx, interfaceName)
 	if err != nil {
@@ -282,7 +282,7 @@ func resourceRTXIPv6InterfaceImport(ctx context.Context, d *schema.ResourceData,
 		return nil, fmt.Errorf("invalid import ID format: %v", err)
 	}
 
-	log.Printf("[DEBUG] Importing IPv6 interface configuration: %s", importID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_interface").Msgf("Importing IPv6 interface configuration: %s", importID)
 
 	// Verify interface exists and retrieve configuration
 	config, err := apiClient.client.GetIPv6InterfaceConfig(ctx, importID)

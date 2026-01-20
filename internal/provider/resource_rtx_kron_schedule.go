@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"regexp"
 	"strconv"
 	"strings"
@@ -124,7 +124,7 @@ func resourceRTXKronScheduleCreate(ctx context.Context, d *schema.ResourceData, 
 
 	schedule := buildScheduleFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating kron schedule: %+v", schedule)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_kron_schedule").Msgf("Creating kron schedule: %+v", schedule)
 
 	err := apiClient.client.CreateSchedule(ctx, schedule)
 	if err != nil {
@@ -144,13 +144,13 @@ func resourceRTXKronScheduleRead(ctx context.Context, d *schema.ResourceData, me
 		return diag.Errorf("Invalid schedule ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Reading kron schedule: %d", id)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_kron_schedule").Msgf("Reading kron schedule: %d", id)
 
 	schedule, err := apiClient.client.GetSchedule(ctx, id)
 	if err != nil {
 		// Check if schedule doesn't exist
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[DEBUG] Kron schedule %d not found, removing from state", id)
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_kron_schedule").Msgf("Kron schedule %d not found, removing from state", id)
 			d.SetId("")
 			return nil
 		}
@@ -196,7 +196,7 @@ func resourceRTXKronScheduleUpdate(ctx context.Context, d *schema.ResourceData, 
 
 	schedule := buildScheduleFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating kron schedule: %+v", schedule)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_kron_schedule").Msgf("Updating kron schedule: %+v", schedule)
 
 	err := apiClient.client.UpdateSchedule(ctx, schedule)
 	if err != nil {
@@ -214,7 +214,7 @@ func resourceRTXKronScheduleDelete(ctx context.Context, d *schema.ResourceData, 
 		return diag.Errorf("Invalid schedule ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Deleting kron schedule: %d", id)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_kron_schedule").Msgf("Deleting kron schedule: %d", id)
 
 	err = apiClient.client.DeleteSchedule(ctx, id)
 	if err != nil {
@@ -238,7 +238,7 @@ func resourceRTXKronScheduleImport(ctx context.Context, d *schema.ResourceData, 
 		return nil, fmt.Errorf("invalid import ID format, expected schedule ID (integer): %v", err)
 	}
 
-	log.Printf("[DEBUG] Importing kron schedule: %d", id)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_kron_schedule").Msgf("Importing kron schedule: %d", id)
 
 	// Verify schedule exists
 	schedule, err := apiClient.client.GetSchedule(ctx, id)

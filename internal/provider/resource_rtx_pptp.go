@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -146,7 +146,7 @@ func resourceRTXPPTPCreate(ctx context.Context, d *schema.ResourceData, meta int
 
 	config := buildPPTPConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating PPTP configuration: %+v", config)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_pptp").Msgf("Creating PPTP configuration: %+v", config)
 
 	err := apiClient.client.CreatePPTP(ctx, config)
 	if err != nil {
@@ -162,12 +162,12 @@ func resourceRTXPPTPCreate(ctx context.Context, d *schema.ResourceData, meta int
 func resourceRTXPPTPRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
-	log.Printf("[DEBUG] Reading PPTP configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_pptp").Msg("Reading PPTP configuration")
 
 	config, err := apiClient.client.GetPPTP(ctx)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "not configured") {
-			log.Printf("[DEBUG] PPTP configuration not found, removing from state")
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_pptp").Msg("PPTP configuration not found, removing from state")
 			d.SetId("")
 			return nil
 		}
@@ -175,7 +175,7 @@ func resourceRTXPPTPRead(ctx context.Context, d *schema.ResourceData, meta inter
 	}
 
 	if !config.Enabled {
-		log.Printf("[DEBUG] PPTP is disabled, removing from state")
+		logging.FromContext(ctx).Debug().Str("resource", "rtx_pptp").Msg("PPTP is disabled, removing from state")
 		d.SetId("")
 		return nil
 	}
@@ -248,7 +248,7 @@ func resourceRTXPPTPUpdate(ctx context.Context, d *schema.ResourceData, meta int
 
 	config := buildPPTPConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating PPTP configuration: %+v", config)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_pptp").Msgf("Updating PPTP configuration: %+v", config)
 
 	err := apiClient.client.UpdatePPTP(ctx, config)
 	if err != nil {
@@ -261,7 +261,7 @@ func resourceRTXPPTPUpdate(ctx context.Context, d *schema.ResourceData, meta int
 func resourceRTXPPTPDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
-	log.Printf("[DEBUG] Disabling PPTP configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_pptp").Msg("Disabling PPTP configuration")
 
 	err := apiClient.client.DeletePPTP(ctx)
 	if err != nil {
@@ -282,7 +282,7 @@ func resourceRTXPPTPImport(ctx context.Context, d *schema.ResourceData, meta int
 		return nil, fmt.Errorf("import ID must be 'pptp' for this singleton resource")
 	}
 
-	log.Printf("[DEBUG] Importing PPTP configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_pptp").Msg("Importing PPTP configuration")
 
 	config, err := apiClient.client.GetPPTP(ctx)
 	if err != nil {

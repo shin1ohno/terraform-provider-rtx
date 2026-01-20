@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"regexp"
 	"strings"
 	"sync"
@@ -71,13 +71,13 @@ func newRTXTerminalSession(client *ssh.Client) (*rtxTerminalSession, error) {
 	}
 
 	// Try to start shell with retry
-	log.Printf("[DEBUG] Starting shell session")
+	logging.Global().Debug().Str("component", "rtx-terminal-session").Msg("Starting shell session")
 	
 	// Some RTX routers may need a small delay after PTY request
 	time.Sleep(100 * time.Millisecond)
 	
 	if err := session.Shell(); err != nil {
-		log.Printf("[ERROR] Failed to start shell: %v", err)
+		logging.Global().Error().Str("component", "rtx-terminal-session").Msgf("Failed to start shell: %v", err)
 		
 		// Try without stderr pipe
 		session.Close()
@@ -100,13 +100,13 @@ func newRTXTerminalSession(client *ssh.Client) (*rtxTerminalSession, error) {
 			return nil, fmt.Errorf("failed to start shell on second attempt: %w (first error: %w)", err2, err)
 		}
 		
-		log.Printf("[DEBUG] Shell session started on second attempt")
+		logging.Global().Debug().Str("component", "rtx-terminal-session").Msg("Shell session started on second attempt")
 		session = session2
 		stdin = stdin2
 		stdout = stdout2
 		stderr = nil
 	} else {
-		log.Printf("[DEBUG] Shell session started successfully")
+		logging.Global().Debug().Str("component", "rtx-terminal-session").Msg("Shell session started successfully")
 	}
 
 	// Create session object
@@ -122,19 +122,19 @@ func newRTXTerminalSession(client *ssh.Client) (*rtxTerminalSession, error) {
 	}
 
 	// Wait for initial prompt
-	log.Printf("[DEBUG] Waiting for initial RTX prompt")
+	logging.Global().Debug().Str("component", "rtx-terminal-session").Msg("Waiting for initial RTX prompt")
 	initialOutput, err := s.readUntilPrompt(10 * time.Second)
 	if err != nil {
 		s.Close()
 		return nil, fmt.Errorf("failed to read initial prompt: %w", err)
 	}
-	log.Printf("[DEBUG] Initial output: %q", string(initialOutput))
+	logging.Global().Debug().Str("component", "rtx-terminal-session").Msgf("Initial output: %q", string(initialOutput))
 
 	// Set character encoding for compatibility
-	log.Printf("[DEBUG] Setting character encoding")
+	logging.Global().Debug().Str("component", "rtx-terminal-session").Msg("Setting character encoding")
 	if _, err := s.executeCommand("console character en.ascii", 5*time.Second); err != nil {
 		// Non-fatal error - some RTX models might not support this
-		log.Printf("[WARN] Failed to set character encoding: %v", err)
+		logging.Global().Warn().Str("component", "rtx-terminal-session").Msgf("Failed to set character encoding: %v", err)
 	}
 
 	return s, nil
@@ -160,7 +160,7 @@ func (s *rtxTerminalSession) Send(cmd string) ([]byte, error) {
 
 // executeCommand sends a command and waits for response
 func (s *rtxTerminalSession) executeCommand(cmd string, timeout time.Duration) ([]byte, error) {
-	log.Printf("[DEBUG] Executing RTX command: %s", cmd)
+	logging.Global().Debug().Str("component", "rtx-terminal-session").Msgf("Executing RTX command: %s", cmd)
 
 	// Send command
 	if _, err := fmt.Fprintf(s.stdin, "%s\n", cmd); err != nil {
@@ -192,7 +192,7 @@ func (s *rtxTerminalSession) executeCommand(cmd string, timeout time.Duration) (
 		return output, fmt.Errorf("command returned error: %s", string(output))
 	}
 
-	log.Printf("[DEBUG] Command output length: %d bytes", len(output))
+	logging.Global().Debug().Str("component", "rtx-terminal-session").Msgf("Command output length: %d bytes", len(output))
 	return output, nil
 }
 
@@ -223,7 +223,7 @@ func (s *rtxTerminalSession) readUntilPrompt(timeout time.Duration) ([]byte, err
 			// Check if we have a prompt in the output
 			currentOutput := output.String()
 			if s.promptRegex.MatchString(currentOutput) {
-				log.Printf("[DEBUG] Found prompt in output")
+				logging.Global().Debug().Str("component", "rtx-terminal-session").Msg("Found prompt in output")
 				return output.Bytes(), nil
 			}
 		}

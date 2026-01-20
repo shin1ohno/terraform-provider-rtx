@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -74,7 +74,7 @@ func resourceRTXClassMapCreate(ctx context.Context, d *schema.ResourceData, meta
 
 	cm := buildClassMapFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating class-map: %+v", cm)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_class_map").Msgf("Creating class-map: %+v", cm)
 
 	err := apiClient.client.CreateClassMap(ctx, cm)
 	if err != nil {
@@ -91,12 +91,12 @@ func resourceRTXClassMapRead(ctx context.Context, d *schema.ResourceData, meta i
 
 	name := d.Id()
 
-	log.Printf("[DEBUG] Reading class-map: %s", name)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_class_map").Msgf("Reading class-map: %s", name)
 
 	cm, err := apiClient.client.GetClassMap(ctx, name)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[DEBUG] Class-map %s not found, removing from state", name)
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_class_map").Msgf("Class-map %s not found, removing from state", name)
 			d.SetId("")
 			return nil
 		}
@@ -130,7 +130,7 @@ func resourceRTXClassMapUpdate(ctx context.Context, d *schema.ResourceData, meta
 
 	cm := buildClassMapFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating class-map: %+v", cm)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_class_map").Msgf("Updating class-map: %+v", cm)
 
 	err := apiClient.client.UpdateClassMap(ctx, cm)
 	if err != nil {
@@ -145,7 +145,7 @@ func resourceRTXClassMapDelete(ctx context.Context, d *schema.ResourceData, meta
 
 	name := d.Id()
 
-	log.Printf("[DEBUG] Deleting class-map: %s", name)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_class_map").Msgf("Deleting class-map: %s", name)
 
 	err := apiClient.client.DeleteClassMap(ctx, name)
 	if err != nil {
@@ -162,7 +162,7 @@ func resourceRTXClassMapImport(ctx context.Context, d *schema.ResourceData, meta
 	apiClient := meta.(*apiClient)
 	name := d.Id()
 
-	log.Printf("[DEBUG] Importing class-map: %s", name)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_class_map").Msgf("Importing class-map: %s", name)
 
 	cm, err := apiClient.client.GetClassMap(ctx, name)
 	if err != nil {

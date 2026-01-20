@@ -25,6 +25,8 @@ func NewIPFilterService(executor Executor, client *rtxClient) *IPFilterService {
 
 // CreateFilter creates a new IP filter
 func (s *IPFilterService) CreateFilter(ctx context.Context, filter IPFilter) error {
+	logger := logging.FromContext(ctx)
+
 	// Convert client.IPFilter to parsers.IPFilter
 	parserFilter := s.toParserFilter(filter)
 
@@ -42,7 +44,7 @@ func (s *IPFilterService) CreateFilter(ctx context.Context, filter IPFilter) err
 
 	// Build and execute filter creation command
 	cmd := parsers.BuildIPFilterCommand(parserFilter)
-	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Creating IP filter with command: %s", cmd)
+	logger.Debug().Str("service", "IPFilterService").Str("operation", "CreateFilter").Msgf("Creating IP filter with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -65,6 +67,8 @@ func (s *IPFilterService) CreateFilter(ctx context.Context, filter IPFilter) err
 
 // GetFilter retrieves an IP filter configuration
 func (s *IPFilterService) GetFilter(ctx context.Context, number int) (*IPFilter, error) {
+	logger := logging.FromContext(ctx)
+
 	// Check context
 	select {
 	case <-ctx.Done():
@@ -73,14 +77,14 @@ func (s *IPFilterService) GetFilter(ctx context.Context, number int) (*IPFilter,
 	}
 
 	cmd := parsers.BuildShowIPFilterByNumberCommand(number)
-	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Getting IP filter with command: %s", cmd)
+	logger.Debug().Str("service", "IPFilterService").Str("operation", "GetFilter").Msgf("Getting IP filter with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get IP filter: %w", err)
 	}
 
-	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("IP filter raw output: %q", string(output))
+	logger.Debug().Str("service", "IPFilterService").Str("operation", "GetFilter").Msgf("IP filter raw output: %q", string(output))
 
 	// Parse the output
 	parserFilters, err := parsers.ParseIPFilterConfig(string(output))

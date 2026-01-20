@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strconv"
 	"strings"
 
@@ -82,7 +82,7 @@ func resourceRTXAccessListIPCreate(ctx context.Context, d *schema.ResourceData, 
 
 	filter := buildIPFilterFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating IP filter: %+v", filter)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ip").Msgf("Creating IP filter: %+v", filter)
 
 	err := apiClient.client.CreateIPFilter(ctx, filter)
 	if err != nil {
@@ -103,12 +103,12 @@ func resourceRTXAccessListIPRead(ctx context.Context, d *schema.ResourceData, me
 		return diag.Errorf("Invalid filter ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Reading IP filter %d", filterID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ip").Msgf("Reading IP filter %d", filterID)
 
 	filter, err := apiClient.client.GetIPFilter(ctx, filterID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[DEBUG] IP filter %d not found, removing from state", filterID)
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ip").Msgf("IP filter %d not found, removing from state", filterID)
 			d.SetId("")
 			return nil
 		}
@@ -128,7 +128,7 @@ func resourceRTXAccessListIPUpdate(ctx context.Context, d *schema.ResourceData, 
 
 	filter := buildIPFilterFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating IP filter: %+v", filter)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ip").Msgf("Updating IP filter: %+v", filter)
 
 	err := apiClient.client.UpdateIPFilter(ctx, filter)
 	if err != nil {
@@ -146,7 +146,7 @@ func resourceRTXAccessListIPDelete(ctx context.Context, d *schema.ResourceData, 
 		return diag.Errorf("Invalid filter ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Deleting IP filter %d", filterID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ip").Msgf("Deleting IP filter %d", filterID)
 
 	err = apiClient.client.DeleteIPFilter(ctx, filterID)
 	if err != nil {
@@ -170,7 +170,7 @@ func resourceRTXAccessListIPImport(ctx context.Context, d *schema.ResourceData, 
 		return nil, fmt.Errorf("invalid import ID format, expected filter number (integer): %v", err)
 	}
 
-	log.Printf("[DEBUG] Importing IP filter %d", filterID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ip").Msgf("Importing IP filter %d", filterID)
 
 	// Retrieve the filter to verify it exists
 	filter, err := apiClient.client.GetIPFilter(ctx, filterID)

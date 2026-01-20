@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strconv"
 	"strings"
 
@@ -111,7 +111,7 @@ func resourceRTXEthernetFilterCreate(ctx context.Context, d *schema.ResourceData
 
 	filter := buildEthernetFilterFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating Ethernet filter: %d", filter.Number)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ethernet_filter").Msgf("Creating Ethernet filter: %d", filter.Number)
 
 	err := apiClient.client.CreateEthernetFilter(ctx, filter)
 	if err != nil {
@@ -131,12 +131,12 @@ func resourceRTXEthernetFilterRead(ctx context.Context, d *schema.ResourceData, 
 		return diag.Errorf("Invalid filter number: %v", err)
 	}
 
-	log.Printf("[DEBUG] Reading Ethernet filter: %d", number)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ethernet_filter").Msgf("Reading Ethernet filter: %d", number)
 
 	filter, err := apiClient.client.GetEthernetFilter(ctx, number)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "not configured") {
-			log.Printf("[WARN] Ethernet filter %d not found, removing from state", number)
+			logging.FromContext(ctx).Warn().Str("resource", "rtx_ethernet_filter").Msgf("Ethernet filter %d not found, removing from state", number)
 			d.SetId("")
 			return nil
 		}
@@ -155,7 +155,7 @@ func resourceRTXEthernetFilterUpdate(ctx context.Context, d *schema.ResourceData
 
 	filter := buildEthernetFilterFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating Ethernet filter: %d", filter.Number)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ethernet_filter").Msgf("Updating Ethernet filter: %d", filter.Number)
 
 	err := apiClient.client.UpdateEthernetFilter(ctx, filter)
 	if err != nil {
@@ -173,7 +173,7 @@ func resourceRTXEthernetFilterDelete(ctx context.Context, d *schema.ResourceData
 		return diag.Errorf("Invalid filter number: %v", err)
 	}
 
-	log.Printf("[DEBUG] Deleting Ethernet filter: %d", number)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ethernet_filter").Msgf("Deleting Ethernet filter: %d", number)
 
 	err = apiClient.client.DeleteEthernetFilter(ctx, number)
 	if err != nil {
@@ -195,7 +195,7 @@ func resourceRTXEthernetFilterImport(ctx context.Context, d *schema.ResourceData
 		return nil, fmt.Errorf("filter number must be between 1 and 512, got: %d", number)
 	}
 
-	log.Printf("[DEBUG] Importing Ethernet filter: %d", number)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ethernet_filter").Msgf("Importing Ethernet filter: %d", number)
 
 	d.Set("number", number)
 

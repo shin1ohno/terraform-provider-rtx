@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
@@ -44,7 +44,7 @@ func (s *VLANService) CreateVLAN(ctx context.Context, vlan VLAN) error {
 	existingVLANs, err := s.ListVLANs(ctx)
 	if err != nil {
 		// If we can't list, assume no existing VLANs
-		log.Printf("[DEBUG] Could not list existing VLANs: %v, assuming empty", err)
+		logging.FromContext(ctx).Debug().Str("service", "vlan").Msgf("Could not list existing VLANs: %v, assuming empty", err)
 		existingVLANs = []VLAN{}
 	}
 
@@ -69,7 +69,7 @@ func (s *VLANService) CreateVLAN(ctx context.Context, vlan VLAN) error {
 
 	// Build and execute VLAN creation command
 	cmd := parsers.BuildVLANCommand(vlan.Interface, slot, vlan.VlanID)
-	log.Printf("[DEBUG] Creating VLAN with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "vlan").Msgf("Creating VLAN with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -86,7 +86,7 @@ func (s *VLANService) CreateVLAN(ctx context.Context, vlan VLAN) error {
 	// Configure IP address if specified
 	if vlan.IPAddress != "" && vlan.IPMask != "" {
 		ipCmd := parsers.BuildVLANIPCommand(vlanInterface, vlan.IPAddress, vlan.IPMask)
-		log.Printf("[DEBUG] Setting VLAN IP with command: %s", ipCmd)
+		logging.FromContext(ctx).Debug().Str("service", "vlan").Msgf("Setting VLAN IP with command: %s", ipCmd)
 
 		output, err = s.executor.Run(ctx, ipCmd)
 		if err != nil {
@@ -101,7 +101,7 @@ func (s *VLANService) CreateVLAN(ctx context.Context, vlan VLAN) error {
 	// Configure description if specified
 	if vlan.Name != "" {
 		descCmd := parsers.BuildVLANDescriptionCommand(vlanInterface, vlan.Name)
-		log.Printf("[DEBUG] Setting VLAN description with command: %s", descCmd)
+		logging.FromContext(ctx).Debug().Str("service", "vlan").Msgf("Setting VLAN description with command: %s", descCmd)
 
 		output, err = s.executor.Run(ctx, descCmd)
 		if err != nil {
@@ -116,7 +116,7 @@ func (s *VLANService) CreateVLAN(ctx context.Context, vlan VLAN) error {
 	// Configure shutdown state if specified
 	if vlan.Shutdown {
 		shutdownCmd := parsers.BuildVLANDisableCommand(vlanInterface)
-		log.Printf("[DEBUG] Disabling VLAN with command: %s", shutdownCmd)
+		logging.FromContext(ctx).Debug().Str("service", "vlan").Msgf("Disabling VLAN with command: %s", shutdownCmd)
 
 		output, err = s.executor.Run(ctx, shutdownCmd)
 		if err != nil {
@@ -141,14 +141,14 @@ func (s *VLANService) CreateVLAN(ctx context.Context, vlan VLAN) error {
 // GetVLAN retrieves a VLAN configuration
 func (s *VLANService) GetVLAN(ctx context.Context, iface string, vlanID int) (*VLAN, error) {
 	cmd := parsers.BuildShowVLANCommand(iface, vlanID)
-	log.Printf("[DEBUG] Getting VLAN with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "vlan").Msgf("Getting VLAN with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get VLAN: %w", err)
 	}
 
-	log.Printf("[DEBUG] VLAN raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "vlan").Msgf("VLAN raw output: %q", string(output))
 
 	parser := parsers.NewVLANParser()
 	parserVLAN, err := parser.ParseSingleVLAN(string(output), iface, vlanID)
@@ -191,14 +191,14 @@ func (s *VLANService) UpdateVLAN(ctx context.Context, vlan VLAN) error {
 		// Remove old IP if exists
 		if currentVLAN.IPAddress != "" {
 			deleteIPCmd := parsers.BuildDeleteVLANIPCommand(vlanInterface)
-			log.Printf("[DEBUG] Removing old VLAN IP with command: %s", deleteIPCmd)
+			logging.FromContext(ctx).Debug().Str("service", "vlan").Msgf("Removing old VLAN IP with command: %s", deleteIPCmd)
 			_, _ = s.executor.Run(ctx, deleteIPCmd) // Ignore errors for cleanup
 		}
 
 		// Set new IP if specified
 		if vlan.IPAddress != "" && vlan.IPMask != "" {
 			ipCmd := parsers.BuildVLANIPCommand(vlanInterface, vlan.IPAddress, vlan.IPMask)
-			log.Printf("[DEBUG] Setting VLAN IP with command: %s", ipCmd)
+			logging.FromContext(ctx).Debug().Str("service", "vlan").Msgf("Setting VLAN IP with command: %s", ipCmd)
 
 			output, err := s.executor.Run(ctx, ipCmd)
 			if err != nil {
@@ -216,14 +216,14 @@ func (s *VLANService) UpdateVLAN(ctx context.Context, vlan VLAN) error {
 		// Remove old description if exists
 		if currentVLAN.Name != "" {
 			deleteDescCmd := parsers.BuildDeleteVLANDescriptionCommand(vlanInterface)
-			log.Printf("[DEBUG] Removing old VLAN description with command: %s", deleteDescCmd)
+			logging.FromContext(ctx).Debug().Str("service", "vlan").Msgf("Removing old VLAN description with command: %s", deleteDescCmd)
 			_, _ = s.executor.Run(ctx, deleteDescCmd) // Ignore errors for cleanup
 		}
 
 		// Set new description if specified
 		if vlan.Name != "" {
 			descCmd := parsers.BuildVLANDescriptionCommand(vlanInterface, vlan.Name)
-			log.Printf("[DEBUG] Setting VLAN description with command: %s", descCmd)
+			logging.FromContext(ctx).Debug().Str("service", "vlan").Msgf("Setting VLAN description with command: %s", descCmd)
 
 			output, err := s.executor.Run(ctx, descCmd)
 			if err != nil {
@@ -244,7 +244,7 @@ func (s *VLANService) UpdateVLAN(ctx context.Context, vlan VLAN) error {
 		} else {
 			stateCmd = parsers.BuildVLANEnableCommand(vlanInterface)
 		}
-		log.Printf("[DEBUG] Changing VLAN state with command: %s", stateCmd)
+		logging.FromContext(ctx).Debug().Str("service", "vlan").Msgf("Changing VLAN state with command: %s", stateCmd)
 
 		output, err := s.executor.Run(ctx, stateCmd)
 		if err != nil {
@@ -286,7 +286,7 @@ func (s *VLANService) DeleteVLAN(ctx context.Context, iface string, vlanID int) 
 	}
 
 	cmd := parsers.BuildDeleteVLANCommand(currentVLAN.VlanInterface)
-	log.Printf("[DEBUG] Deleting VLAN with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "vlan").Msgf("Deleting VLAN with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -314,14 +314,14 @@ func (s *VLANService) DeleteVLAN(ctx context.Context, iface string, vlanID int) 
 // ListVLANs retrieves all VLANs
 func (s *VLANService) ListVLANs(ctx context.Context) ([]VLAN, error) {
 	cmd := parsers.BuildShowAllVLANsCommand()
-	log.Printf("[DEBUG] Listing VLANs with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "vlan").Msgf("Listing VLANs with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list VLANs: %w", err)
 	}
 
-	log.Printf("[DEBUG] VLANs raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "vlan").Msgf("VLANs raw output: %q", string(output))
 
 	parser := parsers.NewVLANParser()
 	parserVLANs, err := parser.ParseVLANConfig(string(output))

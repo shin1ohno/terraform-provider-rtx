@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"net"
 	"strconv"
 	"strings"
@@ -90,7 +90,7 @@ func resourceRTXStaticRouteCreate(ctx context.Context, d *schema.ResourceData, m
 
 	route := buildStaticRouteFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating static route: %+v", route)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_static_route").Msgf("Creating static route: %+v", route)
 
 	err := apiClient.client.CreateStaticRoute(ctx, route)
 	if err != nil {
@@ -112,13 +112,13 @@ func resourceRTXStaticRouteRead(ctx context.Context, d *schema.ResourceData, met
 		return diag.Errorf("Invalid resource ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Reading static route: %s/%s", prefix, mask)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_static_route").Msgf("Reading static route: %s/%s", prefix, mask)
 
 	route, err := apiClient.client.GetStaticRoute(ctx, prefix, mask)
 	if err != nil {
 		// Check if route doesn't exist
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[DEBUG] Static route %s/%s not found, removing from state", prefix, mask)
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_static_route").Msgf("Static route %s/%s not found, removing from state", prefix, mask)
 			d.SetId("")
 			return nil
 		}
@@ -156,7 +156,7 @@ func resourceRTXStaticRouteUpdate(ctx context.Context, d *schema.ResourceData, m
 
 	route := buildStaticRouteFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating static route: %+v", route)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_static_route").Msgf("Updating static route: %+v", route)
 
 	err := apiClient.client.UpdateStaticRoute(ctx, route)
 	if err != nil {
@@ -174,7 +174,7 @@ func resourceRTXStaticRouteDelete(ctx context.Context, d *schema.ResourceData, m
 		return diag.Errorf("Invalid resource ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Deleting static route: %s/%s", prefix, mask)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_static_route").Msgf("Deleting static route: %s/%s", prefix, mask)
 
 	err = apiClient.client.DeleteStaticRoute(ctx, prefix, mask)
 	if err != nil {
@@ -198,7 +198,7 @@ func resourceRTXStaticRouteImport(ctx context.Context, d *schema.ResourceData, m
 		return nil, fmt.Errorf("invalid import ID format, expected 'prefix/mask': %v", err)
 	}
 
-	log.Printf("[DEBUG] Importing static route: %s/%s", prefix, mask)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_static_route").Msgf("Importing static route: %s/%s", prefix, mask)
 
 	// Verify route exists
 	route, err := apiClient.client.GetStaticRoute(ctx, prefix, mask)

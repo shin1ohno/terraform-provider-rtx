@@ -624,7 +624,7 @@ type Client interface {
 	UpdateAccessListMAC(ctx context.Context, acl AccessListMAC) error
 
 	// DeleteAccessListMAC removes a MAC access list
-	DeleteAccessListMAC(ctx context.Context, name string) error
+	DeleteAccessListMAC(ctx context.Context, name string, filterNums []int) error
 
 	// ListAccessListsMAC retrieves all MAC access lists
 	ListAccessListsMAC(ctx context.Context) ([]AccessListMAC, error)
@@ -720,7 +720,7 @@ type Client interface {
 // Interface represents a network interface on an RTX router
 type Interface struct {
 	Name        string            `json:"name"`
-	Kind        string            `json:"kind"`        // lan, wan, pp, vlan
+	Kind        string            `json:"kind"` // lan, wan, pp, vlan
 	AdminUp     bool              `json:"admin_up"`
 	LinkUp      bool              `json:"link_up"`
 	MAC         string            `json:"mac,omitempty"`
@@ -733,11 +733,11 @@ type Interface struct {
 
 // Route represents a routing table entry on an RTX router
 type Route struct {
-	Destination string `json:"destination"`       // Network prefix (e.g., "192.168.1.0/24", "0.0.0.0/0")
-	Gateway     string `json:"gateway"`           // Next hop gateway ("*" for directly connected routes)
-	Interface   string `json:"interface"`         // Outgoing interface
-	Protocol    string `json:"protocol"`          // S=static, C=connected, R=RIP, O=OSPF, B=BGP, D=DHCP
-	Metric      *int   `json:"metric,omitempty"`  // Route metric (optional)
+	Destination string `json:"destination"`      // Network prefix (e.g., "192.168.1.0/24", "0.0.0.0/0")
+	Gateway     string `json:"gateway"`          // Next hop gateway ("*" for directly connected routes)
+	Interface   string `json:"interface"`        // Outgoing interface
+	Protocol    string `json:"protocol"`         // S=static, C=connected, R=RIP, O=OSPF, B=BGP, D=DHCP
+	Metric      *int   `json:"metric,omitempty"` // Route metric (optional)
 }
 
 // DHCPBinding represents a DHCP static lease binding
@@ -917,12 +917,12 @@ type NATMasquerade struct {
 
 // MasqueradeStaticEntry represents a static port mapping entry for NAT masquerade
 type MasqueradeStaticEntry struct {
-	EntryNumber       int    `json:"entry_number"`                   // Entry number for identification
-	InsideLocal       string `json:"inside_local"`                   // Internal IP address
-	InsideLocalPort   *int   `json:"inside_local_port,omitempty"`    // Internal port (nil for protocol-only like ESP/AH/GRE)
-	OutsideGlobal     string `json:"outside_global"`                 // External IP address (or "ipcp")
-	OutsideGlobalPort *int   `json:"outside_global_port,omitempty"`  // External port (nil for protocol-only)
-	Protocol          string `json:"protocol,omitempty"`             // "tcp", "udp", "esp", "ah", "gre", or empty
+	EntryNumber       int    `json:"entry_number"`                  // Entry number for identification
+	InsideLocal       string `json:"inside_local"`                  // Internal IP address
+	InsideLocalPort   *int   `json:"inside_local_port,omitempty"`   // Internal port (nil for protocol-only like ESP/AH/GRE)
+	OutsideGlobal     string `json:"outside_global"`                // External IP address (or "ipcp")
+	OutsideGlobalPort *int   `json:"outside_global_port,omitempty"` // External port (nil for protocol-only)
+	Protocol          string `json:"protocol,omitempty"`            // "tcp", "udp", "esp", "ah", "gre", or empty
 }
 
 // NATStatic represents a static NAT descriptor configuration on an RTX router
@@ -933,11 +933,11 @@ type NATStatic struct {
 
 // NATStaticEntry represents a single static NAT mapping entry
 type NATStaticEntry struct {
-	InsideLocal       string `json:"inside_local"`                   // Inside local IP address
-	InsideLocalPort   *int   `json:"inside_local_port,omitempty"`    // Inside local port (for port NAT)
-	OutsideGlobal     string `json:"outside_global"`                 // Outside global IP address
-	OutsideGlobalPort *int   `json:"outside_global_port,omitempty"`  // Outside global port (for port NAT)
-	Protocol          string `json:"protocol,omitempty"`             // Protocol: tcp, udp (for port NAT)
+	InsideLocal       string `json:"inside_local"`                  // Inside local IP address
+	InsideLocalPort   *int   `json:"inside_local_port,omitempty"`   // Inside local port (for port NAT)
+	OutsideGlobal     string `json:"outside_global"`                // Outside global IP address
+	OutsideGlobalPort *int   `json:"outside_global_port,omitempty"` // Outside global port (for port NAT)
+	Protocol          string `json:"protocol,omitempty"`            // Protocol: tcp, udp (for port NAT)
 }
 
 // EthernetFilter represents an Ethernet (Layer 2) filter configuration on an RTX router
@@ -952,16 +952,16 @@ type EthernetFilter struct {
 
 // IPFilter represents a static IP filter rule on an RTX router
 type IPFilter struct {
-	Number        int    `json:"number"`                   // Filter number (1-65535)
-	Action        string `json:"action"`                   // pass, reject, restrict, restrict-log
-	SourceAddress string `json:"source_address"`           // Source IP/network or "*"
-	SourceMask    string `json:"source_mask,omitempty"`    // Source mask (for non-CIDR format)
-	DestAddress   string `json:"dest_address"`             // Destination IP/network or "*"
-	DestMask      string `json:"dest_mask,omitempty"`      // Destination mask (for non-CIDR format)
-	Protocol      string `json:"protocol"`                 // tcp, udp, icmp, ip, * (any)
-	SourcePort    string `json:"source_port,omitempty"`    // Source port(s) or "*"
-	DestPort      string `json:"dest_port,omitempty"`      // Destination port(s) or "*"
-	Established   bool   `json:"established,omitempty"`    // Match established TCP connections
+	Number        int    `json:"number"`                // Filter number (1-65535)
+	Action        string `json:"action"`                // pass, reject, restrict, restrict-log
+	SourceAddress string `json:"source_address"`        // Source IP/network or "*"
+	SourceMask    string `json:"source_mask,omitempty"` // Source mask (for non-CIDR format)
+	DestAddress   string `json:"dest_address"`          // Destination IP/network or "*"
+	DestMask      string `json:"dest_mask,omitempty"`   // Destination mask (for non-CIDR format)
+	Protocol      string `json:"protocol"`              // tcp, udp, icmp, ip, * (any)
+	SourcePort    string `json:"source_port,omitempty"` // Source port(s) or "*"
+	DestPort      string `json:"dest_port,omitempty"`   // Destination port(s) or "*"
+	Established   bool   `json:"established,omitempty"` // Match established TCP connections
 }
 
 // IPFilterDynamic represents a dynamic (stateful) IP filter on an RTX router
@@ -1221,12 +1221,12 @@ type DNSHost struct {
 
 // ClassMap represents a class-map configuration for traffic classification
 type ClassMap struct {
-	Name                 string `json:"name"`                              // Class map name
-	MatchProtocol        string `json:"match_protocol,omitempty"`          // Protocol to match
-	MatchDestinationPort []int  `json:"match_destination_port,omitempty"`  // Destination ports to match
-	MatchSourcePort      []int  `json:"match_source_port,omitempty"`       // Source ports to match
-	MatchDSCP            string `json:"match_dscp,omitempty"`              // DSCP value to match
-	MatchFilter          int    `json:"match_filter,omitempty"`            // IP filter number to match
+	Name                 string `json:"name"`                             // Class map name
+	MatchProtocol        string `json:"match_protocol,omitempty"`         // Protocol to match
+	MatchDestinationPort []int  `json:"match_destination_port,omitempty"` // Destination ports to match
+	MatchSourcePort      []int  `json:"match_source_port,omitempty"`      // Source ports to match
+	MatchDSCP            string `json:"match_dscp,omitempty"`             // DSCP value to match
+	MatchFilter          int    `json:"match_filter,omitempty"`           // IP filter number to match
 }
 
 // PolicyMap represents a policy-map configuration
@@ -1246,8 +1246,8 @@ type PolicyMapClass struct {
 
 // ServicePolicy represents a service-policy attachment to an interface
 type ServicePolicy struct {
-	Interface string `json:"interface"` // Interface name
-	Direction string `json:"direction"` // input or output
+	Interface string `json:"interface"`  // Interface name
+	Direction string `json:"direction"`  // input or output
 	PolicyMap string `json:"policy_map"` // Policy map name
 }
 
@@ -1336,10 +1336,10 @@ type AdminUser struct {
 
 // AdminUserAttributes represents user attribute configuration
 type AdminUserAttributes struct {
-	Administrator bool     `json:"administrator"`  // Whether user has administrator privileges
-	Connection    []string `json:"connection"`     // Allowed connection types: serial, telnet, remote, ssh, sftp, http
-	GUIPages      []string `json:"gui_pages"`      // Allowed GUI pages: dashboard, lan-map, config
-	LoginTimer    int      `json:"login_timer"`    // Login timeout in seconds (0 = infinite)
+	Administrator bool     `json:"administrator"` // Whether user has administrator privileges
+	Connection    []string `json:"connection"`    // Allowed connection types: serial, telnet, remote, ssh, sftp, http
+	GUIPages      []string `json:"gui_pages"`     // Allowed GUI pages: dashboard, lan-map, config
+	LoginTimer    int      `json:"login_timer"`   // Login timeout in seconds (0 = infinite)
 }
 
 // HTTPDConfig represents HTTP daemon configuration on an RTX router
@@ -1396,52 +1396,52 @@ type RTADVConfig struct {
 
 // AccessListExtended represents an IPv4 extended access list (Cisco-compatible naming)
 type AccessListExtended struct {
-	Name    string                     `json:"name"`    // ACL name (identifier)
-	Entries []AccessListExtendedEntry  `json:"entries"` // List of ACL entries
+	Name    string                    `json:"name"`    // ACL name (identifier)
+	Entries []AccessListExtendedEntry `json:"entries"` // List of ACL entries
 }
 
 // AccessListExtendedEntry represents a single entry in an IPv4 extended access list
 type AccessListExtendedEntry struct {
-	Sequence              int    `json:"sequence"`                         // Sequence number (determines order)
-	AceRuleAction         string `json:"ace_rule_action"`                  // permit or deny
-	AceRuleProtocol       string `json:"ace_rule_protocol"`                // Protocol: tcp, udp, icmp, ip, etc.
-	SourceAny             bool   `json:"source_any,omitempty"`             // Source is any
-	SourcePrefix          string `json:"source_prefix,omitempty"`          // Source IP address
-	SourcePrefixMask      string `json:"source_prefix_mask,omitempty"`     // Source wildcard mask
-	SourcePortEqual       string `json:"source_port_equal,omitempty"`      // Source port equals
-	SourcePortRange       string `json:"source_port_range,omitempty"`      // Source port range (e.g., "1024-65535")
-	DestinationAny        bool   `json:"destination_any,omitempty"`        // Destination is any
-	DestinationPrefix     string `json:"destination_prefix,omitempty"`     // Destination IP address
+	Sequence              int    `json:"sequence"`                          // Sequence number (determines order)
+	AceRuleAction         string `json:"ace_rule_action"`                   // permit or deny
+	AceRuleProtocol       string `json:"ace_rule_protocol"`                 // Protocol: tcp, udp, icmp, ip, etc.
+	SourceAny             bool   `json:"source_any,omitempty"`              // Source is any
+	SourcePrefix          string `json:"source_prefix,omitempty"`           // Source IP address
+	SourcePrefixMask      string `json:"source_prefix_mask,omitempty"`      // Source wildcard mask
+	SourcePortEqual       string `json:"source_port_equal,omitempty"`       // Source port equals
+	SourcePortRange       string `json:"source_port_range,omitempty"`       // Source port range (e.g., "1024-65535")
+	DestinationAny        bool   `json:"destination_any,omitempty"`         // Destination is any
+	DestinationPrefix     string `json:"destination_prefix,omitempty"`      // Destination IP address
 	DestinationPrefixMask string `json:"destination_prefix_mask,omitempty"` // Destination wildcard mask
-	DestinationPortEqual  string `json:"destination_port_equal,omitempty"` // Destination port equals
-	DestinationPortRange  string `json:"destination_port_range,omitempty"` // Destination port range
-	Established           bool   `json:"established,omitempty"`            // Match established TCP connections
-	Log                   bool   `json:"log,omitempty"`                    // Enable logging
+	DestinationPortEqual  string `json:"destination_port_equal,omitempty"`  // Destination port equals
+	DestinationPortRange  string `json:"destination_port_range,omitempty"`  // Destination port range
+	Established           bool   `json:"established,omitempty"`             // Match established TCP connections
+	Log                   bool   `json:"log,omitempty"`                     // Enable logging
 }
 
 // AccessListExtendedIPv6 represents an IPv6 extended access list
 type AccessListExtendedIPv6 struct {
-	Name    string                         `json:"name"`    // ACL name (identifier)
-	Entries []AccessListExtendedIPv6Entry  `json:"entries"` // List of ACL entries
+	Name    string                        `json:"name"`    // ACL name (identifier)
+	Entries []AccessListExtendedIPv6Entry `json:"entries"` // List of ACL entries
 }
 
 // AccessListExtendedIPv6Entry represents a single entry in an IPv6 extended access list
 type AccessListExtendedIPv6Entry struct {
-	Sequence              int    `json:"sequence"`                         // Sequence number (determines order)
-	AceRuleAction         string `json:"ace_rule_action"`                  // permit or deny
-	AceRuleProtocol       string `json:"ace_rule_protocol"`                // Protocol: tcp, udp, icmpv6, ipv6, etc.
-	SourceAny             bool   `json:"source_any,omitempty"`             // Source is any
-	SourcePrefix          string `json:"source_prefix,omitempty"`          // Source IPv6 address/prefix
-	SourcePrefixLength    int    `json:"source_prefix_length,omitempty"`   // Source prefix length
-	SourcePortEqual       string `json:"source_port_equal,omitempty"`      // Source port equals
-	SourcePortRange       string `json:"source_port_range,omitempty"`      // Source port range
-	DestinationAny        bool   `json:"destination_any,omitempty"`        // Destination is any
-	DestinationPrefix     string `json:"destination_prefix,omitempty"`     // Destination IPv6 address/prefix
-	DestinationPrefixLength int  `json:"destination_prefix_length,omitempty"` // Destination prefix length
-	DestinationPortEqual  string `json:"destination_port_equal,omitempty"` // Destination port equals
-	DestinationPortRange  string `json:"destination_port_range,omitempty"` // Destination port range
-	Established           bool   `json:"established,omitempty"`            // Match established TCP connections
-	Log                   bool   `json:"log,omitempty"`                    // Enable logging
+	Sequence                int    `json:"sequence"`                            // Sequence number (determines order)
+	AceRuleAction           string `json:"ace_rule_action"`                     // permit or deny
+	AceRuleProtocol         string `json:"ace_rule_protocol"`                   // Protocol: tcp, udp, icmpv6, ipv6, etc.
+	SourceAny               bool   `json:"source_any,omitempty"`                // Source is any
+	SourcePrefix            string `json:"source_prefix,omitempty"`             // Source IPv6 address/prefix
+	SourcePrefixLength      int    `json:"source_prefix_length,omitempty"`      // Source prefix length
+	SourcePortEqual         string `json:"source_port_equal,omitempty"`         // Source port equals
+	SourcePortRange         string `json:"source_port_range,omitempty"`         // Source port range
+	DestinationAny          bool   `json:"destination_any,omitempty"`           // Destination is any
+	DestinationPrefix       string `json:"destination_prefix,omitempty"`        // Destination IPv6 address/prefix
+	DestinationPrefixLength int    `json:"destination_prefix_length,omitempty"` // Destination prefix length
+	DestinationPortEqual    string `json:"destination_port_equal,omitempty"`    // Destination port equals
+	DestinationPortRange    string `json:"destination_port_range,omitempty"`    // Destination port range
+	Established             bool   `json:"established,omitempty"`               // Match established TCP connections
+	Log                     bool   `json:"log,omitempty"`                       // Enable logging
 }
 
 // IPFilterDynamicConfig represents a collection of dynamic IP filters (stateful inspection)
@@ -1469,52 +1469,66 @@ type IPv6FilterDynamicConfig struct {
 
 // IPv6FilterDynamicEntry represents a single IPv6 dynamic filter entry
 type IPv6FilterDynamicEntry struct {
-	Number   int    `json:"number"`            // Filter number (unique identifier)
-	Source   string `json:"source"`            // Source address or "*"
-	Dest     string `json:"dest"`              // Destination address or "*"
-	Protocol string `json:"protocol"`          // Protocol (ftp, www, smtp, etc.)
-	Syslog   bool   `json:"syslog,omitempty"`  // Enable syslog for this filter
+	Number   int    `json:"number"`           // Filter number (unique identifier)
+	Source   string `json:"source"`           // Source address or "*"
+	Dest     string `json:"dest"`             // Destination address or "*"
+	Protocol string `json:"protocol"`         // Protocol (ftp, www, smtp, etc.)
+	Syslog   bool   `json:"syslog,omitempty"` // Enable syslog for this filter
 }
 
 // InterfaceACL represents ACL bindings to an interface
 type InterfaceACL struct {
-	Interface            string `json:"interface"`                        // Interface name (lan1, pp1, etc.)
-	IPAccessGroupIn      string `json:"ip_access_group_in,omitempty"`     // Inbound IPv4 ACL name
-	IPAccessGroupOut     string `json:"ip_access_group_out,omitempty"`    // Outbound IPv4 ACL name
-	IPv6AccessGroupIn    string `json:"ipv6_access_group_in,omitempty"`   // Inbound IPv6 ACL name
-	IPv6AccessGroupOut   string `json:"ipv6_access_group_out,omitempty"`  // Outbound IPv6 ACL name
-	DynamicFiltersIn     []int  `json:"dynamic_filters_in,omitempty"`     // Inbound dynamic filter numbers
-	DynamicFiltersOut    []int  `json:"dynamic_filters_out,omitempty"`    // Outbound dynamic filter numbers
-	IPv6DynamicFiltersIn []int  `json:"ipv6_dynamic_filters_in,omitempty"` // Inbound IPv6 dynamic filter numbers
-	IPv6DynamicFiltersOut []int `json:"ipv6_dynamic_filters_out,omitempty"` // Outbound IPv6 dynamic filter numbers
+	Interface             string `json:"interface"`                          // Interface name (lan1, pp1, etc.)
+	IPAccessGroupIn       string `json:"ip_access_group_in,omitempty"`       // Inbound IPv4 ACL name
+	IPAccessGroupOut      string `json:"ip_access_group_out,omitempty"`      // Outbound IPv4 ACL name
+	IPv6AccessGroupIn     string `json:"ipv6_access_group_in,omitempty"`     // Inbound IPv6 ACL name
+	IPv6AccessGroupOut    string `json:"ipv6_access_group_out,omitempty"`    // Outbound IPv6 ACL name
+	DynamicFiltersIn      []int  `json:"dynamic_filters_in,omitempty"`       // Inbound dynamic filter numbers
+	DynamicFiltersOut     []int  `json:"dynamic_filters_out,omitempty"`      // Outbound dynamic filter numbers
+	IPv6DynamicFiltersIn  []int  `json:"ipv6_dynamic_filters_in,omitempty"`  // Inbound IPv6 dynamic filter numbers
+	IPv6DynamicFiltersOut []int  `json:"ipv6_dynamic_filters_out,omitempty"` // Outbound IPv6 dynamic filter numbers
 }
 
 // AccessListMAC represents a MAC address access list
 type AccessListMAC struct {
-	Name    string              `json:"name"`    // ACL name (identifier)
-	Entries []AccessListMACEntry `json:"entries"` // List of MAC ACL entries
+	Name     string               `json:"name"`                // ACL name (identifier)
+	FilterID int                  `json:"filter_id,omitempty"` // Optional RTX filter number mode (enables numeric filters)
+	Entries  []AccessListMACEntry `json:"entries"`             // List of MAC ACL entries
+	Apply    *MACApply            `json:"apply,omitempty"`     // Optional apply settings for interface/direction
 }
 
 // AccessListMACEntry represents a single entry in a MAC access list
 type AccessListMACEntry struct {
-	Sequence           int    `json:"sequence"`                      // Sequence number (determines order)
-	AceAction          string `json:"ace_action"`                    // permit or deny
-	SourceAny          bool   `json:"source_any,omitempty"`          // Source is any
-	SourceAddress      string `json:"source_address,omitempty"`      // Source MAC address
-	SourceAddressMask  string `json:"source_address_mask,omitempty"` // Source MAC wildcard mask
-	DestinationAny     bool   `json:"destination_any,omitempty"`     // Destination is any
-	DestinationAddress string `json:"destination_address,omitempty"` // Destination MAC address
-	DestinationAddressMask string `json:"destination_address_mask,omitempty"` // Destination MAC wildcard mask
-	EtherType          string `json:"ether_type,omitempty"`          // Ethernet type (0x0800, 0x0806, etc.)
-	VlanID             int    `json:"vlan_id,omitempty"`             // VLAN ID
-	Log                bool   `json:"log,omitempty"`                 // Enable logging
+	Sequence               int      `json:"sequence"`                           // Sequence number (order / default filter number)
+	AceAction              string   `json:"ace_action"`                         // permit/deny or RTX action (pass-log, etc.)
+	SourceAny              bool     `json:"source_any,omitempty"`               // Source is any
+	SourceAddress          string   `json:"source_address,omitempty"`           // Source MAC address
+	SourceAddressMask      string   `json:"source_address_mask,omitempty"`      // Source MAC wildcard mask
+	DestinationAny         bool     `json:"destination_any,omitempty"`          // Destination is any
+	DestinationAddress     string   `json:"destination_address,omitempty"`      // Destination MAC address
+	DestinationAddressMask string   `json:"destination_address_mask,omitempty"` // Destination MAC wildcard mask
+	EtherType              string   `json:"ether_type,omitempty"`               // Ethernet type (0x0800, 0x0806, etc.)
+	VlanID                 int      `json:"vlan_id,omitempty"`                  // VLAN ID
+	Log                    bool     `json:"log,omitempty"`                      // Enable logging (legacy)
+	FilterID               int      `json:"filter_id,omitempty"`                // Explicit RTX filter number override
+	DHCPType               string   `json:"dhcp_type,omitempty"`                // dhcp-bind / dhcp-not-bind
+	DHCPScope              int      `json:"dhcp_scope,omitempty"`               // DHCP scope number
+	Offset                 int      `json:"offset,omitempty"`                   // Offset for byte match
+	ByteList               []string `json:"byte_list,omitempty"`                // Byte list for offset match
 }
 
 // InterfaceMACACL represents MAC ACL bindings to an interface
 type InterfaceMACACL struct {
-	Interface         string `json:"interface"`                     // Interface name (lan1, lan2, etc.)
-	MACAccessGroupIn  string `json:"mac_access_group_in,omitempty"` // Inbound MAC ACL name
+	Interface         string `json:"interface"`                      // Interface name (lan1, lan2, etc.)
+	MACAccessGroupIn  string `json:"mac_access_group_in,omitempty"`  // Inbound MAC ACL name
 	MACAccessGroupOut string `json:"mac_access_group_out,omitempty"` // Outbound MAC ACL name
+}
+
+// MACApply represents interface application for ethernet filters
+type MACApply struct {
+	Interface string `json:"interface"`
+	Direction string `json:"direction"` // in/out
+	FilterIDs []int  `json:"filter_ids"`
 }
 
 // IPsecTransportConfig represents an IPsec transport mode configuration on an RTX router
@@ -1531,13 +1545,13 @@ type IPsecTransportConfig struct {
 
 // NetVolanteConfig represents NetVolante DNS configuration (Yamaha's free DDNS service)
 type NetVolanteConfig struct {
-	Hostname     string `json:"hostname"`               // NetVolante DNS hostname (*.netvolante.jp)
-	Interface    string `json:"interface"`              // Interface for DDNS (pp 1, lan1, etc.)
-	Server       int    `json:"server,omitempty"`       // Server number (1 or 2)
-	Timeout      int    `json:"timeout,omitempty"`      // Update timeout in seconds
-	IPv6         bool   `json:"ipv6,omitempty"`         // Enable IPv6 address registration
+	Hostname     string `json:"hostname"`                // NetVolante DNS hostname (*.netvolante.jp)
+	Interface    string `json:"interface"`               // Interface for DDNS (pp 1, lan1, etc.)
+	Server       int    `json:"server,omitempty"`        // Server number (1 or 2)
+	Timeout      int    `json:"timeout,omitempty"`       // Update timeout in seconds
+	IPv6         bool   `json:"ipv6,omitempty"`          // Enable IPv6 address registration
 	AutoHostname bool   `json:"auto_hostname,omitempty"` // Enable automatic hostname generation
-	Use          bool   `json:"use,omitempty"`          // Enable NetVolante DNS for interface
+	Use          bool   `json:"use,omitempty"`           // Enable NetVolante DNS for interface
 }
 
 // DDNSServerConfig represents custom DDNS provider configuration
@@ -1567,16 +1581,16 @@ type DDNSStatus struct {
 
 // PPPoEConfig represents PPPoE connection configuration on an RTX router
 type PPPoEConfig struct {
-	Number            int         `json:"number"`                      // PP interface number (1-based)
-	Name              string      `json:"name,omitempty"`              // Connection name/description
-	Interface         string      `json:"interface,omitempty"`         // PP interface name (e.g., "pp 1")
-	BindInterface     string      `json:"bind_interface"`              // Physical interface to bind (lan2, etc.)
-	ServiceName       string      `json:"service_name,omitempty"`      // PPPoE service name
-	ACName            string      `json:"ac_name,omitempty"`           // PPPoE AC (Access Concentrator) name
-	Authentication    *PPPAuth    `json:"authentication,omitempty"`    // PPP authentication settings
-	AlwaysOn          bool        `json:"always_on,omitempty"`         // Keep connection always active
-	IPConfig          *PPIPConfig `json:"ip_config,omitempty"`         // IP configuration for PP interface
-	Enabled           bool        `json:"enabled"`                     // PP interface enabled
+	Number            int         `json:"number"`                       // PP interface number (1-based)
+	Name              string      `json:"name,omitempty"`               // Connection name/description
+	Interface         string      `json:"interface,omitempty"`          // PP interface name (e.g., "pp 1")
+	BindInterface     string      `json:"bind_interface"`               // Physical interface to bind (lan2, etc.)
+	ServiceName       string      `json:"service_name,omitempty"`       // PPPoE service name
+	ACName            string      `json:"ac_name,omitempty"`            // PPPoE AC (Access Concentrator) name
+	Authentication    *PPPAuth    `json:"authentication,omitempty"`     // PPP authentication settings
+	AlwaysOn          bool        `json:"always_on,omitempty"`          // Keep connection always active
+	IPConfig          *PPIPConfig `json:"ip_config,omitempty"`          // IP configuration for PP interface
+	Enabled           bool        `json:"enabled"`                      // PP interface enabled
 	DisconnectTimeout int         `json:"disconnect_timeout,omitempty"` // Idle disconnect timeout in seconds
 }
 
@@ -1599,8 +1613,8 @@ type PPIPConfig struct {
 
 // PPConnectionStatus represents PPPoE connection status
 type PPConnectionStatus struct {
-	PPNumber  int    `json:"pp_number"`           // PP interface number
-	Connected bool   `json:"connected"`           // Connection established
-	State     string `json:"state,omitempty"`     // State: "connected", "disconnected", "unknown"
+	PPNumber  int    `json:"pp_number"`            // PP interface number
+	Connected bool   `json:"connected"`            // Connection established
+	State     string `json:"state,omitempty"`      // State: "connected", "disconnected", "unknown"
 	RawStatus string `json:"raw_status,omitempty"` // Raw status output from router
 }

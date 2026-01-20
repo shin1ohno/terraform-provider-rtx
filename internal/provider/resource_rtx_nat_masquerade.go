@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strconv"
 	"strings"
 
@@ -106,7 +106,7 @@ func resourceRTXNATMasqueradeCreate(ctx context.Context, d *schema.ResourceData,
 
 	nat := buildNATMasqueradeFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating NAT Masquerade: %+v", nat)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_nat_masquerade").Msgf("Creating NAT Masquerade: %+v", nat)
 
 	err := apiClient.client.CreateNATMasquerade(ctx, nat)
 	if err != nil {
@@ -129,13 +129,13 @@ func resourceRTXNATMasqueradeRead(ctx context.Context, d *schema.ResourceData, m
 		return diag.Errorf("Invalid resource ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Reading NAT Masquerade: %d", descriptorID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_nat_masquerade").Msgf("Reading NAT Masquerade: %d", descriptorID)
 
 	nat, err := apiClient.client.GetNATMasquerade(ctx, descriptorID)
 	if err != nil {
 		// Check if NAT masquerade doesn't exist
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[DEBUG] NAT Masquerade %d not found, removing from state", descriptorID)
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_nat_masquerade").Msgf("NAT Masquerade %d not found, removing from state", descriptorID)
 			d.SetId("")
 			return nil
 		}
@@ -167,7 +167,7 @@ func resourceRTXNATMasqueradeUpdate(ctx context.Context, d *schema.ResourceData,
 
 	nat := buildNATMasqueradeFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating NAT Masquerade: %+v", nat)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_nat_masquerade").Msgf("Updating NAT Masquerade: %+v", nat)
 
 	err := apiClient.client.UpdateNATMasquerade(ctx, nat)
 	if err != nil {
@@ -186,7 +186,7 @@ func resourceRTXNATMasqueradeDelete(ctx context.Context, d *schema.ResourceData,
 		return diag.Errorf("Invalid resource ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Deleting NAT Masquerade: %d", descriptorID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_nat_masquerade").Msgf("Deleting NAT Masquerade: %d", descriptorID)
 
 	err = apiClient.client.DeleteNATMasquerade(ctx, descriptorID)
 	if err != nil {
@@ -210,7 +210,7 @@ func resourceRTXNATMasqueradeImport(ctx context.Context, d *schema.ResourceData,
 		return nil, fmt.Errorf("invalid import ID format, expected descriptor_id (e.g., '1'): %v", err)
 	}
 
-	log.Printf("[DEBUG] Importing NAT Masquerade: %d", descriptorID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_nat_masquerade").Msgf("Importing NAT Masquerade: %d", descriptorID)
 
 	// Verify NAT masquerade exists
 	nat, err := apiClient.client.GetNATMasquerade(ctx, descriptorID)

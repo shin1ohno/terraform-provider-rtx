@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
@@ -48,7 +48,7 @@ func (s *IPv6InterfaceService) Configure(ctx context.Context, config IPv6Interfa
 			InterfaceID: addr.InterfaceID,
 		})
 		if addrCmd != "" {
-			log.Printf("[DEBUG] Setting IPv6 address with command: %s", addrCmd)
+			logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Setting IPv6 address with command: %s", addrCmd)
 			output, err := s.executor.Run(ctx, addrCmd)
 			if err != nil {
 				return fmt.Errorf("failed to set IPv6 address: %w", err)
@@ -68,7 +68,7 @@ func (s *IPv6InterfaceService) Configure(ctx context.Context, config IPv6Interfa
 			MFlag:    config.RTADV.MFlag,
 			Lifetime: config.RTADV.Lifetime,
 		})
-		log.Printf("[DEBUG] Setting RTADV with command: %s", rtadvCmd)
+		logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Setting RTADV with command: %s", rtadvCmd)
 		output, err := s.executor.Run(ctx, rtadvCmd)
 		if err != nil {
 			return fmt.Errorf("failed to set RTADV: %w", err)
@@ -81,7 +81,7 @@ func (s *IPv6InterfaceService) Configure(ctx context.Context, config IPv6Interfa
 	// Configure DHCPv6 service
 	if config.DHCPv6Service != "" && config.DHCPv6Service != "off" {
 		dhcpCmd := parsers.BuildIPv6DHCPv6Command(config.Interface, config.DHCPv6Service)
-		log.Printf("[DEBUG] Setting DHCPv6 service with command: %s", dhcpCmd)
+		logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Setting DHCPv6 service with command: %s", dhcpCmd)
 		output, err := s.executor.Run(ctx, dhcpCmd)
 		if err != nil {
 			return fmt.Errorf("failed to set DHCPv6 service: %w", err)
@@ -94,7 +94,7 @@ func (s *IPv6InterfaceService) Configure(ctx context.Context, config IPv6Interfa
 	// Configure MTU
 	if config.MTU > 0 {
 		mtuCmd := parsers.BuildIPv6MTUCommand(config.Interface, config.MTU)
-		log.Printf("[DEBUG] Setting IPv6 MTU with command: %s", mtuCmd)
+		logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Setting IPv6 MTU with command: %s", mtuCmd)
 		output, err := s.executor.Run(ctx, mtuCmd)
 		if err != nil {
 			return fmt.Errorf("failed to set IPv6 MTU: %w", err)
@@ -107,7 +107,7 @@ func (s *IPv6InterfaceService) Configure(ctx context.Context, config IPv6Interfa
 	// Configure inbound security filter
 	if len(config.SecureFilterIn) > 0 {
 		filterCmd := parsers.BuildIPv6SecureFilterInCommand(config.Interface, config.SecureFilterIn)
-		log.Printf("[DEBUG] Setting IPv6 inbound filter with command: %s", filterCmd)
+		logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Setting IPv6 inbound filter with command: %s", filterCmd)
 		output, err := s.executor.Run(ctx, filterCmd)
 		if err != nil {
 			return fmt.Errorf("failed to set IPv6 inbound filter: %w", err)
@@ -120,7 +120,7 @@ func (s *IPv6InterfaceService) Configure(ctx context.Context, config IPv6Interfa
 	// Configure outbound security filter (with optional dynamic filters)
 	if len(config.SecureFilterOut) > 0 {
 		filterCmd := parsers.BuildIPv6SecureFilterOutCommand(config.Interface, config.SecureFilterOut, config.DynamicFilterOut)
-		log.Printf("[DEBUG] Setting IPv6 outbound filter with command: %s", filterCmd)
+		logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Setting IPv6 outbound filter with command: %s", filterCmd)
 		output, err := s.executor.Run(ctx, filterCmd)
 		if err != nil {
 			return fmt.Errorf("failed to set IPv6 outbound filter: %w", err)
@@ -148,14 +148,14 @@ func (s *IPv6InterfaceService) Get(ctx context.Context, interfaceName string) (*
 	}
 
 	cmd := parsers.BuildShowIPv6InterfaceConfigCommand(interfaceName)
-	log.Printf("[DEBUG] Getting IPv6 interface config with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Getting IPv6 interface config with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get IPv6 interface configuration: %w", err)
 	}
 
-	log.Printf("[DEBUG] IPv6 interface config raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("IPv6 interface config raw output: %q", string(output))
 
 	parserConfig, err := parsers.ParseIPv6InterfaceConfig(string(output), interfaceName)
 	if err != nil {
@@ -204,7 +204,7 @@ func (s *IPv6InterfaceService) Update(ctx context.Context, config IPv6InterfaceC
 				InterfaceID: oldAddr.InterfaceID,
 			}
 			deleteCmd := parsers.BuildDeleteIPv6AddressCommand(config.Interface, parserAddr)
-			log.Printf("[DEBUG] Removing old IPv6 address with command: %s", deleteCmd)
+			logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Removing old IPv6 address with command: %s", deleteCmd)
 			_, _ = s.executor.Run(ctx, deleteCmd)
 		}
 		// Add new addresses
@@ -215,7 +215,7 @@ func (s *IPv6InterfaceService) Update(ctx context.Context, config IPv6InterfaceC
 				InterfaceID: addr.InterfaceID,
 			})
 			if addrCmd != "" {
-				log.Printf("[DEBUG] Setting IPv6 address with command: %s", addrCmd)
+				logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Setting IPv6 address with command: %s", addrCmd)
 				output, err := s.executor.Run(ctx, addrCmd)
 				if err != nil {
 					return fmt.Errorf("failed to set IPv6 address: %w", err)
@@ -232,7 +232,7 @@ func (s *IPv6InterfaceService) Update(ctx context.Context, config IPv6InterfaceC
 		// Remove old RTADV if it was configured
 		if currentConfig.RTADV != nil && currentConfig.RTADV.Enabled {
 			deleteCmd := parsers.BuildDeleteIPv6RTADVCommand(config.Interface)
-			log.Printf("[DEBUG] Removing old RTADV with command: %s", deleteCmd)
+			logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Removing old RTADV with command: %s", deleteCmd)
 			_, _ = s.executor.Run(ctx, deleteCmd)
 		}
 		// Set new RTADV
@@ -244,7 +244,7 @@ func (s *IPv6InterfaceService) Update(ctx context.Context, config IPv6InterfaceC
 				MFlag:    config.RTADV.MFlag,
 				Lifetime: config.RTADV.Lifetime,
 			})
-			log.Printf("[DEBUG] Setting RTADV with command: %s", rtadvCmd)
+			logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Setting RTADV with command: %s", rtadvCmd)
 			output, err := s.executor.Run(ctx, rtadvCmd)
 			if err != nil {
 				return fmt.Errorf("failed to set RTADV: %w", err)
@@ -260,13 +260,13 @@ func (s *IPv6InterfaceService) Update(ctx context.Context, config IPv6InterfaceC
 		// Remove old DHCPv6 service
 		if currentConfig.DHCPv6Service != "" {
 			deleteCmd := parsers.BuildDeleteIPv6DHCPv6Command(config.Interface)
-			log.Printf("[DEBUG] Removing old DHCPv6 service with command: %s", deleteCmd)
+			logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Removing old DHCPv6 service with command: %s", deleteCmd)
 			_, _ = s.executor.Run(ctx, deleteCmd)
 		}
 		// Set new DHCPv6 service
 		if config.DHCPv6Service != "" && config.DHCPv6Service != "off" {
 			dhcpCmd := parsers.BuildIPv6DHCPv6Command(config.Interface, config.DHCPv6Service)
-			log.Printf("[DEBUG] Setting DHCPv6 service with command: %s", dhcpCmd)
+			logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Setting DHCPv6 service with command: %s", dhcpCmd)
 			output, err := s.executor.Run(ctx, dhcpCmd)
 			if err != nil {
 				return fmt.Errorf("failed to set DHCPv6 service: %w", err)
@@ -281,12 +281,12 @@ func (s *IPv6InterfaceService) Update(ctx context.Context, config IPv6InterfaceC
 	if currentConfig.MTU != config.MTU {
 		if currentConfig.MTU > 0 {
 			deleteCmd := parsers.BuildDeleteIPv6MTUCommand(config.Interface)
-			log.Printf("[DEBUG] Removing old IPv6 MTU with command: %s", deleteCmd)
+			logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Removing old IPv6 MTU with command: %s", deleteCmd)
 			_, _ = s.executor.Run(ctx, deleteCmd)
 		}
 		if config.MTU > 0 {
 			mtuCmd := parsers.BuildIPv6MTUCommand(config.Interface, config.MTU)
-			log.Printf("[DEBUG] Setting IPv6 MTU with command: %s", mtuCmd)
+			logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Setting IPv6 MTU with command: %s", mtuCmd)
 			output, err := s.executor.Run(ctx, mtuCmd)
 			if err != nil {
 				return fmt.Errorf("failed to set IPv6 MTU: %w", err)
@@ -301,12 +301,12 @@ func (s *IPv6InterfaceService) Update(ctx context.Context, config IPv6InterfaceC
 	if !intSliceEqual(currentConfig.SecureFilterIn, config.SecureFilterIn) {
 		if len(currentConfig.SecureFilterIn) > 0 {
 			deleteCmd := parsers.BuildDeleteIPv6SecureFilterCommand(config.Interface, "in")
-			log.Printf("[DEBUG] Removing old IPv6 inbound filter with command: %s", deleteCmd)
+			logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Removing old IPv6 inbound filter with command: %s", deleteCmd)
 			_, _ = s.executor.Run(ctx, deleteCmd)
 		}
 		if len(config.SecureFilterIn) > 0 {
 			filterCmd := parsers.BuildIPv6SecureFilterInCommand(config.Interface, config.SecureFilterIn)
-			log.Printf("[DEBUG] Setting IPv6 inbound filter with command: %s", filterCmd)
+			logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Setting IPv6 inbound filter with command: %s", filterCmd)
 			output, err := s.executor.Run(ctx, filterCmd)
 			if err != nil {
 				return fmt.Errorf("failed to set IPv6 inbound filter: %w", err)
@@ -322,12 +322,12 @@ func (s *IPv6InterfaceService) Update(ctx context.Context, config IPv6InterfaceC
 		!intSliceEqual(currentConfig.DynamicFilterOut, config.DynamicFilterOut) {
 		if len(currentConfig.SecureFilterOut) > 0 {
 			deleteCmd := parsers.BuildDeleteIPv6SecureFilterCommand(config.Interface, "out")
-			log.Printf("[DEBUG] Removing old IPv6 outbound filter with command: %s", deleteCmd)
+			logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Removing old IPv6 outbound filter with command: %s", deleteCmd)
 			_, _ = s.executor.Run(ctx, deleteCmd)
 		}
 		if len(config.SecureFilterOut) > 0 {
 			filterCmd := parsers.BuildIPv6SecureFilterOutCommand(config.Interface, config.SecureFilterOut, config.DynamicFilterOut)
-			log.Printf("[DEBUG] Setting IPv6 outbound filter with command: %s", filterCmd)
+			logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Setting IPv6 outbound filter with command: %s", filterCmd)
 			output, err := s.executor.Run(ctx, filterCmd)
 			if err != nil {
 				return fmt.Errorf("failed to set IPv6 outbound filter: %w", err)
@@ -365,7 +365,7 @@ func (s *IPv6InterfaceService) Reset(ctx context.Context, interfaceName string) 
 	// Execute all delete commands
 	commands := parsers.BuildDeleteIPv6InterfaceCommands(interfaceName)
 	for _, cmd := range commands {
-		log.Printf("[DEBUG] Resetting IPv6 interface with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Resetting IPv6 interface with command: %s", cmd)
 		_, _ = s.executor.Run(ctx, cmd)
 	}
 

@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -106,7 +106,7 @@ func resourceRTXSNMPServerCreate(ctx context.Context, d *schema.ResourceData, me
 
 	config := buildSNMPConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating SNMP configuration: %+v", config)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_snmp_server").Msgf("Creating SNMP configuration: %+v", config)
 
 	err := apiClient.client.CreateSNMP(ctx, config)
 	if err != nil {
@@ -123,7 +123,7 @@ func resourceRTXSNMPServerCreate(ctx context.Context, d *schema.ResourceData, me
 func resourceRTXSNMPServerRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
-	log.Printf("[DEBUG] Reading SNMP configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_snmp_server").Msg("Reading SNMP configuration")
 
 	config, err := apiClient.client.GetSNMP(ctx)
 	if err != nil {
@@ -180,7 +180,7 @@ func resourceRTXSNMPServerUpdate(ctx context.Context, d *schema.ResourceData, me
 
 	config := buildSNMPConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating SNMP configuration: %+v", config)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_snmp_server").Msgf("Updating SNMP configuration: %+v", config)
 
 	err := apiClient.client.UpdateSNMP(ctx, config)
 	if err != nil {
@@ -193,7 +193,7 @@ func resourceRTXSNMPServerUpdate(ctx context.Context, d *schema.ResourceData, me
 func resourceRTXSNMPServerDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
-	log.Printf("[DEBUG] Deleting SNMP configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_snmp_server").Msg("Deleting SNMP configuration")
 
 	err := apiClient.client.DeleteSNMP(ctx)
 	if err != nil {
@@ -212,7 +212,7 @@ func resourceRTXSNMPServerImport(ctx context.Context, d *schema.ResourceData, me
 		return nil, fmt.Errorf("invalid import ID format, expected 'snmp' for singleton resource, got: %s", importID)
 	}
 
-	log.Printf("[DEBUG] Importing SNMP configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_snmp_server").Msg("Importing SNMP configuration")
 
 	// Verify configuration exists and retrieve it
 	config, err := apiClient.client.GetSNMP(ctx)

@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strconv"
 	"strings"
 
@@ -78,7 +78,7 @@ func resourceRTXAccessListIPv6Create(ctx context.Context, d *schema.ResourceData
 
 	filter := buildIPv6FilterFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating IPv6 filter: %+v", filter)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ipv6").Msgf("Creating IPv6 filter: %+v", filter)
 
 	err := apiClient.client.CreateIPv6Filter(ctx, filter)
 	if err != nil {
@@ -99,12 +99,12 @@ func resourceRTXAccessListIPv6Read(ctx context.Context, d *schema.ResourceData, 
 		return diag.Errorf("Invalid filter ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Reading IPv6 filter: %d", filterID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ipv6").Msgf("Reading IPv6 filter: %d", filterID)
 
 	filter, err := apiClient.client.GetIPv6Filter(ctx, filterID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[DEBUG] IPv6 filter %d not found, removing from state", filterID)
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ipv6").Msgf("IPv6 filter %d not found, removing from state", filterID)
 			d.SetId("")
 			return nil
 		}
@@ -146,7 +146,7 @@ func resourceRTXAccessListIPv6Update(ctx context.Context, d *schema.ResourceData
 
 	filter := buildIPv6FilterFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating IPv6 filter: %+v", filter)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ipv6").Msgf("Updating IPv6 filter: %+v", filter)
 
 	err := apiClient.client.UpdateIPv6Filter(ctx, filter)
 	if err != nil {
@@ -164,7 +164,7 @@ func resourceRTXAccessListIPv6Delete(ctx context.Context, d *schema.ResourceData
 		return diag.Errorf("Invalid filter ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Deleting IPv6 filter: %d", filterID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ipv6").Msgf("Deleting IPv6 filter: %d", filterID)
 
 	err = apiClient.client.DeleteIPv6Filter(ctx, filterID)
 	if err != nil {
@@ -186,7 +186,7 @@ func resourceRTXAccessListIPv6Import(ctx context.Context, d *schema.ResourceData
 
 	apiClient := meta.(*apiClient)
 
-	log.Printf("[DEBUG] Importing IPv6 filter: %d", filterID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ipv6").Msgf("Importing IPv6 filter: %d", filterID)
 
 	filter, err := apiClient.client.GetIPv6Filter(ctx, filterID)
 	if err != nil {

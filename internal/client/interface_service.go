@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
@@ -47,7 +47,7 @@ func (s *InterfaceService) Configure(ctx context.Context, config InterfaceConfig
 			DHCP:    config.IPAddress.DHCP,
 		})
 		if ipCmd != "" {
-			log.Printf("[DEBUG] Setting IP address with command: %s", ipCmd)
+			logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Setting IP address with command: %s", ipCmd)
 			output, err := s.executor.Run(ctx, ipCmd)
 			if err != nil {
 				return fmt.Errorf("failed to set IP address: %w", err)
@@ -61,7 +61,7 @@ func (s *InterfaceService) Configure(ctx context.Context, config InterfaceConfig
 	// Configure description
 	if config.Description != "" {
 		descCmd := parsers.BuildDescriptionCommand(config.Name, config.Description)
-		log.Printf("[DEBUG] Setting description with command: %s", descCmd)
+		logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Setting description with command: %s", descCmd)
 		output, err := s.executor.Run(ctx, descCmd)
 		if err != nil {
 			return fmt.Errorf("failed to set description: %w", err)
@@ -74,7 +74,7 @@ func (s *InterfaceService) Configure(ctx context.Context, config InterfaceConfig
 	// Configure inbound security filter
 	if len(config.SecureFilterIn) > 0 {
 		filterCmd := parsers.BuildSecureFilterInCommand(config.Name, config.SecureFilterIn)
-		log.Printf("[DEBUG] Setting inbound filter with command: %s", filterCmd)
+		logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Setting inbound filter with command: %s", filterCmd)
 		output, err := s.executor.Run(ctx, filterCmd)
 		if err != nil {
 			return fmt.Errorf("failed to set inbound filter: %w", err)
@@ -87,7 +87,7 @@ func (s *InterfaceService) Configure(ctx context.Context, config InterfaceConfig
 	// Configure outbound security filter (with optional dynamic filters)
 	if len(config.SecureFilterOut) > 0 {
 		filterCmd := parsers.BuildSecureFilterOutCommand(config.Name, config.SecureFilterOut, config.DynamicFilterOut)
-		log.Printf("[DEBUG] Setting outbound filter with command: %s", filterCmd)
+		logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Setting outbound filter with command: %s", filterCmd)
 		output, err := s.executor.Run(ctx, filterCmd)
 		if err != nil {
 			return fmt.Errorf("failed to set outbound filter: %w", err)
@@ -100,7 +100,7 @@ func (s *InterfaceService) Configure(ctx context.Context, config InterfaceConfig
 	// Configure NAT descriptor
 	if config.NATDescriptor > 0 {
 		natCmd := parsers.BuildNATDescriptorCommand(config.Name, config.NATDescriptor)
-		log.Printf("[DEBUG] Setting NAT descriptor with command: %s", natCmd)
+		logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Setting NAT descriptor with command: %s", natCmd)
 		output, err := s.executor.Run(ctx, natCmd)
 		if err != nil {
 			return fmt.Errorf("failed to set NAT descriptor: %w", err)
@@ -113,7 +113,7 @@ func (s *InterfaceService) Configure(ctx context.Context, config InterfaceConfig
 	// Configure ProxyARP
 	if config.ProxyARP {
 		proxyCmd := parsers.BuildProxyARPCommand(config.Name, true)
-		log.Printf("[DEBUG] Enabling ProxyARP with command: %s", proxyCmd)
+		logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Enabling ProxyARP with command: %s", proxyCmd)
 		output, err := s.executor.Run(ctx, proxyCmd)
 		if err != nil {
 			return fmt.Errorf("failed to enable ProxyARP: %w", err)
@@ -126,7 +126,7 @@ func (s *InterfaceService) Configure(ctx context.Context, config InterfaceConfig
 	// Configure MTU
 	if config.MTU > 0 {
 		mtuCmd := parsers.BuildMTUCommand(config.Name, config.MTU)
-		log.Printf("[DEBUG] Setting MTU with command: %s", mtuCmd)
+		logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Setting MTU with command: %s", mtuCmd)
 		output, err := s.executor.Run(ctx, mtuCmd)
 		if err != nil {
 			return fmt.Errorf("failed to set MTU: %w", err)
@@ -154,14 +154,14 @@ func (s *InterfaceService) Get(ctx context.Context, interfaceName string) (*Inte
 	}
 
 	cmd := parsers.BuildShowInterfaceConfigCommand(interfaceName)
-	log.Printf("[DEBUG] Getting interface config with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Getting interface config with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get interface configuration: %w", err)
 	}
 
-	log.Printf("[DEBUG] Interface config raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Interface config raw output: %q", string(output))
 
 	parserConfig, err := parsers.ParseInterfaceConfig(string(output), interfaceName)
 	if err != nil {
@@ -205,7 +205,7 @@ func (s *InterfaceService) Update(ctx context.Context, config InterfaceConfig) e
 		// Remove old IP configuration first
 		if currentConfig.IPAddress != nil {
 			deleteCmd := parsers.BuildDeleteIPAddressCommand(config.Name)
-			log.Printf("[DEBUG] Removing old IP address with command: %s", deleteCmd)
+			logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Removing old IP address with command: %s", deleteCmd)
 			_, _ = s.executor.Run(ctx, deleteCmd)
 		}
 
@@ -216,7 +216,7 @@ func (s *InterfaceService) Update(ctx context.Context, config InterfaceConfig) e
 				DHCP:    config.IPAddress.DHCP,
 			})
 			if ipCmd != "" {
-				log.Printf("[DEBUG] Setting IP address with command: %s", ipCmd)
+				logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Setting IP address with command: %s", ipCmd)
 				output, err := s.executor.Run(ctx, ipCmd)
 				if err != nil {
 					return fmt.Errorf("failed to set IP address: %w", err)
@@ -232,7 +232,7 @@ func (s *InterfaceService) Update(ctx context.Context, config InterfaceConfig) e
 	if currentConfig.Description != config.Description {
 		if config.Description != "" {
 			descCmd := parsers.BuildDescriptionCommand(config.Name, config.Description)
-			log.Printf("[DEBUG] Setting description with command: %s", descCmd)
+			logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Setting description with command: %s", descCmd)
 			output, err := s.executor.Run(ctx, descCmd)
 			if err != nil {
 				return fmt.Errorf("failed to set description: %w", err)
@@ -242,7 +242,7 @@ func (s *InterfaceService) Update(ctx context.Context, config InterfaceConfig) e
 			}
 		} else {
 			deleteCmd := parsers.BuildDeleteDescriptionCommand(config.Name)
-			log.Printf("[DEBUG] Removing description with command: %s", deleteCmd)
+			logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Removing description with command: %s", deleteCmd)
 			_, _ = s.executor.Run(ctx, deleteCmd)
 		}
 	}
@@ -252,13 +252,13 @@ func (s *InterfaceService) Update(ctx context.Context, config InterfaceConfig) e
 		// Remove old filter
 		if len(currentConfig.SecureFilterIn) > 0 {
 			deleteCmd := parsers.BuildDeleteSecureFilterCommand(config.Name, "in")
-			log.Printf("[DEBUG] Removing old inbound filter with command: %s", deleteCmd)
+			logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Removing old inbound filter with command: %s", deleteCmd)
 			_, _ = s.executor.Run(ctx, deleteCmd)
 		}
 		// Set new filter
 		if len(config.SecureFilterIn) > 0 {
 			filterCmd := parsers.BuildSecureFilterInCommand(config.Name, config.SecureFilterIn)
-			log.Printf("[DEBUG] Setting inbound filter with command: %s", filterCmd)
+			logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Setting inbound filter with command: %s", filterCmd)
 			output, err := s.executor.Run(ctx, filterCmd)
 			if err != nil {
 				return fmt.Errorf("failed to set inbound filter: %w", err)
@@ -275,13 +275,13 @@ func (s *InterfaceService) Update(ctx context.Context, config InterfaceConfig) e
 		// Remove old filter
 		if len(currentConfig.SecureFilterOut) > 0 {
 			deleteCmd := parsers.BuildDeleteSecureFilterCommand(config.Name, "out")
-			log.Printf("[DEBUG] Removing old outbound filter with command: %s", deleteCmd)
+			logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Removing old outbound filter with command: %s", deleteCmd)
 			_, _ = s.executor.Run(ctx, deleteCmd)
 		}
 		// Set new filter
 		if len(config.SecureFilterOut) > 0 {
 			filterCmd := parsers.BuildSecureFilterOutCommand(config.Name, config.SecureFilterOut, config.DynamicFilterOut)
-			log.Printf("[DEBUG] Setting outbound filter with command: %s", filterCmd)
+			logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Setting outbound filter with command: %s", filterCmd)
 			output, err := s.executor.Run(ctx, filterCmd)
 			if err != nil {
 				return fmt.Errorf("failed to set outbound filter: %w", err)
@@ -296,12 +296,12 @@ func (s *InterfaceService) Update(ctx context.Context, config InterfaceConfig) e
 	if currentConfig.NATDescriptor != config.NATDescriptor {
 		if currentConfig.NATDescriptor > 0 {
 			deleteCmd := parsers.BuildDeleteNATDescriptorCommand(config.Name)
-			log.Printf("[DEBUG] Removing old NAT descriptor with command: %s", deleteCmd)
+			logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Removing old NAT descriptor with command: %s", deleteCmd)
 			_, _ = s.executor.Run(ctx, deleteCmd)
 		}
 		if config.NATDescriptor > 0 {
 			natCmd := parsers.BuildNATDescriptorCommand(config.Name, config.NATDescriptor)
-			log.Printf("[DEBUG] Setting NAT descriptor with command: %s", natCmd)
+			logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Setting NAT descriptor with command: %s", natCmd)
 			output, err := s.executor.Run(ctx, natCmd)
 			if err != nil {
 				return fmt.Errorf("failed to set NAT descriptor: %w", err)
@@ -315,7 +315,7 @@ func (s *InterfaceService) Update(ctx context.Context, config InterfaceConfig) e
 	// Update ProxyARP if changed
 	if currentConfig.ProxyARP != config.ProxyARP {
 		proxyCmd := parsers.BuildProxyARPCommand(config.Name, config.ProxyARP)
-		log.Printf("[DEBUG] Setting ProxyARP with command: %s", proxyCmd)
+		logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Setting ProxyARP with command: %s", proxyCmd)
 		output, err := s.executor.Run(ctx, proxyCmd)
 		if err != nil {
 			return fmt.Errorf("failed to set ProxyARP: %w", err)
@@ -329,12 +329,12 @@ func (s *InterfaceService) Update(ctx context.Context, config InterfaceConfig) e
 	if currentConfig.MTU != config.MTU {
 		if currentConfig.MTU > 0 {
 			deleteCmd := parsers.BuildDeleteMTUCommand(config.Name)
-			log.Printf("[DEBUG] Removing old MTU with command: %s", deleteCmd)
+			logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Removing old MTU with command: %s", deleteCmd)
 			_, _ = s.executor.Run(ctx, deleteCmd)
 		}
 		if config.MTU > 0 {
 			mtuCmd := parsers.BuildMTUCommand(config.Name, config.MTU)
-			log.Printf("[DEBUG] Setting MTU with command: %s", mtuCmd)
+			logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Setting MTU with command: %s", mtuCmd)
 			output, err := s.executor.Run(ctx, mtuCmd)
 			if err != nil {
 				return fmt.Errorf("failed to set MTU: %w", err)
@@ -371,37 +371,37 @@ func (s *InterfaceService) Reset(ctx context.Context, interfaceName string) erro
 
 	// Remove IP address
 	ipCmd := parsers.BuildDeleteIPAddressCommand(interfaceName)
-	log.Printf("[DEBUG] Removing IP address with command: %s", ipCmd)
+	logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Removing IP address with command: %s", ipCmd)
 	_, _ = s.executor.Run(ctx, ipCmd)
 
 	// Remove description
 	descCmd := parsers.BuildDeleteDescriptionCommand(interfaceName)
-	log.Printf("[DEBUG] Removing description with command: %s", descCmd)
+	logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Removing description with command: %s", descCmd)
 	_, _ = s.executor.Run(ctx, descCmd)
 
 	// Remove inbound security filter
 	filterInCmd := parsers.BuildDeleteSecureFilterCommand(interfaceName, "in")
-	log.Printf("[DEBUG] Removing inbound filter with command: %s", filterInCmd)
+	logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Removing inbound filter with command: %s", filterInCmd)
 	_, _ = s.executor.Run(ctx, filterInCmd)
 
 	// Remove outbound security filter
 	filterOutCmd := parsers.BuildDeleteSecureFilterCommand(interfaceName, "out")
-	log.Printf("[DEBUG] Removing outbound filter with command: %s", filterOutCmd)
+	logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Removing outbound filter with command: %s", filterOutCmd)
 	_, _ = s.executor.Run(ctx, filterOutCmd)
 
 	// Remove NAT descriptor
 	natCmd := parsers.BuildDeleteNATDescriptorCommand(interfaceName)
-	log.Printf("[DEBUG] Removing NAT descriptor with command: %s", natCmd)
+	logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Removing NAT descriptor with command: %s", natCmd)
 	_, _ = s.executor.Run(ctx, natCmd)
 
 	// Disable ProxyARP
 	proxyCmd := parsers.BuildProxyARPCommand(interfaceName, false)
-	log.Printf("[DEBUG] Disabling ProxyARP with command: %s", proxyCmd)
+	logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Disabling ProxyARP with command: %s", proxyCmd)
 	_, _ = s.executor.Run(ctx, proxyCmd)
 
 	// Remove MTU
 	mtuCmd := parsers.BuildDeleteMTUCommand(interfaceName)
-	log.Printf("[DEBUG] Removing MTU with command: %s", mtuCmd)
+	logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Removing MTU with command: %s", mtuCmd)
 	_, _ = s.executor.Run(ctx, mtuCmd)
 
 	// Save configuration

@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
@@ -131,7 +131,7 @@ func (s *SNMPService) Create(ctx context.Context, config SNMPConfig) error {
 
 	// Execute all commands
 	for _, cmd := range commands {
-		log.Printf("[DEBUG] Executing SNMP command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "snmp").Msgf("Executing SNMP command: %s", cmd)
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
 			return fmt.Errorf("failed to execute SNMP command '%s': %w", cmd, err)
@@ -301,7 +301,7 @@ func (s *SNMPService) Update(ctx context.Context, config SNMPConfig) error {
 
 	// Execute all commands
 	for _, cmd := range commands {
-		log.Printf("[DEBUG] Executing SNMP command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "snmp").Msgf("Executing SNMP command: %s", cmd)
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
 			return fmt.Errorf("failed to execute SNMP command '%s': %w", cmd, err)
@@ -368,16 +368,16 @@ func (s *SNMPService) Delete(ctx context.Context) error {
 
 	// Execute all commands
 	for _, cmd := range commands {
-		log.Printf("[DEBUG] Executing SNMP delete command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "snmp").Msgf("Executing SNMP delete command: %s", cmd)
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
 			// Ignore errors for delete commands - resource may already be gone
-			log.Printf("[DEBUG] SNMP delete command '%s' failed (may already be deleted): %v", cmd, err)
+			logging.FromContext(ctx).Debug().Str("service", "snmp").Msgf("SNMP delete command '%s' failed (may already be deleted): %v", cmd, err)
 			continue
 		}
 		if containsError(string(output)) {
 			// Ignore errors for delete - may already be deleted
-			log.Printf("[DEBUG] SNMP delete command '%s' returned error (may already be deleted): %s", cmd, output)
+			logging.FromContext(ctx).Debug().Str("service", "snmp").Msgf("SNMP delete command '%s' returned error (may already be deleted): %s", cmd, output)
 		}
 	}
 

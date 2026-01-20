@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strconv"
 	"strings"
 
@@ -254,7 +254,7 @@ func resourceRTXL2TPCreate(ctx context.Context, d *schema.ResourceData, meta int
 
 	config := buildL2TPConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating L2TP tunnel: %+v", config)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_l2tp").Msgf("Creating L2TP tunnel: %+v", config)
 
 	err := apiClient.client.CreateL2TP(ctx, config)
 	if err != nil {
@@ -274,12 +274,12 @@ func resourceRTXL2TPRead(ctx context.Context, d *schema.ResourceData, meta inter
 		return diag.Errorf("Invalid tunnel ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Reading L2TP tunnel: %d", tunnelID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_l2tp").Msgf("Reading L2TP tunnel: %d", tunnelID)
 
 	config, err := apiClient.client.GetL2TP(ctx, tunnelID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[DEBUG] L2TP tunnel %d not found, removing from state", tunnelID)
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_l2tp").Msgf("L2TP tunnel %d not found, removing from state", tunnelID)
 			d.SetId("")
 			return nil
 		}
@@ -405,7 +405,7 @@ func resourceRTXL2TPUpdate(ctx context.Context, d *schema.ResourceData, meta int
 
 	config := buildL2TPConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating L2TP tunnel: %+v", config)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_l2tp").Msgf("Updating L2TP tunnel: %+v", config)
 
 	err := apiClient.client.UpdateL2TP(ctx, config)
 	if err != nil {
@@ -423,7 +423,7 @@ func resourceRTXL2TPDelete(ctx context.Context, d *schema.ResourceData, meta int
 		return diag.Errorf("Invalid tunnel ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Deleting L2TP tunnel: %d", tunnelID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_l2tp").Msgf("Deleting L2TP tunnel: %d", tunnelID)
 
 	err = apiClient.client.DeleteL2TP(ctx, tunnelID)
 	if err != nil {
@@ -444,7 +444,7 @@ func resourceRTXL2TPImport(ctx context.Context, d *schema.ResourceData, meta int
 		return nil, fmt.Errorf("invalid import ID, expected tunnel ID as integer: %v", err)
 	}
 
-	log.Printf("[DEBUG] Importing L2TP tunnel: %d", tunnelID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_l2tp").Msgf("Importing L2TP tunnel: %d", tunnelID)
 
 	config, err := apiClient.client.GetL2TP(ctx, tunnelID)
 	if err != nil {

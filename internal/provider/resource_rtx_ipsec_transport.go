@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strconv"
 	"strings"
 
@@ -60,7 +60,7 @@ func resourceRTXIPsecTransportCreate(ctx context.Context, d *schema.ResourceData
 
 	transport := buildIPsecTransportFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating IPsec transport: %+v", transport)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipsec_transport").Msgf("Creating IPsec transport: %+v", transport)
 
 	err := apiClient.client.CreateIPsecTransport(ctx, transport)
 	if err != nil {
@@ -80,12 +80,12 @@ func resourceRTXIPsecTransportRead(ctx context.Context, d *schema.ResourceData, 
 		return diag.Errorf("Invalid transport ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Reading IPsec transport: %d", transportID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipsec_transport").Msgf("Reading IPsec transport: %d", transportID)
 
 	transport, err := apiClient.client.GetIPsecTransport(ctx, transportID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[DEBUG] IPsec transport %d not found, removing from state", transportID)
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_ipsec_transport").Msgf("IPsec transport %d not found, removing from state", transportID)
 			d.SetId("")
 			return nil
 		}
@@ -114,7 +114,7 @@ func resourceRTXIPsecTransportUpdate(ctx context.Context, d *schema.ResourceData
 
 	transport := buildIPsecTransportFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating IPsec transport: %+v", transport)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipsec_transport").Msgf("Updating IPsec transport: %+v", transport)
 
 	err := apiClient.client.UpdateIPsecTransport(ctx, transport)
 	if err != nil {
@@ -132,7 +132,7 @@ func resourceRTXIPsecTransportDelete(ctx context.Context, d *schema.ResourceData
 		return diag.Errorf("Invalid transport ID: %v", err)
 	}
 
-	log.Printf("[DEBUG] Deleting IPsec transport: %d", transportID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipsec_transport").Msgf("Deleting IPsec transport: %d", transportID)
 
 	err = apiClient.client.DeleteIPsecTransport(ctx, transportID)
 	if err != nil {
@@ -153,7 +153,7 @@ func resourceRTXIPsecTransportImport(ctx context.Context, d *schema.ResourceData
 		return nil, fmt.Errorf("invalid import ID, expected transport ID as integer: %v", err)
 	}
 
-	log.Printf("[DEBUG] Importing IPsec transport: %d", transportID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipsec_transport").Msgf("Importing IPsec transport: %d", transportID)
 
 	transport, err := apiClient.client.GetIPsecTransport(ctx, transportID)
 	if err != nil {

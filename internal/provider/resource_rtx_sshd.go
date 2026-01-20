@@ -2,7 +2,7 @@ package provider
 
 import (
 	"context"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"regexp"
 	"strings"
 
@@ -59,7 +59,7 @@ func resourceRTXSSHDCreate(ctx context.Context, d *schema.ResourceData, meta int
 
 	config := buildSSHDConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating SSHD configuration: enabled=%v, hosts=%v", config.Enabled, config.Hosts)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_sshd").Msgf("Creating SSHD configuration: enabled=%v, hosts=%v", config.Enabled, config.Hosts)
 
 	err := apiClient.client.ConfigureSSHD(ctx, config)
 	if err != nil {
@@ -76,13 +76,13 @@ func resourceRTXSSHDCreate(ctx context.Context, d *schema.ResourceData, meta int
 func resourceRTXSSHDRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
-	log.Printf("[DEBUG] Reading SSHD configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_sshd").Msg("Reading SSHD configuration")
 
 	config, err := apiClient.client.GetSSHD(ctx)
 	if err != nil {
 		// Check if not configured
 		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "not configured") {
-			log.Printf("[DEBUG] SSHD not configured, removing from state")
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_sshd").Msg("SSHD not configured, removing from state")
 			d.SetId("")
 			return nil
 		}
@@ -108,13 +108,13 @@ func resourceRTXSSHDUpdate(ctx context.Context, d *schema.ResourceData, meta int
 
 	config := buildSSHDConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating SSHD configuration: enabled=%v, hosts=%v", config.Enabled, config.Hosts)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_sshd").Msgf("Updating SSHD configuration: enabled=%v, hosts=%v", config.Enabled, config.Hosts)
 
 	// Warn about potential lockout
 	if d.HasChange("enabled") {
 		oldEnabled, newEnabled := d.GetChange("enabled")
 		if oldEnabled.(bool) && !newEnabled.(bool) {
-			log.Printf("[WARN] Disabling SSH service - ensure you have alternative access to the router")
+			logging.FromContext(ctx).Warn().Str("resource", "rtx_sshd").Msg("Disabling SSH service - ensure you have alternative access to the router")
 		}
 	}
 
@@ -129,8 +129,8 @@ func resourceRTXSSHDUpdate(ctx context.Context, d *schema.ResourceData, meta int
 func resourceRTXSSHDDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
-	log.Printf("[DEBUG] Deleting SSHD configuration (disabling service)")
-	log.Printf("[WARN] Disabling SSH service - ensure you have alternative access to the router")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_sshd").Msg("Deleting SSHD configuration (disabling service)")
+	logging.FromContext(ctx).Warn().Str("resource", "rtx_sshd").Msg("Disabling SSH service - ensure you have alternative access to the router")
 
 	err := apiClient.client.ResetSSHD(ctx)
 	if err != nil {
@@ -147,7 +147,7 @@ func resourceRTXSSHDDelete(ctx context.Context, d *schema.ResourceData, meta int
 func resourceRTXSSHDImport(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
 	apiClient := meta.(*apiClient)
 
-	log.Printf("[DEBUG] Importing SSHD configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_sshd").Msg("Importing SSHD configuration")
 
 	// Verify SSHD is configured
 	config, err := apiClient.client.GetSSHD(ctx)

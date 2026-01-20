@@ -2,7 +2,7 @@ package provider
 
 import (
 	"context"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"regexp"
 	"strings"
 
@@ -48,7 +48,7 @@ func resourceRTXSFTPDCreate(ctx context.Context, d *schema.ResourceData, meta in
 
 	config := buildSFTPDConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Creating SFTPD configuration: hosts=%v", config.Hosts)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_sftpd").Msgf("Creating SFTPD configuration: hosts=%v", config.Hosts)
 
 	err := apiClient.client.ConfigureSFTPD(ctx, config)
 	if err != nil {
@@ -65,13 +65,13 @@ func resourceRTXSFTPDCreate(ctx context.Context, d *schema.ResourceData, meta in
 func resourceRTXSFTPDRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
-	log.Printf("[DEBUG] Reading SFTPD configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_sftpd").Msg("Reading SFTPD configuration")
 
 	config, err := apiClient.client.GetSFTPD(ctx)
 	if err != nil {
 		// Check if not configured
 		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "not configured") {
-			log.Printf("[DEBUG] SFTPD not configured, removing from state")
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_sftpd").Msg("SFTPD not configured, removing from state")
 			d.SetId("")
 			return nil
 		}
@@ -80,7 +80,7 @@ func resourceRTXSFTPDRead(ctx context.Context, d *schema.ResourceData, meta inte
 
 	// If no hosts are configured, the resource doesn't exist
 	if len(config.Hosts) == 0 {
-		log.Printf("[DEBUG] SFTPD hosts not configured, removing from state")
+		logging.FromContext(ctx).Debug().Str("resource", "rtx_sftpd").Msg("SFTPD hosts not configured, removing from state")
 		d.SetId("")
 		return nil
 	}
@@ -98,7 +98,7 @@ func resourceRTXSFTPDUpdate(ctx context.Context, d *schema.ResourceData, meta in
 
 	config := buildSFTPDConfigFromResourceData(d)
 
-	log.Printf("[DEBUG] Updating SFTPD configuration: hosts=%v", config.Hosts)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_sftpd").Msgf("Updating SFTPD configuration: hosts=%v", config.Hosts)
 
 	err := apiClient.client.UpdateSFTPD(ctx, config)
 	if err != nil {
@@ -111,7 +111,7 @@ func resourceRTXSFTPDUpdate(ctx context.Context, d *schema.ResourceData, meta in
 func resourceRTXSFTPDDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
-	log.Printf("[DEBUG] Deleting SFTPD configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_sftpd").Msg("Deleting SFTPD configuration")
 
 	err := apiClient.client.ResetSFTPD(ctx)
 	if err != nil {
@@ -128,7 +128,7 @@ func resourceRTXSFTPDDelete(ctx context.Context, d *schema.ResourceData, meta in
 func resourceRTXSFTPDImport(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
 	apiClient := meta.(*apiClient)
 
-	log.Printf("[DEBUG] Importing SFTPD configuration")
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_sftpd").Msg("Importing SFTPD configuration")
 
 	// Verify SFTPD is configured
 	config, err := apiClient.client.GetSFTPD(ctx)

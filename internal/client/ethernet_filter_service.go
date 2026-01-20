@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
@@ -42,7 +42,7 @@ func (s *EthernetFilterService) CreateFilter(ctx context.Context, filter Etherne
 
 	// Build and execute filter creation command
 	cmd := parsers.BuildEthernetFilterCommand(parserFilter)
-	log.Printf("[DEBUG] Creating Ethernet filter with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "ethernet_filter").Msgf("Creating Ethernet filter with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -78,14 +78,14 @@ func (s *EthernetFilterService) GetFilter(ctx context.Context, number int) (*Eth
 	}
 
 	cmd := parsers.BuildShowEthernetFilterCommand(number)
-	log.Printf("[DEBUG] Getting Ethernet filter with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "ethernet_filter").Msgf("Getting Ethernet filter with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get Ethernet filter: %w", err)
 	}
 
-	log.Printf("[DEBUG] Ethernet filter raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "ethernet_filter").Msgf("Ethernet filter raw output: %q", string(output))
 
 	parserFilter, err := parsers.ParseSingleEthernetFilter(string(output), number)
 	if err != nil {
@@ -116,7 +116,7 @@ func (s *EthernetFilterService) UpdateFilter(ctx context.Context, filter Etherne
 
 	// RTX routers allow re-running the filter command to update values
 	cmd := parsers.BuildEthernetFilterCommand(parserFilter)
-	log.Printf("[DEBUG] Updating Ethernet filter with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "ethernet_filter").Msgf("Updating Ethernet filter with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -152,7 +152,7 @@ func (s *EthernetFilterService) DeleteFilter(ctx context.Context, number int) er
 	}
 
 	cmd := parsers.BuildDeleteEthernetFilterCommand(number)
-	log.Printf("[DEBUG] Deleting Ethernet filter with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "ethernet_filter").Msgf("Deleting Ethernet filter with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -187,14 +187,14 @@ func (s *EthernetFilterService) ListFilters(ctx context.Context) ([]EthernetFilt
 	}
 
 	cmd := parsers.BuildShowAllEthernetFiltersCommand()
-	log.Printf("[DEBUG] Listing Ethernet filters with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "ethernet_filter").Msgf("Listing Ethernet filters with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list Ethernet filters: %w", err)
 	}
 
-	log.Printf("[DEBUG] Ethernet filters raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "ethernet_filter").Msgf("Ethernet filters raw output: %q", string(output))
 
 	parserFilters, err := parsers.ParseEthernetFilterConfig(string(output))
 	if err != nil {
@@ -246,7 +246,7 @@ func (s *EthernetFilterService) CreateAccessListMAC(ctx context.Context, acl Acc
 	for _, entry := range acl.Entries {
 		parserEntry := s.toParserMACEntry(entry)
 		cmd := parsers.BuildAccessListMACEntryCommand(parserEntry)
-		log.Printf("[DEBUG] Creating MAC ACL entry with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "ethernet_filter").Msgf("Creating MAC ACL entry with command: %s", cmd)
 
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
@@ -255,6 +255,29 @@ func (s *EthernetFilterService) CreateAccessListMAC(ctx context.Context, acl Acc
 
 		if len(output) > 0 && containsError(string(output)) {
 			return fmt.Errorf("command failed: %s", string(output))
+		}
+	}
+
+	// Apply to interface if requested
+	if acl.Apply != nil {
+		filterNums := acl.Apply.FilterIDs
+		if len(filterNums) == 0 {
+			for _, entry := range acl.Entries {
+				num := entry.FilterID
+				if num == 0 {
+					num = entry.Sequence
+				}
+				if num > 0 {
+					filterNums = append(filterNums, num)
+				}
+			}
+		}
+		cmd := parsers.BuildMACAccessListInterfaceCommand(acl.Apply.Interface, acl.Apply.Direction, filterNums)
+		if cmd != "" {
+			logging.FromContext(ctx).Debug().Str("service", "ethernet_filter").Msgf("Applying MAC ACL to interface with command: %s", cmd)
+			if _, err := s.executor.Run(ctx, cmd); err != nil {
+				return fmt.Errorf("failed to apply MAC ACL: %w", err)
+			}
 		}
 	}
 
@@ -278,7 +301,7 @@ func (s *EthernetFilterService) GetAccessListMAC(ctx context.Context, name strin
 
 	// Get all Ethernet filters
 	cmd := parsers.BuildShowAllEthernetFiltersCommand()
-	log.Printf("[DEBUG] Getting MAC ACL with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "ethernet_filter").Msgf("Getting MAC ACL with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -300,6 +323,55 @@ func (s *EthernetFilterService) GetAccessListMAC(ctx context.Context, name strin
 		acl.Entries = append(acl.Entries, s.fromParserFilterToMACEntry(filter))
 	}
 
+	// Attempt to populate apply from interface filter config
+	if len(acl.Entries) > 0 {
+		allIDs := make(map[int]struct{}, len(acl.Entries))
+		var ordered []int
+		for _, e := range acl.Entries {
+			id := e.FilterID
+			if id == 0 {
+				id = e.Sequence
+			}
+			if id > 0 {
+				allIDs[id] = struct{}{}
+				ordered = append(ordered, id)
+			}
+		}
+
+		intfCmd := parsers.BuildShowInterfaceEthernetFilterCommand()
+		logging.FromContext(ctx).Debug().Str("service", "ethernet_filter").Msgf("Getting interface ethernet filter bindings with command: %s", intfCmd)
+		if output, err := s.executor.Run(ctx, intfCmd); err == nil {
+			if bindings, err := parsers.ParseInterfaceEthernetFilter(string(output)); err == nil {
+				for iface, dirs := range bindings {
+					for dir, nums := range dirs {
+						match := true
+						for _, n := range nums {
+							if _, ok := allIDs[n]; !ok {
+								match = false
+								break
+							}
+						}
+						if match {
+							acl.Apply = &MACApply{
+								Interface: iface,
+								Direction: dir,
+								FilterIDs: nums,
+							}
+							break
+						}
+					}
+					if acl.Apply != nil {
+						break
+					}
+				}
+			}
+		}
+	}
+
+	if len(acl.Entries) > 0 {
+		acl.FilterID = acl.Entries[0].FilterID
+	}
+
 	if len(acl.Entries) == 0 {
 		return nil, fmt.Errorf("MAC access list %s not found", name)
 	}
@@ -318,7 +390,7 @@ func (s *EthernetFilterService) UpdateAccessListMAC(ctx context.Context, acl Acc
 	for _, entry := range acl.Entries {
 		parserEntry := s.toParserMACEntry(entry)
 		cmd := parsers.BuildAccessListMACEntryCommand(parserEntry)
-		log.Printf("[DEBUG] Updating MAC ACL entry with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "ethernet_filter").Msgf("Updating MAC ACL entry with command: %s", cmd)
 
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
@@ -327,6 +399,29 @@ func (s *EthernetFilterService) UpdateAccessListMAC(ctx context.Context, acl Acc
 
 		if len(output) > 0 && containsError(string(output)) {
 			return fmt.Errorf("command failed: %s", string(output))
+		}
+	}
+
+	// Apply to interface if requested
+	if acl.Apply != nil {
+		filterNums := acl.Apply.FilterIDs
+		if len(filterNums) == 0 {
+			for _, entry := range acl.Entries {
+				num := entry.FilterID
+				if num == 0 {
+					num = entry.Sequence
+				}
+				if num > 0 {
+					filterNums = append(filterNums, num)
+				}
+			}
+		}
+		cmd := parsers.BuildMACAccessListInterfaceCommand(acl.Apply.Interface, acl.Apply.Direction, filterNums)
+		if cmd != "" {
+			logging.FromContext(ctx).Debug().Str("service", "ethernet_filter").Msgf("Applying MAC ACL to interface with command: %s", cmd)
+			if _, err := s.executor.Run(ctx, cmd); err != nil {
+				return fmt.Errorf("failed to apply MAC ACL: %w", err)
+			}
 		}
 	}
 
@@ -350,7 +445,7 @@ func (s *EthernetFilterService) DeleteAccessListMAC(ctx context.Context, name st
 
 	for _, num := range filterNums {
 		cmd := parsers.BuildDeleteEthernetFilterCommand(num)
-		log.Printf("[DEBUG] Deleting MAC ACL entry with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "ethernet_filter").Msgf("Deleting MAC ACL entry with command: %s", cmd)
 
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
@@ -385,7 +480,7 @@ func (s *EthernetFilterService) CreateInterfaceMACACL(ctx context.Context, acl I
 
 	// This would require parsing the ACL name to get filter numbers
 	// For now, we'll use a placeholder implementation
-	log.Printf("[DEBUG] CreateInterfaceMACACL: interface=%s, in=%s, out=%s",
+	logging.FromContext(ctx).Debug().Str("service", "ethernet_filter").Msgf("CreateInterfaceMACACL: interface=%s, in=%s, out=%s",
 		acl.Interface, acl.MACAccessGroupIn, acl.MACAccessGroupOut)
 
 	// Save configuration
@@ -456,12 +551,12 @@ func (s *EthernetFilterService) DeleteInterfaceMACACL(ctx context.Context, iface
 
 	// Remove inbound filters
 	cmd := parsers.BuildDeleteInterfaceEthernetFilterCommand(iface, "in")
-	log.Printf("[DEBUG] Removing interface MAC ACL inbound with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "ethernet_filter").Msgf("Removing interface MAC ACL inbound with command: %s", cmd)
 	s.executor.Run(ctx, cmd) // Ignore error if not configured
 
 	// Remove outbound filters
 	cmd = parsers.BuildDeleteInterfaceEthernetFilterCommand(iface, "out")
-	log.Printf("[DEBUG] Removing interface MAC ACL outbound with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "ethernet_filter").Msgf("Removing interface MAC ACL outbound with command: %s", cmd)
 	s.executor.Run(ctx, cmd) // Ignore error if not configured
 
 	// Save configuration
@@ -478,6 +573,7 @@ func (s *EthernetFilterService) DeleteInterfaceMACACL(ctx context.Context, iface
 func (s *EthernetFilterService) toParserMACEntry(entry AccessListMACEntry) parsers.AccessListMACEntry {
 	return parsers.AccessListMACEntry{
 		Sequence:               entry.Sequence,
+		FilterID:               entry.FilterID,
 		AceAction:              entry.AceAction,
 		SourceAny:              entry.SourceAny,
 		SourceAddress:          entry.SourceAddress,
@@ -488,6 +584,10 @@ func (s *EthernetFilterService) toParserMACEntry(entry AccessListMACEntry) parse
 		EtherType:              entry.EtherType,
 		VlanID:                 entry.VlanID,
 		Log:                    entry.Log,
+		DHCPType:               entry.DHCPType,
+		DHCPScope:              entry.DHCPScope,
+		Offset:                 entry.Offset,
+		ByteList:               entry.ByteList,
 	}
 }
 
@@ -495,26 +595,33 @@ func (s *EthernetFilterService) toParserMACEntry(entry AccessListMACEntry) parse
 func (s *EthernetFilterService) fromParserFilterToMACEntry(filter parsers.EthernetFilter) AccessListMACEntry {
 	entry := AccessListMACEntry{
 		Sequence:  filter.Number,
+		FilterID:  filter.Number,
 		EtherType: filter.EtherType,
 		VlanID:    filter.VlanID,
+		DHCPType:  filter.DHCPType,
+		DHCPScope: filter.DHCPScope,
+		Offset:    filter.Offset,
+		ByteList:  filter.ByteList,
 	}
 
 	// Map action
+	entry.AceAction = filter.Action
 	if filter.Action == "reject" {
 		entry.AceAction = "deny"
-	} else {
+	}
+	if filter.Action == "pass" {
 		entry.AceAction = "permit"
 	}
 
 	// Map source
-	if filter.SourceMAC == "*" {
+	if filter.DHCPType != "" || filter.SourceMAC == "*" {
 		entry.SourceAny = true
 	} else {
 		entry.SourceAddress = filter.SourceMAC
 	}
 
 	// Map destination
-	if filter.DestMAC == "*" {
+	if filter.DHCPType != "" || filter.DestMAC == "*" || filter.DestinationMAC == "*" {
 		entry.DestinationAny = true
 	} else {
 		entry.DestinationAddress = filter.DestMAC

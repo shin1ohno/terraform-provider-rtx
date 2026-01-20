@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strconv"
 	"strings"
 
@@ -134,7 +134,7 @@ func resourceRTXDHCPBindingCreate(ctx context.Context, d *schema.ResourceData, m
 func resourceRTXDHCPBindingRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 	
-	log.Printf("[DEBUG] resourceRTXDHCPBindingRead: Starting with ID=%s", d.Id())
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_dhcp_binding").Msgf("resourceRTXDHCPBindingRead: Starting with ID=%s", d.Id())
 
 	// Parse the composite ID
 	scopeID, identifier, err := parseDHCPBindingID(d.Id())
@@ -147,10 +147,10 @@ func resourceRTXDHCPBindingRead(ctx context.Context, d *schema.ResourceData, met
 	if _, err := normalizeMACAddressParser(identifier); err != nil {
 		// It's likely an old format with IP address
 		isOldFormat = true
-		log.Printf("[DEBUG] resourceRTXDHCPBindingRead: Detected old format ID with IP address: %s", identifier)
+		logging.FromContext(ctx).Debug().Str("resource", "rtx_dhcp_binding").Msgf("resourceRTXDHCPBindingRead: Detected old format ID with IP address: %s", identifier)
 	}
 	
-	log.Printf("[DEBUG] resourceRTXDHCPBindingRead: Starting with ID=%s (scopeID=%d, identifier=%s, oldFormat=%v)", d.Id(), scopeID, identifier, isOldFormat)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_dhcp_binding").Msgf("resourceRTXDHCPBindingRead: Starting with ID=%s (scopeID=%d, identifier=%s, oldFormat=%v)", d.Id(), scopeID, identifier, isOldFormat)
 
 	// Get all bindings for the scope
 	bindings, err := apiClient.client.GetDHCPBindings(ctx, scopeID)
@@ -158,14 +158,14 @@ func resourceRTXDHCPBindingRead(ctx context.Context, d *schema.ResourceData, met
 		return diag.Errorf("Failed to retrieve DHCP bindings: %v", err)
 	}
 	
-	log.Printf("[DEBUG] resourceRTXDHCPBindingRead: Retrieved %d bindings", len(bindings))
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_dhcp_binding").Msgf("resourceRTXDHCPBindingRead: Retrieved %d bindings", len(bindings))
 
 	// Find our specific binding
 	var found *client.DHCPBinding
 	if isOldFormat {
 		// Search by IP address for old format IDs
 		for _, binding := range bindings {
-			log.Printf("[DEBUG] resourceRTXDHCPBindingRead: Checking binding IP=%s against target=%s (old format)", binding.IPAddress, identifier)
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_dhcp_binding").Msgf("resourceRTXDHCPBindingRead: Checking binding IP=%s against target=%s (old format)", binding.IPAddress, identifier)
 			if binding.IPAddress == identifier {
 				found = &binding
 				break
@@ -175,7 +175,7 @@ func resourceRTXDHCPBindingRead(ctx context.Context, d *schema.ResourceData, met
 		// Search by MAC address for new format IDs
 		for _, binding := range bindings {
 			normalizedBindingMAC, _ := normalizeMACAddressParser(binding.MACAddress)
-			log.Printf("[DEBUG] resourceRTXDHCPBindingRead: Checking binding MAC=%s (normalized=%s) against target=%s", binding.MACAddress, normalizedBindingMAC, identifier)
+			logging.FromContext(ctx).Debug().Str("resource", "rtx_dhcp_binding").Msgf("resourceRTXDHCPBindingRead: Checking binding MAC=%s (normalized=%s) against target=%s", binding.MACAddress, normalizedBindingMAC, identifier)
 			if normalizedBindingMAC == identifier {
 				found = &binding
 				break
@@ -184,13 +184,13 @@ func resourceRTXDHCPBindingRead(ctx context.Context, d *schema.ResourceData, met
 	}
 
 	if found == nil {
-		log.Printf("[DEBUG] resourceRTXDHCPBindingRead: Binding not found, clearing ID")
+		logging.FromContext(ctx).Debug().Str("resource", "rtx_dhcp_binding").Msg("resourceRTXDHCPBindingRead: Binding not found, clearing ID")
 		// Resource no longer exists
 		d.SetId("")
 		return nil
 	}
 	
-	log.Printf("[DEBUG] resourceRTXDHCPBindingRead: Found binding: %+v", found)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_dhcp_binding").Msgf("resourceRTXDHCPBindingRead: Found binding: %+v", found)
 
 	// Update the state
 	if err := d.Set("scope_id", found.ScopeID); err != nil {
@@ -215,11 +215,11 @@ func resourceRTXDHCPBindingRead(ctx context.Context, d *schema.ResourceData, met
 	newID := fmt.Sprintf("%d:%s", found.ScopeID, normalizedMAC)
 	
 	if isOldFormat {
-		log.Printf("[DEBUG] resourceRTXDHCPBindingRead: Migrating ID from old format %s to new format %s", d.Id(), newID)
+		logging.FromContext(ctx).Debug().Str("resource", "rtx_dhcp_binding").Msgf("resourceRTXDHCPBindingRead: Migrating ID from old format %s to new format %s", d.Id(), newID)
 	}
 	
 	d.SetId(newID)
-	log.Printf("[DEBUG] resourceRTXDHCPBindingRead: Set ID to %s", d.Id())
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_dhcp_binding").Msgf("resourceRTXDHCPBindingRead: Set ID to %s", d.Id())
 
 	return nil
 }
@@ -276,7 +276,7 @@ func resourceRTXDHCPBindingImport(ctx context.Context, d *schema.ResourceData, m
 		return nil, fmt.Errorf("invalid import ID format, expected 'scope_id:mac_address' or 'scope_id:ip_address': %v", err)
 	}
 
-	log.Printf("[DEBUG] resourceRTXDHCPBindingImport: ImportID=%s, ScopeID=%d, Identifier=%s", importID, scopeID, identifier)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_dhcp_binding").Msgf("resourceRTXDHCPBindingImport: ImportID=%s, ScopeID=%d, Identifier=%s", importID, scopeID, identifier)
 
 	// Get all bindings for the scope to find the requested binding
 	bindings, err := apiClient.client.GetDHCPBindings(ctx, scopeID)
@@ -284,7 +284,7 @@ func resourceRTXDHCPBindingImport(ctx context.Context, d *schema.ResourceData, m
 		return nil, fmt.Errorf("failed to retrieve DHCP bindings for scope %d: %v", scopeID, err)
 	}
 
-	log.Printf("[DEBUG] resourceRTXDHCPBindingImport: Retrieved %d bindings for scope %d", len(bindings), scopeID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_dhcp_binding").Msgf("resourceRTXDHCPBindingImport: Retrieved %d bindings for scope %d", len(bindings), scopeID)
 
 	// Determine if identifier is MAC address or IP address and find the binding
 	var targetBinding *client.DHCPBinding
@@ -292,7 +292,7 @@ func resourceRTXDHCPBindingImport(ctx context.Context, d *schema.ResourceData, m
 	// Check if identifier looks like a MAC address
 	if _, err := normalizeMACAddressParser(identifier); err == nil {
 		// It's a MAC address - search by MAC
-		log.Printf("[DEBUG] resourceRTXDHCPBindingImport: Identifier appears to be MAC address")
+		logging.FromContext(ctx).Debug().Str("resource", "rtx_dhcp_binding").Msg("resourceRTXDHCPBindingImport: Identifier appears to be MAC address")
 		for _, binding := range bindings {
 			normalizedBindingMAC, _ := normalizeMACAddressParser(binding.MACAddress)
 			normalizedIdentifier, _ := normalizeMACAddressParser(identifier)
@@ -303,7 +303,7 @@ func resourceRTXDHCPBindingImport(ctx context.Context, d *schema.ResourceData, m
 		}
 	} else {
 		// It's likely an IP address - search by IP
-		log.Printf("[DEBUG] resourceRTXDHCPBindingImport: Identifier appears to be IP address")
+		logging.FromContext(ctx).Debug().Str("resource", "rtx_dhcp_binding").Msg("resourceRTXDHCPBindingImport: Identifier appears to be IP address")
 		for _, binding := range bindings {
 			if binding.IPAddress == identifier {
 				targetBinding = &binding
@@ -316,7 +316,7 @@ func resourceRTXDHCPBindingImport(ctx context.Context, d *schema.ResourceData, m
 		return nil, fmt.Errorf("DHCP binding with scope_id=%d and identifier=%s not found", scopeID, identifier)
 	}
 
-	log.Printf("[DEBUG] resourceRTXDHCPBindingImport: Found binding: %+v", targetBinding)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_dhcp_binding").Msgf("resourceRTXDHCPBindingImport: Found binding: %+v", targetBinding)
 
 	// Set the parsed values
 	d.Set("scope_id", scopeID)
@@ -332,7 +332,7 @@ func resourceRTXDHCPBindingImport(ctx context.Context, d *schema.ResourceData, m
 	finalID := fmt.Sprintf("%d:%s", scopeID, normalizedMAC)
 	d.SetId(finalID)
 
-	log.Printf("[DEBUG] resourceRTXDHCPBindingImport: Set final ID to %s", finalID)
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_dhcp_binding").Msgf("resourceRTXDHCPBindingImport: Set final ID to %s", finalID)
 
 	// The Read function will populate the rest and validate consistency
 	diags := resourceRTXDHCPBindingRead(ctx, d, meta)

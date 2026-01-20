@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
@@ -42,7 +42,7 @@ func (s *NATMasqueradeService) Create(ctx context.Context, nat NATMasquerade) er
 
 	// Step 1: Set NAT descriptor type to masquerade
 	cmd := parsers.BuildNATDescriptorTypeMasqueradeCommand(nat.DescriptorID)
-	log.Printf("[DEBUG] Creating NAT masquerade with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "nat_masquerade").Msgf("Creating NAT masquerade with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -55,7 +55,7 @@ func (s *NATMasqueradeService) Create(ctx context.Context, nat NATMasquerade) er
 
 	// Step 2: Set outer address
 	cmd = parsers.BuildNATDescriptorAddressOuterCommand(nat.DescriptorID, nat.OuterAddress)
-	log.Printf("[DEBUG] Setting outer address with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "nat_masquerade").Msgf("Setting outer address with command: %s", cmd)
 
 	output, err = s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -68,7 +68,7 @@ func (s *NATMasqueradeService) Create(ctx context.Context, nat NATMasquerade) er
 
 	// Step 3: Set inner network
 	cmd = parsers.BuildNATDescriptorAddressInnerCommand(nat.DescriptorID, nat.InnerNetwork)
-	log.Printf("[DEBUG] Setting inner network with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "nat_masquerade").Msgf("Setting inner network with command: %s", cmd)
 
 	output, err = s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -90,7 +90,7 @@ func (s *NATMasqueradeService) Create(ctx context.Context, nat NATMasquerade) er
 			Protocol:          entry.Protocol,
 		}
 		cmd = parsers.BuildNATMasqueradeStaticCommand(nat.DescriptorID, entry.EntryNumber, parserEntry)
-		log.Printf("[DEBUG] Adding static entry %d with command: %s", i+1, cmd)
+		logging.FromContext(ctx).Debug().Str("service", "nat_masquerade").Msgf("Adding static entry %d with command: %s", i+1, cmd)
 
 		output, err = s.executor.Run(ctx, cmd)
 		if err != nil {
@@ -122,14 +122,14 @@ func (s *NATMasqueradeService) Get(ctx context.Context, descriptorID int) (*NATM
 	}
 
 	cmd := parsers.BuildShowNATDescriptorCommand(descriptorID)
-	log.Printf("[DEBUG] Getting NAT masquerade with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "nat_masquerade").Msgf("Getting NAT masquerade with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get NAT masquerade: %w", err)
 	}
 
-	log.Printf("[DEBUG] NAT masquerade raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "nat_masquerade").Msgf("NAT masquerade raw output: %q", string(output))
 
 	parserNATs, err := parsers.ParseNATMasqueradeConfig(string(output))
 	if err != nil {
@@ -173,7 +173,7 @@ func (s *NATMasqueradeService) Update(ctx context.Context, nat NATMasquerade) er
 	// Update outer address if changed
 	if currentNAT.OuterAddress != nat.OuterAddress {
 		cmd := parsers.BuildNATDescriptorAddressOuterCommand(nat.DescriptorID, nat.OuterAddress)
-		log.Printf("[DEBUG] Updating outer address with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "nat_masquerade").Msgf("Updating outer address with command: %s", cmd)
 
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
@@ -188,7 +188,7 @@ func (s *NATMasqueradeService) Update(ctx context.Context, nat NATMasquerade) er
 	// Update inner network if changed
 	if currentNAT.InnerNetwork != nat.InnerNetwork {
 		cmd := parsers.BuildNATDescriptorAddressInnerCommand(nat.DescriptorID, nat.InnerNetwork)
-		log.Printf("[DEBUG] Updating inner network with command: %s", cmd)
+		logging.FromContext(ctx).Debug().Str("service", "nat_masquerade").Msgf("Updating inner network with command: %s", cmd)
 
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
@@ -211,7 +211,7 @@ func (s *NATMasqueradeService) Update(ctx context.Context, nat NATMasquerade) er
 		}
 		if !found {
 			cmd := parsers.BuildDeleteNATMasqueradeStaticCommand(nat.DescriptorID, oldEntry.EntryNumber)
-			log.Printf("[DEBUG] Removing static entry with command: %s", cmd)
+			logging.FromContext(ctx).Debug().Str("service", "nat_masquerade").Msgf("Removing static entry with command: %s", cmd)
 			_, _ = s.executor.Run(ctx, cmd) // Ignore errors for cleanup
 		}
 	}
@@ -227,7 +227,7 @@ func (s *NATMasqueradeService) Update(ctx context.Context, nat NATMasquerade) er
 			Protocol:          entry.Protocol,
 		}
 		cmd := parsers.BuildNATMasqueradeStaticCommand(nat.DescriptorID, entry.EntryNumber, parserEntry)
-		log.Printf("[DEBUG] Setting static entry %d with command: %s", i+1, cmd)
+		logging.FromContext(ctx).Debug().Str("service", "nat_masquerade").Msgf("Setting static entry %d with command: %s", i+1, cmd)
 
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
@@ -259,7 +259,7 @@ func (s *NATMasqueradeService) Delete(ctx context.Context, descriptorID int) err
 	}
 
 	cmd := parsers.BuildDeleteNATMasqueradeCommand(descriptorID)
-	log.Printf("[DEBUG] Deleting NAT masquerade with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "nat_masquerade").Msgf("Deleting NAT masquerade with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -294,14 +294,14 @@ func (s *NATMasqueradeService) List(ctx context.Context) ([]NATMasquerade, error
 	}
 
 	cmd := parsers.BuildShowAllNATDescriptorsCommand()
-	log.Printf("[DEBUG] Listing NAT masquerades with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "nat_masquerade").Msgf("Listing NAT masquerades with command: %s", cmd)
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list NAT masquerades: %w", err)
 	}
 
-	log.Printf("[DEBUG] NAT masquerades raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "nat_masquerade").Msgf("NAT masquerades raw output: %q", string(output))
 
 	parserNATs, err := parsers.ParseNATMasqueradeConfig(string(output))
 	if err != nil {

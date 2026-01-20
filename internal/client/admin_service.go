@@ -3,9 +3,9 @@ package client
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
@@ -55,7 +55,7 @@ func (s *AdminService) ConfigureAdmin(ctx context.Context, config AdminConfig) e
 	// Set login password if provided
 	if config.LoginPassword != "" {
 		cmd := parsers.BuildLoginPasswordCommand(config.LoginPassword)
-		log.Printf("[DEBUG] Setting login password")
+		logging.FromContext(ctx).Debug().Str("service", "admin").Msg("Setting login password")
 
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
@@ -70,7 +70,7 @@ func (s *AdminService) ConfigureAdmin(ctx context.Context, config AdminConfig) e
 	// Set admin password if provided
 	if config.AdminPassword != "" {
 		cmd := parsers.BuildAdminPasswordCommand(config.AdminPassword)
-		log.Printf("[DEBUG] Setting administrator password")
+		logging.FromContext(ctx).Debug().Str("service", "admin").Msg("Setting administrator password")
 
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
@@ -109,7 +109,7 @@ func (s *AdminService) ResetAdmin(ctx context.Context) error {
 
 	// Remove login password
 	cmd := "no login password"
-	log.Printf("[DEBUG] Removing login password")
+	logging.FromContext(ctx).Debug().Str("service", "admin").Msg("Removing login password")
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -125,7 +125,7 @@ func (s *AdminService) ResetAdmin(ctx context.Context) error {
 
 	// Remove admin password
 	cmd = "no administrator password"
-	log.Printf("[DEBUG] Removing administrator password")
+	logging.FromContext(ctx).Debug().Str("service", "admin").Msg("Removing administrator password")
 
 	output, err = s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -159,14 +159,14 @@ func (s *AdminService) GetAdminUser(ctx context.Context, username string) (*Admi
 	}
 
 	cmd := parsers.BuildShowLoginUserCommand(username)
-	log.Printf("[DEBUG] Getting admin user with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "admin").Str("command", SanitizeCommandForLog(cmd)).Msg("Getting admin user")
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get admin user: %w", err)
 	}
 
-	log.Printf("[DEBUG] Admin user raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "admin").Str("output", string(output)).Msg("Admin user raw output")
 
 	parser := parsers.NewAdminParser()
 	userConfig, err := parser.ParseUserConfig(string(output), username)
@@ -198,7 +198,7 @@ func (s *AdminService) CreateAdminUser(ctx context.Context, user AdminUser) erro
 
 	// Build and execute user creation command
 	cmd := parsers.BuildUserCommand(parserUser)
-	log.Printf("[DEBUG] Creating admin user with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "admin").Str("command", SanitizeCommandForLog(cmd)).Msg("Creating admin user")
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -214,7 +214,7 @@ func (s *AdminService) CreateAdminUser(ctx context.Context, user AdminUser) erro
 		len(user.Attributes.GUIPages) > 0 || user.Attributes.LoginTimer > 0 {
 		attrCmd := parsers.BuildUserAttributeCommand(user.Username, parserUser.Attributes)
 		if attrCmd != "" {
-			log.Printf("[DEBUG] Setting user attributes with command: %s", attrCmd)
+			logging.FromContext(ctx).Debug().Str("service", "admin").Str("command", SanitizeCommandForLog(attrCmd)).Msg("Setting user attributes")
 
 			output, err = s.executor.Run(ctx, attrCmd)
 			if err != nil {
@@ -256,7 +256,7 @@ func (s *AdminService) UpdateAdminUser(ctx context.Context, user AdminUser) erro
 
 	// Update user password (this will overwrite existing user)
 	cmd := parsers.BuildUserCommand(parserUser)
-	log.Printf("[DEBUG] Updating admin user with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "admin").Str("command", SanitizeCommandForLog(cmd)).Msg("Updating admin user")
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -270,7 +270,7 @@ func (s *AdminService) UpdateAdminUser(ctx context.Context, user AdminUser) erro
 	// Update user attributes
 	attrCmd := parsers.BuildUserAttributeCommand(user.Username, parserUser.Attributes)
 	if attrCmd != "" {
-		log.Printf("[DEBUG] Updating user attributes with command: %s", attrCmd)
+		logging.FromContext(ctx).Debug().Str("service", "admin").Str("command", SanitizeCommandForLog(attrCmd)).Msg("Updating user attributes")
 
 		output, err = s.executor.Run(ctx, attrCmd)
 		if err != nil {
@@ -303,13 +303,13 @@ func (s *AdminService) DeleteAdminUser(ctx context.Context, username string) err
 
 	// Delete user attributes first
 	attrCmd := parsers.BuildDeleteUserAttributeCommand(username)
-	log.Printf("[DEBUG] Deleting user attributes with command: %s", attrCmd)
+	logging.FromContext(ctx).Debug().Str("service", "admin").Str("command", SanitizeCommandForLog(attrCmd)).Msg("Deleting user attributes")
 
 	_, _ = s.executor.Run(ctx, attrCmd) // Ignore errors for cleanup
 
 	// Delete user
 	cmd := parsers.BuildDeleteUserCommand(username)
-	log.Printf("[DEBUG] Deleting admin user with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "admin").Str("command", SanitizeCommandForLog(cmd)).Msg("Deleting admin user")
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
@@ -337,14 +337,14 @@ func (s *AdminService) DeleteAdminUser(ctx context.Context, username string) err
 // ListAdminUsers retrieves all admin users
 func (s *AdminService) ListAdminUsers(ctx context.Context) ([]AdminUser, error) {
 	cmd := parsers.BuildShowAllUsersCommand()
-	log.Printf("[DEBUG] Listing admin users with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("service", "admin").Str("command", SanitizeCommandForLog(cmd)).Msg("Listing admin users")
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list admin users: %w", err)
 	}
 
-	log.Printf("[DEBUG] Admin users raw output: %q", string(output))
+	logging.FromContext(ctx).Debug().Str("service", "admin").Str("output", string(output)).Msg("Admin users raw output")
 
 	parser := parsers.NewAdminParser()
 	config, err := parser.ParseAdminConfig(string(output))
