@@ -31,8 +31,8 @@ func TestResourceRTXAdminUser_Schema(t *testing.T) {
 		if s.Type != schema.TypeString {
 			t.Error("password should be TypeString")
 		}
-		if !s.Required {
-			t.Error("password should be Required")
+		if !s.Optional {
+			t.Error("password should be Optional for import compatibility")
 		}
 		if !s.Sensitive {
 			t.Error("password should be Sensitive")

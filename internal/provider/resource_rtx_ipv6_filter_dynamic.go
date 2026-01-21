@@ -32,8 +32,8 @@ func resourceRTXIPv6FilterDynamic() *schema.Resource {
 						"number": {
 							Type:         schema.TypeInt,
 							Required:     true,
-							Description:  "Filter number (unique identifier, 1-65535)",
-							ValidateFunc: validation.IntBetween(1, 65535),
+							Description:  "Filter number (unique identifier)",
+							ValidateFunc: validation.IntAtLeast(1),
 						},
 						"source": {
 							Type:        schema.TypeString,

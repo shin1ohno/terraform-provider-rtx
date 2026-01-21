@@ -32,11 +32,11 @@ func resourceRTXAdminUser() *schema.Resource {
 				ValidateFunc: validateUsername,
 			},
 			"password": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Sensitive:   true,
-				Description: "Password for the admin user.",
-			},
+			Type:        schema.TypeString,
+			Optional:    true,
+			Sensitive:   true,
+			Description: "Password for the admin user. Required for create, optional for import.",
+		},
 			"encrypted": {
 				Type:        schema.TypeBool,
 				Optional:    true,

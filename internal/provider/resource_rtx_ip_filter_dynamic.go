@@ -55,8 +55,8 @@ resource "rtx_ip_filter_dynamic" "custom" {
 				Type:         schema.TypeInt,
 				Required:     true,
 				ForceNew:     true,
-				Description:  "Filter number (1-65535). This uniquely identifies the dynamic filter on the router.",
-				ValidateFunc: validation.IntBetween(1, 65535),
+				Description:  "Filter number. This uniquely identifies the dynamic filter on the router.",
+				ValidateFunc: validation.IntAtLeast(1),
 			},
 			"source": {
 				Type:        schema.TypeString,
@@ -91,7 +91,7 @@ resource "rtx_ip_filter_dynamic" "custom" {
 				Description: "List of static filter numbers to reference (Form 2). Cannot be used with protocol.",
 				Elem: &schema.Schema{
 					Type:         schema.TypeInt,
-					ValidateFunc: validation.IntBetween(1, 65535),
+					ValidateFunc: validation.IntAtLeast(1),
 				},
 				ConflictsWith: []string{"protocol"},
 			},
@@ -101,7 +101,7 @@ resource "rtx_ip_filter_dynamic" "custom" {
 				Description: "List of inbound filter numbers (Form 2). Used with filter_list.",
 				Elem: &schema.Schema{
 					Type:         schema.TypeInt,
-					ValidateFunc: validation.IntBetween(1, 65535),
+					ValidateFunc: validation.IntAtLeast(1),
 				},
 				ConflictsWith: []string{"protocol"},
 			},
@@ -111,7 +111,7 @@ resource "rtx_ip_filter_dynamic" "custom" {
 				Description: "List of outbound filter numbers (Form 2). Used with filter_list.",
 				Elem: &schema.Schema{
 					Type:         schema.TypeInt,
-					ValidateFunc: validation.IntBetween(1, 65535),
+					ValidateFunc: validation.IntAtLeast(1),
 				},
 				ConflictsWith: []string{"protocol"},
 			},
