@@ -1,12 +1,20 @@
 {
   "filePath": ".spec-workflow/specs/filter-enhancements/requirements.md",
-  "currentVersion": 1,
+  "currentVersion": 2,
   "snapshots": [
     {
       "version": 1,
       "filename": "snapshot-001.json",
       "timestamp": "2026-01-21T01:34:00.203Z",
       "trigger": "initial",
+      "approvalId": "approval_1768959240172_vrf5s2tap",
+      "approvalTitle": "Filter Enhancements Requirements"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-21T03:31:23.918Z",
+      "trigger": "approved",
       "approvalId": "approval_1768959240172_vrf5s2tap",
       "approvalTitle": "Filter Enhancements Requirements"
     }
