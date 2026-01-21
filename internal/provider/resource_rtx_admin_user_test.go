@@ -49,8 +49,8 @@ func TestResourceRTXAdminUser_Schema(t *testing.T) {
 		if !s.Optional {
 			t.Error("encrypted should be Optional")
 		}
-		if s.Default != false {
-			t.Error("encrypted should default to false")
+		if !s.Computed {
+			t.Error("encrypted should be Computed for import compatibility")
 		}
 	}
 
@@ -64,8 +64,8 @@ func TestResourceRTXAdminUser_Schema(t *testing.T) {
 		if !s.Optional {
 			t.Error("administrator should be Optional")
 		}
-		if s.Default != false {
-			t.Error("administrator should default to false")
+		if !s.Computed {
+			t.Error("administrator should be Computed for import compatibility")
 		}
 	}
 

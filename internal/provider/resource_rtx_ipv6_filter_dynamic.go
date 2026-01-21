@@ -48,8 +48,8 @@ func resourceRTXIPv6FilterDynamic() *schema.Resource {
 						"protocol": {
 							Type:         schema.TypeString,
 							Required:     true,
-							Description:  "Protocol: ftp, www, smtp, pop3, dns, telnet, ssh, tcp, udp, or *",
-							ValidateFunc: validation.StringInSlice([]string{"ftp", "www", "smtp", "pop3", "dns", "domain", "telnet", "ssh", "tcp", "udp", "*"}, false),
+							Description:  "Protocol: ftp, www, smtp, submission, pop3, dns, telnet, ssh, tcp, udp, or *",
+							ValidateFunc: validation.StringInSlice([]string{"ftp", "www", "smtp", "submission", "pop3", "dns", "domain", "telnet", "ssh", "tcp", "udp", "*"}, false),
 						},
 						"syslog": {
 							Type:        schema.TypeBool,

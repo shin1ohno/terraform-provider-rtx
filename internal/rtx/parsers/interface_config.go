@@ -9,15 +9,17 @@ import (
 
 // InterfaceConfig represents interface configuration on an RTX router
 type InterfaceConfig struct {
-	Name             string       `json:"name"`                          // Interface name (lan1, lan2, pp1, bridge1, tunnel1)
-	Description      string       `json:"description,omitempty"`         // Interface description
-	IPAddress        *InterfaceIP `json:"ip_address,omitempty"`          // IPv4 address configuration
-	SecureFilterIn   []int        `json:"secure_filter_in,omitempty"`    // Inbound security filter numbers
-	SecureFilterOut  []int        `json:"secure_filter_out,omitempty"`   // Outbound security filter numbers
-	DynamicFilterOut []int        `json:"dynamic_filter_out,omitempty"`  // Dynamic filters for outbound
-	NATDescriptor    int          `json:"nat_descriptor,omitempty"`      // NAT descriptor number (0 = none)
-	ProxyARP         bool         `json:"proxyarp"`                      // Enable ProxyARP
-	MTU              int          `json:"mtu,omitempty"`                 // MTU size (0 = default)
+	Name              string       `json:"name"`                          // Interface name (lan1, lan2, pp1, bridge1, tunnel1)
+	Description       string       `json:"description,omitempty"`         // Interface description
+	IPAddress         *InterfaceIP `json:"ip_address,omitempty"`          // IPv4 address configuration
+	SecureFilterIn    []int        `json:"secure_filter_in,omitempty"`    // Inbound security filter numbers
+	SecureFilterOut   []int        `json:"secure_filter_out,omitempty"`   // Outbound security filter numbers
+	DynamicFilterOut  []int        `json:"dynamic_filter_out,omitempty"`  // Dynamic filters for outbound
+	EthernetFilterIn  []int        `json:"ethernet_filter_in,omitempty"`  // Inbound Ethernet (L2) filter numbers
+	EthernetFilterOut []int        `json:"ethernet_filter_out,omitempty"` // Outbound Ethernet (L2) filter numbers
+	NATDescriptor     int          `json:"nat_descriptor,omitempty"`      // NAT descriptor number (0 = none)
+	ProxyARP          bool         `json:"proxyarp"`                      // Enable ProxyARP
+	MTU               int          `json:"mtu,omitempty"`                 // MTU size (0 = default)
 }
 
 // InterfaceIP represents IP address configuration
@@ -51,6 +53,10 @@ func ParseInterfaceConfig(raw string, interfaceName string) (*InterfaceConfig, e
 	filterInPattern := regexp.MustCompile(`^\s*ip\s+` + regexp.QuoteMeta(interfaceName) + `\s+secure\s+filter\s+in\s+(.+)\s*$`)
 	// ip <interface> secure filter out <filter_list> [dynamic <dynamic_filter_list>]
 	filterOutPattern := regexp.MustCompile(`^\s*ip\s+` + regexp.QuoteMeta(interfaceName) + `\s+secure\s+filter\s+out\s+(.+)\s*$`)
+	// ethernet <interface> filter in <filter_list>
+	ethFilterInPattern := regexp.MustCompile(`^\s*ethernet\s+` + regexp.QuoteMeta(interfaceName) + `\s+filter\s+in\s+(.+)\s*$`)
+	// ethernet <interface> filter out <filter_list>
+	ethFilterOutPattern := regexp.MustCompile(`^\s*ethernet\s+` + regexp.QuoteMeta(interfaceName) + `\s+filter\s+out\s+(.+)\s*$`)
 	// ip <interface> nat descriptor <id>
 	natPattern := regexp.MustCompile(`^\s*ip\s+` + regexp.QuoteMeta(interfaceName) + `\s+nat\s+descriptor\s+(\d+)\s*$`)
 	// ip <interface> proxyarp on|off
@@ -105,6 +111,20 @@ func ParseInterfaceConfig(raw string, interfaceName string) (*InterfaceConfig, e
 			} else {
 				config.SecureFilterOut = parseFilterList(filterStr)
 			}
+			continue
+		}
+
+		// Parse inbound Ethernet filter
+		if matches := ethFilterInPattern.FindStringSubmatch(line); len(matches) >= 2 {
+			filters := parseFilterList(matches[1])
+			config.EthernetFilterIn = filters
+			continue
+		}
+
+		// Parse outbound Ethernet filter
+		if matches := ethFilterOutPattern.FindStringSubmatch(line); len(matches) >= 2 {
+			filters := parseFilterList(matches[1])
+			config.EthernetFilterOut = filters
 			continue
 		}
 
@@ -302,6 +322,18 @@ func ValidateInterfaceConfig(config InterfaceConfig) error {
 	for _, f := range config.DynamicFilterOut {
 		if f <= 0 {
 			return fmt.Errorf("filter numbers must be positive integers")
+		}
+	}
+
+	// Validate Ethernet filter numbers
+	for _, f := range config.EthernetFilterIn {
+		if f <= 0 {
+			return fmt.Errorf("ethernet filter numbers must be positive integers")
+		}
+	}
+	for _, f := range config.EthernetFilterOut {
+		if f <= 0 {
+			return fmt.Errorf("ethernet filter numbers must be positive integers")
 		}
 	}
 

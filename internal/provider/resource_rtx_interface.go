@@ -107,6 +107,24 @@ func resourceRTXInterface() *schema.Resource {
 				Description:  "Maximum Transmission Unit size. Set to 0 to use the default MTU.",
 				ValidateFunc: validation.IntBetween(0, 65535),
 			},
+			"ethernet_filter_in": {
+				Type:        schema.TypeList,
+				Optional:    true,
+				Description: "Ethernet (L2) filter numbers to apply on inbound traffic. Order matters - first match wins.",
+				Elem: &schema.Schema{
+					Type:         schema.TypeInt,
+					ValidateFunc: validation.IntBetween(1, 512),
+				},
+			},
+			"ethernet_filter_out": {
+				Type:        schema.TypeList,
+				Optional:    true,
+				Description: "Ethernet (L2) filter numbers to apply on outbound traffic. Order matters - first match wins.",
+				Elem: &schema.Schema{
+					Type:         schema.TypeInt,
+					ValidateFunc: validation.IntBetween(1, 512),
+				},
+			},
 		},
 	}
 }
@@ -181,6 +199,14 @@ func resourceRTXInterfaceRead(ctx context.Context, d *schema.ResourceData, meta 
 		return diag.FromErr(err)
 	}
 	if err := d.Set("dynamic_filter_out", config.DynamicFilterOut); err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Set ethernet filters
+	if err := d.Set("ethernet_filter_in", config.EthernetFilterIn); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("ethernet_filter_out", config.EthernetFilterOut); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -324,6 +350,26 @@ func buildInterfaceConfigFromResourceData(d *schema.ResourceData) client.Interfa
 			filters[i] = f.(int)
 		}
 		config.DynamicFilterOut = filters
+	}
+
+	// Handle ethernet_filter_in
+	if v, ok := d.GetOk("ethernet_filter_in"); ok {
+		filtersList := v.([]interface{})
+		filters := make([]int, len(filtersList))
+		for i, f := range filtersList {
+			filters[i] = f.(int)
+		}
+		config.EthernetFilterIn = filters
+	}
+
+	// Handle ethernet_filter_out
+	if v, ok := d.GetOk("ethernet_filter_out"); ok {
+		filtersList := v.([]interface{})
+		filters := make([]int, len(filtersList))
+		for i, f := range filtersList {
+			filters[i] = f.(int)
+		}
+		config.EthernetFilterOut = filters
 	}
 
 	return config

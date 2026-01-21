@@ -159,14 +159,16 @@ func resourceRTXL2TP() *schema.Resource {
 					Schema: map[string]*schema.Schema{
 						"local_router_id": {
 							Type:         schema.TypeString,
-							Required:     true,
-							Description:  "Local router ID.",
+							Optional:     true,
+							Computed:     true,
+							Description:  "Local router ID. Required for L2TPv3, but optional for import compatibility.",
 							ValidateFunc: validateIPv4Address,
 						},
 						"remote_router_id": {
 							Type:         schema.TypeString,
-							Required:     true,
-							Description:  "Remote router ID.",
+							Optional:     true,
+							Computed:     true,
+							Description:  "Remote router ID. Required for L2TPv3, but optional for import compatibility.",
 							ValidateFunc: validateIPv4Address,
 						},
 						"remote_end_id": {

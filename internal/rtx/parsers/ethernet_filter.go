@@ -667,3 +667,126 @@ func ParseInterfaceEthernetFilter(raw string) (map[string]map[string][]int, erro
 func BuildShowInterfaceEthernetFilterCommand() string {
 	return "show config | grep \"ethernet .* filter\""
 }
+
+// EthernetFilterApplication represents ethernet filter binding to an interface
+// This struct provides a cleaner interface for working with ethernet filter application
+// to specific interfaces compared to the map-based ParseInterfaceEthernetFilter function.
+type EthernetFilterApplication struct {
+	Interface string `json:"interface"` // lan1, lan2, etc.
+	Direction string `json:"direction"` // in, out
+	Filters   []int  `json:"filters"`   // Filter numbers in order
+}
+
+// ParseEthernetFilterApplication parses "ethernet <interface> filter in/out" commands
+// and returns a list of EthernetFilterApplication structs.
+// This is an alternative to ParseInterfaceEthernetFilter that returns a struct-based result.
+//
+// Example input:
+//
+//	ethernet lan1 filter in 1 100
+//	ethernet lan1 filter out 2 200
+//	ethernet lan2 filter in 10 20 30
+func ParseEthernetFilterApplication(raw string) ([]EthernetFilterApplication, error) {
+	result := []EthernetFilterApplication{}
+	lines := strings.Split(raw, "\n")
+
+	// Pattern: ethernet <interface> filter <direction> <filter_numbers...>
+	filterPattern := regexp.MustCompile(`^\s*ethernet\s+(\S+)\s+filter\s+(in|out)\s+(.+)$`)
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		if matches := filterPattern.FindStringSubmatch(line); len(matches) >= 4 {
+			iface := matches[1]
+			direction := matches[2]
+			filterPart := matches[3]
+
+			// Parse filter numbers
+			filterNums := []int{}
+			parts := strings.Fields(filterPart)
+			for _, part := range parts {
+				num, err := strconv.Atoi(part)
+				if err == nil {
+					filterNums = append(filterNums, num)
+				}
+			}
+
+			// Only add if we have at least one valid filter number
+			if len(filterNums) > 0 {
+				result = append(result, EthernetFilterApplication{
+					Interface: iface,
+					Direction: direction,
+					Filters:   filterNums,
+				})
+			}
+		}
+	}
+
+	return result, nil
+}
+
+// ParseSingleEthernetFilterApplication parses the configuration and returns
+// the filter application for a specific interface and direction.
+// Returns nil if no matching configuration is found.
+func ParseSingleEthernetFilterApplication(raw string, iface string, direction string) (*EthernetFilterApplication, error) {
+	apps, err := ParseEthernetFilterApplication(raw)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, app := range apps {
+		if app.Interface == iface && app.Direction == direction {
+			return &app, nil
+		}
+	}
+
+	return nil, nil // Not found, but not an error
+}
+
+// BuildEthernetFilterApplicationCommand generates the CLI command from an EthernetFilterApplication struct
+// Command format: ethernet <interface> filter <direction> <filter_numbers...>
+// Returns empty string if Filters is empty.
+func BuildEthernetFilterApplicationCommand(app EthernetFilterApplication) string {
+	if len(app.Filters) == 0 {
+		return ""
+	}
+
+	// Convert filter numbers to strings
+	filterStrs := make([]string, len(app.Filters))
+	for i, n := range app.Filters {
+		filterStrs[i] = strconv.Itoa(n)
+	}
+
+	return fmt.Sprintf("ethernet %s filter %s %s", app.Interface, app.Direction, strings.Join(filterStrs, " "))
+}
+
+// BuildDeleteEthernetFilterApplicationCommand generates the CLI command to remove filters from an interface
+// Command format: no ethernet <interface> filter <direction>
+func BuildDeleteEthernetFilterApplicationCommand(iface string, direction string) string {
+	return fmt.Sprintf("no ethernet %s filter %s", iface, direction)
+}
+
+// ValidateEthernetFilterApplication validates an EthernetFilterApplication struct
+func ValidateEthernetFilterApplication(app EthernetFilterApplication) error {
+	// Validate interface name - should be a valid interface like lan1, lan2, etc.
+	if app.Interface == "" {
+		return fmt.Errorf("interface name is required")
+	}
+
+	// Validate direction
+	if err := ValidateEthernetFilterDirection(app.Direction); err != nil {
+		return err
+	}
+
+	// Validate filter numbers
+	for _, num := range app.Filters {
+		if err := ValidateEthernetFilterNumber(num); err != nil {
+			return fmt.Errorf("invalid filter number %d: %w", num, err)
+		}
+	}
+
+	return nil
+}

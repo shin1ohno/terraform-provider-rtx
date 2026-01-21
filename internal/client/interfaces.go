@@ -873,15 +873,17 @@ type Config struct {
 
 // InterfaceConfig represents interface configuration on an RTX router
 type InterfaceConfig struct {
-	Name             string       `json:"name"`                         // Interface name (lan1, lan2, pp1, bridge1, tunnel1)
-	Description      string       `json:"description,omitempty"`        // Interface description
-	IPAddress        *InterfaceIP `json:"ip_address,omitempty"`         // IPv4 address configuration
-	SecureFilterIn   []int        `json:"secure_filter_in,omitempty"`   // Inbound security filter numbers
-	SecureFilterOut  []int        `json:"secure_filter_out,omitempty"`  // Outbound security filter numbers
-	DynamicFilterOut []int        `json:"dynamic_filter_out,omitempty"` // Dynamic filters for outbound
-	NATDescriptor    int          `json:"nat_descriptor,omitempty"`     // NAT descriptor number (0 = none)
-	ProxyARP         bool         `json:"proxyarp"`                     // Enable ProxyARP
-	MTU              int          `json:"mtu,omitempty"`                // MTU size (0 = default)
+	Name              string       `json:"name"`                          // Interface name (lan1, lan2, pp1, bridge1, tunnel1)
+	Description       string       `json:"description,omitempty"`         // Interface description
+	IPAddress         *InterfaceIP `json:"ip_address,omitempty"`          // IPv4 address configuration
+	SecureFilterIn    []int        `json:"secure_filter_in,omitempty"`    // Inbound security filter numbers
+	SecureFilterOut   []int        `json:"secure_filter_out,omitempty"`   // Outbound security filter numbers
+	DynamicFilterOut  []int        `json:"dynamic_filter_out,omitempty"`  // Dynamic filters for outbound
+	EthernetFilterIn  []int        `json:"ethernet_filter_in,omitempty"`  // Inbound Ethernet (L2) filter numbers
+	EthernetFilterOut []int        `json:"ethernet_filter_out,omitempty"` // Outbound Ethernet (L2) filter numbers
+	NATDescriptor     int          `json:"nat_descriptor,omitempty"`      // NAT descriptor number (0 = none)
+	ProxyARP          bool         `json:"proxyarp"`                      // Enable ProxyARP
+	MTU               int          `json:"mtu,omitempty"`                 // MTU size (0 = default)
 }
 
 // InterfaceIP represents IP address configuration

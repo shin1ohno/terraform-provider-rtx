@@ -40,13 +40,13 @@ func resourceRTXAdminUser() *schema.Resource {
 			"encrypted": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     false,
+				Computed:    true,
 				Description: "Whether the password is already encrypted. If true, the password value will be used as-is (for encrypted passwords).",
 			},
 			"administrator": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     false,
+				Computed:    true,
 				Description: "Whether the user has administrator privileges.",
 			},
 			"connection_methods": {

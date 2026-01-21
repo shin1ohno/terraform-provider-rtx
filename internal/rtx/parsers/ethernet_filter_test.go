@@ -1828,3 +1828,529 @@ func TestBuildAccessListMACEntryCommand(t *testing.T) {
 		})
 	}
 }
+
+func TestParseEthernetFilterApplication(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []EthernetFilterApplication
+		wantErr  bool
+	}{
+		{
+			name:  "single filter in",
+			input: `ethernet lan1 filter in 1`,
+			expected: []EthernetFilterApplication{
+				{
+					Interface: "lan1",
+					Direction: "in",
+					Filters:   []int{1},
+				},
+			},
+		},
+		{
+			name:  "multiple filters in",
+			input: `ethernet lan1 filter in 1 100`,
+			expected: []EthernetFilterApplication{
+				{
+					Interface: "lan1",
+					Direction: "in",
+					Filters:   []int{1, 100},
+				},
+			},
+		},
+		{
+			name:  "filter out",
+			input: `ethernet lan2 filter out 10 20 30`,
+			expected: []EthernetFilterApplication{
+				{
+					Interface: "lan2",
+					Direction: "out",
+					Filters:   []int{10, 20, 30},
+				},
+			},
+		},
+		{
+			name: "multiple interfaces and directions",
+			input: `ethernet lan1 filter in 1 100
+ethernet lan1 filter out 2 200
+ethernet lan2 filter in 10 20 30`,
+			expected: []EthernetFilterApplication{
+				{
+					Interface: "lan1",
+					Direction: "in",
+					Filters:   []int{1, 100},
+				},
+				{
+					Interface: "lan1",
+					Direction: "out",
+					Filters:   []int{2, 200},
+				},
+				{
+					Interface: "lan2",
+					Direction: "in",
+					Filters:   []int{10, 20, 30},
+				},
+			},
+		},
+		{
+			name:     "empty input",
+			input:    "",
+			expected: []EthernetFilterApplication{},
+		},
+		{
+			name: "mixed content with non-filter lines",
+			input: `ip route default gateway 192.168.1.1
+ethernet lan1 filter in 1 100
+dhcp scope 1 192.168.1.0/24`,
+			expected: []EthernetFilterApplication{
+				{
+					Interface: "lan1",
+					Direction: "in",
+					Filters:   []int{1, 100},
+				},
+			},
+		},
+		{
+			name:  "many filters",
+			input: `ethernet lan1 filter in 1 2 3 4 5 6 7 8 9 10`,
+			expected: []EthernetFilterApplication{
+				{
+					Interface: "lan1",
+					Direction: "in",
+					Filters:   []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+				},
+			},
+		},
+		{
+			name:  "max filter number",
+			input: `ethernet lan1 filter in 512`,
+			expected: []EthernetFilterApplication{
+				{
+					Interface: "lan1",
+					Direction: "in",
+					Filters:   []int{512},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ParseEthernetFilterApplication(tt.input)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error, got nil")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			if len(result) != len(tt.expected) {
+				t.Errorf("expected %d applications, got %d", len(tt.expected), len(result))
+				return
+			}
+
+			for i, expected := range tt.expected {
+				got := result[i]
+				if got.Interface != expected.Interface {
+					t.Errorf("app[%d].Interface = %q, want %q", i, got.Interface, expected.Interface)
+				}
+				if got.Direction != expected.Direction {
+					t.Errorf("app[%d].Direction = %q, want %q", i, got.Direction, expected.Direction)
+				}
+				if len(got.Filters) != len(expected.Filters) {
+					t.Errorf("app[%d].Filters length = %d, want %d", i, len(got.Filters), len(expected.Filters))
+					continue
+				}
+				for j, f := range expected.Filters {
+					if got.Filters[j] != f {
+						t.Errorf("app[%d].Filters[%d] = %d, want %d", i, j, got.Filters[j], f)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestParseSingleEthernetFilterApplication(t *testing.T) {
+	input := `ethernet lan1 filter in 1 100
+ethernet lan1 filter out 2 200
+ethernet lan2 filter in 10 20 30`
+
+	tests := []struct {
+		name      string
+		iface     string
+		direction string
+		expected  *EthernetFilterApplication
+	}{
+		{
+			name:      "find lan1 in",
+			iface:     "lan1",
+			direction: "in",
+			expected: &EthernetFilterApplication{
+				Interface: "lan1",
+				Direction: "in",
+				Filters:   []int{1, 100},
+			},
+		},
+		{
+			name:      "find lan1 out",
+			iface:     "lan1",
+			direction: "out",
+			expected: &EthernetFilterApplication{
+				Interface: "lan1",
+				Direction: "out",
+				Filters:   []int{2, 200},
+			},
+		},
+		{
+			name:      "find lan2 in",
+			iface:     "lan2",
+			direction: "in",
+			expected: &EthernetFilterApplication{
+				Interface: "lan2",
+				Direction: "in",
+				Filters:   []int{10, 20, 30},
+			},
+		},
+		{
+			name:      "not found - wrong interface",
+			iface:     "lan3",
+			direction: "in",
+			expected:  nil,
+		},
+		{
+			name:      "not found - wrong direction",
+			iface:     "lan2",
+			direction: "out",
+			expected:  nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ParseSingleEthernetFilterApplication(input, tt.iface, tt.direction)
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			if tt.expected == nil {
+				if result != nil {
+					t.Errorf("expected nil, got %+v", result)
+				}
+				return
+			}
+
+			if result == nil {
+				t.Errorf("expected %+v, got nil", tt.expected)
+				return
+			}
+
+			if result.Interface != tt.expected.Interface {
+				t.Errorf("Interface = %q, want %q", result.Interface, tt.expected.Interface)
+			}
+			if result.Direction != tt.expected.Direction {
+				t.Errorf("Direction = %q, want %q", result.Direction, tt.expected.Direction)
+			}
+			if len(result.Filters) != len(tt.expected.Filters) {
+				t.Errorf("Filters length = %d, want %d", len(result.Filters), len(tt.expected.Filters))
+				return
+			}
+			for i, f := range tt.expected.Filters {
+				if result.Filters[i] != f {
+					t.Errorf("Filters[%d] = %d, want %d", i, result.Filters[i], f)
+				}
+			}
+		})
+	}
+}
+
+func TestBuildEthernetFilterApplicationCommand(t *testing.T) {
+	tests := []struct {
+		name     string
+		app      EthernetFilterApplication
+		expected string
+	}{
+		{
+			name: "single filter in",
+			app: EthernetFilterApplication{
+				Interface: "lan1",
+				Direction: "in",
+				Filters:   []int{1},
+			},
+			expected: "ethernet lan1 filter in 1",
+		},
+		{
+			name: "multiple filters in",
+			app: EthernetFilterApplication{
+				Interface: "lan1",
+				Direction: "in",
+				Filters:   []int{1, 100},
+			},
+			expected: "ethernet lan1 filter in 1 100",
+		},
+		{
+			name: "filter out",
+			app: EthernetFilterApplication{
+				Interface: "lan2",
+				Direction: "out",
+				Filters:   []int{10, 20},
+			},
+			expected: "ethernet lan2 filter out 10 20",
+		},
+		{
+			name: "empty filters returns empty string",
+			app: EthernetFilterApplication{
+				Interface: "lan1",
+				Direction: "in",
+				Filters:   []int{},
+			},
+			expected: "",
+		},
+		{
+			name: "many filters",
+			app: EthernetFilterApplication{
+				Interface: "lan1",
+				Direction: "in",
+				Filters:   []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+			},
+			expected: "ethernet lan1 filter in 1 2 3 4 5 6 7 8 9 10",
+		},
+		{
+			name: "max filter number",
+			app: EthernetFilterApplication{
+				Interface: "lan1",
+				Direction: "in",
+				Filters:   []int{512},
+			},
+			expected: "ethernet lan1 filter in 512",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := BuildEthernetFilterApplicationCommand(tt.app)
+			if result != tt.expected {
+				t.Errorf("BuildEthernetFilterApplicationCommand() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestBuildDeleteEthernetFilterApplicationCommand(t *testing.T) {
+	tests := []struct {
+		name      string
+		iface     string
+		direction string
+		expected  string
+	}{
+		{
+			name:      "delete in filter",
+			iface:     "lan1",
+			direction: "in",
+			expected:  "no ethernet lan1 filter in",
+		},
+		{
+			name:      "delete out filter",
+			iface:     "lan2",
+			direction: "out",
+			expected:  "no ethernet lan2 filter out",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := BuildDeleteEthernetFilterApplicationCommand(tt.iface, tt.direction)
+			if result != tt.expected {
+				t.Errorf("BuildDeleteEthernetFilterApplicationCommand() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestValidateEthernetFilterApplication(t *testing.T) {
+	tests := []struct {
+		name        string
+		app         EthernetFilterApplication
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name: "valid single filter",
+			app: EthernetFilterApplication{
+				Interface: "lan1",
+				Direction: "in",
+				Filters:   []int{1},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid multiple filters",
+			app: EthernetFilterApplication{
+				Interface: "lan1",
+				Direction: "out",
+				Filters:   []int{1, 100, 512},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid empty filters",
+			app: EthernetFilterApplication{
+				Interface: "lan1",
+				Direction: "in",
+				Filters:   []int{},
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid empty interface",
+			app: EthernetFilterApplication{
+				Interface: "",
+				Direction: "in",
+				Filters:   []int{1},
+			},
+			wantErr:     true,
+			errContains: "interface name is required",
+		},
+		{
+			name: "invalid direction",
+			app: EthernetFilterApplication{
+				Interface: "lan1",
+				Direction: "both",
+				Filters:   []int{1},
+			},
+			wantErr:     true,
+			errContains: "direction",
+		},
+		{
+			name: "invalid filter number zero",
+			app: EthernetFilterApplication{
+				Interface: "lan1",
+				Direction: "in",
+				Filters:   []int{0},
+			},
+			wantErr:     true,
+			errContains: "between 1 and 512",
+		},
+		{
+			name: "invalid filter number too large",
+			app: EthernetFilterApplication{
+				Interface: "lan1",
+				Direction: "in",
+				Filters:   []int{513},
+			},
+			wantErr:     true,
+			errContains: "between 1 and 512",
+		},
+		{
+			name: "invalid filter number in list",
+			app: EthernetFilterApplication{
+				Interface: "lan1",
+				Direction: "in",
+				Filters:   []int{1, 100, 1000},
+			},
+			wantErr:     true,
+			errContains: "between 1 and 512",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateEthernetFilterApplication(tt.app)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error, got nil")
+				} else if tt.errContains != "" && !strings.Contains(err.Error(), tt.errContains) {
+					t.Errorf("error = %q, want to contain %q", err.Error(), tt.errContains)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestParseInterfaceEthernetFilter(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected map[string]map[string][]int
+	}{
+		{
+			name:  "single interface in filter",
+			input: `ethernet lan1 filter in 1 100`,
+			expected: map[string]map[string][]int{
+				"lan1": {
+					"in": {1, 100},
+				},
+			},
+		},
+		{
+			name: "multiple interfaces and directions",
+			input: `ethernet lan1 filter in 1 100
+ethernet lan1 filter out 2 200
+ethernet lan2 filter in 10 20`,
+			expected: map[string]map[string][]int{
+				"lan1": {
+					"in":  {1, 100},
+					"out": {2, 200},
+				},
+				"lan2": {
+					"in": {10, 20},
+				},
+			},
+		},
+		{
+			name:     "empty input",
+			input:    "",
+			expected: map[string]map[string][]int{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ParseInterfaceEthernetFilter(tt.input)
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			if len(result) != len(tt.expected) {
+				t.Errorf("expected %d interfaces, got %d", len(tt.expected), len(result))
+				return
+			}
+
+			for iface, dirs := range tt.expected {
+				gotDirs, ok := result[iface]
+				if !ok {
+					t.Errorf("interface %q not found in result", iface)
+					continue
+				}
+				for dir, filters := range dirs {
+					gotFilters, ok := gotDirs[dir]
+					if !ok {
+						t.Errorf("interface %q direction %q not found in result", iface, dir)
+						continue
+					}
+					if len(gotFilters) != len(filters) {
+						t.Errorf("interface %q direction %q: expected %d filters, got %d", iface, dir, len(filters), len(gotFilters))
+						continue
+					}
+					for i, f := range filters {
+						if gotFilters[i] != f {
+							t.Errorf("interface %q direction %q filter[%d]: expected %d, got %d", iface, dir, i, f, gotFilters[i])
+						}
+					}
+				}
+			}
+		})
+	}
+}
