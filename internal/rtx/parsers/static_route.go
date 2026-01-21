@@ -84,9 +84,13 @@ func (p *StaticRouteParser) ParseRouteConfig(raw string) ([]StaticRoute, error) 
 			routes[routeKey] = route
 		}
 
-		// Parse gateway/next hop
-		hop := parseGatewayPart(gatewayPart)
-		route.NextHops = append(route.NextHops, hop)
+		// Parse gateway/next hop - handle multiple gateways on same line (ECMP)
+		// RTX syntax: "gateway 192.168.1.20 gateway 192.168.1.21"
+		gatewayParts := splitOnGateway(gatewayPart)
+		for _, gw := range gatewayParts {
+			hop := parseGatewayPart(gw)
+			route.NextHops = append(route.NextHops, hop)
+		}
 	}
 
 	// Convert map to slice
@@ -285,6 +289,25 @@ func isKeyword(token string) bool {
 		}
 	}
 	return false
+}
+
+// splitOnGateway splits a gateway specification into multiple parts for ECMP routes
+// Input: "192.168.1.20 gateway 192.168.1.21" or "192.168.1.20 weight 1 gateway 192.168.1.21 weight 1"
+// Output: ["192.168.1.20", "192.168.1.21"] or ["192.168.1.20 weight 1", "192.168.1.21 weight 1"]
+func splitOnGateway(gatewayPart string) []string {
+	// Split on " gateway " to handle multiple next hops
+	parts := strings.Split(gatewayPart, " gateway ")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			result = append(result, part)
+		}
+	}
+	if len(result) == 0 {
+		return []string{gatewayPart}
+	}
+	return result
 }
 
 // BuildIPRouteCommand builds the command to create a static route
