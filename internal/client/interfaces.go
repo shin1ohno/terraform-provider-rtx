@@ -1581,17 +1581,18 @@ type DDNSStatus struct {
 
 // PPPoEConfig represents PPPoE connection configuration on an RTX router
 type PPPoEConfig struct {
-	Number            int         `json:"number"`                       // PP interface number (1-based)
-	Name              string      `json:"name,omitempty"`               // Connection name/description
-	Interface         string      `json:"interface,omitempty"`          // PP interface name (e.g., "pp 1")
-	BindInterface     string      `json:"bind_interface"`               // Physical interface to bind (lan2, etc.)
-	ServiceName       string      `json:"service_name,omitempty"`       // PPPoE service name
-	ACName            string      `json:"ac_name,omitempty"`            // PPPoE AC (Access Concentrator) name
-	Authentication    *PPPAuth    `json:"authentication,omitempty"`     // PPP authentication settings
-	AlwaysOn          bool        `json:"always_on,omitempty"`          // Keep connection always active
-	IPConfig          *PPIPConfig `json:"ip_config,omitempty"`          // IP configuration for PP interface
-	Enabled           bool        `json:"enabled"`                      // PP interface enabled
-	DisconnectTimeout int         `json:"disconnect_timeout,omitempty"` // Idle disconnect timeout in seconds
+	Number            int                 `json:"number"`                       // PP interface number (1-based)
+	Name              string              `json:"name,omitempty"`               // Connection name/description
+	Interface         string              `json:"interface,omitempty"`          // PP interface name (e.g., "pp 1")
+	BindInterface     string              `json:"bind_interface"`               // Physical interface to bind (lan2, etc.)
+	ServiceName       string              `json:"service_name,omitempty"`       // PPPoE service name
+	ACName            string              `json:"ac_name,omitempty"`            // PPPoE AC (Access Concentrator) name
+	Authentication    *PPPAuth            `json:"authentication,omitempty"`     // PPP authentication settings
+	AlwaysOn          bool                `json:"always_on,omitempty"`          // Keep connection always active
+	IPConfig          *PPIPConfig         `json:"ip_config,omitempty"`          // IP configuration for PP interface
+	Enabled           bool                `json:"enabled"`                      // PP interface enabled
+	DisconnectTimeout int                 `json:"disconnect_timeout,omitempty"` // Idle disconnect timeout in seconds
+	LCPReconnect      *LCPReconnectConfig `json:"lcp_reconnect,omitempty"`      // Reconnect/backoff settings
 }
 
 // PPPAuth represents PPP authentication configuration
@@ -1599,6 +1600,12 @@ type PPPAuth struct {
 	Method   string `json:"method,omitempty"`   // Auth method: pap, chap, mschap, mschap-v2
 	Username string `json:"username,omitempty"` // Username (pp auth myname)
 	Password string `json:"password,omitempty"` // Password (sensitive)
+}
+
+// LCPReconnectConfig represents reconnect/backoff settings
+type LCPReconnectConfig struct {
+	ReconnectInterval int `json:"reconnect_interval"` // Seconds between reconnect attempts
+	ReconnectAttempts int `json:"reconnect_attempts"` // Max attempts (0 = unlimited)
 }
 
 // PPIPConfig represents PP interface IP configuration

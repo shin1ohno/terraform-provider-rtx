@@ -84,6 +84,18 @@ func resourceRTXPPPoE() *schema.Resource {
 				Description:  "Idle disconnect timeout in seconds. 0 means no automatic disconnect.",
 				ValidateFunc: validation.IntAtLeast(0),
 			},
+			"reconnect_interval": {
+				Type:         schema.TypeInt,
+				Optional:     true,
+				Description:  "Seconds between reconnect attempts (keepalive retry interval).",
+				ValidateFunc: validation.IntAtLeast(0),
+			},
+			"reconnect_attempts": {
+				Type:         schema.TypeInt,
+				Optional:     true,
+				Description:  "Maximum reconnect attempts (0 = unlimited).",
+				ValidateFunc: validation.IntAtLeast(0),
+			},
 			"enabled": {
 				Type:        schema.TypeBool,
 				Optional:    true,
@@ -155,6 +167,13 @@ func resourceRTXPPPoERead(ctx context.Context, d *schema.ResourceData, meta inte
 	}
 	if err := d.Set("disconnect_timeout", config.DisconnectTimeout); err != nil {
 		return diag.FromErr(err)
+	}
+	if config.LCPReconnect != nil {
+		d.Set("reconnect_interval", config.LCPReconnect.ReconnectInterval)
+		d.Set("reconnect_attempts", config.LCPReconnect.ReconnectAttempts)
+	} else {
+		d.Set("reconnect_interval", nil)
+		d.Set("reconnect_attempts", nil)
 	}
 	if err := d.Set("enabled", config.Enabled); err != nil {
 		return diag.FromErr(err)
@@ -245,6 +264,10 @@ func resourceRTXPPPoEImport(ctx context.Context, d *schema.ResourceData, meta in
 	d.Set("ac_name", config.ACName)
 	d.Set("always_on", config.AlwaysOn)
 	d.Set("disconnect_timeout", config.DisconnectTimeout)
+	if config.LCPReconnect != nil {
+		d.Set("reconnect_interval", config.LCPReconnect.ReconnectInterval)
+		d.Set("reconnect_attempts", config.LCPReconnect.ReconnectAttempts)
+	}
 	d.Set("enabled", config.Enabled)
 
 	// Set authentication attributes
@@ -278,6 +301,19 @@ func buildPPPoEConfigFromResourceData(d *schema.ResourceData) client.PPPoEConfig
 		Method:   d.Get("auth_method").(string),
 		Username: d.Get("username").(string),
 		Password: d.Get("password").(string),
+	}
+
+	// Reconnect/keepalive
+	if intervalRaw, ok := d.GetOk("reconnect_interval"); ok {
+		interval := intervalRaw.(int)
+		attempts := 0
+		if attemptsRaw, ok := d.GetOk("reconnect_attempts"); ok {
+			attempts = attemptsRaw.(int)
+		}
+		config.LCPReconnect = &client.LCPReconnectConfig{
+			ReconnectInterval: interval,
+			ReconnectAttempts: attempts,
+		}
 	}
 
 	return config

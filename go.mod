@@ -4,7 +4,12 @@ go 1.23.0
 
 toolchain go1.23.12
 
-require github.com/hashicorp/terraform-plugin-sdk/v2 v2.37.0
+require (
+	github.com/hashicorp/terraform-plugin-sdk/v2 v2.37.0
+	github.com/rs/zerolog v1.34.0
+	github.com/stretchr/testify v1.10.0
+	golang.org/x/crypto v0.41.0
+)
 
 require (
 	github.com/ProtonMail/go-crypto v1.1.6 // indirect
@@ -44,14 +49,11 @@ require (
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/oklog/run v1.0.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/rs/zerolog v1.34.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
-	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/zclconf/go-cty v1.16.2 // indirect
-	golang.org/x/crypto v0.41.0 // indirect
 	golang.org/x/mod v0.26.0 // indirect
 	golang.org/x/net v0.42.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect

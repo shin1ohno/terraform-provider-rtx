@@ -255,6 +255,32 @@ pp enable 1
 	}
 }
 
+func TestParsePPPoEConfig_Reconnect(t *testing.T) {
+	raw := `
+pp select 1
+ pp keepalive interval 10 retry-interval 3
+`
+	parser := NewPPPParser()
+	configs, err := parser.ParsePPPoEConfig(raw)
+	if err != nil {
+		t.Fatalf("Failed to parse: %v", err)
+	}
+
+	if len(configs) != 1 {
+		t.Fatalf("Expected 1 config, got %d", len(configs))
+	}
+
+	if configs[0].LCPReconnect == nil {
+		t.Fatalf("Expected LCPReconnect to be set")
+	}
+	if configs[0].LCPReconnect.ReconnectInterval != 10 {
+		t.Errorf("ReconnectInterval: expected 10, got %d", configs[0].LCPReconnect.ReconnectInterval)
+	}
+	if configs[0].LCPReconnect.ReconnectAttempts != 3 {
+		t.Errorf("ReconnectAttempts: expected 3, got %d", configs[0].LCPReconnect.ReconnectAttempts)
+	}
+}
+
 func TestParsePPPoEConfig_Empty(t *testing.T) {
 	parser := NewPPPParser()
 	configs, err := parser.ParsePPPoEConfig("")
@@ -671,9 +697,9 @@ func TestBuildIPPPTCPMSSLimitCommand(t *testing.T) {
 
 func TestBuildIPPPNATDescriptorCommand(t *testing.T) {
 	tests := []struct {
-		name        string
-		descriptor  int
-		expected    string
+		name       string
+		descriptor int
+		expected   string
 	}{
 		{"descriptor 1", 1, "ip pp nat descriptor 1"},
 		{"descriptor 100", 100, "ip pp nat descriptor 100"},
@@ -991,6 +1017,10 @@ func TestPPPoERoundTrip(t *testing.T) {
 			Password: "testpass",
 		},
 		AlwaysOn: true,
+		LCPReconnect: &LCPReconnectConfig{
+			ReconnectInterval: 7,
+			ReconnectAttempts: 2,
+		},
 		IPConfig: &PPIPConfig{
 			Address:       "192.168.1.1/24",
 			MTU:           1454,
@@ -1040,6 +1070,15 @@ func TestPPPoERoundTrip(t *testing.T) {
 	}
 	if parsed.AlwaysOn != original.AlwaysOn {
 		t.Errorf("AlwaysOn: expected %v, got %v", original.AlwaysOn, parsed.AlwaysOn)
+	}
+	if parsed.LCPReconnect == nil {
+		t.Fatalf("LCPReconnect: expected non-nil")
+	}
+	if parsed.LCPReconnect.ReconnectInterval != original.LCPReconnect.ReconnectInterval {
+		t.Errorf("ReconnectInterval: expected %d, got %d", original.LCPReconnect.ReconnectInterval, parsed.LCPReconnect.ReconnectInterval)
+	}
+	if parsed.LCPReconnect.ReconnectAttempts != original.LCPReconnect.ReconnectAttempts {
+		t.Errorf("ReconnectAttempts: expected %d, got %d", original.LCPReconnect.ReconnectAttempts, parsed.LCPReconnect.ReconnectAttempts)
 	}
 	if parsed.IPConfig == nil {
 		t.Fatal("IPConfig should not be nil")

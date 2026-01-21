@@ -9,34 +9,35 @@ import (
 
 // PPPoEConfig represents PPPoE configuration on an RTX router
 type PPPoEConfig struct {
-	Number            int       `json:"number"`              // PP number (pp select <num>)
-	Name              string    `json:"name,omitempty"`      // Description
-	Interface         string    `json:"interface"`           // Physical interface (pppoe use <interface>)
-	BindInterface     string    `json:"bind_interface"`      // Bind interface (pp bind <interface>)
-	ServiceName       string    `json:"service_name"`        // pppoe service-name
-	ACName            string    `json:"ac_name,omitempty"`   // pppoe ac-name
-	Authentication    *PPPAuth  `json:"authentication"`      // Authentication settings
-	AlwaysOn          bool      `json:"always_on"`           // pp always-on on|off
-	Enabled           bool      `json:"enabled"`             // pp enable <num>
-	IPConfig          *PPIPConfig `json:"ip_config"`         // IP configuration
-	LCPEchoConfig     *LCPEchoConfig `json:"lcp_echo,omitempty"` // LCP echo (keepalive)
-	DisconnectTimeout int       `json:"disconnect_timeout"`  // pp disconnect time
+	Number            int                 `json:"number"`                  // PP number (pp select <num>)
+	Name              string              `json:"name,omitempty"`          // Description
+	Interface         string              `json:"interface"`               // Physical interface (pppoe use <interface>)
+	BindInterface     string              `json:"bind_interface"`          // Bind interface (pp bind <interface>)
+	ServiceName       string              `json:"service_name"`            // pppoe service-name
+	ACName            string              `json:"ac_name,omitempty"`       // pppoe ac-name
+	Authentication    *PPPAuth            `json:"authentication"`          // Authentication settings
+	AlwaysOn          bool                `json:"always_on"`               // pp always-on on|off
+	Enabled           bool                `json:"enabled"`                 // pp enable <num>
+	IPConfig          *PPIPConfig         `json:"ip_config"`               // IP configuration
+	LCPEchoConfig     *LCPEchoConfig      `json:"lcp_echo,omitempty"`      // LCP echo (keepalive)
+	DisconnectTimeout int                 `json:"disconnect_timeout"`      // pp disconnect time
+	LCPReconnect      *LCPReconnectConfig `json:"lcp_reconnect,omitempty"` // Reconnect/backoff settings
 }
 
 // PPPAuth represents PPP authentication configuration
 type PPPAuth struct {
-	Method   string `json:"method"`   // pap, chap, mschap, mschap-v2, accept-pap, accept-chap
-	Username string `json:"username"` // pp auth myname <username>
-	Password string `json:"password"` // pp auth myname <username> <password>
+	Method            string `json:"method"`                       // pap, chap, mschap, mschap-v2, accept-pap, accept-chap
+	Username          string `json:"username"`                     // pp auth myname <username>
+	Password          string `json:"password"`                     // pp auth myname <username> <password>
 	EncryptedPassword string `json:"encrypted_password,omitempty"` // For import
 }
 
 // PPIPConfig represents PP interface IP configuration
 type PPIPConfig struct {
-	Address        string `json:"address"`          // ip pp address <ip>/<mask> or "dhcp"
-	MTU            int    `json:"mtu"`              // ip pp mtu <size>
-	TCPMSSLimit    int    `json:"tcp_mss_limit"`    // ip pp tcp mss limit <size>
-	NATDescriptor  int    `json:"nat_descriptor"`   // ip pp nat descriptor <id>
+	Address         string `json:"address"`                     // ip pp address <ip>/<mask> or "dhcp"
+	MTU             int    `json:"mtu"`                         // ip pp mtu <size>
+	TCPMSSLimit     int    `json:"tcp_mss_limit"`               // ip pp tcp mss limit <size>
+	NATDescriptor   int    `json:"nat_descriptor"`              // ip pp nat descriptor <id>
 	SecureFilterIn  []int  `json:"secure_filter_in,omitempty"`  // ip pp secure filter in
 	SecureFilterOut []int  `json:"secure_filter_out,omitempty"` // ip pp secure filter out
 }
@@ -46,6 +47,20 @@ type LCPEchoConfig struct {
 	Interval   int  `json:"interval"`    // LCP echo interval
 	MaxRetries int  `json:"max_retries"` // Maximum retries
 	Enabled    bool `json:"enabled"`     // Keepalive enabled
+}
+
+// LCPReconnectConfig represents reconnect/backoff settings
+type LCPReconnectConfig struct {
+	ReconnectInterval int `json:"reconnect_interval"` // Seconds between reconnect attempts
+	ReconnectAttempts int `json:"reconnect_attempts"` // Max attempts (0 = unlimited)
+}
+
+// BuildPPReconnectCommand builds pp keepalive interval/retry commands
+func BuildPPReconnectCommand(interval int, attempts int) string {
+	if interval <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("pp keepalive interval %d retry-interval %d", interval, attempts)
 }
 
 // PPPParser parses PPP/PPPoE configuration output
@@ -73,6 +88,7 @@ func (p *PPPParser) ParsePPPoEConfig(raw string) ([]PPPoEConfig, error) {
 	ppAlwaysOnPattern := regexp.MustCompile(`^\s*pp\s+always-on\s+(on|off)\s*$`)
 	ppEnablePattern := regexp.MustCompile(`^\s*pp\s+enable\s+(\d+)\s*$`)
 	ppDisconnectTimePattern := regexp.MustCompile(`^\s*pp\s+disconnect\s+time\s+(off|\d+)\s*$`)
+	ppReconnectPattern := regexp.MustCompile(`^\s*pp\s+keepalive\s+interval\s+(\d+)\s+retry-interval\s+(\d+)\s*$`)
 
 	// IP PP patterns
 	ipPPAddressPattern := regexp.MustCompile(`^\s*ip\s+pp\s+address\s+(\S+)\s*$`)
@@ -179,6 +195,16 @@ func (p *PPPParser) ParsePPPoEConfig(raw string) ([]PPPoEConfig, error) {
 			if matches[1] != "off" {
 				currentConfig.DisconnectTimeout, _ = strconv.Atoi(matches[1])
 			}
+			continue
+		}
+
+		// PP reconnect/backoff (reuse keepalive syntax)
+		if matches := ppReconnectPattern.FindStringSubmatch(line); len(matches) == 3 {
+			if currentConfig.LCPReconnect == nil {
+				currentConfig.LCPReconnect = &LCPReconnectConfig{}
+			}
+			currentConfig.LCPReconnect.ReconnectInterval, _ = strconv.Atoi(matches[1])
+			currentConfig.LCPReconnect.ReconnectAttempts, _ = strconv.Atoi(matches[2])
 			continue
 		}
 
@@ -622,6 +648,13 @@ func BuildPPPoECommand(config PPPoEConfig) []string {
 		}
 	}
 
+	// reconnect/backoff
+	if config.LCPReconnect != nil && config.LCPReconnect.ReconnectInterval > 0 {
+		if cmd := BuildPPReconnectCommand(config.LCPReconnect.ReconnectInterval, config.LCPReconnect.ReconnectAttempts); cmd != "" {
+			commands = append(commands, cmd)
+		}
+	}
+
 	return commands
 }
 
@@ -707,6 +740,15 @@ func ValidatePPPoEConfig(config PPPoEConfig) error {
 
 		if config.IPConfig.TCPMSSLimit > 0 && (config.IPConfig.TCPMSSLimit < 1 || config.IPConfig.TCPMSSLimit > 1460) {
 			return fmt.Errorf("TCP MSS limit must be between 1 and 1460: %d", config.IPConfig.TCPMSSLimit)
+		}
+	}
+
+	if config.LCPReconnect != nil {
+		if config.LCPReconnect.ReconnectInterval < 0 {
+			return fmt.Errorf("reconnect interval must be >= 0")
+		}
+		if config.LCPReconnect.ReconnectAttempts < 0 {
+			return fmt.Errorf("reconnect attempts must be >= 0")
 		}
 	}
 

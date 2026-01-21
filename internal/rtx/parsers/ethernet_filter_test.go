@@ -685,9 +685,9 @@ func TestValidateMAC(t *testing.T) {
 
 func TestValidateEtherType(t *testing.T) {
 	tests := []struct {
-		name     string
-		ethType  string
-		wantErr  bool
+		name    string
+		ethType string
+		wantErr bool
 	}{
 		{
 			name:    "valid IPv4",
@@ -1773,6 +1773,57 @@ func TestValidateEthernetFilterNumber512(t *testing.T) {
 				if err != nil {
 					t.Errorf("unexpected error for number %d: %v", tt.number, err)
 				}
+			}
+		})
+	}
+}
+
+func TestBuildAccessListMACEntryCommand(t *testing.T) {
+	tests := []struct {
+		name     string
+		entry    AccessListMACEntry
+		expected string
+	}{
+		{
+			name: "permit maps to pass with offset/bytes",
+			entry: AccessListMACEntry{
+				Sequence:  5,
+				AceAction: "permit",
+				SourceAny: true,
+				Offset:    14,
+				ByteList:  []string{"0x08", "0x00"},
+			},
+			expected: "ethernet filter 5 pass * * offset=14 0x08 0x00",
+		},
+		{
+			name: "explicit filter_id with pass-log and dhcp scope",
+			entry: AccessListMACEntry{
+				FilterID:  10,
+				AceAction: "pass-log",
+				SourceAny: true,
+				DHCPType:  "dhcp-bind",
+				DHCPScope: 2,
+			},
+			expected: "ethernet filter 10 pass-log dhcp-bind 2",
+		},
+		{
+			name: "reject-log keeps action and dest mac",
+			entry: AccessListMACEntry{
+				Sequence:           7,
+				AceAction:          "reject-log",
+				SourceAny:          true,
+				DestinationAny:     false,
+				DestinationAddress: "ff:ff:ff:ff:ff:ff",
+				EtherType:          "0x0806",
+			},
+			expected: "ethernet filter 7 reject-log * ff:ff:ff:ff:ff:ff 0x0806",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := BuildAccessListMACEntryCommand(tt.entry); got != tt.expected {
+				t.Errorf("BuildAccessListMACEntryCommand() = %q, want %q", got, tt.expected)
 			}
 		})
 	}

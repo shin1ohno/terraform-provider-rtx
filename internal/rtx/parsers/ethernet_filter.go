@@ -553,45 +553,51 @@ type AccessListMACEntry struct {
 	EtherType              string
 	VlanID                 int
 	Log                    bool
+	FilterID               int
+	DHCPType               string
+	DHCPScope              int
+	Offset                 int
+	ByteList               []string
 }
 
 // BuildAccessListMACEntryCommand builds an Ethernet filter command from a MAC ACL entry
 // RTX command: ethernet filter <sequence> <action> <src_mac> <dst_mac> [<eth_type>] [vlan <vlan_id>]
 func BuildAccessListMACEntryCommand(entry AccessListMACEntry) string {
-	// Build source MAC
-	srcMAC := "*"
-	if !entry.SourceAny && entry.SourceAddress != "" {
-		srcMAC = entry.SourceAddress
-		// Note: RTX doesn't support MAC masks in basic ethernet filter
-		// We keep the mask for internal representation but don't use it in command
+	number := entry.Sequence
+	if entry.FilterID > 0 {
+		number = entry.FilterID
 	}
 
-	// Build destination MAC
-	dstMAC := "*"
-	if !entry.DestinationAny && entry.DestinationAddress != "" {
-		dstMAC = entry.DestinationAddress
-	}
-
-	// Map action
-	action := "pass"
-	if entry.AceAction == "deny" {
+	action := entry.AceAction
+	switch entry.AceAction {
+	case "permit":
+		action = "pass"
+	case "deny":
 		action = "reject"
 	}
 
-	// Build command
-	cmd := fmt.Sprintf("ethernet filter %d %s %s %s", entry.Sequence, action, srcMAC, dstMAC)
-
-	// Add EtherType if specified
-	if entry.EtherType != "" {
-		cmd += fmt.Sprintf(" %s", entry.EtherType)
+	filter := EthernetFilter{
+		Number:         number,
+		Action:         action,
+		SourceMAC:      "*",
+		DestinationMAC: "*",
+		EtherType:      entry.EtherType,
+		VlanID:         entry.VlanID,
+		DHCPType:       entry.DHCPType,
+		DHCPScope:      entry.DHCPScope,
+		Offset:         entry.Offset,
+		ByteList:       entry.ByteList,
 	}
 
-	// Add VLAN ID if specified
-	if entry.VlanID > 0 {
-		cmd += fmt.Sprintf(" vlan %d", entry.VlanID)
+	if !entry.SourceAny && entry.SourceAddress != "" {
+		filter.SourceMAC = entry.SourceAddress
+	}
+	if !entry.DestinationAny && entry.DestinationAddress != "" {
+		filter.DestinationMAC = entry.DestinationAddress
+		filter.DestMAC = entry.DestinationAddress
 	}
 
-	return cmd
+	return BuildEthernetFilterCommand(filter)
 }
 
 // BuildMACAccessListInterfaceCommand builds the command to apply MAC filters to an interface

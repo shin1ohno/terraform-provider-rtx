@@ -606,6 +606,13 @@ func (s *PPPService) toParserPPPoEConfig(config PPPoEConfig) parsers.PPPoEConfig
 		}
 	}
 
+	if config.LCPReconnect != nil {
+		parserConfig.LCPReconnect = &parsers.LCPReconnectConfig{
+			ReconnectInterval: config.LCPReconnect.ReconnectInterval,
+			ReconnectAttempts: config.LCPReconnect.ReconnectAttempts,
+		}
+	}
+
 	return parserConfig
 }
 
@@ -638,6 +645,13 @@ func (s *PPPService) fromParserPPPoEConfig(config parsers.PPPoEConfig) PPPoEConf
 			NATDescriptor:   config.IPConfig.NATDescriptor,
 			SecureFilterIn:  config.IPConfig.SecureFilterIn,
 			SecureFilterOut: config.IPConfig.SecureFilterOut,
+		}
+	}
+
+	if config.LCPReconnect != nil {
+		clientConfig.LCPReconnect = &LCPReconnectConfig{
+			ReconnectInterval: config.LCPReconnect.ReconnectInterval,
+			ReconnectAttempts: config.LCPReconnect.ReconnectAttempts,
 		}
 	}
 
