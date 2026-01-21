@@ -1,0 +1,45 @@
+# DNS Server Select Configuration Test Fixture (REQ-1)
+# Tests multiple DNS server select entries with various options:
+# - Multiple servers per entry
+# - EDNS option
+# - Record types (a, aaaa)
+# - Query patterns including "." (all domains)
+# - Original sender restriction (IP/CIDR)
+
+# Basic entry with two DNS servers for all domains
+dns server select 500000 1.1.1.1 1.0.0.1 .
+
+# Entry with EDNS enabled and AAAA record type for all domains
+dns server select 500100 2606:4700:4700::1111 edns=on aaaa .
+
+# Entry with two servers, EDNS, type A, domain pattern and original sender restriction
+dns server select 500200 8.8.8.8 8.8.4.4 edns=on a *.google.com 192.168.1.0/24
+
+# Entry with single server and restrict pp option
+dns server select 500300 208.67.222.222 *.opendns.com restrict pp 1
+
+# Entry with IPv6 servers and MX record type
+dns server select 500400 2001:4860:4860::8888 2001:4860:4860::8844 mx *.gmail.com
+
+# Entry with PTR record type for reverse DNS
+dns server select 500500 192.168.1.53 ptr *.168.192.in-addr.arpa
+
+# Entry with NS record type
+dns server select 500600 10.0.0.53 ns *.internal.example.com
+
+# Entry with CNAME record type
+dns server select 500700 10.0.0.54 cname *.cdn.example.com
+
+# Entry with ANY record type (all record types)
+dns server select 500800 10.0.0.55 edns=on any *.example.org
+
+# Entry with IP range original sender
+dns server select 500900 172.16.0.53 . 10.0.0.1-10.0.0.254
+
+# Other DNS configuration for context
+dns service on
+dns domain lookup on
+dns domain example.local
+dns server 192.168.1.1 192.168.1.2
+dns static router.local 192.168.1.1
+dns private address spoof on

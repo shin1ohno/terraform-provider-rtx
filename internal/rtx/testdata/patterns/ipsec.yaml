@@ -1,0 +1,901 @@
+# RTX IPsec Command Patterns
+# Reference: RTX Command Reference Chapter 15 - IPsec Configuration
+
+category: ipsec
+chapter: 15
+parser: ipsec_tunnel.go
+
+commands:
+  # ============================================================================
+  # Tunnel Management Commands
+  # ============================================================================
+
+  - name: tunnel select
+    syntax: "tunnel select <tunnel_id>"
+    no_form: "no tunnel select <tunnel_id>"
+    chapter: 15
+    parser: ipsec_tunnel.go
+    description: Select a tunnel interface for configuration
+    parameters:
+      - name: tunnel_id
+        type: int
+        required: true
+        range: "1-6000"
+        description: Tunnel interface number (range varies by model)
+    examples:
+      - input: "tunnel select 1"
+        expected:
+          tunnel_id: 1
+        description: Select tunnel interface 1
+      - input: "tunnel select 100"
+        expected:
+          tunnel_id: 100
+        description: Select tunnel interface 100
+
+  - name: tunnel enable
+    syntax: "tunnel enable <tunnel_id>"
+    no_form: "no tunnel enable <tunnel_id>"
+    chapter: 15
+    parser: ipsec_tunnel.go
+    description: Enable a tunnel interface
+    parameters:
+      - name: tunnel_id
+        type: int
+        required: true
+        range: "1-6000"
+        description: Tunnel interface number to enable
+    examples:
+      - input: "tunnel enable 1"
+        expected:
+          tunnel_id: 1
+          enabled: true
+        description: Enable tunnel interface 1
+
+  - name: tunnel disable
+    syntax: "tunnel disable <tunnel_id>"
+    no_form: "no tunnel disable <tunnel_id>"
+    chapter: 15
+    parser: ipsec_tunnel.go
+    description: Disable a tunnel interface
+    parameters:
+      - name: tunnel_id
+        type: int
+        required: true
+        range: "1-6000"
+        description: Tunnel interface number to disable
+    examples:
+      - input: "tunnel disable 1"
+        expected:
+          tunnel_id: 1
+          enabled: false
+        description: Disable tunnel interface 1
+
+  # ============================================================================
+  # IPsec Basic Configuration
+  # ============================================================================
+
+  - name: ipsec use
+    syntax: "ipsec use <use>"
+    no_form: "no ipsec use"
+    chapter: 15
+    section: "15.1"
+    parser: ipsec_tunnel.go
+    description: Enable or disable IPsec functionality
+    parameters:
+      - name: use
+        type: enum
+        required: true
+        values: ["on", "off"]
+        default: "on"
+        description: Enable (on) or disable (off) IPsec
+    examples:
+      - input: "ipsec use on"
+        expected:
+          use: "on"
+        description: Enable IPsec
+      - input: "ipsec use off"
+        expected:
+          use: "off"
+        description: Disable IPsec
+
+  - name: ipsec tunnel
+    syntax: "ipsec tunnel <policy_id>"
+    no_form: "no ipsec tunnel <policy_id>"
+    chapter: 15
+    section: "15.48.1"
+    parser: ipsec_tunnel.go
+    description: Associate IPsec policy with tunnel interface
+    parameters:
+      - name: policy_id
+        type: int
+        required: true
+        range: "1-2147483647"
+        description: IPsec policy ID
+    examples:
+      - input: "ipsec tunnel 1"
+        expected:
+          policy_id: 1
+        description: Associate policy 1 with current tunnel
+      - input: "ipsec tunnel 100"
+        expected:
+          policy_id: 100
+        description: Associate policy 100 with current tunnel
+
+  # ============================================================================
+  # IPsec SA Policy Commands
+  # ============================================================================
+
+  - name: ipsec sa policy
+    syntax: "ipsec sa policy <policy_id> <gateway_id> <protocol> [<esp_algorithm>] [<ah_algorithm>] [local-id=<local_id>] [remote-id=<remote_id>] [anti-replay-check=<check>]"
+    no_form: "no ipsec sa policy <policy_id>"
+    chapter: 15
+    section: "15.48.2"
+    parser: ipsec_tunnel.go
+    description: Define SA (Security Association) policy
+    parameters:
+      - name: policy_id
+        type: int
+        required: true
+        range: "1-2147483647"
+        description: Policy ID
+      - name: gateway_id
+        type: int
+        required: true
+        range: "1-6000"
+        description: Security gateway identifier
+      - name: protocol
+        type: enum
+        required: true
+        values: ["esp", "ah"]
+        description: IPsec protocol (ESP or AH)
+      - name: esp_algorithm
+        type: enum
+        required: false
+        values: ["3des-cbc", "des-cbc", "aes-cbc", "aes256-cbc"]
+        default: "aes-cbc"
+        description: ESP encryption algorithm
+      - name: ah_algorithm
+        type: enum
+        required: false
+        values: ["md5-hmac", "sha-hmac", "sha256-hmac", "sha384-hmac", "sha512-hmac"]
+        default: "sha-hmac"
+        description: Authentication algorithm (HMAC)
+      - name: local_id
+        type: ipv4_prefix
+        required: false
+        description: Local private network (CIDR)
+      - name: remote_id
+        type: ipv4_prefix
+        required: false
+        description: Remote private network (CIDR)
+      - name: check
+        type: enum
+        required: false
+        values: ["on", "off"]
+        default: "on"
+        description: Anti-replay sequence number check
+    examples:
+      - input: "ipsec sa policy 1 1 esp aes-cbc sha-hmac"
+        expected:
+          policy_id: 1
+          gateway_id: 1
+          protocol: "esp"
+          esp_algorithm: "aes-cbc"
+          ah_algorithm: "sha-hmac"
+        description: Basic ESP policy with AES-128 and SHA-1
+      - input: "ipsec sa policy 101 1 esp aes256-cbc sha256-hmac"
+        expected:
+          policy_id: 101
+          gateway_id: 1
+          protocol: "esp"
+          esp_algorithm: "aes256-cbc"
+          ah_algorithm: "sha256-hmac"
+        description: ESP policy with AES-256 and SHA-256
+      - input: "ipsec sa policy 1 1 esp 3des-cbc sha-hmac"
+        expected:
+          policy_id: 1
+          gateway_id: 1
+          protocol: "esp"
+          esp_algorithm: "3des-cbc"
+          ah_algorithm: "sha-hmac"
+        description: ESP policy with 3DES and SHA-1
+      - input: "ipsec sa policy 1 1 ah sha-hmac"
+        expected:
+          policy_id: 1
+          gateway_id: 1
+          protocol: "ah"
+          ah_algorithm: "sha-hmac"
+        description: AH-only policy with SHA-1
+
+  # ============================================================================
+  # IKE Configuration Commands
+  # ============================================================================
+
+  - name: ipsec ike version
+    syntax: "ipsec ike version <gateway_id> <version>"
+    no_form: "no ipsec ike version <gateway_id>"
+    chapter: 15
+    section: "15.2"
+    parser: ipsec_tunnel.go
+    description: Set IKE version for security gateway
+    parameters:
+      - name: gateway_id
+        type: int
+        required: true
+        range: "1-6000"
+        description: Security gateway identifier
+      - name: version
+        type: enum
+        required: true
+        values: ["1", "2"]
+        default: "1"
+        description: IKE version (1 or 2)
+    examples:
+      - input: "ipsec ike version 1 2"
+        expected:
+          gateway_id: 1
+          version: 2
+        description: Set IKEv2 for gateway 1
+      - input: "ipsec ike version 1 1"
+        expected:
+          gateway_id: 1
+          version: 1
+        description: Set IKEv1 for gateway 1
+
+  - name: ipsec ike pre-shared-key
+    syntax: "ipsec ike pre-shared-key <gateway_id> text <key>"
+    no_form: "no ipsec ike pre-shared-key <gateway_id>"
+    chapter: 15
+    section: "15.5"
+    parser: ipsec_tunnel.go
+    description: Register pre-shared key for IKE authentication
+    parameters:
+      - name: gateway_id
+        type: int
+        required: true
+        range: "1-6000"
+        description: Security gateway identifier
+      - name: key
+        type: password
+        required: true
+        description: Pre-shared key (ASCII text, max 128 characters)
+    examples:
+      - input: "ipsec ike pre-shared-key 1 text himitsu"
+        expected:
+          gateway_id: 1
+          key: "himitsu"
+        description: Set pre-shared key for gateway 1
+      - input: "ipsec ike pre-shared-key 1 text my-secret-key123"
+        expected:
+          gateway_id: 1
+          key: "my-secret-key123"
+        description: Set complex pre-shared key
+
+  - name: ipsec ike local address
+    syntax: "ipsec ike local address <gateway_id> <ip_address>"
+    no_form: "no ipsec ike local address <gateway_id>"
+    chapter: 15
+    section: "15.16"
+    parser: ipsec_tunnel.go
+    description: Set local endpoint IP address for IKE
+    parameters:
+      - name: gateway_id
+        type: int
+        required: true
+        range: "1-6000"
+        description: Security gateway identifier
+      - name: ip_address
+        type: ipv4
+        required: true
+        description: Local IP address
+    examples:
+      - input: "ipsec ike local address 1 192.168.0.1"
+        expected:
+          gateway_id: 1
+          ip_address: "192.168.0.1"
+        description: Set local address for gateway 1
+      - input: "ipsec ike local address 1 10.0.0.1"
+        expected:
+          gateway_id: 1
+          ip_address: "10.0.0.1"
+        description: Set local address using private IP
+
+  - name: ipsec ike remote address
+    syntax: "ipsec ike remote address <gateway_id> <ip_address>"
+    no_form: "no ipsec ike remote address <gateway_id>"
+    chapter: 15
+    section: "15.14"
+    parser: ipsec_tunnel.go
+    description: Set remote endpoint IP address for IKE
+    parameters:
+      - name: gateway_id
+        type: int
+        required: true
+        range: "1-6000"
+        description: Security gateway identifier
+      - name: ip_address
+        type: ipv4
+        required: true
+        description: Remote IP address (or "any" for dial-up VPN)
+    examples:
+      - input: "ipsec ike remote address 1 203.0.113.1"
+        expected:
+          gateway_id: 1
+          ip_address: "203.0.113.1"
+        description: Set remote address for gateway 1
+      - input: "ipsec ike remote address 1 any"
+        expected:
+          gateway_id: 1
+          ip_address: "any"
+        description: Accept connections from any address (aggressive mode)
+
+  - name: ipsec ike local name
+    syntax: "ipsec ike local name <gateway_id> <name> [<type>]"
+    no_form: "no ipsec ike local name <gateway_id>"
+    chapter: 15
+    section: "15.15"
+    parser: ipsec_tunnel.go
+    description: Set local identity name for aggressive mode
+    parameters:
+      - name: gateway_id
+        type: int
+        required: true
+        range: "1-6000"
+        description: Security gateway identifier
+      - name: name
+        type: string
+        required: true
+        description: Local identity name
+      - name: type
+        type: enum
+        required: false
+        values: ["fqdn", "user-fqdn", "key-id"]
+        default: "fqdn"
+        description: Identity type
+    examples:
+      - input: "ipsec ike local name 1 client1"
+        expected:
+          gateway_id: 1
+          name: "client1"
+        description: Set local name for aggressive mode
+      - input: "ipsec ike local name 1 client@example.com user-fqdn"
+        expected:
+          gateway_id: 1
+          name: "client@example.com"
+          type: "user-fqdn"
+        description: Set local name with user-fqdn type
+
+  - name: ipsec ike remote name
+    syntax: "ipsec ike remote name <gateway_id> <name> [<type>]"
+    no_form: "no ipsec ike remote name <gateway_id>"
+    chapter: 15
+    section: "15.13"
+    parser: ipsec_tunnel.go
+    description: Set expected remote identity name for aggressive mode
+    parameters:
+      - name: gateway_id
+        type: int
+        required: true
+        range: "1-6000"
+        description: Security gateway identifier
+      - name: name
+        type: string
+        required: true
+        description: Expected remote identity name
+      - name: type
+        type: enum
+        required: false
+        values: ["fqdn", "user-fqdn", "key-id"]
+        default: "fqdn"
+        description: Identity type
+    examples:
+      - input: "ipsec ike remote name 1 server1"
+        expected:
+          gateway_id: 1
+          name: "server1"
+        description: Set expected remote name
+      - input: "ipsec ike remote name 1 pc"
+        expected:
+          gateway_id: 1
+          name: "pc"
+        description: Set remote name for dial-up client
+
+  # ============================================================================
+  # IKE Encryption/Hash/Group Commands
+  # ============================================================================
+
+  - name: ipsec ike encryption
+    syntax: "ipsec ike encryption <gateway_id> <algorithm>"
+    no_form: "no ipsec ike encryption <gateway_id>"
+    chapter: 15
+    section: "15.22"
+    parser: ipsec_tunnel.go
+    description: Set IKE encryption algorithm
+    parameters:
+      - name: gateway_id
+        type: int
+        required: true
+        range: "1-6000"
+        description: Security gateway identifier
+      - name: algorithm
+        type: enum
+        required: true
+        values: ["3des-cbc", "des-cbc", "aes-cbc", "aes256-cbc"]
+        default: "3des-cbc"
+        description: IKE encryption algorithm
+    examples:
+      - input: "ipsec ike encryption 1 aes-cbc"
+        expected:
+          gateway_id: 1
+          algorithm: "aes-cbc"
+        description: Set AES-128-CBC encryption
+      - input: "ipsec ike encryption 1 aes256-cbc"
+        expected:
+          gateway_id: 1
+          algorithm: "aes256-cbc"
+        description: Set AES-256-CBC encryption
+      - input: "ipsec ike encryption 1 3des-cbc"
+        expected:
+          gateway_id: 1
+          algorithm: "3des-cbc"
+        description: Set 3DES-CBC encryption
+
+  - name: ipsec ike hash
+    syntax: "ipsec ike hash <gateway_id> <algorithm>"
+    no_form: "no ipsec ike hash <gateway_id>"
+    chapter: 15
+    section: "15.25"
+    parser: ipsec_tunnel.go
+    description: Set IKE hash algorithm
+    parameters:
+      - name: gateway_id
+        type: int
+        required: true
+        range: "1-6000"
+        description: Security gateway identifier
+      - name: algorithm
+        type: enum
+        required: true
+        values: ["md5", "sha", "sha256", "sha384", "sha512"]
+        default: "sha"
+        description: IKE hash algorithm
+    examples:
+      - input: "ipsec ike hash 1 sha256"
+        expected:
+          gateway_id: 1
+          algorithm: "sha256"
+        description: Set SHA-256 hash algorithm
+      - input: "ipsec ike hash 1 sha"
+        expected:
+          gateway_id: 1
+          algorithm: "sha"
+        description: Set SHA-1 hash algorithm
+      - input: "ipsec ike hash 1 md5"
+        expected:
+          gateway_id: 1
+          algorithm: "md5"
+        description: Set MD5 hash algorithm
+
+  - name: ipsec ike group
+    syntax: "ipsec ike group <gateway_id> <group> [<group2>]"
+    no_form: "no ipsec ike group <gateway_id>"
+    chapter: 15
+    section: "15.24"
+    parser: ipsec_tunnel.go
+    description: Set IKE Diffie-Hellman group
+    parameters:
+      - name: gateway_id
+        type: int
+        required: true
+        range: "1-6000"
+        description: Security gateway identifier
+      - name: group
+        type: enum
+        required: true
+        values: ["modp768", "modp1024", "modp1536", "modp2048"]
+        default: "modp1024"
+        description: DH group for IKE Phase 1
+      - name: group2
+        type: enum
+        required: false
+        values: ["modp768", "modp1024", "modp1536", "modp2048"]
+        description: DH group for IKE Phase 2 (IKEv1 only)
+    examples:
+      - input: "ipsec ike group 1 modp2048"
+        expected:
+          gateway_id: 1
+          group: "modp2048"
+        description: Set DH group 14 (2048-bit)
+      - input: "ipsec ike group 1 modp1024"
+        expected:
+          gateway_id: 1
+          group: "modp1024"
+        description: Set DH group 2 (1024-bit)
+      - input: "ipsec ike group 1 modp1536"
+        expected:
+          gateway_id: 1
+          group: "modp1536"
+        description: Set DH group 5 (1536-bit)
+      - input: "ipsec ike group 1 modp2048 modp1024"
+        expected:
+          gateway_id: 1
+          group: "modp2048"
+          group2: "modp1024"
+        description: Set different groups for Phase 1 and Phase 2
+
+  # ============================================================================
+  # IKE Keepalive (DPD) Commands
+  # ============================================================================
+
+  - name: ipsec ike keepalive use
+    syntax: "ipsec ike keepalive use <gateway_id> <switch> dpd [<interval> [<count> [<upwait>]]]"
+    no_form: "no ipsec ike keepalive use <gateway_id>"
+    chapter: 15
+    section: "15.20"
+    parser: ipsec_tunnel.go
+    description: Configure IKE keepalive with Dead Peer Detection
+    parameters:
+      - name: gateway_id
+        type: int
+        required: true
+        range: "1-6000"
+        description: Security gateway identifier
+      - name: switch
+        type: enum
+        required: true
+        values: ["on", "off"]
+        description: Enable or disable keepalive
+      - name: interval
+        type: int
+        required: false
+        range: "1-600"
+        default: 10
+        description: DPD interval in seconds
+      - name: count
+        type: int
+        required: false
+        range: "1-50"
+        default: 6
+        description: DPD retry count
+      - name: upwait
+        type: int
+        required: false
+        range: "0-1000000"
+        description: Wait time after SA establishment before starting DPD
+    examples:
+      - input: "ipsec ike keepalive use 1 on dpd 30"
+        expected:
+          gateway_id: 1
+          switch: "on"
+          interval: 30
+        description: Enable DPD with 30 second interval
+      - input: "ipsec ike keepalive use 1 on dpd 10 3"
+        expected:
+          gateway_id: 1
+          switch: "on"
+          interval: 10
+          count: 3
+        description: Enable DPD with 10 second interval and 3 retries
+      - input: "ipsec ike keepalive use 1 off"
+        expected:
+          gateway_id: 1
+          switch: "off"
+        description: Disable DPD
+
+  # ============================================================================
+  # IKE PFS and Auto Refresh Commands
+  # ============================================================================
+
+  - name: ipsec ike pfs
+    syntax: "ipsec ike pfs <gateway_id> <pfs>"
+    no_form: "no ipsec ike pfs <gateway_id>"
+    chapter: 15
+    section: "15.30"
+    parser: ipsec_tunnel.go
+    description: Enable or disable Perfect Forward Secrecy
+    parameters:
+      - name: gateway_id
+        type: int
+        required: true
+        range: "1-6000"
+        description: Security gateway identifier
+      - name: pfs
+        type: enum
+        required: true
+        values: ["on", "off"]
+        default: "off"
+        description: Enable or disable PFS
+    examples:
+      - input: "ipsec ike pfs 1 on"
+        expected:
+          gateway_id: 1
+          pfs: "on"
+        description: Enable PFS
+      - input: "ipsec ike pfs 1 off"
+        expected:
+          gateway_id: 1
+          pfs: "off"
+        description: Disable PFS
+
+  - name: ipsec auto refresh
+    syntax: "ipsec auto refresh [<gateway_id>] <switch>"
+    no_form: "no ipsec auto refresh [<gateway_id>]"
+    chapter: 15
+    section: "15.10"
+    parser: ipsec_tunnel.go
+    description: Enable automatic IKE key exchange initiation
+    parameters:
+      - name: gateway_id
+        type: int
+        required: false
+        range: "1-6000"
+        description: Security gateway identifier (optional for per-gateway setting)
+      - name: switch
+        type: enum
+        required: true
+        values: ["on", "off"]
+        default: "off"
+        description: Enable or disable auto refresh
+    examples:
+      - input: "ipsec auto refresh on"
+        expected:
+          switch: "on"
+        description: Enable auto refresh globally
+      - input: "ipsec auto refresh 1 off"
+        expected:
+          gateway_id: 1
+          switch: "off"
+        description: Disable auto refresh for gateway 1
+
+  # ============================================================================
+  # IKE SA Duration Commands
+  # ============================================================================
+
+  - name: ipsec ike duration isakmp-sa
+    syntax: "ipsec ike duration isakmp-sa <gateway_id> <seconds> [<kbytes>]"
+    no_form: "no ipsec ike duration isakmp-sa <gateway_id>"
+    chapter: 15
+    section: "15.47"
+    parser: ipsec_tunnel.go
+    description: Set ISAKMP SA (IKE Phase 1) lifetime
+    parameters:
+      - name: gateway_id
+        type: int
+        required: true
+        range: "1-6000"
+        description: Security gateway identifier
+      - name: seconds
+        type: int
+        required: true
+        range: "300-691200"
+        default: 28800
+        description: SA lifetime in seconds
+      - name: kbytes
+        type: int
+        required: false
+        description: SA lifetime in kilobytes
+    examples:
+      - input: "ipsec ike duration isakmp-sa 1 28800"
+        expected:
+          gateway_id: 1
+          seconds: 28800
+        description: Set 8 hour ISAKMP SA lifetime
+      - input: "ipsec ike duration isakmp-sa 1 86400"
+        expected:
+          gateway_id: 1
+          seconds: 86400
+        description: Set 24 hour ISAKMP SA lifetime
+
+  - name: ipsec ike duration ipsec-sa
+    syntax: "ipsec ike duration ipsec-sa <gateway_id> <seconds> [<kbytes>]"
+    no_form: "no ipsec ike duration ipsec-sa <gateway_id>"
+    chapter: 15
+    section: "15.47"
+    parser: ipsec_tunnel.go
+    description: Set IPsec SA (IKE Phase 2) lifetime
+    parameters:
+      - name: gateway_id
+        type: int
+        required: true
+        range: "1-6000"
+        description: Security gateway identifier
+      - name: seconds
+        type: int
+        required: true
+        range: "300-691200"
+        default: 3600
+        description: SA lifetime in seconds
+      - name: kbytes
+        type: int
+        required: false
+        description: SA lifetime in kilobytes
+    examples:
+      - input: "ipsec ike duration ipsec-sa 1 3600"
+        expected:
+          gateway_id: 1
+          seconds: 3600
+        description: Set 1 hour IPsec SA lifetime
+      - input: "ipsec ike duration ipsec-sa 1 7200"
+        expected:
+          gateway_id: 1
+          seconds: 7200
+        description: Set 2 hour IPsec SA lifetime
+
+  # ============================================================================
+  # NAT Traversal Commands
+  # ============================================================================
+
+  - name: ipsec ike nat-traversal
+    syntax: "ipsec ike nat-traversal <gateway_id> <switch> [keepalive=<interval>] [force=<force>] [type=<type>]"
+    no_form: "no ipsec ike nat-traversal <gateway_id>"
+    chapter: 15
+    section: "15.49"
+    parser: ipsec_tunnel.go
+    description: Configure NAT Traversal for IKE
+    parameters:
+      - name: gateway_id
+        type: int
+        required: true
+        range: "1-6000"
+        description: Security gateway identifier
+      - name: switch
+        type: enum
+        required: true
+        values: ["on", "off"]
+        description: Enable or disable NAT-T
+      - name: interval
+        type: int
+        required: false
+        range: "5-300"
+        default: 20
+        description: NAT keepalive interval in seconds
+      - name: force
+        type: enum
+        required: false
+        values: ["on", "off"]
+        description: Force NAT-T even when NAT is not detected
+      - name: type
+        type: enum
+        required: false
+        values: ["1", "2"]
+        description: NAT-T method type
+    examples:
+      - input: "ipsec ike nat-traversal 1 on"
+        expected:
+          gateway_id: 1
+          switch: "on"
+        description: Enable NAT-T
+      - input: "ipsec ike nat-traversal 1 on keepalive=30"
+        expected:
+          gateway_id: 1
+          switch: "on"
+          interval: 30
+        description: Enable NAT-T with 30 second keepalive
+      - input: "ipsec ike nat-traversal 1 on force=on"
+        expected:
+          gateway_id: 1
+          switch: "on"
+          force: "on"
+        description: Force NAT-T
+
+  # ============================================================================
+  # SA Management Commands
+  # ============================================================================
+
+  - name: ipsec sa delete
+    syntax: "ipsec sa delete <id>"
+    chapter: 15
+    section: "15.50"
+    parser: ipsec_tunnel.go
+    description: Delete a specific SA or all SAs
+    parameters:
+      - name: id
+        type: string
+        required: true
+        description: SA ID or "all" to delete all SAs
+    examples:
+      - input: "ipsec sa delete all"
+        expected:
+          id: "all"
+        description: Delete all SAs
+      - input: "ipsec sa delete 1"
+        expected:
+          id: "1"
+        description: Delete SA with ID 1
+
+  - name: ipsec refresh sa
+    syntax: "ipsec refresh sa"
+    chapter: 15
+    section: "15.48.3"
+    parser: ipsec_tunnel.go
+    description: Manually refresh all SAs and reset IKE state
+    parameters: []
+    examples:
+      - input: "ipsec refresh sa"
+        description: Refresh all SAs
+
+  # ============================================================================
+  # IPsec Transport Mode Commands
+  # ============================================================================
+
+  - name: ipsec transport
+    syntax: "ipsec transport <id> <policy_id> [<proto> [<src_port_list> [<dst_port_list>]]]"
+    no_form: "no ipsec transport <id>"
+    chapter: 15
+    section: "15.55"
+    parser: ipsec_tunnel.go
+    description: Define IPsec transport mode policy
+    parameters:
+      - name: id
+        type: int
+        required: true
+        range: "1-2147483647"
+        description: Transport ID
+      - name: policy_id
+        type: int
+        required: true
+        range: "1-2147483647"
+        description: SA policy ID
+      - name: proto
+        type: enum
+        required: false
+        values: ["tcp", "udp", "icmp", "*"]
+        description: Protocol to protect
+      - name: src_port_list
+        type: port_range
+        required: false
+        description: Source port or port range
+      - name: dst_port_list
+        type: port_range
+        required: false
+        description: Destination port or port range
+    examples:
+      - input: "ipsec transport 1 1 udp 1701"
+        expected:
+          id: 1
+          policy_id: 1
+          proto: "udp"
+          dst_port_list: "1701"
+        description: Transport mode for L2TP (UDP 1701)
+      - input: "ipsec transport 1 1 tcp 22"
+        expected:
+          id: 1
+          policy_id: 1
+          proto: "tcp"
+          dst_port_list: "22"
+        description: Transport mode for SSH
+
+  # ============================================================================
+  # IKE Always-On Commands
+  # ============================================================================
+
+  - name: ipsec ike always-on
+    syntax: "ipsec ike always-on <gateway_id> <switch>"
+    no_form: "no ipsec ike always-on <gateway_id>"
+    chapter: 15
+    section: "15.12"
+    parser: ipsec_tunnel.go
+    description: Continue key exchange even after failures
+    parameters:
+      - name: gateway_id
+        type: int
+        required: true
+        range: "1-6000"
+        description: Security gateway identifier
+      - name: switch
+        type: enum
+        required: true
+        values: ["on", "off"]
+        default: "off"
+        description: Enable continuous key exchange
+    examples:
+      - input: "ipsec ike always-on 1 on"
+        expected:
+          gateway_id: 1
+          switch: "on"
+        description: Enable always-on for gateway 1
+      - input: "ipsec ike always-on 1 off"
+        expected:
+          gateway_id: 1
+          switch: "off"
+        description: Disable always-on for gateway 1

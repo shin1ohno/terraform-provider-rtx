@@ -1,0 +1,209 @@
+# RTX Syslog Command Patterns
+# Extracted from: docs/RTX-commands/04_機器の設定.md (sections 4.25-4.35)
+# Parser: internal/rtx/parsers/syslog.go
+
+category: syslog
+chapter: 4
+parser: syslog.go
+
+commands:
+  # 4.25 SYSLOG を受けるホストの IP アドレスの設定
+  - name: syslog host
+    syntax: "syslog host <host> [<host2>] [<host3>] [<host4>]"
+    no_form: "no syslog host [<host>]"
+    chapter: 4
+    section: "4.25"
+    parser: syslog.go
+    description: Set SYSLOG destination host IP addresses or hostnames (up to 4 hosts)
+    parameters:
+      - name: host
+        type: string
+        required: true
+        description: Primary SYSLOG host IP address (IPv4/IPv6) or hostname
+      - name: host2
+        type: string
+        required: false
+        description: Secondary SYSLOG host
+      - name: host3
+        type: string
+        required: false
+        description: Third SYSLOG host
+      - name: host4
+        type: string
+        required: false
+        description: Fourth SYSLOG host
+    examples:
+      - input: "syslog host 192.168.1.100"
+        expected:
+          hosts: ["192.168.1.100"]
+        description: Single syslog server
+      - input: "syslog host 192.168.1.100 514"
+        expected:
+          hosts:
+            - address: "192.168.1.100"
+              port: 514
+        description: Syslog server with explicit port
+      - input: "syslog host 10.0.0.1 10.0.0.2"
+        expected:
+          hosts: ["10.0.0.1", "10.0.0.2"]
+        description: Two syslog servers
+      - input: "syslog host syslog.example.com"
+        expected:
+          hosts: ["syslog.example.com"]
+        description: Syslog server by hostname
+
+  # 4.27 SYSLOG ファシリティの設定
+  - name: syslog facility
+    syntax: "syslog facility <facility>"
+    no_form: "no syslog facility [<facility>]"
+    chapter: 4
+    section: "4.27"
+    parser: syslog.go
+    description: Set SYSLOG facility value
+    parameters:
+      - name: facility
+        type: enum
+        required: true
+        values: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "user", "local0", "local1", "local2", "local3", "local4", "local5", "local6", "local7"]
+        default: user
+        description: SYSLOG facility (0-23, user, local0-local7)
+    examples:
+      - input: "syslog facility user"
+        expected:
+          facility: "user"
+        description: Set facility to user (default)
+      - input: "syslog facility local0"
+        expected:
+          facility: "local0"
+        description: Set facility to local0
+      - input: "syslog facility local7"
+        expected:
+          facility: "local7"
+        description: Set facility to local7
+      - input: "syslog facility 16"
+        expected:
+          facility: "16"
+        description: Set facility by numeric value (16 = local0)
+
+  # 4.29 NOTICE タイプの SYSLOG を出力するか否かの設定
+  - name: syslog notice
+    syntax: "syslog notice <notice>"
+    no_form: "no syslog notice [<notice>]"
+    chapter: 4
+    section: "4.29"
+    parser: syslog.go
+    description: Enable or disable NOTICE level SYSLOG output for packet filtering etc.
+    parameters:
+      - name: notice
+        type: bool
+        required: true
+        values: ["on", "off"]
+        default: "off"
+        description: Enable (on) or disable (off) NOTICE level syslog messages
+    examples:
+      - input: "syslog notice on"
+        expected:
+          notice: true
+        description: Enable NOTICE level logging
+      - input: "syslog notice off"
+        expected:
+          notice: false
+        description: Disable NOTICE level logging (default)
+
+  # 4.30 INFO タイプの SYSLOG 出力の設定
+  - name: syslog info
+    syntax: "syslog info <info>"
+    no_form: "no syslog info [<info>]"
+    chapter: 4
+    section: "4.30"
+    parser: syslog.go
+    description: Enable or disable INFO level SYSLOG output
+    parameters:
+      - name: info
+        type: bool
+        required: true
+        values: ["on", "off"]
+        default: "on"
+        description: Enable (on) or disable sending to SYSLOG host (off) for INFO level messages
+    examples:
+      - input: "syslog info on"
+        expected:
+          info: true
+        description: Enable INFO level logging to syslog host (default)
+      - input: "syslog info off"
+        expected:
+          info: false
+        description: Disable INFO level logging to syslog host (logs still kept internally)
+
+  # 4.31 DEBUG タイプの SYSLOG を出力するか否かの設定
+  - name: syslog debug
+    syntax: "syslog debug <debug>"
+    no_form: "no syslog debug [<debug>]"
+    chapter: 4
+    section: "4.31"
+    parser: syslog.go
+    description: Enable or disable DEBUG level SYSLOG output
+    parameters:
+      - name: debug
+        type: bool
+        required: true
+        values: ["on", "off"]
+        default: "off"
+        description: Enable (on) or disable (off) DEBUG level syslog messages
+    examples:
+      - input: "syslog debug on"
+        expected:
+          debug: true
+        description: Enable DEBUG level logging (warning - generates large volume)
+      - input: "syslog debug off"
+        expected:
+          debug: false
+        description: Disable DEBUG level logging (default)
+
+  # 4.34 SYSLOG を送信する時の始点 IP アドレスの設定
+  - name: syslog local address
+    syntax: "syslog local address <address>"
+    no_form: "no syslog local address [<address>]"
+    chapter: 4
+    section: "4.34"
+    parser: syslog.go
+    description: Set source IP address for outgoing SYSLOG packets
+    parameters:
+      - name: address
+        type: ipv4
+        required: true
+        description: Source IP address for SYSLOG packets
+    examples:
+      - input: "syslog local address 192.168.1.1"
+        expected:
+          local_address: "192.168.1.1"
+        description: Set source IP address for syslog packets
+      - input: "syslog local address 10.0.0.1"
+        expected:
+          local_address: "10.0.0.1"
+        description: Use specific interface IP for syslog
+
+  # 4.35 SYSLOG パケットの始点ポート番号の設定
+  - name: syslog srcport
+    syntax: "syslog srcport <port>"
+    no_form: "no syslog srcport [<port>]"
+    chapter: 4
+    section: "4.35"
+    parser: syslog.go
+    description: Set source port number for outgoing SYSLOG packets
+    parameters:
+      - name: port
+        type: port
+        required: true
+        range: "1-65535"
+        default: 514
+        description: Source port number for SYSLOG packets
+    examples:
+      - input: "syslog srcport 514"
+        expected:
+          srcport: 514
+        description: Use default syslog port
+      - input: "syslog srcport 1514"
+        expected:
+          srcport: 1514
+        description: Use custom source port

@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/security-filter-resources/tasks.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-20T06:53:43.282Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768892023271_t3suti8i3",
+      "approvalTitle": "Tasks: Security and Filter Resources"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-20T06:54:45.817Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768892023271_t3suti8i3",
+      "approvalTitle": "Tasks: Security and Filter Resources"
+    }
+  ]
+}

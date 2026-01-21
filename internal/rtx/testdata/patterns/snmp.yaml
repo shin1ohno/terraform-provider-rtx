@@ -1,0 +1,190 @@
+# RTX SNMP Command Patterns
+# Extracted from: docs/RTX-commands/21_SNMP_の設定.md
+# Parser: internal/rtx/parsers/snmp.go
+
+category: snmp
+chapter: 21
+parser: snmp.go
+
+commands:
+  # 21.6 SNMPv2c host access control
+  - name: snmpv2c host
+    syntax: "snmpv2c host <host> [<ro_community> [<rw_community>]]"
+    no_form: "no snmpv2c host [<host>]"
+    chapter: 21
+    section: "21.6"
+    parser: snmp.go
+    description: Configure hosts allowed to access via SNMPv2c
+    parameters:
+      - name: host
+        type: string
+        required: true
+        values: [any, none]
+        description: >
+          Host specification: single IP address, IP range with hyphen (e.g., 192.168.1.1-192.168.1.10),
+          LAN interface name (lanN), bridge interface name (bridgeN), 'any' for all hosts, 'none' to deny all
+      - name: ro_community
+        type: string
+        required: false
+        description: Read-only community string (max 16 characters)
+      - name: rw_community
+        type: string
+        required: false
+        description: Read-write community string (max 16 characters)
+    examples:
+      - input: "snmpv2c host any"
+        expected:
+          host: "any"
+        description: Allow SNMPv2c access from any host
+      - input: "snmpv2c host none"
+        expected:
+          host: "none"
+        description: Deny SNMPv2c access from all hosts (default)
+      - input: "snmpv2c host 192.168.1.100"
+        expected:
+          host: "192.168.1.100"
+        description: Allow SNMPv2c access from specific IP
+      - input: "snmpv2c host 192.168.1.1-192.168.1.10"
+        expected:
+          host: "192.168.1.1-192.168.1.10"
+        description: Allow SNMPv2c access from IP range
+      - input: "snmpv2c host lan1"
+        expected:
+          host: "lan1"
+        description: Allow SNMPv2c access from LAN1 interface
+      - input: "snmpv2c host 192.168.1.100 public"
+        expected:
+          host: "192.168.1.100"
+          ro_community: "public"
+        description: Allow access with read-only community
+      - input: "snmpv2c host 192.168.1.100 public private"
+        expected:
+          host: "192.168.1.100"
+          ro_community: "public"
+          rw_community: "private"
+        description: Allow access with read-only and read-write communities
+
+  # 21.7 SNMPv2c read-only community
+  - name: snmpv2c community read-only
+    syntax: "snmpv2c community read-only <name>"
+    no_form: "no snmpv2c community read-only"
+    chapter: 21
+    section: "21.7"
+    parser: snmp.go
+    description: Set the SNMPv2c read-only community string
+    parameters:
+      - name: name
+        type: string
+        required: true
+        description: Community string (max 16 characters)
+    examples:
+      - input: "snmpv2c community read-only public"
+        expected:
+          name: "public"
+          permission: "ro"
+        description: Set read-only community to 'public' (default)
+      - input: "snmpv2c community read-only myReadCommunity"
+        expected:
+          name: "myReadCommunity"
+          permission: "ro"
+        description: Set custom read-only community string
+
+  # 21.8 SNMPv2c read-write community
+  - name: snmpv2c community read-write
+    syntax: "snmpv2c community read-write <name>"
+    no_form: "no snmpv2c community read-write"
+    chapter: 21
+    section: "21.8"
+    parser: snmp.go
+    description: Set the SNMPv2c read-write community string
+    parameters:
+      - name: name
+        type: string
+        required: true
+        description: Community string (max 16 characters)
+    examples:
+      - input: "snmpv2c community read-write private"
+        expected:
+          name: "private"
+          permission: "rw"
+        description: Set read-write community to 'private'
+      - input: "snmpv2c community read-write myWriteCommunity"
+        expected:
+          name: "myWriteCommunity"
+          permission: "rw"
+        description: Set custom read-write community string
+
+  # 21.9 SNMPv2c trap host
+  - name: snmpv2c trap host
+    syntax: "snmpv2c trap host <host> [<type> [<community>]]"
+    no_form: "no snmpv2c trap host <host>"
+    chapter: 21
+    section: "21.9"
+    parser: snmp.go
+    description: Configure SNMPv2c trap destination host
+    parameters:
+      - name: host
+        type: ipv4
+        required: true
+        description: Trap destination host IP address (IPv4/IPv6)
+      - name: type
+        type: enum
+        required: false
+        values: [trap, inform]
+        default: trap
+        description: Message type (trap or inform request)
+      - name: community
+        type: string
+        required: false
+        description: Community string for trap (max 16 characters, uses snmpv2c trap community if omitted)
+    examples:
+      - input: "snmpv2c trap host 192.168.1.100"
+        expected:
+          host: "192.168.1.100"
+          type: "trap"
+        description: Send traps to host (default type is trap)
+      - input: "snmpv2c trap host 192.168.1.100 trap"
+        expected:
+          host: "192.168.1.100"
+          type: "trap"
+        description: Explicitly set trap type
+      - input: "snmpv2c trap host 192.168.1.100 inform"
+        expected:
+          host: "192.168.1.100"
+          type: "inform"
+        description: Send inform requests instead of traps
+      - input: "snmpv2c trap host 192.168.1.100 trap public"
+        expected:
+          host: "192.168.1.100"
+          type: "trap"
+          community: "public"
+        description: Send traps with specific community string
+      - input: "snmpv2c trap host 192.168.1.100 inform myTrapCommunity"
+        expected:
+          host: "192.168.1.100"
+          type: "inform"
+          community: "myTrapCommunity"
+        description: Send inform requests with custom community
+
+  # 21.10 SNMPv2c trap community
+  - name: snmpv2c trap community
+    syntax: "snmpv2c trap community <name>"
+    no_form: "no snmpv2c trap community"
+    chapter: 21
+    section: "21.10"
+    parser: snmp.go
+    description: Set the default SNMPv2c trap community string
+    parameters:
+      - name: name
+        type: string
+        required: true
+        description: Community string for traps (max 16 characters)
+    examples:
+      - input: "snmpv2c trap community public"
+        expected:
+          name: "public"
+        description: Set trap community to 'public' (default)
+      - input: "snmpv2c trap community myTrapCommunity"
+        expected:
+          name: "myTrapCommunity"
+        description: Set custom trap community string

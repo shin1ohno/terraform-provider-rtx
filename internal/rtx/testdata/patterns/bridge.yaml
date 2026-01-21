@@ -1,0 +1,167 @@
+# RTX Bridge Command Patterns
+# Extracted from: Yamaha RTX Command Reference (L2 Bridge Configuration)
+# Parser: internal/rtx/parsers/bridge.go
+
+category: bridge
+chapter: 16
+parser: bridge.go
+
+commands:
+  # 16.x Bridge Member Configuration
+  - name: bridge member
+    syntax: "bridge member <bridge_name> <member1> [<member2>] [<member3>] [...]"
+    no_form: "no bridge member <bridge_name>"
+    chapter: 16
+    section: "16.1"
+    parser: bridge.go
+    description: |
+      Configure bridge members to create a Layer 2 bridge group.
+      Bridges allow transparent bridging between different interface types,
+      enabling L2VPN and other advanced networking scenarios.
+    parameters:
+      - name: bridge_name
+        type: string
+        required: true
+        description: |
+          Bridge name in format "bridgeN" where N is a positive integer.
+          Examples: bridge1, bridge2, bridge10
+      - name: member1
+        type: interface
+        required: true
+        description: |
+          First member interface. Valid interface types:
+          - lanN: LAN interfaces (lan1, lan2, etc.)
+          - lanN/M: VLAN interfaces (lan1/1, lan2/10, etc.)
+          - tunnelN: Tunnel interfaces (tunnel1, tunnel2, etc.)
+          - ppN: Point-to-Point interfaces (pp1, pp2, etc.)
+          - loopbackN: Loopback interfaces (loopback1, etc.)
+          - bridgeN: Nested bridge interfaces (rare but supported)
+      - name: member2
+        type: interface
+        required: false
+        description: Second member interface (same types as member1)
+      - name: member3
+        type: interface
+        required: false
+        description: Third member interface (same types as member1)
+    examples:
+      # Basic configurations
+      - input: "bridge member bridge1 lan1"
+        expected:
+          name: "bridge1"
+          members: ["lan1"]
+        description: Single LAN interface bridge (minimal configuration)
+      - input: "bridge member bridge1 lan1 tunnel1"
+        expected:
+          name: "bridge1"
+          members: ["lan1", "tunnel1"]
+        description: Bridge LAN with tunnel for L2VPN
+      - input: "bridge member bridge1 lan1 tunnel1 tunnel2"
+        expected:
+          name: "bridge1"
+          members: ["lan1", "tunnel1", "tunnel2"]
+        description: Bridge LAN with multiple tunnels
+
+      # VLAN interface configurations
+      - input: "bridge member bridge1 lan1/1 tunnel1"
+        expected:
+          name: "bridge1"
+          members: ["lan1/1", "tunnel1"]
+        description: Bridge VLAN interface with tunnel
+      - input: "bridge member bridge2 lan2/10 lan2/20"
+        expected:
+          name: "bridge2"
+          members: ["lan2/10", "lan2/20"]
+        description: Bridge multiple VLANs together
+
+      # PP interface configurations
+      - input: "bridge member bridge1 lan1 pp1"
+        expected:
+          name: "bridge1"
+          members: ["lan1", "pp1"]
+        description: Bridge LAN with Point-to-Point interface
+
+      # Multiple bridge configurations
+      - input: "bridge member bridge2 lan2 tunnel1"
+        expected:
+          name: "bridge2"
+          members: ["lan2", "tunnel1"]
+        description: Second bridge group with different interfaces
+
+      # L2VPN scenarios
+      - input: "bridge member bridge1 lan1 tunnel1 tunnel2 tunnel3"
+        expected:
+          name: "bridge1"
+          members: ["lan1", "tunnel1", "tunnel2", "tunnel3"]
+        description: Multi-site L2VPN configuration with multiple tunnels
+
+      # Edge cases
+      - input: "  bridge member bridge1 lan1 tunnel1"
+        expected:
+          name: "bridge1"
+          members: ["lan1", "tunnel1"]
+        description: Command with leading whitespace (parser handles trimming)
+
+  # Delete bridge configuration
+  - name: no bridge member
+    syntax: "no bridge member <bridge_name>"
+    chapter: 16
+    section: "16.1"
+    parser: bridge.go
+    description: Remove a bridge configuration and its member associations
+    parameters:
+      - name: bridge_name
+        type: string
+        required: true
+        description: Bridge name to delete (e.g., bridge1, bridge2)
+    examples:
+      - input: "no bridge member bridge1"
+        expected:
+          name: "bridge1"
+          action: "delete"
+        description: Delete bridge1 configuration
+      - input: "no bridge member bridge99"
+        expected:
+          name: "bridge99"
+          action: "delete"
+        description: Delete high-numbered bridge
+
+# Interface Type Constraints
+# Valid member interface formats:
+#   - lanN         : Physical LAN interfaces (lan1, lan2, lan3, etc.)
+#   - lanN/M       : VLAN sub-interfaces (lan1/1, lan1/100, lan2/10, etc.)
+#   - tunnelN      : Tunnel interfaces for L2TP/IPsec (tunnel1, tunnel2, etc.)
+#   - ppN          : Point-to-Point interfaces for PPPoE (pp1, pp2, etc.)
+#   - loopbackN    : Loopback interfaces (loopback1, etc.)
+#   - bridgeN      : Nested bridge interfaces (bridge1, bridge2, etc.)
+#
+# Bridge Name Format:
+#   - Must match pattern: bridge[0-9]+
+#   - Examples: bridge1, bridge2, bridge10, bridge999
+
+# L2VPN Configuration Examples
+#
+# Basic L2VPN over IPsec:
+#   tunnel select 1
+#   ipsec tunnel 1
+#   ipsec sa policy 1 1 esp aes-cbc sha-hmac
+#   ipsec ike local address 1 192.168.1.1
+#   ipsec ike remote address 1 203.0.113.1
+#   tunnel enable 1
+#   bridge member bridge1 lan1 tunnel1
+#
+# Multi-site L2VPN (hub-and-spoke):
+#   # Site A (Hub)
+#   bridge member bridge1 lan1 tunnel1 tunnel2 tunnel3
+#
+#   # Site B (Spoke)
+#   bridge member bridge1 lan1 tunnel1
+#
+#   # Site C (Spoke)
+#   bridge member bridge1 lan1 tunnel1
+
+# Validation Rules (from bridge.go):
+# 1. Bridge name must be in format "bridgeN" (e.g., bridge1, bridge10)
+# 2. Member interfaces must match valid patterns (lan*, tunnel*, pp*, etc.)
+# 3. Duplicate member interfaces are not allowed within the same bridge
+# 4. At least one member interface is typically required for meaningful configuration

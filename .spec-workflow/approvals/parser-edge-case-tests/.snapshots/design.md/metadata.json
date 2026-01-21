@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/parser-edge-case-tests/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-20T13:30:57.755Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768915857744_v2g6chgwu",
+      "approvalTitle": "Design: Parser Edge Case Tests"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-20T13:31:10.780Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768915857744_v2g6chgwu",
+      "approvalTitle": "Design: Parser Edge Case Tests"
+    }
+  ]
+}

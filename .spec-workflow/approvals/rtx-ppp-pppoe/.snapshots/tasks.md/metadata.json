@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/rtx-ppp-pppoe/tasks.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-20T13:33:41.414Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768916021400_h1fe8dmkb",
+      "approvalTitle": "Tasks: RTX PPP/PPPoE Resource (17 tasks)"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-20T13:45:36.222Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768916021400_h1fe8dmkb",
+      "approvalTitle": "Tasks: RTX PPP/PPPoE Resource (17 tasks)"
+    }
+  ]
+}

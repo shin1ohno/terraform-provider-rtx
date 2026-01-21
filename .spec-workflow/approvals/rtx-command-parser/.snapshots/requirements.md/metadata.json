@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/rtx-command-parser/requirements.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-20T12:37:56.994Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768912676986_ohg7jo3ta",
+      "approvalTitle": "RTX Command Parser Framework - Requirements"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-20T12:47:17.438Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768913108252_k8fy2urlr",
+      "approvalTitle": "RTX Command Parser Test Coverage - Requirements"
+    }
+  ]
+}

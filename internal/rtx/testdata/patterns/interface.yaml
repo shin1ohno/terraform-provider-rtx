@@ -1,0 +1,503 @@
+# RTX Interface Command Patterns
+# Extracted from: docs/RTX-commands/08_IP_の設定.md, docs/RTX-commands/04_機器の設定.md
+# Parser: internal/rtx/parsers/interface_config.go
+
+category: interface
+chapter: 8
+parser: interface_config.go
+
+commands:
+  # 8.1.2 IP address configuration for interfaces
+  - name: ip interface address
+    syntax: "ip <interface> address <ip_address>/<mask> [broadcast <broadcast_ip>]"
+    no_form: "no ip <interface> address [<ip_address>/<mask>]"
+    chapter: 8
+    section: "8.1.2"
+    parser: interface_config.go
+    description: Set IP address and netmask for LAN/WAN/LOOPBACK/bridge interfaces
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        values: [lan1, lan2, lan3, lan1.1, lan1.2, loopback1, loopback2, bridge1, bridge2]
+        description: Interface name (LAN, LAN division, LOOPBACK, or bridge interface)
+      - name: ip_address
+        type: ipv4
+        required: true
+        description: IPv4 address (xxx.xxx.xxx.xxx)
+      - name: mask
+        type: int
+        required: true
+        range: "0-32"
+        description: Netmask (decimal notation, hex, or prefix length)
+      - name: broadcast_ip
+        type: ipv4
+        required: false
+        description: Optional broadcast IP address
+    examples:
+      - input: "ip lan1 address 192.168.1.1/24"
+        expected:
+          interface: "lan1"
+          ip_address: "192.168.1.1"
+          mask: 24
+        description: LAN interface with CIDR notation
+      - input: "ip lan2 address 192.168.2.1/24"
+        expected:
+          interface: "lan2"
+          ip_address: "192.168.2.1"
+          mask: 24
+        description: Secondary LAN interface
+      - input: "ip lan1.1 address 192.168.10.1/24"
+        expected:
+          interface: "lan1.1"
+          ip_address: "192.168.10.1"
+          mask: 24
+        description: LAN division interface (VLAN)
+      - input: "ip loopback1 address 10.0.0.1/32"
+        expected:
+          interface: "loopback1"
+          ip_address: "10.0.0.1"
+          mask: 32
+        description: Loopback interface
+      - input: "ip bridge1 address 192.168.100.1/24"
+        expected:
+          interface: "bridge1"
+          ip_address: "192.168.100.1"
+          mask: 24
+        description: Bridge interface
+
+  # 8.1.2 IP address DHCP for interfaces
+  - name: ip interface address dhcp
+    syntax: "ip <interface> address dhcp"
+    no_form: "no ip <interface> address [dhcp]"
+    chapter: 8
+    section: "8.1.2"
+    parser: interface_config.go
+    description: Use DHCP to obtain IP address for interface
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        values: [lan1, lan2, lan3, lan1.1, bridge1]
+        description: Interface name (LAN or bridge interface)
+    examples:
+      - input: "ip lan2 address dhcp"
+        expected:
+          interface: "lan2"
+          dhcp: true
+        description: Use DHCP on LAN2 interface
+      - input: "ip bridge1 address dhcp"
+        expected:
+          interface: "bridge1"
+          dhcp: true
+        description: Use DHCP on bridge interface
+
+  # 8.1.2 IP address for PP interface
+  - name: ip pp address
+    syntax: "ip pp address <ip_address>[/<mask>]"
+    no_form: "no ip pp address [<ip_address>[/<mask>]]"
+    chapter: 8
+    section: "8.1.2"
+    parser: interface_config.go
+    description: Set IP address for PP (point-to-point) interface
+    parameters:
+      - name: ip_address
+        type: ipv4
+        required: true
+        description: IPv4 address (xxx.xxx.xxx.xxx)
+      - name: mask
+        type: int
+        required: false
+        range: "0-32"
+        description: Netmask (optional for PP interface)
+    examples:
+      - input: "ip pp address 203.0.113.1"
+        expected:
+          ip_address: "203.0.113.1"
+        description: PP interface with IP only (unnumbered)
+      - input: "ip pp address 203.0.113.1/30"
+        expected:
+          ip_address: "203.0.113.1"
+          mask: 30
+        description: PP interface with CIDR notation
+
+  # 8.1.3 Secondary IP address for interfaces
+  - name: ip interface secondary address
+    syntax: "ip <interface> secondary address <ip_address>[/<mask>]"
+    no_form: "no ip <interface> secondary address [<ip_address>/<mask>]"
+    chapter: 8
+    section: "8.1.3"
+    parser: interface_config.go
+    description: Set secondary IP address for LAN interface
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        values: [lan1, lan2, lan3]
+        description: LAN interface name
+      - name: ip_address
+        type: ipv4
+        required: true
+        description: Secondary IPv4 address
+      - name: mask
+        type: int
+        required: false
+        range: "0-32"
+        description: Netmask
+    examples:
+      - input: "ip lan1 secondary address 192.168.2.1/24"
+        expected:
+          interface: "lan1"
+          ip_address: "192.168.2.1"
+          mask: 24
+        description: Secondary IP on LAN1
+
+  # 8.1.4 MTU configuration for interfaces
+  - name: ip interface mtu
+    syntax: "ip <interface> mtu <mtu>"
+    no_form: "no ip <interface> mtu [<mtu>]"
+    chapter: 8
+    section: "8.1.4"
+    parser: interface_config.go
+    description: Set MTU for interface
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        values: [lan1, lan2, lan3, lan1.1]
+        description: LAN or WAN interface name
+      - name: mtu
+        type: int
+        required: true
+        range: "64-1500"
+        description: MTU value (64-9578 for RTX5000/RTX3500, 64-10218 for RTX3510/RTX1300)
+    examples:
+      - input: "ip lan1 mtu 1454"
+        expected:
+          interface: "lan1"
+          mtu: 1454
+        description: Set MTU for PPPoE passthrough
+      - input: "ip lan2 mtu 1400"
+        expected:
+          interface: "lan2"
+          mtu: 1400
+        description: Reduced MTU for tunneling
+
+  # 8.1.4 MTU for PP interface
+  - name: ip pp mtu
+    syntax: "ip pp mtu <mtu>"
+    no_form: "no ip pp mtu [<mtu>]"
+    chapter: 8
+    section: "8.1.4"
+    parser: interface_config.go
+    description: Set MTU for PP interface
+    parameters:
+      - name: mtu
+        type: int
+        required: true
+        range: "64-1500"
+        default: 1500
+        description: MTU value
+    examples:
+      - input: "ip pp mtu 1454"
+        expected:
+          mtu: 1454
+        description: PPPoE MTU setting
+
+  # 8.1.4 MTU for tunnel interface
+  - name: ip tunnel mtu
+    syntax: "ip tunnel mtu <mtu>"
+    no_form: "no ip tunnel mtu [<mtu>]"
+    chapter: 8
+    section: "8.1.4"
+    parser: interface_config.go
+    description: Set MTU for tunnel interface
+    parameters:
+      - name: mtu
+        type: int
+        required: true
+        range: "64-1500"
+        default: 1280
+        description: MTU value
+    examples:
+      - input: "ip tunnel mtu 1280"
+        expected:
+          mtu: 1280
+        description: Tunnel MTU for IPv6 over IPv4
+
+  # 8.1.25 Secure filter for interfaces
+  - name: ip interface secure filter
+    syntax: "ip <interface> secure filter <direction> [<filter_list>...] [dynamic <dynamic_filter_list>...]"
+    no_form: "no ip <interface> secure filter <direction> [<filter_list>]"
+    chapter: 8
+    section: "8.1.25"
+    parser: interface_config.go
+    description: Set security filter for LAN/LOOPBACK/bridge interface
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        values: [lan1, lan2, lan3, lan1.1, loopback1, bridge1]
+        description: Interface name
+      - name: direction
+        type: enum
+        required: true
+        values: [in, out]
+        description: Filter direction (in=incoming, out=outgoing)
+      - name: filter_list
+        type: int
+        required: false
+        description: Space-separated list of static filter numbers (1-21474836)
+      - name: dynamic_filter_list
+        type: int
+        required: false
+        description: Space-separated list of dynamic filter numbers after 'dynamic' keyword
+    examples:
+      - input: "ip lan1 secure filter in 1 2 100"
+        expected:
+          interface: "lan1"
+          direction: "in"
+          filters: [1, 2, 100]
+        description: Inbound filters for LAN1
+      - input: "ip lan1 secure filter out 1 2 100"
+        expected:
+          interface: "lan1"
+          direction: "out"
+          filters: [1, 2, 100]
+        description: Outbound filters for LAN1
+      - input: "ip lan2 secure filter out 1 100 dynamic 101 102"
+        expected:
+          interface: "lan2"
+          direction: "out"
+          filters: [1, 100]
+          dynamic_filters: [101, 102]
+        description: Outbound filters with dynamic filters
+
+  # 8.1.25 Secure filter for PP interface
+  - name: ip pp secure filter
+    syntax: "ip pp secure filter <direction> [<filter_list>...] [dynamic <dynamic_filter_list>...]"
+    no_form: "no ip pp secure filter <direction> [<filter_list>]"
+    chapter: 8
+    section: "8.1.25"
+    parser: interface_config.go
+    description: Set security filter for PP interface
+    parameters:
+      - name: direction
+        type: enum
+        required: true
+        values: [in, out]
+        description: Filter direction
+      - name: filter_list
+        type: int
+        required: false
+        description: Space-separated list of filter numbers
+      - name: dynamic_filter_list
+        type: int
+        required: false
+        description: Space-separated list of dynamic filter numbers
+    examples:
+      - input: "ip pp secure filter in 1 2"
+        expected:
+          direction: "in"
+          filters: [1, 2]
+        description: Inbound filters for PP
+      - input: "ip pp secure filter out 1 2 dynamic 100"
+        expected:
+          direction: "out"
+          filters: [1, 2]
+          dynamic_filters: [100]
+        description: Outbound with dynamic filter
+
+  # 8.1.25 Secure filter for tunnel interface
+  - name: ip tunnel secure filter
+    syntax: "ip tunnel secure filter <direction> [<filter_list>...] [dynamic <dynamic_filter_list>...]"
+    no_form: "no ip tunnel secure filter <direction> [<filter_list>]"
+    chapter: 8
+    section: "8.1.25"
+    parser: interface_config.go
+    description: Set security filter for tunnel interface
+    parameters:
+      - name: direction
+        type: enum
+        required: true
+        values: [in, out]
+        description: Filter direction
+      - name: filter_list
+        type: int
+        required: false
+        description: Space-separated list of filter numbers
+      - name: dynamic_filter_list
+        type: int
+        required: false
+        description: Space-separated list of dynamic filter numbers
+    examples:
+      - input: "ip tunnel secure filter in 1 2 3"
+        expected:
+          direction: "in"
+          filters: [1, 2, 3]
+        description: Inbound filters for tunnel
+      - input: "ip tunnel secure filter out 1 dynamic 100 101"
+        expected:
+          direction: "out"
+          filters: [1]
+          dynamic_filters: [100, 101]
+        description: Outbound with multiple dynamic filters
+
+  # 23.2 NAT descriptor for interfaces
+  - name: ip interface nat descriptor
+    syntax: "ip <interface> nat descriptor <nat_descriptor_list> [reverse <nat_descriptor_list>]"
+    no_form: "no ip <interface> nat descriptor [<nat_descriptor_list>]"
+    chapter: 23
+    section: "23.2"
+    parser: interface_config.go
+    description: Apply NAT descriptor to LAN/WAN interface
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        values: [lan1, lan2, lan3]
+        description: LAN or WAN interface name
+      - name: nat_descriptor_list
+        type: int
+        required: true
+        description: Space-separated NAT descriptor numbers (1-2147483647, up to 16)
+    examples:
+      - input: "ip lan1 nat descriptor 1"
+        expected:
+          interface: "lan1"
+          nat_descriptor: 1
+        description: Apply single NAT descriptor
+      - input: "ip lan2 nat descriptor 1 2"
+        expected:
+          interface: "lan2"
+          nat_descriptors: [1, 2]
+        description: Apply multiple NAT descriptors
+
+  # 23.2 NAT descriptor for PP interface
+  - name: ip pp nat descriptor
+    syntax: "ip pp nat descriptor <nat_descriptor_list> [reverse <nat_descriptor_list>]"
+    no_form: "no ip pp nat descriptor [<nat_descriptor_list>]"
+    chapter: 23
+    section: "23.2"
+    parser: interface_config.go
+    description: Apply NAT descriptor to PP interface
+    parameters:
+      - name: nat_descriptor_list
+        type: int
+        required: true
+        description: Space-separated NAT descriptor numbers
+    examples:
+      - input: "ip pp nat descriptor 1"
+        expected:
+          nat_descriptor: 1
+        description: Apply NAT to PP interface
+      - input: "ip pp nat descriptor 1000"
+        expected:
+          nat_descriptor: 1000
+        description: High-numbered NAT descriptor
+
+  # 23.2 NAT descriptor for tunnel interface
+  - name: ip tunnel nat descriptor
+    syntax: "ip tunnel nat descriptor <nat_descriptor_list> [reverse <nat_descriptor_list>]"
+    no_form: "no ip tunnel nat descriptor [<nat_descriptor_list>]"
+    chapter: 23
+    section: "23.2"
+    parser: interface_config.go
+    description: Apply NAT descriptor to tunnel interface
+    parameters:
+      - name: nat_descriptor_list
+        type: int
+        required: true
+        description: Space-separated NAT descriptor numbers
+    examples:
+      - input: "ip tunnel nat descriptor 1"
+        expected:
+          nat_descriptor: 1
+        description: Apply NAT to tunnel interface
+
+  # 8.1.28 ProxyARP for interfaces
+  - name: ip interface proxyarp
+    syntax: "ip <interface> proxyarp <proxyarp>"
+    no_form: "no ip <interface> proxyarp [<proxyarp>]"
+    chapter: 8
+    section: "8.1.28"
+    parser: interface_config.go
+    description: Enable or disable ProxyARP on interface
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        values: [lan1, lan2, lan3, bridge1]
+        description: LAN or bridge interface name
+      - name: proxyarp
+        type: enum
+        required: true
+        values: ["on", "off"]
+        default: "off"
+        description: Enable/disable ProxyARP
+    examples:
+      - input: "ip lan1 proxyarp on"
+        expected:
+          interface: "lan1"
+          proxyarp: true
+        description: Enable ProxyARP on LAN1
+      - input: "ip lan2 proxyarp off"
+        expected:
+          interface: "lan2"
+          proxyarp: false
+        description: Disable ProxyARP on LAN2
+
+  # 4.56 Description for interfaces (chapter 4 in different doc)
+  - name: description interface
+    syntax: "description <interface> <description>"
+    no_form: "no description <interface> [<description>]"
+    chapter: 4
+    section: "4.56"
+    parser: interface_config.go
+    description: Set description for interface
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        values: [lan1, lan2, lan3, lan1.1, pp, tunnel, bridge1, loopback1]
+        description: Interface name (LAN, WAN, pp, tunnel)
+      - name: description
+        type: string
+        required: true
+        description: Description string (max 64 ASCII chars or 32 Shift-JIS chars)
+    examples:
+      - input: 'description lan1 "Internal Network"'
+        expected:
+          interface: "lan1"
+          description: "Internal Network"
+        description: Description with spaces (quoted)
+      - input: "description lan2 WAN-Connection"
+        expected:
+          interface: "lan2"
+          description: "WAN-Connection"
+        description: Simple description without spaces
+      - input: "description pp PPPoE-ISP"
+        expected:
+          interface: "pp"
+          description: "PPPoE-ISP"
+        description: PP interface description (set via pp select)
+      - input: "description tunnel IPsec-Tunnel"
+        expected:
+          interface: "tunnel"
+          description: "IPsec-Tunnel"
+        description: Tunnel interface description (set via tunnel select)
+      - input: 'description lan1.1 "VLAN 10 - Guest Network"'
+        expected:
+          interface: "lan1.1"
+          description: "VLAN 10 - Guest Network"
+        description: LAN division interface description
+      - input: "description bridge1 BridgeInterface"
+        expected:
+          interface: "bridge1"
+          description: "BridgeInterface"
+        description: Bridge interface description
+      - input: "description loopback1 ManagementIP"
+        expected:
+          interface: "loopback1"
+          description: "ManagementIP"
+        description: Loopback interface description

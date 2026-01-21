@@ -1,0 +1,32 @@
+# Full DNS configuration fixture
+# Tests complete DNS configuration parsing
+
+# Basic settings
+dns domain lookup on
+dns domain example.com
+dns service recursive
+dns private address spoof on
+
+# Name servers
+dns server 8.8.8.8 8.8.4.4 1.1.1.1
+
+# Server select rules
+dns server select 1 192.168.1.1 .
+dns server select 2 10.0.0.1 10.0.0.2 .
+dns server select 3 8.8.8.8 edns=on any .
+dns server select 4 10.0.0.53 aaaa *.ipv6.corp
+dns server select 5 10.0.0.53 ptr 192.168.0.0/16
+dns server select 6 172.16.0.1 . 10.0.0.0/8
+dns server select 7 192.168.100.1 . restrict pp 1
+
+# Static DNS records
+dns static a server1.local 192.168.1.10
+dns static aaaa server2.local 2001:db8::1
+dns static ptr 192.168.1.10 server1.local
+dns static cname www.local server1.local
+dns static mx local.domain mail.local.domain
+dns static ns local.domain ns1.local.domain
+
+# IP host shortcuts
+ip host pc1.local 192.168.1.100
+ip host pc2.local 192.168.1.101

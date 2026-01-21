@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/network-hardening/design.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-20T16:38:53.126Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768926984822_j7k0r8ifm",
+      "approvalTitle": "Network Hardening Design"
+    }
+  ]
+}

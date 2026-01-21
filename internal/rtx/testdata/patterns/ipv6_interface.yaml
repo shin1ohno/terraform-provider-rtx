@@ -1,0 +1,287 @@
+# RTX IPv6 Interface Command Patterns
+# Parser: internal/rtx/parsers/ipv6_interface.go
+
+category: ipv6_interface
+chapter: 26
+parser: ipv6_interface.go
+
+commands:
+  # 26.x IPv6 address configuration
+  - name: ipv6 address
+    syntax: "ipv6 <interface> address <address>"
+    no_form: "no ipv6 <interface> address [<address>]"
+    chapter: 26
+    parser: ipv6_interface.go
+    description: Configure IPv6 address on an interface
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        description: "Interface name (lan1, lan2, bridge1, pp1, tunnel1, etc.)"
+      - name: address
+        type: string
+        required: true
+        description: "IPv6 address with prefix length, or prefix-based address (e.g., ra-prefix@lan2::1/64)"
+    examples:
+      # Static full IPv6 address
+      - input: "ipv6 lan1 address 2001:db8::1/64"
+        expected:
+          interface: "lan1"
+          addresses:
+            - address: "2001:db8::1/64"
+        description: Static IPv6 address with /64 prefix
+      # Compressed IPv6 address
+      - input: "ipv6 lan1 address 2001:db8:1::1/64"
+        expected:
+          interface: "lan1"
+          addresses:
+            - address: "2001:db8:1::1/64"
+        description: Compressed IPv6 address format
+      # Link-local address
+      - input: "ipv6 lan1 address fe80::1/64"
+        expected:
+          interface: "lan1"
+          addresses:
+            - address: "fe80::1/64"
+        description: Link-local IPv6 address
+      # RA prefix-based address
+      - input: "ipv6 lan1 address ra-prefix@lan2::1/64"
+        expected:
+          interface: "lan1"
+          addresses:
+            - prefix_ref: "ra-prefix@lan2"
+              interface_id: "::1/64"
+        description: Address derived from Router Advertisement prefix on lan2
+      # DHCPv6-PD prefix-based address
+      - input: "ipv6 lan1 address dhcp-prefix@lan2::1/64"
+        expected:
+          interface: "lan1"
+          addresses:
+            - prefix_ref: "dhcp-prefix@lan2"
+              interface_id: "::1/64"
+        description: Address derived from DHCPv6 Prefix Delegation on lan2
+      # Full IPv6 address (not compressed)
+      - input: "ipv6 lan1 address 2001:0db8:0000:0001:0000:0000:0000:0001/64"
+        expected:
+          interface: "lan1"
+          addresses:
+            - address: "2001:0db8:0000:0001:0000:0000:0000:0001/64"
+        description: Full (uncompressed) IPv6 address format
+
+  # 26.x Router Advertisement (RTADV) configuration
+  - name: ipv6 rtadv send
+    syntax: "ipv6 <interface> rtadv send <prefix_id> [o_flag=<o_flag>] [m_flag=<m_flag>] [lifetime=<lifetime>]"
+    no_form: "no ipv6 <interface> rtadv send"
+    chapter: 26
+    parser: ipv6_interface.go
+    description: Configure Router Advertisement (RTADV) on an interface to advertise prefixes to clients
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        description: "Interface name (lan1, lan2, bridge1, etc.)"
+      - name: prefix_id
+        type: int
+        required: true
+        range: "1-255"
+        description: Prefix ID defined by ipv6 prefix command to advertise
+      - name: o_flag
+        type: enum
+        required: false
+        values: [on, off]
+        default: "off"
+        description: Other Configuration Flag - indicates other configuration (DNS, etc.) via DHCPv6
+      - name: m_flag
+        type: enum
+        required: false
+        values: [on, off]
+        default: "off"
+        description: Managed Address Configuration Flag - indicates addresses via DHCPv6
+      - name: lifetime
+        type: int
+        required: false
+        range: "0-65535"
+        description: Router lifetime in seconds (0 means not a default router)
+    examples:
+      - input: "ipv6 lan1 rtadv send 1"
+        expected:
+          interface: "lan1"
+          rtadv:
+            enabled: true
+            prefix_id: 1
+        description: Send Router Advertisement with prefix 1
+      - input: "ipv6 lan1 rtadv send 1 o_flag=on"
+        expected:
+          interface: "lan1"
+          rtadv:
+            enabled: true
+            prefix_id: 1
+            o_flag: true
+        description: Send RA with O flag enabled for stateless DHCPv6
+      - input: "ipv6 lan1 rtadv send 1 m_flag=on"
+        expected:
+          interface: "lan1"
+          rtadv:
+            enabled: true
+            prefix_id: 1
+            m_flag: true
+        description: Send RA with M flag enabled for stateful DHCPv6
+      - input: "ipv6 lan1 rtadv send 1 o_flag=on m_flag=off lifetime=1800"
+        expected:
+          interface: "lan1"
+          rtadv:
+            enabled: true
+            prefix_id: 1
+            o_flag: true
+            m_flag: false
+            lifetime: 1800
+        description: Send RA with O flag and custom router lifetime
+      - input: "ipv6 lan1 rtadv send 2 o_flag=off m_flag=off"
+        expected:
+          interface: "lan1"
+          rtadv:
+            enabled: true
+            prefix_id: 2
+            o_flag: false
+            m_flag: false
+        description: Send RA with both flags explicitly disabled (SLAAC only)
+
+  # 26.x DHCPv6 service configuration
+  - name: ipv6 dhcp service
+    syntax: "ipv6 <interface> dhcp service <service>"
+    no_form: "no ipv6 <interface> dhcp service"
+    chapter: 26
+    parser: ipv6_interface.go
+    description: Configure DHCPv6 service mode on an interface
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        description: "Interface name (lan1, lan2, bridge1, pp1, tunnel1, etc.)"
+      - name: service
+        type: enum
+        required: true
+        values: [server, client]
+        description: "DHCPv6 service mode: server (provide addresses) or client (request addresses)"
+    examples:
+      - input: "ipv6 lan1 dhcp service server"
+        expected:
+          interface: "lan1"
+          dhcpv6_service: "server"
+        description: Enable DHCPv6 server on lan1
+      - input: "ipv6 lan2 dhcp service client"
+        expected:
+          interface: "lan2"
+          dhcpv6_service: "client"
+        description: Enable DHCPv6 client on lan2 (WAN interface)
+
+  # 26.x IPv6 MTU configuration
+  - name: ipv6 mtu
+    syntax: "ipv6 <interface> mtu <size>"
+    no_form: "no ipv6 <interface> mtu"
+    chapter: 26
+    parser: ipv6_interface.go
+    description: Set IPv6 Maximum Transmission Unit (MTU) size for an interface
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        description: "Interface name (lan1, lan2, bridge1, pp1, tunnel1, etc.)"
+      - name: size
+        type: int
+        required: true
+        range: "1280-65535"
+        description: MTU size in bytes (minimum 1280 for IPv6)
+    examples:
+      - input: "ipv6 lan1 mtu 1500"
+        expected:
+          interface: "lan1"
+          mtu: 1500
+        description: Standard Ethernet MTU
+      - input: "ipv6 tunnel1 mtu 1280"
+        expected:
+          interface: "tunnel1"
+          mtu: 1280
+        description: Minimum IPv6 MTU for tunnel interfaces
+      - input: "ipv6 lan1 mtu 9000"
+        expected:
+          interface: "lan1"
+          mtu: 9000
+        description: Jumbo frame MTU
+
+  # 26.x IPv6 secure filter inbound
+  - name: ipv6 secure filter in
+    syntax: "ipv6 <interface> secure filter in <filter_list>"
+    no_form: "no ipv6 <interface> secure filter in"
+    chapter: 26
+    parser: ipv6_interface.go
+    description: Apply IPv6 security filters to inbound traffic on an interface
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        description: "Interface name (lan1, lan2, bridge1, pp1, tunnel1, etc.)"
+      - name: filter_list
+        type: string
+        required: true
+        description: Space-separated list of filter numbers to apply
+    examples:
+      - input: "ipv6 lan1 secure filter in 100"
+        expected:
+          interface: "lan1"
+          secure_filter_in: [100]
+        description: Single inbound filter
+      - input: "ipv6 lan1 secure filter in 100 101 102"
+        expected:
+          interface: "lan1"
+          secure_filter_in: [100, 101, 102]
+        description: Multiple inbound filters
+      - input: "ipv6 lan2 secure filter in 200 201"
+        expected:
+          interface: "lan2"
+          secure_filter_in: [200, 201]
+        description: WAN interface inbound filters
+
+  # 26.x IPv6 secure filter outbound
+  - name: ipv6 secure filter out
+    syntax: "ipv6 <interface> secure filter out <filter_list> [dynamic <dynamic_filter_list>]"
+    no_form: "no ipv6 <interface> secure filter out"
+    chapter: 26
+    parser: ipv6_interface.go
+    description: Apply IPv6 security filters to outbound traffic on an interface, with optional dynamic filters
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        description: "Interface name (lan1, lan2, bridge1, pp1, tunnel1, etc.)"
+      - name: filter_list
+        type: string
+        required: true
+        description: Space-separated list of static filter numbers to apply
+      - name: dynamic_filter_list
+        type: string
+        required: false
+        description: Space-separated list of dynamic filter numbers (stateful inspection)
+    examples:
+      - input: "ipv6 lan1 secure filter out 100"
+        expected:
+          interface: "lan1"
+          secure_filter_out: [100]
+        description: Single outbound filter
+      - input: "ipv6 lan1 secure filter out 100 101 102"
+        expected:
+          interface: "lan1"
+          secure_filter_out: [100, 101, 102]
+        description: Multiple outbound filters
+      - input: "ipv6 lan2 secure filter out 200 201 dynamic 300"
+        expected:
+          interface: "lan2"
+          secure_filter_out: [200, 201]
+          dynamic_filter_out: [300]
+        description: Outbound filters with single dynamic filter
+      - input: "ipv6 lan2 secure filter out 200 dynamic 300 301"
+        expected:
+          interface: "lan2"
+          secure_filter_out: [200]
+          dynamic_filter_out: [300, 301]
+        description: Outbound filter with multiple dynamic filters for stateful inspection

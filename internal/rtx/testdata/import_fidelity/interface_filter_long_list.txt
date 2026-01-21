@@ -1,0 +1,43 @@
+# Interface Filter Long List Configuration Test Fixture (REQ-2)
+# Tests parsing of long filter ID lists in secure_filter_in and secure_filter_out
+# Also tests dynamic filter keyword handling
+
+# Interface with IP address
+ip lan1 address 192.168.1.1/24
+
+# Description for interface
+description lan1 "LAN Interface with Security Filters"
+
+# Inbound security filter with 13+ filter IDs
+ip lan1 secure filter in 200020 200021 200022 200023 200024 200025 200103 200100 200102 200104 200101 200105 200099
+
+# Outbound security filter with 11 static filters + dynamic keyword + 3 dynamic filters
+ip lan1 secure filter out 200020 200021 200022 200023 200024 200025 200026 dynamic 200027 200028 200029
+
+# Additional interface configurations
+ip lan1 nat descriptor 1
+ip lan1 proxyarp on
+ip lan1 mtu 1500
+
+# LAN2 interface with even longer filter list (15+ IDs)
+ip lan2 address 192.168.2.1/24
+description lan2 "Secondary LAN with Extended Filter List"
+
+# Inbound with 15 filter IDs
+ip lan2 secure filter in 300001 300002 300003 300004 300005 300006 300007 300008 300009 300010 300011 300012 300013 300014 300015
+
+# Outbound with 12 static + 5 dynamic filters
+ip lan2 secure filter out 300100 300101 300102 300103 300104 300105 300106 300107 300108 300109 300110 300111 dynamic 300200 300201 300202 300203 300204
+
+# LAN3 interface - testing only inbound filters (20+ IDs)
+ip lan3 address 192.168.3.1/24
+ip lan3 secure filter in 400001 400002 400003 400004 400005 400006 400007 400008 400009 400010 400011 400012 400013 400014 400015 400016 400017 400018 400019 400020 400021 400022
+
+# LAN4 interface - testing only outbound filters without dynamic
+ip lan4 address 192.168.4.1/24
+ip lan4 secure filter out 500001 500002 500003 500004 500005 500006 500007 500008 500009 500010 500011 500012 500013 500014
+
+# Tunnel interface with long filter list
+ip tunnel1 address 10.0.0.1/30
+ip tunnel1 secure filter in 600001 600002 600003 600004 600005 600006 600007 600008 600009 600010 600011 600012 600013
+ip tunnel1 secure filter out 600100 600101 600102 600103 600104 600105 600106 dynamic 600200 600201 600202 600203

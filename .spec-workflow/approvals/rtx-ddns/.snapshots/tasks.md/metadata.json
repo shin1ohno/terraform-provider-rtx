@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/rtx-ddns/tasks.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-20T13:33:41.741Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768916021733_lpq38bfte",
+      "approvalTitle": "Tasks: RTX DDNS Resource (20 tasks)"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-20T13:45:32.220Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768916021733_lpq38bfte",
+      "approvalTitle": "Tasks: RTX DDNS Resource (20 tasks)"
+    }
+  ]
+}

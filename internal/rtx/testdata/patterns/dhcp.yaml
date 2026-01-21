@@ -1,0 +1,627 @@
+# RTX DHCP Command Patterns
+# Extracted from: docs/RTX-commands/12_DHCP_の設定.md
+# Parsers: internal/rtx/parsers/dhcp_scope.go, internal/rtx/parsers/dhcp_bindings.go
+
+category: dhcp
+chapter: 12
+parser: dhcp_scope.go
+
+commands:
+  # 12.1.1 DHCP service control
+  - name: dhcp service
+    syntax: "dhcp service <type>"
+    no_form: "no dhcp service [<type>]"
+    chapter: 12
+    section: "12.1.1"
+    parser: dhcp_scope.go
+    description: Enable DHCP server or relay agent functionality
+    parameters:
+      - name: type
+        type: enum
+        required: true
+        values: [server, relay]
+        description: DHCP mode (server=DHCP server, relay=DHCP relay agent)
+    examples:
+      - input: "dhcp service server"
+        expected:
+          service_type: "server"
+        description: Enable DHCP server mode
+      - input: "dhcp service relay"
+        expected:
+          service_type: "relay"
+        description: Enable DHCP relay agent mode
+      - input: "no dhcp service"
+        expected:
+          service_type: null
+        description: Disable DHCP functionality
+
+  # 12.1.2 RFC2131 compliance settings
+  - name: dhcp server rfc2131 compliant
+    syntax: "dhcp server rfc2131 compliant <comp>"
+    no_form: "no dhcp server rfc2131 compliant"
+    chapter: 12
+    section: "12.1.2"
+    parser: dhcp_scope.go
+    description: Configure RFC2131 compliance behavior
+    parameters:
+      - name: comp
+        type: enum
+        required: true
+        values: ["on", "off", "except"]
+        default: "on"
+        description: RFC2131 compliance mode
+      - name: function
+        type: enum
+        required: false
+        values: [broadcast-nak, none-domain-null, remain-silent, reply-ack, use-clientid]
+        description: Specific RFC2131 functions to enable/disable
+    examples:
+      - input: "dhcp server rfc2131 compliant on"
+        expected:
+          rfc2131_compliant: true
+        description: Enable RFC2131 compliance
+      - input: "dhcp server rfc2131 compliant off"
+        expected:
+          rfc2131_compliant: false
+        description: Use RFC1541 compatibility mode
+      - input: "dhcp server rfc2131 compliant use-clientid"
+        expected:
+          rfc2131_compliant: false
+          use_client_id: true
+        description: Enable only client-id function
+
+  # 12.1.3 Duplicate IP check settings
+  - name: dhcp duplicate check
+    syntax: "dhcp duplicate check <check1> <check2>"
+    no_form: "no dhcp duplicate check"
+    chapter: 12
+    section: "12.1.3"
+    parser: dhcp_scope.go
+    description: Configure IP address duplication checking
+    parameters:
+      - name: check1
+        type: int
+        required: true
+        range: "1-1000"
+        default: 100
+        description: LAN check wait time in milliseconds (or "off")
+      - name: check2
+        type: int
+        required: true
+        range: "1-3000"
+        default: 500
+        description: Remote (relay agent) check wait time in milliseconds (or "off")
+    examples:
+      - input: "dhcp duplicate check 100 500"
+        expected:
+          lan_check_ms: 100
+          relay_check_ms: 500
+        description: Default duplicate check settings
+      - input: "dhcp duplicate check off off"
+        expected:
+          lan_check_ms: null
+          relay_check_ms: null
+        description: Disable duplicate checking
+
+  # 12.1.4 DHCP scope definition
+  - name: dhcp scope
+    syntax: "dhcp scope <scope_num> <ip_range>/<netmask> [except <ex_ip>...] [gateway <gw_ip>] [expire <time>] [maxexpire <time>]"
+    no_form: "no dhcp scope <scope_num>"
+    chapter: 12
+    section: "12.1.4"
+    parser: dhcp_scope.go
+    description: Define a DHCP address pool scope
+    parameters:
+      - name: scope_num
+        type: int
+        required: true
+        range: "1-65535"
+        description: Scope ID number
+      - name: ip_range
+        type: string
+        required: true
+        description: IP address range (e.g., "192.168.1.1-192.168.1.100")
+      - name: netmask
+        type: string
+        required: true
+        description: Network mask (CIDR, hex, or dotted decimal)
+      - name: ex_ip
+        type: ipv4
+        required: false
+        description: IP addresses to exclude from scope (space-separated, ranges with "-")
+      - name: gw_ip
+        type: ipv4
+        required: false
+        description: Default gateway IP address for clients
+      - name: time
+        type: time
+        required: false
+        default: "72:00"
+        description: Lease time (minutes, hh:mm, or "infinity")
+    examples:
+      - input: "dhcp scope 1 192.168.1.0/24"
+        expected:
+          scope_id: 1
+          network: "192.168.1.0/24"
+        description: Basic scope definition with CIDR notation
+      - input: "dhcp scope 1 192.168.1.1-192.168.1.100/24"
+        expected:
+          scope_id: 1
+          network: "192.168.1.1-192.168.1.100/24"
+        description: Scope with IP range
+      - input: "dhcp scope 1 192.168.1.0/24 gateway 192.168.1.1"
+        expected:
+          scope_id: 1
+          network: "192.168.1.0/24"
+          gateway: "192.168.1.1"
+        description: Scope with default gateway
+      - input: "dhcp scope 1 192.168.1.0/24 expire 24:00"
+        expected:
+          scope_id: 1
+          network: "192.168.1.0/24"
+          lease_time: "24h"
+        description: Scope with 24-hour lease time
+      - input: "dhcp scope 1 192.168.1.0/24 expire infinity"
+        expected:
+          scope_id: 1
+          network: "192.168.1.0/24"
+          lease_time: "infinite"
+        description: Scope with infinite lease
+      - input: "dhcp scope 1 192.168.1.0/24 except 192.168.1.1 192.168.1.2-192.168.1.10"
+        expected:
+          scope_id: 1
+          network: "192.168.1.0/24"
+          exclude_ranges:
+            - start: "192.168.1.1"
+              end: "192.168.1.1"
+            - start: "192.168.1.2"
+              end: "192.168.1.10"
+        description: Scope with exclusion ranges
+      - input: "dhcp scope 1 192.168.1.0/24 gateway 192.168.1.1 expire 72:00 maxexpire 168:00"
+        expected:
+          scope_id: 1
+          network: "192.168.1.0/24"
+          gateway: "192.168.1.1"
+          lease_time: "72h"
+          max_lease_time: "168h"
+        description: Full scope configuration
+
+  # 12.1.5 DHCP scope bind (static lease reservation)
+  - name: dhcp scope bind
+    syntax: "dhcp scope bind <scope_num> <ip_address> [<type>] <id>"
+    no_form: "no dhcp scope bind <scope_num> <ip_address>"
+    chapter: 12
+    section: "12.1.5"
+    parser: dhcp_bindings.go
+    description: Reserve a static DHCP lease for a client
+    parameters:
+      - name: scope_num
+        type: int
+        required: true
+        range: "1-65535"
+        description: Scope ID number
+      - name: ip_address
+        type: ipv4
+        required: true
+        description: Reserved IP address (or "*" for any available, or range with "-")
+      - name: type
+        type: enum
+        required: false
+        values: [text, ethernet]
+        description: Client identifier type (text=0x00, ethernet=0x01)
+      - name: id
+        type: string
+        required: true
+        description: Client identifier (MAC address, text string, or hex sequence)
+    examples:
+      - input: "dhcp scope bind 1 192.168.1.20 00:a0:de:01:23:45"
+        expected:
+          scope_id: 1
+          ip_address: "192.168.1.20"
+          mac_address: "00:a0:de:01:23:45"
+          use_client_identifier: false
+        description: MAC address binding (chaddr field)
+      - input: "dhcp scope bind 1 192.168.1.20 ethernet 00:a0:de:01:23:45"
+        expected:
+          scope_id: 1
+          ip_address: "192.168.1.20"
+          mac_address: "00:a0:de:01:23:45"
+          use_client_identifier: true
+        description: Client-ID binding with ethernet type
+      - input: "dhcp scope bind 1 192.168.1.20 text client01"
+        expected:
+          scope_id: 1
+          ip_address: "192.168.1.20"
+          client_identifier: "text:client01"
+        description: Text-based client identifier
+      - input: "dhcp scope bind 1 192.168.1.20 01 00 a0 de 01 23 45"
+        expected:
+          scope_id: 1
+          ip_address: "192.168.1.20"
+          client_identifier: "01:00:a0:de:01:23:45"
+        description: Raw hex client identifier (type 01 = ethernet)
+      - input: "dhcp scope bind 1 192.168.1.20-192.168.1.30 00:a0:de:*"
+        expected:
+          scope_id: 1
+          ip_range: "192.168.1.20-192.168.1.30"
+          oui: "00:a0:de"
+        description: OUI-based binding for IP range
+      - input: "dhcp scope bind 1 * 00:a0:de:01:23:45"
+        expected:
+          scope_id: 1
+          ip_address: "*"
+          mac_address: "00:a0:de:01:23:45"
+        description: Dynamic IP assignment for specific client
+      - input: "dhcp scope bind 1 192.168.1.100 ipcp"
+        expected:
+          scope_id: 1
+          ip_address: "192.168.1.100"
+          ipcp: true
+        description: IPCP binding for PPP remote address
+
+  # 12.1.6 DHCP scope lease type
+  - name: dhcp scope lease type
+    syntax: "dhcp scope lease type <scope_num> <type> [fallback=<fallback_scope_num>]"
+    no_form: "no dhcp scope lease type <scope_num>"
+    chapter: 12
+    section: "12.1.6"
+    parser: dhcp_scope.go
+    description: Configure address allocation behavior for a scope
+    parameters:
+      - name: scope_num
+        type: int
+        required: true
+        range: "1-65535"
+        description: Scope ID number
+      - name: type
+        type: enum
+        required: true
+        values: [bind-priority, bind-only]
+        default: bind-priority
+        description: Allocation type (bind-priority=reserved first, bind-only=reserved only)
+      - name: fallback_scope_num
+        type: int
+        required: false
+        range: "1-65535"
+        description: Fallback scope for non-reserved clients
+    examples:
+      - input: "dhcp scope lease type 1 bind-priority"
+        expected:
+          scope_id: 1
+          lease_type: "bind-priority"
+        description: Prioritize reserved addresses, allow dynamic
+      - input: "dhcp scope lease type 1 bind-only"
+        expected:
+          scope_id: 1
+          lease_type: "bind-only"
+        description: Only allow reserved addresses
+      - input: "dhcp scope lease type 1 bind-only fallback=2"
+        expected:
+          scope_id: 1
+          lease_type: "bind-only"
+          fallback_scope: 2
+        description: Reserved only with fallback to scope 2
+
+  # 12.1.8 DHCP scope option
+  - name: dhcp scope option
+    syntax: "dhcp scope option <scope_num> <option>=<value> [<option>=<value>...]"
+    no_form: "no dhcp scope option <scope_num> [...]"
+    chapter: 12
+    section: "12.1.8"
+    parser: dhcp_scope.go
+    description: Configure DHCP options for a scope
+    parameters:
+      - name: scope_num
+        type: int
+        required: true
+        range: "1-65535"
+        description: Scope ID number
+      - name: option
+        type: string
+        required: true
+        description: Option number (1-254) or mnemonic (router, dns, hostname, domain, wins_server)
+      - name: value
+        type: string
+        required: true
+        description: Option value (type depends on option number)
+    examples:
+      - input: "dhcp scope option 1 dns=8.8.8.8"
+        expected:
+          scope_id: 1
+          options:
+            dns_servers: ["8.8.8.8"]
+        description: Set DNS server
+      - input: "dhcp scope option 1 dns=8.8.8.8,8.8.4.4"
+        expected:
+          scope_id: 1
+          options:
+            dns_servers: ["8.8.8.8", "8.8.4.4"]
+        description: Set multiple DNS servers
+      - input: "dhcp scope option 1 router=192.168.1.1"
+        expected:
+          scope_id: 1
+          options:
+            routers: ["192.168.1.1"]
+        description: Set default gateway
+      - input: "dhcp scope option 1 router=192.168.1.1,192.168.1.2"
+        expected:
+          scope_id: 1
+          options:
+            routers: ["192.168.1.1", "192.168.1.2"]
+        description: Set multiple gateways
+      - input: "dhcp scope option 1 domain=example.com"
+        expected:
+          scope_id: 1
+          options:
+            domain_name: "example.com"
+        description: Set domain name
+      - input: "dhcp scope option 1 hostname=router"
+        expected:
+          scope_id: 1
+          options:
+            hostname: "router"
+        description: Set hostname
+      - input: "dhcp scope option 1 wins_server=192.168.1.10"
+        expected:
+          scope_id: 1
+          options:
+            wins_servers: ["192.168.1.10"]
+        description: Set WINS server
+      - input: "dhcp scope option 1 dns=192.168.1.1 router=192.168.1.254 domain=local.lan"
+        expected:
+          scope_id: 1
+          options:
+            dns_servers: ["192.168.1.1"]
+            routers: ["192.168.1.254"]
+            domain_name: "local.lan"
+        description: Multiple options in single command
+      - input: "dhcp scope option 1 3=192.168.1.1"
+        expected:
+          scope_id: 1
+          options:
+            option_3: "192.168.1.1"
+        description: Set option by number (3=router)
+      - input: "dhcp scope option 1 6=8.8.8.8,8.8.4.4"
+        expected:
+          scope_id: 1
+          options:
+            option_6: "8.8.8.8,8.8.4.4"
+        description: Set option by number (6=dns)
+
+  # 12.1.11 DHCP relay server
+  - name: dhcp relay server
+    syntax: "dhcp relay server <host1> [<host2>] [<host3>] [<host4>]"
+    no_form: "no dhcp relay server"
+    chapter: 12
+    section: "12.1.11"
+    parser: dhcp_scope.go
+    description: Configure DHCP relay agent servers
+    parameters:
+      - name: host1
+        type: ipv4
+        required: true
+        description: Primary DHCP server IP address
+      - name: host2
+        type: ipv4
+        required: false
+        description: Secondary DHCP server IP address
+      - name: host3
+        type: ipv4
+        required: false
+        description: Third DHCP server IP address
+      - name: host4
+        type: ipv4
+        required: false
+        description: Fourth DHCP server IP address
+    examples:
+      - input: "dhcp relay server 192.168.1.100"
+        expected:
+          servers: ["192.168.1.100"]
+        description: Single relay server
+      - input: "dhcp relay server 192.168.1.100 192.168.1.101"
+        expected:
+          servers: ["192.168.1.100", "192.168.1.101"]
+        description: Primary and secondary relay servers
+      - input: "dhcp relay server 10.0.0.1 10.0.0.2 10.0.0.3 10.0.0.4"
+        expected:
+          servers: ["10.0.0.1", "10.0.0.2", "10.0.0.3", "10.0.0.4"]
+        description: Four relay servers
+
+  # 12.1.12 DHCP relay source port
+  - name: dhcp relay srcport
+    syntax: "dhcp relay srcport <port>"
+    no_form: "no dhcp relay srcport [<port>]"
+    chapter: 12
+    section: "12.1.12"
+    parser: dhcp_scope.go
+    description: Configure source port for DHCP relay agent
+    parameters:
+      - name: port
+        type: port
+        required: true
+        range: "1-65535"
+        default: 68
+        description: Source port number
+    examples:
+      - input: "dhcp relay srcport 68"
+        expected:
+          relay_srcport: 68
+        description: Default source port
+      - input: "dhcp relay srcport 1067"
+        expected:
+          relay_srcport: 1067
+        description: Custom source port
+
+  # 12.1.13 DHCP relay select
+  - name: dhcp relay select
+    syntax: "dhcp relay select <type>"
+    no_form: "no dhcp relay select [<type>]"
+    chapter: 12
+    section: "12.1.13"
+    parser: dhcp_scope.go
+    description: Configure DHCP relay server selection method
+    parameters:
+      - name: type
+        type: enum
+        required: true
+        values: [hash, all]
+        default: hash
+        description: Selection method (hash=single server by hash, all=all servers)
+    examples:
+      - input: "dhcp relay select hash"
+        expected:
+          relay_select: "hash"
+        description: Select single server using hash
+      - input: "dhcp relay select all"
+        expected:
+          relay_select: "all"
+        description: Forward to all configured servers
+
+  # 12.1.14 DHCP relay threshold
+  - name: dhcp relay threshold
+    syntax: "dhcp relay threshold <time>"
+    no_form: "no dhcp relay threshold [<time>]"
+    chapter: 12
+    section: "12.1.14"
+    parser: dhcp_scope.go
+    description: Configure BOOTREQUEST relay threshold
+    parameters:
+      - name: time
+        type: int
+        required: true
+        range: "0-65535"
+        default: 0
+        description: Minimum secs field value to relay (seconds)
+    examples:
+      - input: "dhcp relay threshold 0"
+        expected:
+          relay_threshold: 0
+        description: Relay all requests immediately
+      - input: "dhcp relay threshold 4"
+        expected:
+          relay_threshold: 4
+        description: Only relay requests older than 4 seconds
+
+  # 12.1.15 Interface-specific DHCP service
+  - name: ip interface dhcp service
+    syntax: "ip <interface> dhcp service <type> [<host1> [<host2> [<host3> [<host4>]]]]"
+    no_form: "no ip <interface> dhcp service"
+    chapter: 12
+    section: "12.1.15"
+    parser: dhcp_scope.go
+    description: Configure per-interface DHCP functionality
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        description: LAN or bridge interface name
+      - name: type
+        type: enum
+        required: true
+        values: ["off", server, relay]
+        description: DHCP mode for this interface
+      - name: host1
+        type: ipv4
+        required: false
+        description: DHCP server IP for relay mode
+      - name: host2
+        type: ipv4
+        required: false
+        description: Secondary DHCP server IP for relay mode
+      - name: host3
+        type: ipv4
+        required: false
+        description: Third DHCP server IP for relay mode
+      - name: host4
+        type: ipv4
+        required: false
+        description: Fourth DHCP server IP for relay mode
+    examples:
+      - input: "ip lan1 dhcp service server"
+        expected:
+          interface: "lan1"
+          service_type: "server"
+        description: Enable DHCP server on lan1
+      - input: "ip lan2 dhcp service relay 192.168.1.100"
+        expected:
+          interface: "lan2"
+          service_type: "relay"
+          servers: ["192.168.1.100"]
+        description: Enable DHCP relay on lan2
+      - input: "ip lan1 dhcp service off"
+        expected:
+          interface: "lan1"
+          service_type: "off"
+        description: Disable DHCP on lan1
+
+  # 12.2.1 DHCP client hostname
+  - name: dhcp client hostname
+    syntax: "dhcp client hostname <interface> <position> <host>"
+    no_form: "no dhcp client hostname <interface> <position> [<host>]"
+    chapter: 12
+    section: "12.2.1"
+    parser: dhcp_scope.go
+    description: Configure DHCP client hostname
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        description: LAN, WAN, or bridge interface name
+      - name: position
+        type: enum
+        required: true
+        values: [primary, secondary]
+        description: IP address position (primary or secondary)
+      - name: host
+        type: string
+        required: true
+        description: Hostname to send in DHCP requests
+    examples:
+      - input: "dhcp client hostname lan1 primary router1"
+        expected:
+          interface: "lan1"
+          position: "primary"
+          hostname: "router1"
+        description: Set hostname for DHCP client
+
+  # 12.2.4 DHCP client-identifier
+  - name: dhcp client client-identifier
+    syntax: "dhcp client client-identifier <interface> <position> [type <type>] <id>"
+    no_form: "no dhcp client client-identifier <interface> <position>"
+    chapter: 12
+    section: "12.2.4"
+    parser: dhcp_scope.go
+    description: Configure DHCP client identifier
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        description: Interface name
+      - name: position
+        type: enum
+        required: true
+        values: [primary, secondary]
+        description: IP address position
+      - name: type
+        type: int
+        required: false
+        default: 1
+        description: Client identifier type field value
+      - name: id
+        type: string
+        required: true
+        description: Client identifier (ASCII or hex sequence)
+    examples:
+      - input: "dhcp client client-identifier lan1 primary router-001"
+        expected:
+          interface: "lan1"
+          position: "primary"
+          client_id: "router-001"
+        description: ASCII client identifier
+      - input: "dhcp client client-identifier lan1 primary type 1 00 a0 de 01 23 45"
+        expected:
+          interface: "lan1"
+          position: "primary"
+          type: 1
+          client_id: "00:a0:de:01:23:45"
+        description: Hex client identifier with type

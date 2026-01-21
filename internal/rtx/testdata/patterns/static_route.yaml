@@ -1,0 +1,322 @@
+# RTX Static Route Command Patterns
+# Extracted from RTX documentation Chapter 8 (IP設定) and Chapter 30 (IPv6)
+
+category: static_route
+chapter: 8
+parser: static_route.go
+
+commands:
+  # IPv4 Static Route
+  - name: ip route
+    syntax: "ip route <network> gateway <gateway> [<parameter>...]"
+    no_form: "no ip route <network> [gateway...]"
+    chapter: 8
+    section: "8.1.7"
+    parser: static_route.go
+    description: Configure IPv4 static routing
+    parameters:
+      - name: network
+        type: enum
+        required: true
+        values: ["default", "ipv4_prefix"]
+        description: |
+          Destination network:
+          - default: Default route
+          - IP address/mask bits (e.g., 192.168.1.0/24)
+      - name: gateway
+        type: gateway
+        required: true
+        description: |
+          Gateway specification:
+          - IPv4 address (e.g., 192.168.0.1)
+          - pp <peer_num>: PP interface route
+          - pp anonymous name=<name>: Anonymous PP with PAP/CHAP name
+          - dhcp <interface>: Use DHCP-provided default gateway
+          - tunnel <tunnel_num>: Tunnel interface route
+          - loopback: Loopback interface
+          - null: Null interface (blackhole)
+      - name: filter
+        type: int
+        required: false
+        range: "1-21474836"
+        description: Filter-based routing filter number (multiple allowed)
+      - name: dpi
+        type: int
+        required: false
+        range: "1-2147483647"
+        description: DPI filter number for filter-based routing
+      - name: metric
+        type: int
+        required: false
+        range: "1-15"
+        default: 1
+        description: Route metric value
+      - name: hide
+        type: bool
+        required: false
+        description: Route only valid when interface is connected
+      - name: weight
+        type: int
+        required: false
+        range: "0-2147483647"
+        default: 1
+        description: Load balancing weight between routes
+      - name: keepalive
+        type: int
+        required: false
+        range: "1-100"
+        description: Keepalive ID - route valid only when keepalive is up
+    examples:
+      # Basic default route with IP gateway
+      - input: "ip route default gateway 192.168.0.1"
+        expected:
+          prefix: "0.0.0.0"
+          mask: "0.0.0.0"
+          next_hop: "192.168.0.1"
+        description: Set default gateway to 192.168.0.1
+
+      # Route via PP interface
+      - input: "ip route 192.168.1.0/24 gateway pp 1"
+        expected:
+          prefix: "192.168.1.0"
+          mask: "255.255.255.0"
+          interface: "pp 1"
+        description: Route to 192.168.1.0/24 via PP1 interface
+
+      # Load balancing with multiple gateways and weight
+      - input: "ip route default gateway pp 1 weight 2 hide gateway pp 2 weight 1 hide"
+        expected:
+          prefix: "0.0.0.0"
+          mask: "0.0.0.0"
+          next_hops:
+            - interface: "pp 1"
+              weight: 2
+              hide: true
+            - interface: "pp 2"
+              weight: 1
+              hide: true
+        description: Multi-homing load balancing with PP1 (128k) and PP2 (64k)
+
+      # Route via tunnel interface
+      - input: "ip route 10.0.0.0/8 gateway tunnel 1"
+        expected:
+          prefix: "10.0.0.0"
+          mask: "255.0.0.0"
+          interface: "tunnel 1"
+        description: Route to 10.0.0.0/8 via tunnel 1
+
+      # Null route (blackhole)
+      - input: "ip route 172.16.112.0/24 gateway null keepalive 1 gateway 172.16.0.1 weight 0"
+        expected:
+          prefix: "172.16.112.0"
+          mask: "255.255.255.0"
+          next_hops:
+            - interface: "null"
+              keepalive: 1
+            - next_hop: "172.16.0.1"
+              weight: 0
+        description: Blackhole route with failover to IP gateway
+
+      # Filter-based routing
+      - input: "ip route default gateway pp 1 filter 1 gateway tunnel 1"
+        expected:
+          prefix: "0.0.0.0"
+          mask: "0.0.0.0"
+          next_hops:
+            - interface: "pp 1"
+              filter: 1
+            - interface: "tunnel 1"
+        description: Route via PP1 for filter 1 matching, others via tunnel 1
+
+      # DPI-based routing
+      - input: "ip route default gateway pp 1 dpi 1 gateway tunnel 1"
+        expected:
+          prefix: "0.0.0.0"
+          mask: "0.0.0.0"
+          next_hops:
+            - interface: "pp 1"
+              dpi: 1
+            - interface: "tunnel 1"
+        description: Route via PP1 for DPI filter 1 (e.g., software updates)
+
+      # DHCP-derived gateway
+      - input: "ip route default gateway dhcp lan2"
+        expected:
+          prefix: "0.0.0.0"
+          mask: "0.0.0.0"
+          interface: "dhcp lan2"
+        description: Use DHCP-provided gateway from lan2
+
+      # Hide option for backup route
+      - input: "ip route 192.168.0.1/24 gateway pp 1 hide gateway pp 2 weight 0"
+        expected:
+          prefix: "192.168.0.1"
+          mask: "255.255.255.0"
+          next_hops:
+            - interface: "pp 1"
+              hide: true
+            - interface: "pp 2"
+              weight: 0
+        description: PP1 primary, PP2 backup only when PP1 is down
+
+      # Keepalive-controlled route
+      - input: "ip route 172.16.0.0/24 gateway pp 10 keepalive 1 gateway pp 11 weight 0"
+        expected:
+          prefix: "172.16.0.0"
+          mask: "255.255.255.0"
+          next_hops:
+            - interface: "pp 10"
+              keepalive: 1
+            - interface: "pp 11"
+              weight: 0
+        description: Network backup with keepalive-controlled failover
+
+      # Loopback interface route
+      - input: "ip route 192.168.100.0/24 gateway loopback"
+        expected:
+          prefix: "192.168.100.0"
+          mask: "255.255.255.0"
+          interface: "loopback"
+        description: Route via loopback interface
+
+  # IPv6 Static Route
+  - name: ipv6 route
+    syntax: "ipv6 route <network> gateway <gateway> [<parameter>...]"
+    no_form: "no ipv6 route <network> [gateway...]"
+    chapter: 30
+    section: "30.4.1"
+    parser: static_route.go
+    description: Configure IPv6 static routing
+    parameters:
+      - name: network
+        type: enum
+        required: true
+        values: ["default", "ipv6_prefix"]
+        description: |
+          Destination network:
+          - default: Default route
+          - IPv6 address/prefix length (e.g., 2001:db8::/32)
+      - name: gateway
+        type: gateway
+        required: true
+        description: |
+          Gateway specification:
+          - IPv6 address%scope_id (e.g., fe80::1%lan1)
+          - pp <peer_num>: PP interface route
+          - pp anonymous name=<name>: Anonymous PP with PAP/CHAP name
+          - ra <interface>: Use RA-determined default gateway
+          - dhcp <interface>: Use DHCPv6-provided default gateway
+          - tunnel <tunnel_num>: Tunnel interface route
+          - loopback: Loopback interface
+          - null: Null interface (blackhole)
+      - name: filter
+        type: int
+        required: false
+        range: "1-21474836"
+        description: Filter-based routing filter number (multiple allowed)
+      - name: dpi
+        type: int
+        required: false
+        range: "1-2147483647"
+        description: DPI filter number for filter-based routing
+      - name: metric
+        type: int
+        required: false
+        range: "1-15"
+        default: 1
+        description: Route metric value
+      - name: hide
+        type: bool
+        required: false
+        description: Route only valid when interface is connected
+    examples:
+      # Default route via IPv6 gateway
+      - input: "ipv6 route default gateway fe80::1%lan1"
+        expected:
+          prefix: "::"
+          prefix_len: 0
+          next_hop: "fe80::1"
+          scope_id: "lan1"
+        description: Default IPv6 route via link-local gateway
+
+      # Route via PP interface
+      - input: "ipv6 route 2001:db8::/32 gateway pp 1"
+        expected:
+          prefix: "2001:db8::"
+          prefix_len: 32
+          interface: "pp 1"
+        description: IPv6 route via PP1 interface
+
+      # Route via tunnel interface
+      - input: "ipv6 route 2001:db8:1::/48 gateway tunnel 1"
+        expected:
+          prefix: "2001:db8:1::"
+          prefix_len: 48
+          interface: "tunnel 1"
+        description: IPv6 route via tunnel 1
+
+      # RA-derived gateway (default route only)
+      - input: "ipv6 route default gateway ra lan1"
+        expected:
+          prefix: "::"
+          prefix_len: 0
+          interface: "ra lan1"
+        description: Use RA-provided default gateway from lan1
+
+      # DHCPv6-derived gateway
+      - input: "ipv6 route default gateway dhcp lan2"
+        expected:
+          prefix: "::"
+          prefix_len: 0
+          interface: "dhcp lan2"
+        description: Use DHCPv6-provided default gateway from lan2
+
+      # Filter-based routing for Microsoft 365
+      - input: "ipv6 route default gateway pp 1 filter 1 gateway tunnel 1"
+        expected:
+          prefix: "::"
+          prefix_len: 0
+          next_hops:
+            - interface: "pp 1"
+              filter: 1
+            - interface: "tunnel 1"
+        description: Route via PP1 for Microsoft 365, others via tunnel
+
+      # DPI-based routing
+      - input: "ipv6 route default gateway dhcp lan2 dpi 1 gateway tunnel 1"
+        expected:
+          prefix: "::"
+          prefix_len: 0
+          next_hops:
+            - interface: "dhcp lan2"
+              dpi: 1
+            - interface: "tunnel 1"
+        description: Route Office 365 traffic via DHCP gateway, others via tunnel
+
+      # Null route
+      - input: "ipv6 route 2001:db8:dead::/48 gateway null"
+        expected:
+          prefix: "2001:db8:dead::"
+          prefix_len: 48
+          interface: "null"
+        description: IPv6 blackhole route
+
+      # Route with metric
+      - input: "ipv6 route 2001:db8::/32 gateway pp 1 metric 5"
+        expected:
+          prefix: "2001:db8::"
+          prefix_len: 32
+          interface: "pp 1"
+          metric: 5
+        description: IPv6 route with explicit metric
+
+      # Hide option for backup route
+      - input: "ipv6 route 2001:db8::/32 gateway pp 1 hide gateway pp 2"
+        expected:
+          prefix: "2001:db8::"
+          prefix_len: 32
+          next_hops:
+            - interface: "pp 1"
+              hide: true
+            - interface: "pp 2"
+        description: IPv6 route with primary/backup via PP interfaces

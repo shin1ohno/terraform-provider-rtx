@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/security-hardening/tasks.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-20T14:22:38.447Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768918958421_82pkugjgr",
+      "approvalTitle": "Security Hardening Tasks"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-20T14:22:53.620Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768918958421_82pkugjgr",
+      "approvalTitle": "Security Hardening Tasks"
+    }
+  ]
+}

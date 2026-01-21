@@ -1,0 +1,7 @@
+# IP host command fixture
+# Tests ip host shorthand for A+PTR records
+
+ip host pc1.rtpro.yamaha.co.jp 133.176.200.1
+ip host server.local 10.0.0.1
+ip host router.example.com 192.168.1.1
+ip host host-with-ttl.local 192.168.1.50 ttl=3600

@@ -1,0 +1,804 @@
+# OSPF Command Patterns for RTX Routers
+# Reference: RTX Command Reference Chapter 28
+---
+category: ospf
+chapter: 28
+parser: ospf.go
+
+commands:
+  # 28.2 OSPF use setting
+  - name: ospf use
+    syntax: "ospf use <use>"
+    no_form: "no ospf use"
+    chapter: 28
+    section: "28.2"
+    parser: ospf.go
+    description: Enable or disable OSPF routing protocol
+    parameters:
+      - name: use
+        type: enum
+        required: true
+        values: [on, off]
+        default: "off"
+        description: Whether to use OSPF
+    examples:
+      - input: "ospf use on"
+        expected:
+          enabled: true
+        description: Enable OSPF
+      - input: "ospf use off"
+        expected:
+          enabled: false
+        description: Disable OSPF
+
+  # 28.4 OSPF router ID setting
+  - name: ospf router id
+    syntax: "ospf router id <router_id>"
+    no_form: "no ospf router id"
+    chapter: 28
+    section: "28.4"
+    parser: ospf.go
+    description: Set the OSPF router ID
+    parameters:
+      - name: router_id
+        type: ipv4
+        required: true
+        description: Router ID in IPv4 address format
+    examples:
+      - input: "ospf router id 192.168.1.1"
+        expected:
+          router_id: "192.168.1.1"
+        description: Set router ID to 192.168.1.1
+      - input: "ospf router id 10.0.0.1"
+        expected:
+          router_id: "10.0.0.1"
+        description: Set router ID to 10.0.0.1
+
+  # 28.9 OSPF area setting
+  - name: ospf area
+    syntax: "ospf area <area> [auth=<auth>] [stub [cost=<cost>]]"
+    no_form: "no ospf area <area>"
+    chapter: 28
+    section: "28.9"
+    parser: ospf.go
+    description: Configure OSPF area with optional authentication and stub settings
+    parameters:
+      - name: area
+        type: string
+        required: true
+        description: "Area ID: 'backbone' for backbone area, numeric value (1+), or IP address notation (except 0.0.0.0)"
+      - name: auth
+        type: enum
+        required: false
+        values: [text, md5]
+        description: Authentication type (text for plain text, md5 for MD5 authentication)
+      - name: stub
+        type: bool
+        required: false
+        default: false
+        description: Configure area as stub area
+      - name: cost
+        type: int
+        required: false
+        range: "1-65535"
+        description: Default route cost for stub area (ABR advertises default route with this cost)
+    examples:
+      - input: "ospf area backbone"
+        expected:
+          area_id: "backbone"
+          type: "normal"
+        description: Configure backbone area
+      - input: "ospf area 1"
+        expected:
+          area_id: "1"
+          type: "normal"
+        description: Configure normal area 1
+      - input: "ospf area 1 stub"
+        expected:
+          area_id: "1"
+          type: "stub"
+        description: Configure stub area 1
+      - input: "ospf area 1 stub cost=10"
+        expected:
+          area_id: "1"
+          type: "stub"
+          cost: 10
+        description: Configure stub area 1 with default route cost
+      - input: "ospf area 1 auth=text"
+        expected:
+          area_id: "1"
+          auth: "text"
+        description: Configure area 1 with plain text authentication
+      - input: "ospf area 1 auth=md5"
+        expected:
+          area_id: "1"
+          auth: "md5"
+        description: Configure area 1 with MD5 authentication
+      - input: "ospf area 1 auth=md5 stub cost=100"
+        expected:
+          area_id: "1"
+          auth: "md5"
+          type: "stub"
+          cost: 100
+        description: Configure stub area with MD5 authentication and cost
+      - input: "ospf area 0.0.0.1"
+        expected:
+          area_id: "0.0.0.1"
+          type: "normal"
+        description: Configure area using IP address notation
+
+  # 28.10 Area network advertisement
+  - name: ospf area network
+    syntax: "ospf area network <area> <network>/<mask> [restrict]"
+    no_form: "no ospf area network <area> <network>/<mask>"
+    chapter: 28
+    section: "28.10"
+    parser: ospf.go
+    description: Configure route summarization for inter-area advertisement
+    parameters:
+      - name: area
+        type: string
+        required: true
+        description: "Area ID: 'backbone', numeric value (1+), or IP address notation"
+      - name: network
+        type: ipv4
+        required: true
+        description: Network address for summarization
+      - name: mask
+        type: int
+        required: true
+        range: "0-32"
+        description: Network mask length
+      - name: restrict
+        type: bool
+        required: false
+        default: false
+        description: Suppress advertisement of summarized routes to other areas
+    examples:
+      - input: "ospf area network 1 192.168.0.0/16"
+        expected:
+          area_id: "1"
+          network: "192.168.0.0"
+          mask: 16
+          restrict: false
+        description: Summarize routes in area 1
+      - input: "ospf area network 1 10.0.0.0/8 restrict"
+        expected:
+          area_id: "1"
+          network: "10.0.0.0"
+          mask: 8
+          restrict: true
+        description: Suppress route advertisement for 10.0.0.0/8 in area 1
+
+  # 28.6 External route import
+  - name: ospf import from
+    syntax: "ospf import from <protocol> [filter <filter_num> ...]"
+    no_form: "no ospf import from <protocol>"
+    chapter: 28
+    section: "28.6"
+    parser: ospf.go
+    description: Import routes from external protocol into OSPF
+    parameters:
+      - name: protocol
+        type: enum
+        required: true
+        values: [static, rip, bgp]
+        description: External protocol to import routes from
+      - name: filter_num
+        type: int
+        required: false
+        description: Filter number defined by ospf import filter command
+    examples:
+      - input: "ospf import from static"
+        expected:
+          protocol: "static"
+          redistribute_static: true
+        description: Import all static routes into OSPF
+      - input: "ospf import from rip"
+        expected:
+          protocol: "rip"
+        description: Import all RIP routes into OSPF
+      - input: "ospf import from bgp"
+        expected:
+          protocol: "bgp"
+        description: Import all BGP routes into OSPF
+      - input: "ospf import from static filter 1 2"
+        expected:
+          protocol: "static"
+          filters: [1, 2]
+        description: Import static routes with filters 1 and 2
+
+  # 28.8 External route import filter
+  - name: ospf import filter
+    syntax: "ospf import filter <filter_num> [<nr>] <kind> <ip_address>/<mask> ... [metric=<metric>] [type=<type>] [tag=<tag>]"
+    no_form: "no ospf import filter <filter_num>"
+    chapter: 28
+    section: "28.8"
+    parser: ospf.go
+    description: Define filter for external route import
+    parameters:
+      - name: filter_num
+        type: int
+        required: true
+        description: Filter number
+      - name: nr
+        type: enum
+        required: false
+        values: [not, reject]
+        description: "Filter interpretation: 'not' imports non-matching routes, 'reject' blocks matching routes"
+      - name: kind
+        type: enum
+        required: true
+        values: [include, refines, equal]
+        description: "Filter match type: include (contains including exact), refines (contains excluding exact), equal (exact match only)"
+      - name: ip_address
+        type: ipv4
+        required: true
+        description: Network address for filter
+      - name: mask
+        type: int
+        required: true
+        range: "0-32"
+        description: Network mask length
+      - name: metric
+        type: int
+        required: false
+        range: "0-16777215"
+        default: 1
+        description: Metric value for advertised routes
+      - name: type
+        type: enum
+        required: false
+        values: [1, 2]
+        default: "2"
+        description: Metric type (1=E1, 2=E2)
+      - name: tag
+        type: int
+        required: false
+        range: "0-4294967295"
+        default: 1
+        description: Route tag value
+    examples:
+      - input: "ospf import filter 1 include 0.0.0.0/0"
+        expected:
+          filter_num: 1
+          kind: "include"
+          networks: ["0.0.0.0/0"]
+        description: Accept all routes
+      - input: "ospf import filter 1 equal 192.168.1.0/24 metric=100 type=1"
+        expected:
+          filter_num: 1
+          kind: "equal"
+          networks: ["192.168.1.0/24"]
+          metric: 100
+          type: 1
+        description: Match exact route with custom metric
+      - input: "ospf import filter 1 reject equal 10.0.0.0/8"
+        expected:
+          filter_num: 1
+          nr: "reject"
+          kind: "equal"
+          networks: ["10.0.0.0/8"]
+        description: Reject exact match for 10.0.0.0/8
+
+  # 28.3 OSPF preference
+  - name: ospf preference
+    syntax: "ospf preference <preference>"
+    no_form: "no ospf preference"
+    chapter: 28
+    section: "28.3"
+    parser: ospf.go
+    description: Set OSPF route preference (administrative distance)
+    parameters:
+      - name: preference
+        type: int
+        required: true
+        range: "1-65535"
+        default: 2000
+        description: Route preference value (higher is more preferred)
+    examples:
+      - input: "ospf preference 2000"
+        expected:
+          preference: 2000
+        description: Set default OSPF preference
+      - input: "ospf preference 150"
+        expected:
+          preference: 150
+        description: Set lower OSPF preference
+
+  # 28.1 OSPF configure refresh
+  - name: ospf configure refresh
+    syntax: "ospf configure refresh"
+    no_form: null
+    chapter: 28
+    section: "28.1"
+    parser: ospf.go
+    description: Apply OSPF configuration changes without router restart
+    parameters: []
+    examples:
+      - input: "ospf configure refresh"
+        expected: {}
+        description: Refresh OSPF configuration
+
+  # 28.13 Interface OSPF area setting
+  - name: ip interface ospf area
+    syntax: "ip <interface> ospf area <area> [<parameters>...]"
+    no_form: "no ip <interface> ospf area"
+    chapter: 28
+    section: "28.13"
+    parser: ospf.go
+    description: Assign interface to OSPF area with optional parameters
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        description: "Interface name (lan1, lan2, loopback1, etc.)"
+      - name: area
+        type: string
+        required: true
+        description: "Area ID: 'backbone', numeric value (1+), or IP address notation"
+      - name: type
+        type: enum
+        required: false
+        values: [broadcast, point-to-point, point-to-multipoint, non-broadcast]
+        description: Network type
+      - name: passive
+        type: bool
+        required: false
+        default: false
+        description: Do not send OSPF packets on this interface
+      - name: cost
+        type: int
+        required: false
+        range: "0-65535"
+        description: Interface cost
+      - name: priority
+        type: int
+        required: false
+        range: "0-255"
+        default: 1
+        description: DR election priority (0 disables DR election)
+      - name: retransmit-interval
+        type: int
+        required: false
+        default: 5
+        description: LSA retransmit interval in seconds
+      - name: transmit-delay
+        type: int
+        required: false
+        default: 1
+        description: LSA transmit delay in seconds
+      - name: hello-interval
+        type: int
+        required: false
+        default: 10
+        description: Hello packet interval in seconds
+      - name: dead-interval
+        type: int
+        required: false
+        description: Dead interval in seconds (default is 4x hello-interval)
+      - name: poll-interval
+        type: int
+        required: false
+        default: 120
+        description: Poll interval for NBMA networks in seconds
+      - name: authkey
+        type: string
+        required: false
+        description: Plain text authentication key (max 8 characters)
+      - name: md5key
+        type: string
+        required: false
+        description: "MD5 authentication key in format '(ID),(KEY)' where ID is 0-255 and KEY is max 16 characters"
+      - name: md5-sequence-mode
+        type: enum
+        required: false
+        values: [second, increment]
+        default: "second"
+        description: MD5 sequence number mode
+    examples:
+      - input: "ip lan1 ospf area backbone"
+        expected:
+          interface: "lan1"
+          area_id: "backbone"
+        description: Assign lan1 to backbone area
+      - input: "ip lan1 ospf area 1"
+        expected:
+          interface: "lan1"
+          area_id: "1"
+        description: Assign lan1 to area 1
+      - input: "ip lan1 ospf area 1 cost=10"
+        expected:
+          interface: "lan1"
+          area_id: "1"
+          cost: 10
+        description: Assign lan1 to area 1 with cost 10
+      - input: "ip lan1 ospf area 1 type=broadcast passive"
+        expected:
+          interface: "lan1"
+          area_id: "1"
+          type: "broadcast"
+          passive: true
+        description: Assign lan1 as passive broadcast interface
+      - input: "ip lan1 ospf area 1 priority=0"
+        expected:
+          interface: "lan1"
+          area_id: "1"
+          priority: 0
+        description: Assign lan1 to area 1, not eligible for DR
+      - input: "ip lan1 ospf area 1 authkey=secret"
+        expected:
+          interface: "lan1"
+          area_id: "1"
+          authkey: "secret"
+        description: Assign lan1 with plain text authentication
+      - input: "ip lan1 ospf area 1 md5key=\"1,secretkey\""
+        expected:
+          interface: "lan1"
+          area_id: "1"
+          md5key: "1,secretkey"
+        description: Assign lan1 with MD5 authentication
+
+  # PP interface OSPF area
+  - name: ip pp ospf area
+    syntax: "ip pp ospf area <area> [<parameters>...]"
+    no_form: "no ip pp ospf area"
+    chapter: 28
+    section: "28.13"
+    parser: ospf.go
+    description: Assign PP interface to OSPF area with optional parameters
+    parameters:
+      - name: area
+        type: string
+        required: true
+        description: "Area ID: 'backbone', numeric value (1+), or IP address notation"
+      - name: type
+        type: enum
+        required: false
+        values: [point-to-point, point-to-multipoint, non-broadcast]
+        default: "point-to-point"
+        description: Network type for PP interface
+      - name: passive
+        type: bool
+        required: false
+        default: false
+        description: Do not send OSPF packets on this interface
+      - name: cost
+        type: int
+        required: false
+        range: "0-65535"
+        description: Interface cost (calculated from line speed by default)
+      - name: priority
+        type: int
+        required: false
+        range: "0-255"
+        default: 1
+        description: DR election priority
+    examples:
+      - input: "ip pp ospf area 1"
+        expected:
+          area_id: "1"
+        description: Assign PP interface to area 1
+      - input: "ip pp ospf area 1 type=point-to-point cost=100"
+        expected:
+          area_id: "1"
+          type: "point-to-point"
+          cost: 100
+        description: Assign PP interface with point-to-point type and cost
+
+  # Tunnel interface OSPF area
+  - name: ip tunnel ospf area
+    syntax: "ip tunnel ospf area <area> [<parameters>...]"
+    no_form: "no ip tunnel ospf area"
+    chapter: 28
+    section: "28.13"
+    parser: ospf.go
+    description: Assign tunnel interface to OSPF area with optional parameters
+    parameters:
+      - name: area
+        type: string
+        required: true
+        description: "Area ID: 'backbone', numeric value (1+), or IP address notation"
+      - name: type
+        type: enum
+        required: false
+        values: [point-to-point, point-to-multipoint, non-broadcast]
+        default: "point-to-point"
+        description: Network type for tunnel interface
+      - name: cost
+        type: int
+        required: false
+        range: "0-65535"
+        default: 1562
+        description: Interface cost (default 1562 for tunnel)
+    examples:
+      - input: "ip tunnel ospf area backbone"
+        expected:
+          area_id: "backbone"
+        description: Assign tunnel to backbone area
+      - input: "ip tunnel ospf area 1 cost=500"
+        expected:
+          area_id: "1"
+          cost: 500
+        description: Assign tunnel to area 1 with cost 500
+
+  # 28.12 Virtual link
+  - name: ospf virtual-link
+    syntax: "ospf virtual-link <router_id> <area> [<parameters>...]"
+    no_form: "no ospf virtual-link <router_id>"
+    chapter: 28
+    section: "28.12"
+    parser: ospf.go
+    description: Configure virtual link for non-contiguous backbone
+    parameters:
+      - name: router_id
+        type: ipv4
+        required: true
+        description: Router ID of the virtual link peer
+      - name: area
+        type: string
+        required: true
+        description: Transit area ID (non-backbone area through which virtual link passes)
+      - name: retransmit-interval
+        type: int
+        required: false
+        default: 5
+        description: LSA retransmit interval in seconds
+      - name: transmit-delay
+        type: int
+        required: false
+        default: 1
+        description: LSA transmit delay in seconds
+      - name: hello-interval
+        type: int
+        required: false
+        default: 10
+        description: Hello packet interval in seconds
+      - name: dead-interval
+        type: int
+        required: false
+        default: 40
+        description: Dead interval in seconds
+      - name: authkey
+        type: string
+        required: false
+        description: Plain text authentication key (max 8 characters)
+      - name: md5key
+        type: string
+        required: false
+        description: "MD5 authentication key in format '(ID),(KEY)'"
+      - name: md5-sequence-mode
+        type: enum
+        required: false
+        values: [second, increment]
+        default: "second"
+        description: MD5 sequence number mode
+    examples:
+      - input: "ospf virtual-link 192.168.1.1 1"
+        expected:
+          router_id: "192.168.1.1"
+          area_id: "1"
+        description: Configure virtual link through area 1
+      - input: "ospf virtual-link 10.0.0.1 2 hello-interval=30 dead-interval=120"
+        expected:
+          router_id: "10.0.0.1"
+          area_id: "2"
+          hello_interval: 30
+          dead_interval: 120
+        description: Configure virtual link with custom timers
+
+  # 28.5 OSPF export from ospf
+  - name: ospf export from ospf
+    syntax: "ospf export from ospf [filter <filter_num> ...]"
+    no_form: "no ospf export from ospf"
+    chapter: 28
+    section: "28.5"
+    parser: ospf.go
+    description: Control whether OSPF routes are installed in routing table
+    parameters:
+      - name: filter_num
+        type: int
+        required: false
+        description: Filter number defined by ospf export filter command
+    examples:
+      - input: "ospf export from ospf"
+        expected:
+          export_ospf: true
+        description: Install all OSPF routes to routing table
+      - input: "ospf export from ospf filter 1 2"
+        expected:
+          export_ospf: true
+          filters: [1, 2]
+        description: Install OSPF routes matching filters 1 and 2
+
+  # 28.7 OSPF export filter
+  - name: ospf export filter
+    syntax: "ospf export filter <filter_num> [<nr>] <kind> <ip_address>/<mask> ..."
+    no_form: "no ospf export filter <filter_num>"
+    chapter: 28
+    section: "28.7"
+    parser: ospf.go
+    description: Define filter for OSPF route installation to routing table
+    parameters:
+      - name: filter_num
+        type: int
+        required: true
+        description: Filter number
+      - name: nr
+        type: enum
+        required: false
+        values: [not, reject]
+        description: "Filter interpretation: 'not' installs non-matching routes, 'reject' blocks matching routes"
+      - name: kind
+        type: enum
+        required: true
+        values: [include, refines, equal]
+        description: "Filter match type: include, refines, or equal"
+      - name: ip_address
+        type: ipv4
+        required: true
+        description: Network address for filter
+      - name: mask
+        type: int
+        required: true
+        range: "0-32"
+        description: Network mask length
+    examples:
+      - input: "ospf export filter 1 include 0.0.0.0/0"
+        expected:
+          filter_num: 1
+          kind: "include"
+          networks: ["0.0.0.0/0"]
+        description: Accept all OSPF routes
+      - input: "ospf export filter 1 reject equal 192.168.0.0/16"
+        expected:
+          filter_num: 1
+          nr: "reject"
+          kind: "equal"
+          networks: ["192.168.0.0/16"]
+        description: Reject exact match for 192.168.0.0/16
+
+  # 28.11 Stub host advertisement
+  - name: ospf area stubhost
+    syntax: "ospf area stubhost <area> <host> [cost <cost>]"
+    no_form: "no ospf area stubhost <area> <host>"
+    chapter: 28
+    section: "28.11"
+    parser: ospf.go
+    description: Advertise stub host connection within area
+    parameters:
+      - name: area
+        type: string
+        required: true
+        description: "Area ID: 'backbone', numeric value (1+), or IP address notation"
+      - name: host
+        type: ipv4
+        required: true
+        description: Host IP address to advertise
+      - name: cost
+        type: int
+        required: false
+        range: "1-65535"
+        description: Cost to the stub host
+    examples:
+      - input: "ospf area stubhost 1 192.168.1.100"
+        expected:
+          area_id: "1"
+          host: "192.168.1.100"
+        description: Advertise stub host in area 1
+      - input: "ospf area stubhost backbone 10.0.0.1 cost 10"
+        expected:
+          area_id: "backbone"
+          host: "10.0.0.1"
+          cost: 10
+        description: Advertise stub host in backbone area with cost
+
+  # 28.14 NBMA neighbor
+  - name: ip interface ospf neighbor
+    syntax: "ip <interface> ospf neighbor <ip_address> [eligible]"
+    no_form: "no ip <interface> ospf neighbor <ip_address>"
+    chapter: 28
+    section: "28.14"
+    parser: ospf.go
+    description: Specify OSPF neighbor for NBMA network
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        description: Interface name
+      - name: ip_address
+        type: ipv4
+        required: true
+        description: Neighbor IP address
+      - name: eligible
+        type: bool
+        required: false
+        default: false
+        description: Neighbor is eligible for DR election
+    examples:
+      - input: "ip lan1 ospf neighbor 192.168.1.2"
+        expected:
+          interface: "lan1"
+          neighbor: "192.168.1.2"
+          eligible: false
+        description: Add NBMA neighbor
+      - input: "ip lan1 ospf neighbor 192.168.1.2 eligible"
+        expected:
+          interface: "lan1"
+          neighbor: "192.168.1.2"
+          eligible: true
+        description: Add DR-eligible NBMA neighbor
+
+  # 28.16 OSPF log
+  - name: ospf log
+    syntax: "ospf log <log> [<log>...]"
+    no_form: "no ospf log"
+    chapter: 28
+    section: "28.16"
+    parser: ospf.go
+    description: Enable OSPF logging for debugging
+    parameters:
+      - name: log
+        type: enum
+        required: true
+        values: [interface, neighbor, packet]
+        description: "Log type: interface state transitions, neighbor state transitions, or packet send/receive"
+    examples:
+      - input: "ospf log interface"
+        expected:
+          log_types: ["interface"]
+        description: Log interface state transitions
+      - input: "ospf log interface neighbor packet"
+        expected:
+          log_types: ["interface", "neighbor", "packet"]
+        description: Log all OSPF events
+
+  # 28.15 Equal cost stub merge
+  - name: ospf merge equal cost stub
+    syntax: "ospf merge equal cost stub <merge>"
+    no_form: "no ospf merge equal cost stub"
+    chapter: 28
+    section: "28.15"
+    parser: ospf.go
+    description: Control equal-cost multipath behavior for stub routes
+    parameters:
+      - name: merge
+        type: enum
+        required: true
+        values: [on, off]
+        default: "on"
+        description: Whether to merge equal-cost stubs with other routes
+    examples:
+      - input: "ospf merge equal cost stub on"
+        expected:
+          merge_stub: true
+        description: Enable ECMP for stub routes (RFC2328 compliant)
+      - input: "ospf merge equal cost stub off"
+        expected:
+          merge_stub: false
+        description: Ignore stub routes for ECMP
+
+  # 28.17 Reric interval
+  - name: ospf reric interval
+    syntax: "ospf reric interval <time>"
+    no_form: "no ospf reric interval"
+    chapter: 28
+    section: "28.17"
+    parser: ospf.go
+    description: Set interval for reflecting external routes on interface state change
+    parameters:
+      - name: time
+        type: int
+        required: true
+        range: "1-3600"
+        default: 1
+        description: Interval in seconds
+    examples:
+      - input: "ospf reric interval 1"
+        expected:
+          reric_interval: 1
+        description: Default reric interval
+      - input: "ospf reric interval 10"
+        expected:
+          reric_interval: 10
+        description: Increase reric interval for high tunnel count environments

@@ -1,0 +1,331 @@
+# RTX Service Daemon Command Patterns
+# Extracted from: Yamaha RTX Command Reference (Service Configuration)
+# Parser: internal/rtx/parsers/service.go
+
+category: service
+chapter: 10
+parser: service.go
+
+commands:
+  # ========== HTTPD Commands ==========
+
+  # HTTPD Host Configuration
+  - name: httpd host
+    syntax: "httpd host <host>"
+    no_form: "no httpd host"
+    chapter: 10
+    section: "10.1"
+    parser: service.go
+    description: |
+      Configure the HTTP daemon (web management interface) host binding.
+      Determines which interface(s) can access the router's web GUI.
+    parameters:
+      - name: host
+        type: enum
+        required: true
+        values: [any, lan1, lan2, lan3, pp1, pp2, bridge1, tunnel1]
+        description: |
+          Interface or keyword for HTTP access:
+          - any: Allow access from all interfaces
+          - lanN: Restrict to specific LAN interface
+          - ppN: Restrict to Point-to-Point interface
+          - bridgeN: Restrict to bridge interface
+          - tunnelN: Restrict to tunnel interface
+    examples:
+      - input: "httpd host any"
+        expected:
+          host: "any"
+        description: Allow HTTP access from any interface
+      - input: "httpd host lan1"
+        expected:
+          host: "lan1"
+        description: Restrict HTTP access to LAN1 interface only
+      - input: "httpd host lan2"
+        expected:
+          host: "lan2"
+        description: Restrict HTTP access to LAN2 interface
+      - input: "httpd host pp1"
+        expected:
+          host: "pp1"
+        description: Restrict HTTP access to PP1 interface
+      - input: "httpd host bridge1"
+        expected:
+          host: "bridge1"
+        description: Restrict HTTP access to bridge1 interface
+      - input: "httpd host tunnel1"
+        expected:
+          host: "tunnel1"
+        description: Restrict HTTP access to tunnel1 interface
+
+  # HTTPD Delete Host Configuration
+  - name: no httpd host
+    syntax: "no httpd host"
+    chapter: 10
+    section: "10.1"
+    parser: service.go
+    description: Remove HTTP daemon host configuration
+    parameters: []
+    examples:
+      - input: "no httpd host"
+        expected:
+          action: "delete"
+        description: Remove httpd host configuration
+
+  # HTTPD Proxy Access Configuration (L2MS)
+  - name: httpd proxy-access l2ms permit
+    syntax: "httpd proxy-access l2ms permit <switch>"
+    chapter: 10
+    section: "10.2"
+    parser: service.go
+    description: |
+      Configure L2MS (Layer 2 Management Service) proxy access for HTTP daemon.
+      Enables or disables access through L2MS proxy.
+    parameters:
+      - name: switch
+        type: enum
+        required: true
+        values: [on, off]
+        default: "off"
+        description: Enable (on) or disable (off) L2MS proxy access
+    examples:
+      - input: "httpd proxy-access l2ms permit on"
+        expected:
+          proxy_access: true
+        description: Enable L2MS proxy access to HTTP daemon
+      - input: "httpd proxy-access l2ms permit off"
+        expected:
+          proxy_access: false
+        description: Disable L2MS proxy access to HTTP daemon
+
+  # ========== SSHD Commands ==========
+
+  # SSHD Service Control
+  - name: sshd service
+    syntax: "sshd service <switch>"
+    no_form: "no sshd service"
+    chapter: 10
+    section: "10.3"
+    parser: service.go
+    description: Enable or disable SSH daemon service
+    parameters:
+      - name: switch
+        type: enum
+        required: true
+        values: [on, off]
+        default: "off"
+        description: Enable (on) or disable (off) SSH service
+    examples:
+      - input: "sshd service on"
+        expected:
+          enabled: true
+        description: Enable SSH service
+      - input: "sshd service off"
+        expected:
+          enabled: false
+        description: Disable SSH service
+
+  # SSHD Delete Service
+  - name: no sshd service
+    syntax: "no sshd service"
+    chapter: 10
+    section: "10.3"
+    parser: service.go
+    description: Disable SSH daemon service (equivalent to sshd service off)
+    parameters: []
+    examples:
+      - input: "no sshd service"
+        expected:
+          enabled: false
+          action: "delete"
+        description: Remove/disable SSH service
+
+  # SSHD Host Configuration
+  - name: sshd host
+    syntax: "sshd host <interface1> [<interface2>] [<interface3>] [...]"
+    no_form: "no sshd host"
+    chapter: 10
+    section: "10.4"
+    parser: service.go
+    description: |
+      Configure which interfaces accept SSH connections.
+      Multiple interfaces can be specified space-separated.
+    parameters:
+      - name: interface1
+        type: interface
+        required: true
+        description: |
+          First interface for SSH access. Valid types:
+          - lanN: LAN interfaces (lan1, lan2, etc.)
+          - ppN: Point-to-Point interfaces (pp1, pp2, etc.)
+          - bridgeN: Bridge interfaces (bridge1, bridge2, etc.)
+          - tunnelN: Tunnel interfaces (tunnel1, tunnel2, etc.)
+      - name: interface2
+        type: interface
+        required: false
+        description: Additional interface for SSH access
+      - name: interface3
+        type: interface
+        required: false
+        description: Additional interface for SSH access
+    examples:
+      - input: "sshd host lan1"
+        expected:
+          hosts: ["lan1"]
+        description: Allow SSH only from LAN1
+      - input: "sshd host lan1 lan2"
+        expected:
+          hosts: ["lan1", "lan2"]
+        description: Allow SSH from LAN1 and LAN2
+      - input: "sshd host lan1 lan2 pp1"
+        expected:
+          hosts: ["lan1", "lan2", "pp1"]
+        description: Allow SSH from LAN1, LAN2, and PP1
+      - input: "sshd host lan1 bridge1"
+        expected:
+          hosts: ["lan1", "bridge1"]
+        description: Allow SSH from LAN1 and bridge1
+
+  # SSHD Delete Host Configuration
+  - name: no sshd host
+    syntax: "no sshd host"
+    chapter: 10
+    section: "10.4"
+    parser: service.go
+    description: Remove SSH host interface restrictions (allow from any interface)
+    parameters: []
+    examples:
+      - input: "no sshd host"
+        expected:
+          hosts: []
+          action: "delete"
+        description: Remove SSH host restrictions
+
+  # SSHD Host Key Generation
+  - name: sshd host key generate
+    syntax: "sshd host key generate"
+    chapter: 10
+    section: "10.5"
+    parser: service.go
+    description: Generate a new RSA host key for SSH daemon
+    parameters: []
+    examples:
+      - input: "sshd host key generate"
+        expected:
+          action: "generate_key"
+        description: Generate new SSH host key
+
+  # SSHD Host Key (show only - from config output)
+  - name: sshd host key
+    syntax: "sshd host key <key_data>"
+    chapter: 10
+    section: "10.5"
+    parser: service.go
+    description: |
+      SSH host key configuration (typically appears in show config output).
+      Key data is stored internally after generation.
+      Note: "generate" keyword triggers key generation, not storage.
+    parameters:
+      - name: key_data
+        type: string
+        required: true
+        description: Base64-encoded RSA host key (sensitive data)
+    examples:
+      - input: "sshd host key AAAAB3NzaC1yc2EAAAADAQABAAABgQC..."
+        expected:
+          host_key: "AAAAB3NzaC1yc2EAAAADAQABAAABgQC..."
+        description: SSH host key in config output
+
+  # ========== SFTPD Commands ==========
+
+  # SFTPD Host Configuration
+  - name: sftpd host
+    syntax: "sftpd host <interface1> [<interface2>] [<interface3>] [...]"
+    no_form: "no sftpd host"
+    chapter: 10
+    section: "10.6"
+    parser: service.go
+    description: |
+      Configure which interfaces accept SFTP connections.
+      SFTP allows secure file transfer to/from the router.
+      Multiple interfaces can be specified space-separated.
+    parameters:
+      - name: interface1
+        type: interface
+        required: true
+        description: |
+          First interface for SFTP access. Valid types:
+          - lanN: LAN interfaces (lan1, lan2, etc.)
+          - ppN: Point-to-Point interfaces (pp1, pp2, etc.)
+          - bridgeN: Bridge interfaces (bridge1, bridge2, etc.)
+          - tunnelN: Tunnel interfaces (tunnel1, tunnel2, etc.)
+      - name: interface2
+        type: interface
+        required: false
+        description: Additional interface for SFTP access
+      - name: interface3
+        type: interface
+        required: false
+        description: Additional interface for SFTP access
+    examples:
+      - input: "sftpd host lan1"
+        expected:
+          hosts: ["lan1"]
+        description: Allow SFTP only from LAN1
+      - input: "sftpd host lan1 lan2"
+        expected:
+          hosts: ["lan1", "lan2"]
+        description: Allow SFTP from LAN1 and LAN2
+      - input: "sftpd host lan1 bridge1 tunnel1"
+        expected:
+          hosts: ["lan1", "bridge1", "tunnel1"]
+        description: Allow SFTP from multiple interface types
+
+  # SFTPD Delete Host Configuration
+  - name: no sftpd host
+    syntax: "no sftpd host"
+    chapter: 10
+    section: "10.6"
+    parser: service.go
+    description: Remove SFTP host interface restrictions
+    parameters: []
+    examples:
+      - input: "no sftpd host"
+        expected:
+          hosts: []
+          action: "delete"
+        description: Remove SFTP host restrictions
+
+# Interface Type Constraints (for sshd/sftpd/httpd host commands)
+# Valid interface formats:
+#   - lanN     : Physical LAN interfaces (lan1, lan2, lan3, etc.)
+#   - ppN      : Point-to-Point interfaces (pp1, pp2, etc.)
+#   - bridgeN  : Bridge interfaces (bridge1, bridge2, etc.)
+#   - tunnelN  : Tunnel interfaces (tunnel1, tunnel2, etc.)
+#   - any      : Special keyword for httpd only (all interfaces)
+
+# Service Configuration Best Practices
+#
+# Secure SSH Configuration:
+#   sshd service on
+#   sshd host lan1            # Restrict to internal LAN only
+#   sshd host key generate    # Generate unique host key
+#
+# Secure HTTP Configuration:
+#   httpd host lan1           # Restrict to internal LAN only
+#   httpd proxy-access l2ms permit off  # Disable unless needed
+#
+# Secure SFTP Configuration:
+#   sshd service on           # SFTP requires SSH service
+#   sftpd host lan1           # Restrict to internal LAN only
+#
+# Full Service Lockdown (internal management only):
+#   httpd host lan1
+#   sshd service on
+#   sshd host lan1
+#   sftpd host lan1
+
+# Validation Rules (from service.go):
+# 1. HTTPD host: must be "any" or valid interface pattern (lanN, ppN, bridgeN, tunnelN)
+# 2. SSHD/SFTPD hosts: must be valid interface patterns (lanN, ppN, bridgeN, tunnelN)
+# 3. SFTPD requires at least one host interface when configured
+# 4. SSHD requires sshd service on before SSH connections work

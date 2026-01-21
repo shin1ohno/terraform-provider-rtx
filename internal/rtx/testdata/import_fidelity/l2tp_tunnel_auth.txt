@@ -1,0 +1,61 @@
+# L2TPv3 Tunnel Auth Configuration Test Fixture (REQ-4)
+# Tests parsing of L2TPv3 tunnel with authentication enabled
+
+# L2TP service configuration
+l2tp service on l2tpv3
+
+# Tunnel 1: L2TPv3 with tunnel authentication enabled
+tunnel select 1
+tunnel encapsulation l2tpv3
+tunnel endpoint address 192.168.1.1 10.0.0.1
+l2tp local router-id 1.1.1.1
+l2tp remote router-id 2.2.2.2
+l2tp tunnel auth on TEST_PASSWORD_2word
+l2tp always-on on
+l2tp keepalive use on 30 5
+description "Site-A to Site-B L2TPv3 VPN"
+tunnel enable 1
+
+# Tunnel 2: L2TPv3 with tunnel auth but no password (auth check only)
+tunnel select 2
+tunnel encapsulation l2tpv3
+tunnel endpoint address 192.168.1.1 10.0.0.2
+l2tp local router-id 1.1.1.1
+l2tp remote router-id 3.3.3.3
+l2tp remote end-id branch-office-b
+l2tp tunnel auth on
+l2tp keepalive use on 60 3
+tunnel enable 2
+
+# Tunnel 3: L2TPv3 without tunnel auth (default state)
+tunnel select 3
+tunnel encapsulation l2tpv3
+tunnel endpoint address 192.168.1.1 10.0.0.3
+l2tp local router-id 1.1.1.1
+l2tp remote router-id 4.4.4.4
+l2tp tunnel disconnect time 300
+tunnel enable 3
+
+# Tunnel 4: L2TPv3 with IPsec and tunnel auth
+tunnel select 4
+tunnel encapsulation l2tpv3
+tunnel endpoint address 192.168.1.1 10.0.0.4
+ipsec tunnel 4
+l2tp local router-id 1.1.1.1
+l2tp remote router-id 5.5.5.5
+l2tp tunnel auth on supersecretkey123
+l2tp always-on on
+description "Secure L2TPv3 over IPsec"
+tunnel enable 4
+
+# Tunnel 5: L2TPv2 LNS mode (for reference, different from L2TPv3)
+pp select anonymous
+pp bind tunnel5
+pp auth accept mschap-v2
+pp auth myname l2tp-server TEST_PASSWORD_2
+ip pp remote address pool 10.100.0.10-10.100.0.50
+
+tunnel select 5
+tunnel encapsulation l2tp
+tunnel endpoint address 192.168.1.1
+tunnel enable 5

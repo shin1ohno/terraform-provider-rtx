@@ -1,0 +1,287 @@
+# RTX Schedule Command Patterns
+# Extracted from: docs/RTX-commands/37_スケジュール.md
+# Parser: internal/rtx/parsers/schedule.go
+
+category: schedule
+chapter: 37
+parser: schedule.go
+
+commands:
+  # 37.1 Schedule at (time-based)
+  - name: schedule at
+    syntax: "schedule at <id> [<date>] <time> * <command>"
+    no_form: "no schedule at <id>"
+    chapter: 37
+    section: "37.1"
+    parser: schedule.go
+    description: Execute a command at a specified time or on startup
+    parameters:
+      - name: id
+        type: int
+        required: true
+        range: "1-65535"
+        description: Schedule ID number
+      - name: date
+        type: string
+        required: false
+        description: "Date specification (month/day format, e.g., 1/1, */mon-fri, */*)"
+      - name: time
+        type: string
+        required: true
+        description: "Time specification (hh:mm[:ss], startup, usb-attached, sd-attached, or +timer)"
+      - name: command
+        type: string
+        required: true
+        description: Command to execute (with restrictions)
+    examples:
+      - input: "schedule at 1 8:00 * pp auth accept on"
+        expected:
+          id: 1
+          at_time: "8:00"
+          recurring: true
+          commands: ["pp auth accept on"]
+        description: Daily schedule at 8:00
+      - input: "schedule at 1 startup * console info on"
+        expected:
+          id: 1
+          on_startup: true
+          commands: ["console info on"]
+        description: Execute command at router startup
+      - input: "schedule at 1 2024/12/31 23:59 * restart"
+        expected:
+          id: 1
+          date: "2024/12/31"
+          at_time: "23:59"
+          recurring: false
+          commands: ["restart"]
+        description: One-time schedule at specific date and time
+      - input: "schedule at 1 */mon-fri 8:00 * pp auth accept on"
+        expected:
+          id: 1
+          day_of_week: "mon-fri"
+          at_time: "8:00"
+          recurring: true
+          commands: ["pp auth accept on"]
+        description: Weekday schedule (Monday to Friday)
+      - input: "schedule at 1 */sat,sun 9:00 * nat masquerade on"
+        expected:
+          id: 1
+          day_of_week: "sat,sun"
+          at_time: "9:00"
+          recurring: true
+          commands: ["nat masquerade on"]
+        description: Weekend schedule (Saturday and Sunday)
+      - input: "schedule at 1 1/1 0:0 * ip route 192.168.0.0/24 gateway pp 2"
+        expected:
+          id: 1
+          date: "1/1"
+          at_time: "0:0"
+          recurring: true
+          commands: ["ip route 192.168.0.0/24 gateway pp 2"]
+        description: New Year's Day routing change
+      - input: "schedule at 1 12:*:00 * lua script.lua"
+        expected:
+          id: 1
+          at_time: "12:*:00"
+          recurring: true
+          commands: ["lua script.lua"]
+        description: Execute every minute during 12:00-12:59
+      - input: "schedule at 1 +600 * restart"
+        expected:
+          id: 1
+          timer: 600
+          commands: ["restart"]
+        description: Execute command after 10 minutes (600 seconds)
+
+  # 37.1 Schedule at with PP interface context
+  - name: schedule at pp
+    syntax: "schedule at <id> [<date>] <time> pp <peer_num> <command>"
+    no_form: "no schedule at <id>"
+    chapter: 37
+    section: "37.1"
+    parser: schedule.go
+    description: Execute a command at a specified time with PP interface context
+    parameters:
+      - name: id
+        type: int
+        required: true
+        range: "1-65535"
+        description: Schedule ID number
+      - name: date
+        type: string
+        required: false
+        description: "Date specification (month/day format)"
+      - name: time
+        type: string
+        required: true
+        description: "Time specification (hh:mm[:ss] or startup)"
+      - name: peer_num
+        type: string
+        required: true
+        description: Peer number or "anonymous"
+      - name: command
+        type: string
+        required: true
+        description: Command to execute in PP context
+    examples:
+      - input: "schedule at 1 */mon-fri 8:00 pp 1 isdn auto connect on"
+        expected:
+          id: 1
+          day_of_week: "mon-fri"
+          at_time: "8:00"
+          pp_num: 1
+          commands: ["isdn auto connect on"]
+        description: Enable ISDN auto connect on weekdays at 8:00
+      - input: "schedule at 2 */mon-fri 17:00 pp 1 isdn auto connect off"
+        expected:
+          id: 2
+          day_of_week: "mon-fri"
+          at_time: "17:00"
+          pp_num: 1
+          commands: ["isdn auto connect off"]
+        description: Disable ISDN auto connect on weekdays at 17:00
+      - input: "schedule at 3 */mon-fri 17:05 * disconnect 1"
+        expected:
+          id: 3
+          day_of_week: "mon-fri"
+          at_time: "17:05"
+          commands: ["disconnect 1"]
+        description: Disconnect PP 1 at 17:05 on weekdays
+      - input: "schedule at 1 *:00 pp 1 isdn auto connect on"
+        expected:
+          id: 1
+          at_time: "*:00"
+          pp_num: 1
+          commands: ["isdn auto connect on"]
+        description: Enable auto connect at the top of every hour
+      - input: "schedule at 2 *:15 pp 1 isdn auto connect off"
+        expected:
+          id: 2
+          at_time: "*:15"
+          pp_num: 1
+          commands: ["isdn auto connect off"]
+        description: Disable auto connect at 15 minutes past every hour
+
+  # 37.1 Schedule at with tunnel interface context
+  - name: schedule at tunnel
+    syntax: "schedule at <id> [<date>] <time> tunnel <tunnel_num> <command>"
+    no_form: "no schedule at <id>"
+    chapter: 37
+    section: "37.1"
+    parser: schedule.go
+    description: Execute a command at a specified time with tunnel interface context
+    parameters:
+      - name: id
+        type: int
+        required: true
+        range: "1-65535"
+        description: Schedule ID number
+      - name: date
+        type: string
+        required: false
+        description: "Date specification (month/day format)"
+      - name: time
+        type: string
+        required: true
+        description: "Time specification (hh:mm[:ss] or startup)"
+      - name: tunnel_num
+        type: int
+        required: true
+        description: Tunnel interface number
+      - name: command
+        type: string
+        required: true
+        description: Command to execute in tunnel context
+    examples:
+      - input: "schedule at 1 8:00 tunnel 1 ipsec sa delete 1"
+        expected:
+          id: 1
+          at_time: "8:00"
+          tunnel_num: 1
+          commands: ["ipsec sa delete 1"]
+        description: Delete IPsec SA daily at 8:00
+
+  # 37.1 Schedule at with switch context
+  - name: schedule at switch
+    syntax: "schedule at <id> [<date>] <time> switch <switch> <command>"
+    no_form: "no schedule at <id>"
+    chapter: 37
+    section: "37.1"
+    parser: schedule.go
+    description: Execute a command at a specified time with switch context
+    parameters:
+      - name: id
+        type: int
+        required: true
+        range: "1-65535"
+        description: Schedule ID number
+      - name: date
+        type: string
+        required: false
+        description: "Date specification (month/day format)"
+      - name: time
+        type: string
+        required: true
+        description: "Time specification (hh:mm[:ss] or startup)"
+      - name: switch
+        type: string
+        required: true
+        description: Switch identifier (MAC address or path like lan1:4)
+      - name: command
+        type: string
+        required: true
+        description: Command to execute in switch context
+    examples:
+      - input: "schedule at 1 */* 03:00 switch 00:a0:de:01:02:03 switch control function execute restart"
+        expected:
+          id: 1
+          date: "*/*"
+          at_time: "03:00"
+          switch: "00:a0:de:01:02:03"
+          commands: ["switch control function execute restart"]
+        description: Restart switch by MAC address daily at 3:00
+      - input: "schedule at 2 */* 03:00 switch lan1:4 switch control function execute restart"
+        expected:
+          id: 2
+          date: "*/*"
+          at_time: "03:00"
+          switch: "lan1:4"
+          commands: ["switch control function execute restart"]
+        description: Restart switch by path daily at 3:00
+
+  # 37.1 Schedule at with timer (delay)
+  - name: schedule at timer
+    syntax: "schedule at <id> +<timer> * <command>"
+    no_form: "no schedule at <id>"
+    chapter: 37
+    section: "37.1"
+    parser: schedule.go
+    description: Execute a command after a specified delay
+    parameters:
+      - name: id
+        type: int
+        required: true
+        range: "1-65535"
+        description: Schedule ID number
+      - name: timer
+        type: int
+        required: true
+        range: "1-3600"
+        description: Delay in seconds before executing command
+      - name: command
+        type: string
+        required: true
+        description: Command to execute
+    examples:
+      - input: "schedule at 1 +600 * restart"
+        expected:
+          id: 1
+          timer: 600
+          commands: ["restart"]
+        description: Restart router after 10 minutes
+      - input: "schedule at 2 +60 * syslog notice 'Timer expired'"
+        expected:
+          id: 2
+          timer: 60
+          commands: ["syslog notice 'Timer expired'"]
+        description: Log message after 1 minute

@@ -1,0 +1,234 @@
+# RTX Admin/User Command Patterns
+# Extracted from: docs/RTX-commands/04_機器の設定.md
+# Parser: internal/rtx/parsers/admin.go
+
+category: admin
+chapter: 4
+parser: admin.go
+
+commands:
+  # 4.1 Login password configuration
+  - name: login password
+    syntax: "login password"
+    no_form: null
+    chapter: 4
+    section: "4.1"
+    parser: admin.go
+    description: Set the login password for anonymous user (interactive prompt)
+    parameters: []
+    examples:
+      - input: "login password"
+        expected:
+          interactive: true
+        description: Set login password (prompts for password input)
+
+  # 4.2 Login password encrypted storage
+  - name: login password encrypted
+    syntax: "login password encrypted"
+    no_form: null
+    chapter: 4
+    section: "4.2"
+    parser: admin.go
+    description: Set the login password with encrypted storage (interactive prompt)
+    parameters: []
+    examples:
+      - input: "login password encrypted"
+        expected:
+          interactive: true
+          encrypted: true
+        description: Set login password with encryption (prompts for password input)
+
+  # 4.3 Administrator password configuration
+  - name: administrator password
+    syntax: "administrator password"
+    no_form: null
+    chapter: 4
+    section: "4.3"
+    parser: admin.go
+    description: Set the administrator password for privileged mode access
+    parameters: []
+    examples:
+      - input: "administrator password"
+        expected:
+          interactive: true
+        description: Set admin password (prompts for password input)
+
+  # 4.4 Administrator password encrypted storage
+  - name: administrator password encrypted
+    syntax: "administrator password encrypted"
+    no_form: null
+    chapter: 4
+    section: "4.4"
+    parser: admin.go
+    description: Set the administrator password with encrypted storage
+    parameters: []
+    examples:
+      - input: "administrator password encrypted"
+        expected:
+          interactive: true
+          encrypted: true
+        description: Set admin password with encryption (prompts for password input)
+
+  # 4.5 Login user configuration
+  - name: login user
+    syntax: "login user <user> [<password>]"
+    no_form: "no login user <user> [<password>]"
+    chapter: 4
+    section: "4.5"
+    parser: admin.go
+    description: Configure a user account with username and password
+    parameters:
+      - name: user
+        type: string
+        required: true
+        description: Username (32 characters max, alphanumeric, hyphen, underscore)
+      - name: password
+        type: password
+        required: false
+        description: Password (if omitted, prompts for input; 1-32 or 8-32 chars depending on model)
+    examples:
+      - input: "login user admin"
+        expected:
+          username: "admin"
+          interactive: true
+        description: Create user with interactive password prompt
+      - input: "login user admin mypassword"
+        expected:
+          username: "admin"
+          password: "mypassword"
+          encrypted: false
+        description: Create user with plaintext password
+      - input: "no login user admin"
+        expected:
+          username: "admin"
+          delete: true
+        description: Delete user account
+
+  # 4.5 Login user with encrypted password
+  - name: login user encrypted
+    syntax: "login user <user> encrypted <password>"
+    no_form: "no login user <user>"
+    chapter: 4
+    section: "4.5"
+    parser: admin.go
+    description: Configure a user account with encrypted password (from TFTP backup)
+    parameters:
+      - name: user
+        type: string
+        required: true
+        description: Username (32 characters max)
+      - name: password
+        type: password
+        required: true
+        description: Encrypted password string
+    examples:
+      - input: "login user admin encrypted $1$abc123xyz"
+        expected:
+          username: "admin"
+          password: "$1$abc123xyz"
+          encrypted: true
+        description: Create user with encrypted password (from config backup)
+      - input: "login user testuser encrypted AgGhVs0yKdDRnCM04g"
+        expected:
+          username: "testuser"
+          password: "AgGhVs0yKdDRnCM04g"
+          encrypted: true
+        description: Restore user from exported config
+
+  # 4.10 User attribute configuration
+  - name: user attribute
+    syntax: "user attribute [<user>] <attribute>=<value> [<attribute>=<value>...]"
+    no_form: "no user attribute [<user>...]"
+    chapter: 4
+    section: "4.10"
+    parser: admin.go
+    description: Configure user attributes (administrator, connection, gui-page, etc.)
+    parameters:
+      - name: user
+        type: string
+        required: false
+        description: Username (omit for anonymous user, "*" for all users, "*radius" for RADIUS users)
+      - name: administrator
+        type: enum
+        required: false
+        values: ["on", "off", "1", "2"]
+        default: "on"
+        description: Administrator privilege (on/1=can elevate, 2=auto-elevate, off=denied)
+      - name: connection
+        type: enum
+        required: false
+        values: ["off", "all", "serial", "vm-console", "telnet", "ssh", "sftp", "remote", "http"]
+        default: "all"
+        description: Allowed connection types (comma-separated for multiple)
+      - name: gui-page
+        type: enum
+        required: false
+        values: ["all", "dashboard", "lan-map", "config"]
+        default: "all"
+        description: Allowed GUI pages (comma-separated for multiple)
+      - name: host
+        type: string
+        required: false
+        default: "any"
+        description: Allowed host IP addresses or interface
+      - name: multi-session
+        type: enum
+        required: false
+        values: ["on", "off"]
+        default: "on"
+        description: Allow multiple simultaneous sessions
+      - name: login-timer
+        type: string
+        required: false
+        default: "300"
+        description: Auto-logout timer in seconds (120-21474836, or "clear")
+    examples:
+      - input: "user attribute admin administrator=on"
+        expected:
+          username: "admin"
+          administrator: true
+        description: Grant administrator privilege to user
+      - input: "user attribute admin administrator=off"
+        expected:
+          username: "admin"
+          administrator: false
+        description: Revoke administrator privilege
+      - input: "user attribute admin connection=ssh,telnet"
+        expected:
+          username: "admin"
+          connection: ["ssh", "telnet"]
+        description: Restrict connection types to SSH and Telnet
+      - input: "user attribute admin gui-page=dashboard,lan-map"
+        expected:
+          username: "admin"
+          gui_pages: ["dashboard", "lan-map"]
+        description: Limit GUI access to dashboard and LAN map
+      - input: "user attribute admin login-timer=600"
+        expected:
+          username: "admin"
+          login_timer: 600
+        description: Set 10-minute auto-logout timer
+      - input: "user attribute admin administrator=on connection=ssh,telnet gui-page=all login-timer=300"
+        expected:
+          username: "admin"
+          administrator: true
+          connection: ["ssh", "telnet"]
+          gui_pages: ["all"]
+          login_timer: 300
+        description: Full attribute configuration
+      - input: "user attribute * administrator=off"
+        expected:
+          username: "*"
+          administrator: false
+        description: Set default attribute for all users
+      - input: "user attribute *radius administrator=off connection=ssh"
+        expected:
+          username: "*radius"
+          administrator: false
+          connection: ["ssh"]
+        description: Set attributes for RADIUS-authenticated users
+      - input: "no user attribute admin"
+        expected:
+          username: "admin"
+          delete: true
+        description: Delete user attributes

@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/zerolog-integration/requirements.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-20T14:30:44.084Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768919444041_zci1ke9xp",
+      "approvalTitle": "zerolog-integration Requirements"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-20T14:34:17.618Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768919444041_zci1ke9xp",
+      "approvalTitle": "zerolog-integration Requirements"
+    }
+  ]
+}

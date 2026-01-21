@@ -1,0 +1,12 @@
+{
+  "id": "approval_1768926273269_qqkzj3a3l",
+  "title": "Network Hardening Requirements (MAC ACL expansion)",
+  "filePath": ".spec-workflow/specs/network-hardening/requirements.md",
+  "type": "document",
+  "status": "approved",
+  "createdAt": "2026-01-20T16:24:33.269Z",
+  "category": "spec",
+  "categoryName": "network-hardening",
+  "response": "Approved via dashboard",
+  "respondedAt": "2026-01-20T16:33:47.694Z"
+}

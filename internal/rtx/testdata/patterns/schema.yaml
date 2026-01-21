@@ -1,0 +1,80 @@
+# RTX Command Pattern Schema
+#
+# This schema defines the structure for RTX command pattern files.
+# Each pattern file (e.g., dns.yaml, static_route.yaml) should follow this format.
+
+schema_version: "1.0"
+
+# Commands list containing all command patterns for a category
+# commands:
+#   - name: <command_name>           # Required: Human-readable command name
+#     syntax: <syntax_pattern>       # Required: Command syntax with <param> placeholders
+#     no_form: <no_syntax>           # Optional: Negation form of the command
+#     chapter: <int>                 # Required: RTX documentation chapter number
+#     section: <string>              # Optional: Section reference (e.g., "24.1")
+#     parser: <parser_file.go>       # Required: Parser file that handles this command
+#     description: <text>            # Optional: Brief description of the command
+#     parameters:                    # Required: List of command parameters
+#       - name: <param_name>         # Required: Parameter name matching <param> in syntax
+#         type: <type>               # Required: One of the supported types below
+#         required: <bool>           # Required: Whether parameter is mandatory
+#         default: <value>           # Optional: Default value if not specified
+#         range: <range_spec>        # Optional: Valid range (e.g., "1-100", "64-1500")
+#         values: [<val1>, <val2>]   # Optional: Enum values for choice parameters
+#         description: <text>        # Optional: Parameter description
+#     examples:                      # Required: At least one example per command
+#       - input: <command_line>      # Required: Actual command string
+#         expected:                  # Optional: Expected parsed values for testing
+#           <field>: <value>
+#         description: <text>        # Optional: Description of this example
+
+# Supported parameter types:
+#   - ipv4          : IPv4 address (e.g., "192.168.1.1")
+#   - ipv4_prefix   : IPv4 with prefix length (e.g., "192.168.1.0/24")
+#   - ipv6          : IPv6 address
+#   - ipv6_prefix   : IPv6 with prefix length
+#   - int           : Integer value
+#   - bool          : Boolean (on/off, true/false, enable/disable)
+#   - string        : Free-form string
+#   - interface     : Interface name (lan1, lan2, pp 1, tunnel 1, etc.)
+#   - gateway       : Gateway specification (IP, pp N, tunnel N, null)
+#   - enum          : One of predefined values (use 'values' field)
+#   - port          : Port number (1-65535)
+#   - port_range    : Port range (e.g., "1024-65535")
+#   - mac           : MAC address
+#   - hostname      : Hostname or FQDN
+#   - time          : Time specification (varies by command)
+#   - password      : Password/secret value
+
+# Example pattern file (dns.yaml):
+# ---
+# category: dns
+# chapter: 24
+# parser: dns.go
+# commands:
+#   - name: dns server
+#     syntax: "dns server <ip1> [<ip2>] [<ip3>]"
+#     no_form: "no dns server"
+#     chapter: 24
+#     section: "24.1"
+#     parser: dns.go
+#     parameters:
+#       - name: ip1
+#         type: ipv4
+#         required: true
+#         description: Primary DNS server IP address
+#       - name: ip2
+#         type: ipv4
+#         required: false
+#         description: Secondary DNS server IP address
+#       - name: ip3
+#         type: ipv4
+#         required: false
+#         description: Tertiary DNS server IP address
+#     examples:
+#       - input: "dns server 8.8.8.8"
+#         expected:
+#           servers: ["8.8.8.8"]
+#       - input: "dns server 8.8.8.8 8.8.4.4"
+#         expected:
+#           servers: ["8.8.8.8", "8.8.4.4"]

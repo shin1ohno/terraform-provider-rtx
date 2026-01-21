@@ -1,0 +1,316 @@
+# RTX QoS Command Patterns
+# Extracted from: docs/RTX-commands/26_優先制御／帯域制御.md
+# Parser: internal/rtx/parsers/qos.go
+
+category: qos
+chapter: 26
+parser: qos.go
+
+commands:
+  # 26.1 Interface speed setting
+  - name: speed
+    syntax: "speed <interface> <speed>"
+    no_form: "no speed <interface> [<speed>]"
+    chapter: 26
+    section: "26.1"
+    parser: qos.go
+    description: Set interface speed for traffic shaping and bandwidth control
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        description: LAN or WAN interface name (lan1, lan2, etc.)
+      - name: speed
+        type: int
+        required: true
+        description: Interface speed in bit/s (can use k/M/G suffixes)
+    examples:
+      - input: "speed lan1 100000000"
+        expected:
+          interface: "lan1"
+          speed: 100000000
+        description: Set LAN1 speed to 100Mbps
+      - input: "speed lan2 1000000000"
+        expected:
+          interface: "lan2"
+          speed: 1000000000
+        description: Set LAN2 speed to 1Gbps
+      - input: "speed lan1 10M"
+        expected:
+          interface: "lan1"
+          speed: 10000000
+        description: Set LAN1 speed to 10Mbps using M suffix
+
+  # 26.2 Class filter setting
+  - name: queue class filter
+    syntax: "queue class filter <num> <class1> [/<class2>] [cos=<cos>] ip <src_addr> [<dest_addr> [<protocol> [<src_port> [<dest_port>]]]]"
+    no_form: "no queue class filter <num>"
+    chapter: 26
+    section: "26.2"
+    parser: qos.go
+    description: Configure class filter for packet classification in priority/bandwidth control
+    parameters:
+      - name: num
+        type: int
+        required: true
+        description: Class filter identification number
+      - name: class1
+        type: int
+        required: true
+        range: "1-250"
+        description: Primary class number (1-250 for RTX3510, 1-100 for RTX5000/RTX3500, 1-16 for others)
+      - name: class2
+        type: int
+        required: false
+        range: "1-4"
+        description: Secondary hierarchy class (RTX5000, RTX3510, RTX3500 only)
+      - name: cos
+        type: enum
+        required: false
+        values: ["0", "1", "2", "3", "4", "5", "6", "7", "precedence"]
+        description: CoS value to set in 802.1Q tag user_priority field
+      - name: src_addr
+        type: string
+        required: true
+        description: Source IP address (* for any, can use CIDR notation)
+      - name: dest_addr
+        type: string
+        required: false
+        default: "*"
+        description: Destination IP address (* for any, can use CIDR notation)
+      - name: protocol
+        type: enum
+        required: false
+        values: ["*", "icmp", "tcp", "udp", "established"]
+        default: "*"
+        description: Protocol to match
+      - name: src_port
+        type: port_range
+        required: false
+        default: "*"
+        description: Source port number or range (* for any)
+      - name: dest_port
+        type: port_range
+        required: false
+        default: "*"
+        description: Destination port number or range (* for any)
+    examples:
+      - input: "queue class filter 1 4 ip * * udp 5004-5060 *"
+        expected:
+          num: 1
+          class1: 4
+          protocol: "udp"
+          src_port: "5004-5060"
+        description: Classify UDP traffic on ports 5004-5060 to class 4
+      - input: "queue class filter 2 10/3 ip * 172.16.1.0/24 tcp telnet *"
+        expected:
+          num: 2
+          class1: 10
+          class2: 3
+          dest_addr: "172.16.1.0/24"
+          protocol: "tcp"
+          dest_port: "telnet"
+        description: Classify telnet traffic to specific subnet in hierarchical class
+      - input: "queue class filter 1 1 ip * *"
+        expected:
+          num: 1
+          class1: 1
+          src_addr: "*"
+          dest_addr: "*"
+        description: Match all IP traffic to class 1
+      - input: "queue class filter 3 3 ip * * icmp * *"
+        expected:
+          num: 3
+          class1: 3
+          protocol: "icmp"
+        description: Classify ICMP traffic to class 3
+
+  # 26.3 Queue type selection
+  - name: queue type
+    syntax: "queue <interface> type <type> [shaping-level=<level>]"
+    no_form: "no queue <interface> type [<type>]"
+    chapter: 26
+    section: "26.3"
+    parser: qos.go
+    description: Select queuing algorithm type for interface
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        description: LAN or WAN interface name
+      - name: type
+        type: enum
+        required: true
+        values: [fifo, priority, cbq, wfq, shaping]
+        default: fifo
+        description: "Queuing algorithm: fifo (FIFO), priority (priority queuing), cbq (class-based queuing), wfq (weighted fair queue), shaping (bandwidth control)"
+      - name: level
+        type: enum
+        required: false
+        values: ["1", "2"]
+        default: "2"
+        description: Layer for bandwidth calculation (1=L1, 2=L2)
+    examples:
+      - input: "queue lan1 type priority"
+        expected:
+          interface: "lan1"
+          queue_type: "priority"
+        description: Enable priority queuing on LAN1
+      - input: "queue lan2 type shaping"
+        expected:
+          interface: "lan2"
+          queue_type: "shaping"
+        description: Enable traffic shaping on LAN2
+      - input: "queue lan1 type fifo"
+        expected:
+          interface: "lan1"
+          queue_type: "fifo"
+        description: Use basic FIFO queuing on LAN1
+      - input: "queue lan1 type priority shaping-level=1"
+        expected:
+          interface: "lan1"
+          queue_type: "priority"
+          shaping_level: 1
+        description: Priority queuing with Layer 1 bandwidth calculation
+
+  # 26.5 Class filter list application
+  - name: queue class filter list
+    syntax: "queue <interface> class filter list <filter_list>"
+    no_form: "no queue <interface> class filter list [<filter_list>]"
+    chapter: 26
+    section: "26.5"
+    parser: qos.go
+    description: Apply class filters to interface in specified order
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        description: LAN or WAN interface name
+      - name: filter_list
+        type: string
+        required: true
+        description: Space-separated list of class filter numbers
+    examples:
+      - input: "queue lan1 class filter list 1 2 3"
+        expected:
+          interface: "lan1"
+          filter_list: [1, 2, 3]
+        description: Apply filters 1, 2, 3 to LAN1 in order
+      - input: "queue lan2 class filter list 1"
+        expected:
+          interface: "lan2"
+          filter_list: [1]
+        description: Apply single filter to LAN2
+
+  # 26.6 Queue length per class
+  - name: queue length
+    syntax: "queue <interface> length <len1> [<len2>...<lenN>] [drop-threshold=<dthreshold-mid>[,<dthreshold-high>]]"
+    no_form: "no queue <interface> length [<len1>...]"
+    chapter: 26
+    section: "26.6"
+    parser: qos.go
+    description: Set queue length (packet count) per class
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        description: LAN or WAN interface name
+      - name: len1
+        type: int
+        required: true
+        range: "1-10000"
+        description: Queue length for class 1 (and subsequent classes if not specified)
+      - name: dthreshold-mid
+        type: string
+        required: false
+        default: "75%"
+        description: Queue size threshold for AF PHB medium drop priority (1-100%)
+      - name: dthreshold-high
+        type: string
+        required: false
+        default: "50%"
+        description: Queue size threshold for AF PHB high drop priority (1-100%)
+    examples:
+      - input: "queue lan1 length 200"
+        expected:
+          interface: "lan1"
+          queue_length: [200]
+        description: Set queue length to 200 packets for all classes on LAN1
+      - input: "queue lan1 length 100 200 300 400"
+        expected:
+          interface: "lan1"
+          queue_length: [100, 200, 300, 400]
+        description: Set different queue lengths for classes 1-4
+
+  # 26.8 Default class setting
+  - name: queue default class
+    syntax: "queue <interface> default class <class>"
+    no_form: "no queue <interface> default class [<class>]"
+    chapter: 26
+    section: "26.8"
+    parser: qos.go
+    description: Set default class for packets not matching any filter
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        description: LAN or WAN interface name
+      - name: class
+        type: int
+        required: true
+        range: "1-250"
+        default: 2
+        description: Default class number
+    examples:
+      - input: "queue lan1 default class 2"
+        expected:
+          interface: "lan1"
+          default_class: 2
+        description: Set default class to 2 on LAN1
+      - input: "queue lan1 default class 1"
+        expected:
+          interface: "lan1"
+          default_class: 1
+        description: Set default class to lowest priority on LAN1
+
+  # 26.10 Class property setting
+  - name: queue class property
+    syntax: "queue <interface> class property <class> bandwidth=<bandwidth>"
+    no_form: "no queue <interface> class property <class>"
+    chapter: 26
+    section: "26.10"
+    parser: qos.go
+    description: Set class bandwidth properties for traffic shaping
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        description: LAN or WAN interface name
+      - name: class
+        type: int
+        required: true
+        range: "1-250"
+        description: Class number
+      - name: bandwidth
+        type: string
+        required: true
+        description: Bandwidth allocation (bit/s, or with k/M/G suffix, or %)
+    examples:
+      - input: "queue lan1 class property 1 bandwidth=10M"
+        expected:
+          interface: "lan1"
+          class: 1
+          bandwidth: "10M"
+        description: Allocate 10Mbps to class 1
+      - input: "queue lan1 class property 2 bandwidth=50%"
+        expected:
+          interface: "lan1"
+          class: 2
+          bandwidth: "50%"
+        description: Allocate 50% of interface bandwidth to class 2
+      - input: "queue lan1 class property 3 bandwidth=5M,10M"
+        expected:
+          interface: "lan1"
+          class: 3
+          bandwidth: "5M,10M"
+        description: Dynamic Traffic Control with 5Mbps guaranteed, 10Mbps maximum

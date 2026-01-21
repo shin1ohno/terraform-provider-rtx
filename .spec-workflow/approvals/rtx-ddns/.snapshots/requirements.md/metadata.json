@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/rtx-ddns/requirements.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-20T13:27:17.614Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768915637603_jpor4jo9f",
+      "approvalTitle": "Requirements: RTX DDNS Resource"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-20T13:28:34.857Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768915637603_jpor4jo9f",
+      "approvalTitle": "Requirements: RTX DDNS Resource"
+    }
+  ]
+}

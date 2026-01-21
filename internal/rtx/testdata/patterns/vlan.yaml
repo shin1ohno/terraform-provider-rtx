@@ -1,0 +1,297 @@
+# RTX VLAN Command Patterns
+# Reference: RTX Command Reference Chapter 38 (VLAN Settings)
+
+category: vlan
+chapter: 38
+parser: vlan.go
+
+commands:
+  # 38.1 VLAN ID Settings (Tagged VLAN Interface)
+  - name: vlan interface
+    syntax: "vlan <interface>/<sub_interface> 802.1q vid=<vid> [name=<name>]"
+    no_form: "no vlan <interface>/<sub_interface> 802.1q"
+    chapter: 38
+    section: "38.1"
+    parser: vlan.go
+    description: Configure VLAN ID for a tagged VLAN interface
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        description: LAN interface name (lan1, lan2, etc.)
+      - name: sub_interface
+        type: int
+        required: true
+        range: "1-32"
+        description: Sub-interface number for the VLAN
+      - name: vid
+        type: int
+        required: true
+        range: "2-4094"
+        description: VLAN ID (IEEE802.1Q tag VID field value)
+      - name: name
+        type: string
+        required: false
+        description: VLAN name (up to 127 half-width or 63 full-width characters)
+    examples:
+      - input: "vlan lan1/1 802.1q vid=10"
+        expected:
+          interface: "lan1"
+          sub_interface: 1
+          vlan_id: 10
+        description: Basic VLAN configuration on lan1/1 with VID 10
+      - input: "vlan lan1/2 802.1q vid=20"
+        expected:
+          interface: "lan1"
+          sub_interface: 2
+          vlan_id: 20
+        description: Second VLAN on lan1/2 with VID 20
+      - input: "vlan lan1/1 802.1q vid=100 name=Management"
+        expected:
+          interface: "lan1"
+          sub_interface: 1
+          vlan_id: 100
+          name: "Management"
+        description: VLAN with optional name parameter
+      - input: "vlan lan2/5 802.1q vid=500"
+        expected:
+          interface: "lan2"
+          sub_interface: 5
+          vlan_id: 500
+        description: VLAN on lan2 interface
+      - input: "no vlan lan1/1 802.1q"
+        expected:
+          interface: "lan1"
+          sub_interface: 1
+          delete: true
+        description: Delete VLAN configuration
+
+  # 38.2 Switch Port VLAN Mapping (LAN Partition Extension)
+  - name: vlan port mapping
+    syntax: "vlan port mapping <sw_port> <vlan_interface>"
+    no_form: "no vlan port mapping <sw_port> [<vlan_interface>]"
+    chapter: 38
+    section: "38.2"
+    parser: vlan.go
+    description: Map switch port to VLAN interface for LAN partition extension
+    parameters:
+      - name: sw_port
+        type: string
+        required: true
+        description: Switch port (lan1.1-lan1.N, lan2.1-lan2.N)
+      - name: vlan_interface
+        type: string
+        required: true
+        description: VLAN interface name (vlan1-vlanN)
+    examples:
+      - input: "vlan port mapping lan1.3 vlan2"
+        expected:
+          sw_port: "lan1.3"
+          vlan_interface: "vlan2"
+        description: Map lan1.3 port to vlan2
+      - input: "vlan port mapping lan1.4 vlan2"
+        expected:
+          sw_port: "lan1.4"
+          vlan_interface: "vlan2"
+        description: Map lan1.4 port to vlan2
+      - input: "vlan port mapping lan2.1 vlan5"
+        expected:
+          sw_port: "lan2.1"
+          vlan_interface: "vlan5"
+        description: Map lan2.1 port to vlan5
+      - input: "no vlan port mapping lan1.3"
+        expected:
+          sw_port: "lan1.3"
+          delete: true
+        description: Remove port mapping
+
+  # 38.3 VLAN Interconnect Interface Group
+  - name: vlan interconnect group
+    syntax: "vlan interconnect group <phys_lan_interface> <group> [<group>...]"
+    no_form: "no vlan interconnect group <phys_lan_interface> [<group>...]"
+    chapter: 38
+    section: "38.3"
+    parser: vlan.go
+    description: Configure VLAN interconnect interface groups for inter-VLAN communication control
+    parameters:
+      - name: phys_lan_interface
+        type: interface
+        required: true
+        description: Physical LAN interface name (lan1, lan2, etc.)
+      - name: group
+        type: string
+        required: true
+        values: ["all", "none", "<interface_list>"]
+        description: >
+          Group specification: all (allow all), none (block all),
+          or interface list (comma/hyphen separated, e.g., vlan1-3, lan1/1-3,lan1/18).
+          Use $ suffix for hub interface (e.g., vlan2$, lan1/1$)
+    examples:
+      - input: "vlan interconnect group lan1 all"
+        expected:
+          phys_lan_interface: "lan1"
+          group: "all"
+        description: Allow all interconnections on lan1
+      - input: "vlan interconnect group lan2 none"
+        expected:
+          phys_lan_interface: "lan2"
+          group: "none"
+        description: Block all interconnections on lan2
+      - input: "vlan interconnect group lan1 vlan1-3 vlan2-4"
+        expected:
+          phys_lan_interface: "lan1"
+          groups: ["vlan1-3", "vlan2-4"]
+        description: Allow interconnections within vlan1-3 group and vlan2-4 group
+      - input: "vlan interconnect group lan1 vlan2$"
+        expected:
+          phys_lan_interface: "lan1"
+          groups: ["vlan2$"]
+        description: Allow vlan2 to interconnect with all other VLANs
+      - input: "vlan interconnect group lan2 lan2/1-3,lan2/18"
+        expected:
+          phys_lan_interface: "lan2"
+          groups: ["lan2/1-3,lan2/18"]
+        description: Allow interconnections among lan2/1, lan2/2, lan2/3, lan2/18
+      - input: "vlan interconnect group lan2 lan2$ lan2/1$"
+        expected:
+          phys_lan_interface: "lan2"
+          groups: ["lan2$", "lan2/1$"]
+        description: Hub interfaces on lan2 and lan2/1
+
+  # 38.4 VLAN Interconnect Logging
+  - name: vlan interconnect log
+    syntax: "vlan interconnect log <phys_lan_interface> <type> [<type>]"
+    no_form: "no vlan interconnect log <phys_lan_interface> [<type> [<type>]]"
+    chapter: 38
+    section: "38.4"
+    parser: vlan.go
+    description: Configure logging for VLAN interconnect communication control
+    parameters:
+      - name: phys_lan_interface
+        type: interface
+        required: true
+        description: Physical LAN interface name
+      - name: type
+        type: enum
+        required: true
+        values: ["pass", "reject"]
+        description: Log type - pass (log allowed traffic), reject (log blocked traffic)
+    examples:
+      - input: "vlan interconnect log lan1 pass"
+        expected:
+          phys_lan_interface: "lan1"
+          types: ["pass"]
+        description: Log allowed traffic on lan1
+      - input: "vlan interconnect log lan1 reject"
+        expected:
+          phys_lan_interface: "lan1"
+          types: ["reject"]
+        description: Log blocked traffic on lan1
+      - input: "vlan interconnect log lan1 pass reject"
+        expected:
+          phys_lan_interface: "lan1"
+          types: ["pass", "reject"]
+        description: Log both allowed and blocked traffic
+
+  # IP Address for VLAN Interface (from vlan.go parser)
+  - name: ip vlan address
+    syntax: "ip <vlan_interface> address <ip>/<prefix>"
+    no_form: "no ip <vlan_interface> address"
+    chapter: 8
+    section: "8.1"
+    parser: vlan.go
+    description: Set IP address on a VLAN interface
+    parameters:
+      - name: vlan_interface
+        type: string
+        required: true
+        description: VLAN interface (lan1/1, lan1/2, etc.)
+      - name: ip
+        type: ipv4
+        required: true
+        description: IP address
+      - name: prefix
+        type: int
+        required: true
+        range: "1-32"
+        description: Prefix length (CIDR notation)
+    examples:
+      - input: "ip lan1/1 address 192.168.10.1/24"
+        expected:
+          vlan_interface: "lan1/1"
+          ip_address: "192.168.10.1"
+          prefix: 24
+          ip_mask: "255.255.255.0"
+        description: Set IP address with CIDR notation
+      - input: "ip lan1/2 address 10.0.0.1/16"
+        expected:
+          vlan_interface: "lan1/2"
+          ip_address: "10.0.0.1"
+          prefix: 16
+          ip_mask: "255.255.0.0"
+        description: Class B network on VLAN interface
+      - input: "ip lan2/1 address 172.16.100.1/24"
+        expected:
+          vlan_interface: "lan2/1"
+          ip_address: "172.16.100.1"
+          prefix: 24
+          ip_mask: "255.255.255.0"
+        description: IP address on lan2 VLAN interface
+
+  # Description for VLAN Interface (from vlan.go parser)
+  - name: description vlan
+    syntax: "description <vlan_interface> <name>"
+    no_form: "no description <vlan_interface>"
+    chapter: 4
+    parser: vlan.go
+    description: Set description for a VLAN interface
+    parameters:
+      - name: vlan_interface
+        type: string
+        required: true
+        description: VLAN interface (lan1/1, lan1/2, etc.)
+      - name: name
+        type: string
+        required: true
+        description: Description text
+    examples:
+      - input: "description lan1/1 Management VLAN"
+        expected:
+          vlan_interface: "lan1/1"
+          name: "Management VLAN"
+        description: Set description for VLAN interface
+      - input: "description lan1/2 Guest Network"
+        expected:
+          vlan_interface: "lan1/2"
+          name: "Guest Network"
+        description: Description for guest VLAN
+
+  # Enable/Disable VLAN Interface (from vlan.go parser)
+  - name: vlan interface enable
+    syntax: "<vlan_interface> enable"
+    no_form: "no <vlan_interface> enable"
+    chapter: 4
+    parser: vlan.go
+    description: Enable or disable a VLAN interface
+    parameters:
+      - name: vlan_interface
+        type: string
+        required: true
+        description: VLAN interface (lan1/1, lan1/2, etc.)
+    examples:
+      - input: "lan1/1 enable"
+        expected:
+          vlan_interface: "lan1/1"
+          shutdown: false
+        description: Enable VLAN interface
+      - input: "no lan1/1 enable"
+        expected:
+          vlan_interface: "lan1/1"
+          shutdown: true
+        description: Disable (shutdown) VLAN interface
+
+# Applied models for chapter 38 commands:
+# - vlan interface: RTX5000, RTX3510, RTX3500, RTX1300, RTX1220, RTX1210, RTX840, RTX830
+# - vlan port mapping: RTX5000, RTX3510, RTX3500, RTX1220, RTX1210, RTX840, RTX830
+# - vlan interconnect group: RTX3510, RTX1300, RTX1220, RTX840, RTX830
+# - vlan interconnect log: RTX3510, RTX1300, RTX1220, RTX840, RTX830

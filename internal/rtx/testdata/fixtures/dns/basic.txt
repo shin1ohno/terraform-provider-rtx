@@ -1,0 +1,8 @@
+# Basic DNS configuration fixture
+# Tests fundamental DNS settings parsing
+
+dns server 8.8.8.8 8.8.4.4
+dns domain example.com
+dns domain lookup on
+dns service recursive
+dns private address spoof on

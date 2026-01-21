@@ -1,0 +1,666 @@
+# BGP Command Patterns for Yamaha RTX Routers
+# Based on RTX Command Reference Chapter 29
+---
+category: bgp
+chapter: 29
+parser: bgp.go
+
+commands:
+  # 29.1 BGP の起動の設定
+  - name: bgp use
+    syntax: "bgp use <use>"
+    no_form: "no bgp use [<use>]"
+    chapter: 29
+    section: "29.1"
+    parser: bgp.go
+    description: Enable or disable BGP
+    parameters:
+      - name: use
+        type: enum
+        required: true
+        values: [on, off]
+        default: off
+        description: Whether to enable BGP
+    examples:
+      - input: "bgp use on"
+        expected:
+          enabled: true
+        description: Enable BGP
+      - input: "bgp use off"
+        expected:
+          enabled: false
+        description: Disable BGP
+
+  # 29.4 AS 番号の設定
+  - name: bgp autonomous-system
+    syntax: "bgp autonomous-system <as>"
+    no_form: "no bgp autonomous-system [<as>]"
+    chapter: 29
+    section: "29.4"
+    parser: bgp.go
+    description: Set the AS number for the router
+    parameters:
+      - name: as
+        type: int
+        required: true
+        range: "1-65535"
+        description: Autonomous System number
+    examples:
+      - input: "bgp autonomous-system 65001"
+        expected:
+          asn: "65001"
+        description: Set AS number to 65001
+      - input: "bgp autonomous-system 100"
+        expected:
+          asn: "100"
+        description: Set AS number to 100
+
+  # 29.5 ルーター ID の設定
+  - name: bgp router id
+    syntax: "bgp router id <ip_address>"
+    no_form: "no bgp router id [<ip_address>]"
+    chapter: 29
+    section: "29.5"
+    parser: bgp.go
+    description: Set the BGP router ID
+    parameters:
+      - name: ip_address
+        type: ipv4
+        required: true
+        description: Router ID (IPv4 address format)
+    examples:
+      - input: "bgp router id 192.168.1.1"
+        expected:
+          router_id: "192.168.1.1"
+        description: Set router ID
+      - input: "bgp router id 10.0.0.1"
+        expected:
+          router_id: "10.0.0.1"
+        description: Set router ID to loopback address
+
+  # 29.12 BGP による接続先の設定
+  - name: bgp neighbor
+    syntax: "bgp neighbor <neighbor_id> <remote_as> <remote_address> [<parameter>...]"
+    no_form: "no bgp neighbor <neighbor_id> [<remote_as> <remote_address> [<parameter>...]]"
+    chapter: 29
+    section: "29.12"
+    parser: bgp.go
+    description: Configure a BGP neighbor
+    parameters:
+      - name: neighbor_id
+        type: int
+        required: true
+        range: "1-2147483647"
+        description: Neighbor ID number
+      - name: remote_as
+        type: int
+        required: true
+        range: "1-65535"
+        description: Remote AS number
+      - name: remote_address
+        type: ipv4
+        required: true
+        description: Remote peer IP address
+      - name: hold-time
+        type: int
+        required: false
+        range: "3-28800"
+        default: 180
+        description: Hold time in seconds (or 'off' to disable)
+      - name: metric
+        type: int
+        required: false
+        range: "1-21474836"
+        description: MED (Multi-Exit Discriminator) metric
+      - name: passive
+        type: enum
+        required: false
+        values: [on, off]
+        default: off
+        description: Suppress active BGP connection initiation
+      - name: gateway
+        type: gateway
+        required: false
+        description: Gateway for non-directly-connected peers
+      - name: local-address
+        type: ipv4
+        required: false
+        description: Local address for BGP connection
+      - name: ignore-capability
+        type: enum
+        required: false
+        values: [on, off]
+        default: off
+        description: Ignore capability negotiation
+    examples:
+      - input: "bgp neighbor 1 65002 192.168.1.2"
+        expected:
+          neighbor_id: 1
+          remote_as: "65002"
+          ip: "192.168.1.2"
+        description: Basic neighbor configuration
+      - input: "bgp neighbor 1 65002 192.168.1.2 hold-time=90"
+        expected:
+          neighbor_id: 1
+          remote_as: "65002"
+          ip: "192.168.1.2"
+          hold_time: 90
+        description: Neighbor with custom hold time
+      - input: "bgp neighbor 2 65003 10.0.0.1 local-address=10.0.0.254 passive=on"
+        expected:
+          neighbor_id: 2
+          remote_as: "65003"
+          ip: "10.0.0.1"
+          local_address: "10.0.0.254"
+          passive: true
+        description: Neighbor with local address and passive mode
+
+  # 29.13 BGP で使用する TCP MD5 認証の事前共有鍵の設定
+  - name: bgp neighbor pre-shared-key
+    syntax: "bgp neighbor pre-shared-key <neighbor_id> text <text_key>"
+    no_form: "no bgp neighbor pre-shared-key <neighbor_id> [text <text_key>]"
+    chapter: 29
+    section: "29.13"
+    parser: bgp.go
+    description: Set TCP MD5 authentication pre-shared key for BGP neighbor
+    parameters:
+      - name: neighbor_id
+        type: int
+        required: true
+        range: "1-2147483647"
+        description: Neighbor ID number
+      - name: text_key
+        type: password
+        required: true
+        description: ASCII key string (up to 80 characters)
+    examples:
+      - input: "bgp neighbor pre-shared-key 1 text mysecretkey"
+        expected:
+          neighbor_id: 1
+          password: "mysecretkey"
+        description: Set MD5 authentication key
+
+  # 29.9 BGP に導入する経路に対するフィルタの適用
+  - name: bgp import
+    syntax: "bgp import <remote_as> <protocol> [<from_as>] filter <filter_num>..."
+    no_form: "no bgp import <remote_as> <protocol> [<from_as>] [filter <filter_num>...]"
+    chapter: 29
+    section: "29.9"
+    parser: bgp.go
+    description: Apply filter for routes imported into BGP
+    parameters:
+      - name: remote_as
+        type: int
+        required: true
+        range: "1-65535"
+        description: Remote AS number to advertise to
+      - name: protocol
+        type: enum
+        required: true
+        values: [static, rip, ospf, bgp, aggregate]
+        description: Source protocol for routes
+      - name: from_as
+        type: int
+        required: false
+        range: "1-65535"
+        description: AS from which BGP routes were received (only when protocol=bgp)
+      - name: filter_num
+        type: int
+        required: true
+        range: "1-2147483647"
+        description: Filter number defined by bgp import filter
+    examples:
+      - input: "bgp import 65002 static filter 1"
+        expected:
+          remote_as: "65002"
+          protocol: "static"
+          filter_num: 1
+        description: Import static routes with filter
+      - input: "bgp import 65002 bgp 65001 filter 1 2"
+        expected:
+          remote_as: "65002"
+          protocol: "bgp"
+          from_as: "65001"
+          filter_nums: [1, 2]
+        description: Import BGP routes from specific AS with multiple filters
+
+  # 29.11 BGP に導入する経路に適用するフィルタの設定
+  - name: bgp import filter
+    syntax: "bgp import filter <filter_num> [reject] <kind> <ip_address/mask>... [<parameter>...]"
+    no_form: "no bgp import filter <filter_num> [[reject] <kind> <ip_address/mask>... [<parameter>...]]"
+    chapter: 29
+    section: "29.11"
+    parser: bgp.go
+    description: Define filter for routes to import into BGP
+    parameters:
+      - name: filter_num
+        type: int
+        required: true
+        range: "1-2147483647"
+        description: Filter number
+      - name: reject
+        type: bool
+        required: false
+        default: false
+        description: Reject matching routes instead of accepting
+      - name: kind
+        type: enum
+        required: true
+        values: [include, refines, equal]
+        description: Match type for network specification
+      - name: ip_address/mask
+        type: ipv4_prefix
+        required: true
+        description: Network prefix/mask (can specify multiple, or 'all')
+      - name: metric
+        type: int
+        required: false
+        range: "1-16777215"
+        description: MED (Multi-Exit Discriminator) metric value
+      - name: preference
+        type: int
+        required: false
+        range: "0-255"
+        default: 100
+        description: Local Preference value
+    examples:
+      - input: "bgp import filter 1 include 10.0.0.0/16 172.16.0.0/16"
+        expected:
+          filter_num: 1
+          kind: "include"
+          networks: ["10.0.0.0/16", "172.16.0.0/16"]
+        description: Accept routes within specified networks
+      - input: "bgp import filter 2 reject equal 192.168.0.0/24"
+        expected:
+          filter_num: 2
+          reject: true
+          kind: "equal"
+          networks: ["192.168.0.0/24"]
+        description: Reject exact match route
+      - input: "bgp import filter 3 include all metric=100 preference=150"
+        expected:
+          filter_num: 3
+          kind: "include"
+          networks: ["all"]
+          metric: 100
+          preference: 150
+        description: Accept all routes with MED and Local Preference
+
+  # 29.7 BGP で受信した経路に対するフィルタの適用
+  - name: bgp export
+    syntax: "bgp export <remote_as> filter <filter_num>..."
+    no_form: "no bgp export <remote_as> [filter <filter_num>...]"
+    chapter: 29
+    section: "29.7"
+    parser: bgp.go
+    description: Apply filter for routes received via BGP
+    parameters:
+      - name: remote_as
+        type: int
+        required: true
+        range: "1-65535"
+        description: Remote AS number
+      - name: filter_num
+        type: int
+        required: true
+        range: "1-2147483647"
+        description: Filter number defined by bgp export filter
+    examples:
+      - input: "bgp export 65002 filter 1"
+        expected:
+          remote_as: "65002"
+          filter_num: 1
+        description: Apply filter to routes from AS 65002
+
+  # 29.7 BGP で受信した経路に対するフィルタの適用 (AS path版)
+  - name: bgp export aspath
+    syntax: 'bgp export aspath <seq> "<aspath_regexp>" filter <filter_num>...'
+    no_form: 'no bgp export aspath <seq> ["<aspath_regexp>" [filter <filter_num>...]]'
+    chapter: 29
+    section: "29.7"
+    parser: bgp.go
+    description: Apply filter for routes received via BGP based on AS path
+    parameters:
+      - name: seq
+        type: int
+        required: true
+        range: "1-65535"
+        description: Evaluation order when AS path is specified
+      - name: aspath_regexp
+        type: string
+        required: true
+        description: Regular expression for AS path matching
+      - name: filter_num
+        type: int
+        required: true
+        range: "1-2147483647"
+        description: Filter number defined by bgp export filter
+    examples:
+      - input: 'bgp export aspath 10 ".*" filter 1'
+        expected:
+          seq: 10
+          aspath_regexp: ".*"
+          filter_num: 1
+        description: Match all AS paths
+      - input: 'bgp export aspath 20 "^1[01]00 .*" filter 1'
+        expected:
+          seq: 20
+          aspath_regexp: "^1[01]00 .*"
+          filter_num: 1
+        description: Match AS path starting with 1000 or 1100
+      - input: 'bgp export aspath 30 "2000" filter 1'
+        expected:
+          seq: 30
+          aspath_regexp: "2000"
+          filter_num: 1
+        description: Match AS path containing 2000
+      - input: 'bgp export aspath 40 "^3000 3100 3200$" filter 1'
+        expected:
+          seq: 40
+          aspath_regexp: "^3000 3100 3200$"
+          filter_num: 1
+        description: Exact AS path match
+      - input: 'bgp export aspath 50 "{.*}" filter 1'
+        expected:
+          seq: 50
+          aspath_regexp: "{.*}"
+          filter_num: 1
+        description: Match AS path containing AS_SET
+
+  # 29.8 BGP で受信する経路に適用するフィルタの設定
+  - name: bgp export filter
+    syntax: "bgp export filter <filter_num> [reject] <kind> <ip_address/mask>... [<parameter>]"
+    no_form: "no bgp export filter <filter_num> [[reject] <kind> <ip_address/mask>... [<parameter>]]"
+    chapter: 29
+    section: "29.8"
+    parser: bgp.go
+    description: Define filter for routes received via BGP
+    parameters:
+      - name: filter_num
+        type: int
+        required: true
+        range: "1-2147483647"
+        description: Filter number
+      - name: reject
+        type: bool
+        required: false
+        default: false
+        description: Reject matching routes instead of accepting
+      - name: kind
+        type: enum
+        required: true
+        values: [include, refines, equal]
+        description: Match type for network specification
+      - name: ip_address/mask
+        type: ipv4_prefix
+        required: true
+        description: Network prefix/mask (can specify multiple, or 'all')
+      - name: preference
+        type: int
+        required: false
+        range: "0-255"
+        default: 0
+        description: Preference for selecting among routes from multiple peers
+    examples:
+      - input: "bgp export filter 1 include 10.0.0.0/16 172.16.0.0/16"
+        expected:
+          filter_num: 1
+          kind: "include"
+          networks: ["10.0.0.0/16", "172.16.0.0/16"]
+        description: Accept routes within specified networks
+      - input: "bgp export filter 2 reject equal 192.168.0.0/24"
+        expected:
+          filter_num: 2
+          reject: true
+          kind: "equal"
+          networks: ["192.168.0.0/24"]
+        description: Reject exact match route
+
+  # 29.2 経路の集約の設定
+  - name: bgp aggregate
+    syntax: "bgp aggregate <ip_address/mask> filter <filter_num>..."
+    no_form: "no bgp aggregate <ip_address/mask> [filter <filter_num>...]"
+    chapter: 29
+    section: "29.2"
+    parser: bgp.go
+    description: Configure aggregate route advertisement in BGP
+    parameters:
+      - name: ip_address/mask
+        type: ipv4_prefix
+        required: true
+        description: Aggregate route prefix/mask
+      - name: filter_num
+        type: int
+        required: true
+        range: "1-2147483647"
+        description: Filter number defined by bgp aggregate filter
+    examples:
+      - input: "bgp aggregate 10.0.0.0/8 filter 1 2"
+        expected:
+          prefix: "10.0.0.0/8"
+          filter_nums: [1, 2]
+        description: Aggregate routes with multiple filters
+
+  # 29.3 経路を集約するためのフィルタの設定
+  - name: bgp aggregate filter
+    syntax: "bgp aggregate filter <filter_num> <protocol> [reject] <kind> <ip_address/mask>..."
+    no_form: "no bgp aggregate filter <filter_num> [<protocol> [reject] <kind> <ip_address/mask>...]"
+    chapter: 29
+    section: "29.3"
+    parser: bgp.go
+    description: Define filter for route aggregation in BGP
+    parameters:
+      - name: filter_num
+        type: int
+        required: true
+        range: "1-2147483647"
+        description: Filter number
+      - name: protocol
+        type: enum
+        required: true
+        values: [static, rip, ospf, bgp, all]
+        description: Source protocol for routes to aggregate
+      - name: reject
+        type: bool
+        required: false
+        default: false
+        description: Exclude matching routes from aggregation
+      - name: kind
+        type: enum
+        required: true
+        values: [include, refines, equal]
+        description: Match type for network specification
+      - name: ip_address/mask
+        type: ipv4_prefix
+        required: true
+        description: Network prefix/mask (can specify multiple)
+    examples:
+      - input: "bgp aggregate filter 1 static include 10.0.0.0/16"
+        expected:
+          filter_num: 1
+          protocol: "static"
+          kind: "include"
+          networks: ["10.0.0.0/16"]
+        description: Aggregate static routes in network
+      - input: "bgp aggregate filter 2 all reject equal 192.168.1.0/24"
+        expected:
+          filter_num: 2
+          protocol: "all"
+          reject: true
+          kind: "equal"
+          networks: ["192.168.1.0/24"]
+        description: Exclude specific route from aggregation
+
+  # 29.6 BGP による経路の優先度の設定
+  - name: bgp preference
+    syntax: "bgp preference <preference>"
+    no_form: "no bgp preference [<preference>]"
+    chapter: 29
+    section: "29.6"
+    parser: bgp.go
+    description: Set BGP route preference (priority)
+    parameters:
+      - name: preference
+        type: int
+        required: true
+        range: "1-2147483647"
+        default: 500
+        description: Route preference value (higher is more preferred)
+    examples:
+      - input: "bgp preference 500"
+        expected:
+          preference: 500
+        description: Default BGP preference
+      - input: "bgp preference 1500"
+        expected:
+          preference: 1500
+        description: Higher preference than OSPF (2000) but lower priority
+
+  # 29.10 BGP の設定の有効化
+  - name: bgp configure refresh
+    syntax: "bgp configure refresh"
+    chapter: 29
+    section: "29.10"
+    parser: bgp.go
+    description: Activate BGP configuration changes
+    parameters: []
+    examples:
+      - input: "bgp configure refresh"
+        description: Apply BGP configuration changes without reboot
+
+  # 29.14 BGP のログの設定
+  - name: bgp log
+    syntax: "bgp log <log> [<log>]"
+    no_form: "no bgp log [<log>...]"
+    chapter: 29
+    section: "29.14"
+    parser: bgp.go
+    description: Configure BGP logging
+    parameters:
+      - name: log
+        type: enum
+        required: true
+        values: [neighbor, packet]
+        description: Type of log to record
+    examples:
+      - input: "bgp log neighbor"
+        expected:
+          log_types: ["neighbor"]
+        description: Log neighbor state changes
+      - input: "bgp log neighbor packet"
+        expected:
+          log_types: ["neighbor", "packet"]
+        description: Log both neighbor changes and packets
+
+  # 29.15 BGP で強制的に経路を広告する
+  - name: bgp force-to-advertise
+    syntax: "bgp force-to-advertise <remote_as> <ip_address/mask> [<parameter>...]"
+    no_form: "no bgp force-to-advertise <remote_as> <ip_address/mask> [<parameter>...]"
+    chapter: 29
+    section: "29.15"
+    parser: bgp.go
+    description: Force advertisement of route even if not in routing table
+    parameters:
+      - name: remote_as
+        type: int
+        required: true
+        range: "1-65535"
+        description: Remote AS number to advertise to
+      - name: ip_address/mask
+        type: ipv4_prefix
+        required: true
+        description: Route to advertise (or 'default' for default route)
+      - name: metric
+        type: int
+        required: false
+        range: "1-16777215"
+        description: MED (Multi-Exit Discriminator) metric value
+      - name: preference
+        type: int
+        required: false
+        range: "0-255"
+        default: 100
+        description: Preference value
+    examples:
+      - input: "bgp force-to-advertise 65002 0.0.0.0/0"
+        expected:
+          remote_as: "65002"
+          prefix: "0.0.0.0/0"
+        description: Advertise default route to AS 65002
+      - input: "bgp force-to-advertise 65002 10.0.0.0/8 metric=100"
+        expected:
+          remote_as: "65002"
+          prefix: "10.0.0.0/8"
+          metric: 100
+        description: Advertise route with MED
+
+  # 29.16 インタフェースの状態変化時、BGP に外部経路を反映させる時間間隔の設定
+  - name: bgp reric interval
+    syntax: "bgp reric interval <time>"
+    no_form: "no bgp reric interval [<time>]"
+    chapter: 29
+    section: "29.16"
+    parser: bgp.go
+    description: Set interval for reflecting external routes on interface state changes
+    parameters:
+      - name: time
+        type: int
+        required: true
+        range: "1-"
+        default: 1
+        description: Interval in seconds
+    examples:
+      - input: "bgp reric interval 5"
+        expected:
+          interval: 5
+        description: Set external route reflection interval to 5 seconds
+
+  # 29.17 BGP の最適経路選択における MED 属性が付加されていない経路のデフォルトの MED 値の設定
+  - name: bgp default med
+    syntax: "bgp default med <med>"
+    no_form: "no bgp default med [<med>]"
+    chapter: 29
+    section: "29.17"
+    parser: bgp.go
+    description: Set default MED value for routes without MED attribute
+    parameters:
+      - name: med
+        type: int
+        required: true
+        range: "1-2147483647"
+        default: 2147483647
+        description: Default MED value
+    examples:
+      - input: "bgp default med 100"
+        expected:
+          default_med: 100
+        description: Set default MED to 100 for routes without MED
+      - input: "bgp default med 0"
+        expected:
+          default_med: 0
+        description: Set default MED to 0 (highest priority)
+
+  # 29.18 BGP で受信した経路に対する経路選択の優先順位の規則を設定
+  - name: bgp export route selection rule
+    syntax: "bgp export route selection rule <rule>"
+    no_form: "no bgp export route selection rule [<rule>]"
+    chapter: 29
+    section: "29.18"
+    parser: bgp.go
+    description: Set route selection priority rules for BGP received routes
+    parameters:
+      - name: rule
+        type: enum
+        required: true
+        values: [ebgp-only, all]
+        default: ebgp-only
+        description: Route selection rule type
+    examples:
+      - input: "bgp export route selection rule ebgp-only"
+        expected:
+          rule: "ebgp-only"
+        description: Apply preference comparison only to EBGP routes
+      - input: "bgp export route selection rule all"
+        expected:
+          rule: "all"
+        description: Apply preference comparison to all BGP routes including IBGP

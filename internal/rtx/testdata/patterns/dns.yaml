@@ -1,0 +1,320 @@
+# RTX DNS Command Patterns
+# Extracted from: docs/RTX-commands/24_DNS_の設定.md
+# Parser: internal/rtx/parsers/dns.go
+
+category: dns
+chapter: 24
+parser: dns.go
+
+commands:
+  # 24.1 DNS service control
+  - name: dns service
+    syntax: "dns service <service>"
+    no_form: "no dns service [<service>]"
+    chapter: 24
+    section: "24.1"
+    parser: dns.go
+    description: Enable or disable DNS recursive server functionality
+    parameters:
+      - name: service
+        type: enum
+        required: true
+        values: [recursive, "off"]
+        default: recursive
+        description: DNS service mode (recursive=enabled, off=disabled)
+    examples:
+      - input: "dns service recursive"
+        expected:
+          service_on: true
+        description: Enable DNS recursive server
+      - input: "dns service off"
+        expected:
+          service_on: false
+        description: Disable DNS service
+
+  # 24.2 DNS server IP address configuration
+  - name: dns server
+    syntax: "dns server <ip1> [edns=<sw>] [nat46=<tunnel_num>] [<ip2> [edns=<sw>] [nat46=<tunnel_num>]] [<ip3> [edns=<sw>] [nat46=<tunnel_num>]] [<ip4> [edns=<sw>] [nat46=<tunnel_num>]]"
+    no_form: "no dns server [<ip>...]"
+    chapter: 24
+    section: "24.2"
+    parser: dns.go
+    description: Set DNS server IP addresses (up to 4 servers)
+    parameters:
+      - name: ip1
+        type: ipv4
+        required: true
+        description: Primary DNS server IP address
+      - name: ip2
+        type: ipv4
+        required: false
+        description: Secondary DNS server IP address
+      - name: ip3
+        type: ipv4
+        required: false
+        description: Tertiary DNS server IP address
+      - name: ip4
+        type: ipv4
+        required: false
+        description: Fourth DNS server IP address
+      - name: sw
+        type: enum
+        required: false
+        values: ["on", "off"]
+        default: "off"
+        description: EDNS (Extension mechanisms for DNS) enable/disable
+      - name: tunnel_num
+        type: int
+        required: false
+        description: Tunnel interface number for DNS46 function
+    examples:
+      - input: "dns server 8.8.8.8"
+        expected:
+          name_servers: ["8.8.8.8"]
+        description: Single DNS server
+      - input: "dns server 8.8.8.8 8.8.4.4"
+        expected:
+          name_servers: ["8.8.8.8", "8.8.4.4"]
+        description: Primary and secondary DNS servers
+      - input: "dns server 192.168.1.1 192.168.1.2 192.168.1.3"
+        expected:
+          name_servers: ["192.168.1.1", "192.168.1.2", "192.168.1.3"]
+        description: Three DNS servers
+
+  # 24.3 DNS domain name configuration
+  - name: dns domain
+    syntax: "dns domain <domain_name>"
+    no_form: "no dns domain [<domain_name>]"
+    chapter: 24
+    section: "24.3"
+    parser: dns.go
+    description: Set the DNS domain name for the router
+    parameters:
+      - name: domain_name
+        type: string
+        required: true
+        description: DNS domain name (use "." for empty string)
+    examples:
+      - input: "dns domain example.com"
+        expected:
+          domain_name: "example.com"
+        description: Set domain name
+      - input: "dns domain rtpro.yamaha.co.jp"
+        expected:
+          domain_name: "rtpro.yamaha.co.jp"
+        description: Set FQDN domain name
+
+  # 24.7 DNS private address spoof
+  - name: dns private address spoof
+    syntax: "dns private address spoof <spoof>"
+    no_form: "no dns private address spoof [<spoof>]"
+    chapter: 24
+    section: "24.7"
+    parser: dns.go
+    description: Control handling of PTR queries for private addresses
+    parameters:
+      - name: spoof
+        type: enum
+        required: true
+        values: ["on", "off"]
+        default: "off"
+        description: Enable/disable private address PTR spoofing
+    examples:
+      - input: "dns private address spoof on"
+        expected:
+          private_spoof: true
+        description: Enable private address spoofing (return NXDomain)
+      - input: "dns private address spoof off"
+        expected:
+          private_spoof: false
+        description: Disable private address spoofing
+
+  # 24.10 DNS server select - domain-based DNS server selection
+  - name: dns server select
+    syntax: "dns server select <id> <server> [edns=<sw>] [nat46=<tunnel_num>] [<server2> [edns=<sw>] [nat46=<tunnel_num>]] [<type>] <query> [<original-sender>] [restrict pp <connection-pp>]"
+    no_form: "no dns server select <id>"
+    chapter: 24
+    section: "24.10"
+    parser: dns.go
+    description: Configure domain-based DNS server selection rules
+    parameters:
+      - name: id
+        type: int
+        required: true
+        range: "1-65535"
+        description: DNS server selection table ID
+      - name: server
+        type: ipv4
+        required: true
+        description: Primary DNS server IP address
+      - name: server2
+        type: ipv4
+        required: false
+        description: Secondary DNS server IP address
+      - name: type
+        type: enum
+        required: false
+        values: [a, aaaa, ptr, mx, ns, cname, any]
+        default: a
+        description: DNS record type
+      - name: query
+        type: string
+        required: true
+        description: Domain pattern for matching (use "." for all domains)
+      - name: original-sender
+        type: ipv4_prefix
+        required: false
+        description: Source IP address/CIDR restriction
+      - name: connection-pp
+        type: int
+        required: false
+        description: PP connection number for restrict condition
+      - name: sw
+        type: enum
+        required: false
+        values: ["on", "off"]
+        default: "off"
+        description: EDNS enable/disable
+      - name: tunnel_num
+        type: int
+        required: false
+        description: Tunnel interface number for DNS46
+    examples:
+      - input: "dns server select 1 192.168.1.1 ."
+        expected:
+          id: 1
+          servers: ["192.168.1.1"]
+          query_pattern: "."
+        description: Match all domains with single server
+      - input: "dns server select 1 192.168.1.1 192.168.1.2 ."
+        expected:
+          id: 1
+          servers: ["192.168.1.1", "192.168.1.2"]
+          query_pattern: "."
+        description: Match all domains with primary and secondary servers
+      - input: "dns server select 2 10.0.0.1 example.com"
+        expected:
+          id: 2
+          servers: ["10.0.0.1"]
+          query_pattern: "example.com"
+        description: Match specific domain
+      - input: "dns server select 3 8.8.8.8 edns=on ."
+        expected:
+          id: 3
+          servers: ["8.8.8.8"]
+          edns: true
+          query_pattern: "."
+        description: Use EDNS for DNS queries
+      - input: "dns server select 4 192.168.1.1 aaaa example.com"
+        expected:
+          id: 4
+          servers: ["192.168.1.1"]
+          record_type: "aaaa"
+          query_pattern: "example.com"
+        description: Match AAAA records for specific domain
+      - input: "dns server select 5 10.0.0.1 ptr 192.168.1.0/24"
+        expected:
+          id: 5
+          servers: ["10.0.0.1"]
+          record_type: "ptr"
+          query_pattern: "192.168.1.0/24"
+        description: PTR record lookup for specific network
+      - input: "dns server select 6 192.168.1.1 . 10.0.0.0/8"
+        expected:
+          id: 6
+          servers: ["192.168.1.1"]
+          query_pattern: "."
+          original_sender: "10.0.0.0/8"
+        description: Restrict by source IP range
+      - input: "dns server select 7 192.168.1.1 . restrict pp 1"
+        expected:
+          id: 7
+          servers: ["192.168.1.1"]
+          query_pattern: "."
+          restrict_pp: 1
+        description: Apply only when PP1 is connected
+
+  # 24.11 Static DNS record registration
+  - name: dns static
+    syntax: "dns static <type> <name> <value> [ttl=<ttl>]"
+    no_form: "no dns static <type> <name> [<value>]"
+    chapter: 24
+    section: "24.11"
+    parser: dns.go
+    description: Register static DNS records
+    parameters:
+      - name: type
+        type: enum
+        required: true
+        values: [a, aaaa, ptr, mx, ns, cname]
+        description: DNS record type
+      - name: name
+        type: hostname
+        required: true
+        description: Hostname or IP address (depending on type)
+      - name: value
+        type: string
+        required: true
+        description: Record value (IP address or FQDN depending on type)
+      - name: ttl
+        type: int
+        required: false
+        range: "1-4294967295"
+        default: 1
+        description: Time to live in seconds
+    examples:
+      - input: "dns static a pc1.example.com 192.168.1.10"
+        expected:
+          name: "pc1.example.com"
+          address: "192.168.1.10"
+        description: A record - hostname to IPv4
+      - input: "dns static aaaa pc1.example.com 2001:db8::1"
+        expected:
+          name: "pc1.example.com"
+          address: "2001:db8::1"
+        description: AAAA record - hostname to IPv6
+      - input: "dns static ptr 192.168.1.10 pc1.example.com"
+        expected:
+          name: "192.168.1.10"
+          address: "pc1.example.com"
+        description: PTR record - reverse lookup
+      - input: "dns static cname mail.example.com mail2.example.com"
+        expected:
+          name: "mail.example.com"
+          address: "mail2.example.com"
+        description: CNAME record - alias
+      - input: "dns static a server.local 10.0.0.1 ttl=3600"
+        expected:
+          name: "server.local"
+          address: "10.0.0.1"
+        description: A record with custom TTL
+
+  # ip host shorthand command (simplifies dns static a + ptr)
+  - name: ip host
+    syntax: "ip host <fqdn> <value> [ttl=<ttl>]"
+    no_form: "no ip host <fqdn> [<value>]"
+    chapter: 24
+    section: "24.11"
+    parser: dns.go
+    description: Shorthand for creating both A and PTR records
+    parameters:
+      - name: fqdn
+        type: hostname
+        required: true
+        description: Fully qualified domain name
+      - name: value
+        type: ipv4
+        required: true
+        description: IPv4 address
+      - name: ttl
+        type: int
+        required: false
+        range: "1-4294967295"
+        default: 1
+        description: Time to live in seconds
+    examples:
+      - input: "ip host pc1.rtpro.yamaha.co.jp 133.176.200.1"
+        expected:
+          name: "pc1.rtpro.yamaha.co.jp"
+          address: "133.176.200.1"
+        description: Create A and PTR records for host

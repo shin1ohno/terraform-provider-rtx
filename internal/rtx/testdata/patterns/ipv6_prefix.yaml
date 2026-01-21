@@ -1,0 +1,149 @@
+# RTX IPv6 Prefix Command Patterns
+# Parser: internal/rtx/parsers/ipv6_prefix.go
+
+category: ipv6_prefix
+chapter: 26
+parser: ipv6_prefix.go
+
+commands:
+  # 26.x IPv6 prefix definition - static
+  - name: ipv6 prefix static
+    syntax: "ipv6 prefix <id> <prefix>::/<length>"
+    no_form: "no ipv6 prefix <id>"
+    chapter: 26
+    parser: ipv6_prefix.go
+    description: Define a static IPv6 prefix for use with Router Advertisement or interface addresses
+    parameters:
+      - name: id
+        type: int
+        required: true
+        range: "1-255"
+        description: Prefix ID for reference in other commands
+      - name: prefix
+        type: ipv6
+        required: true
+        description: IPv6 network prefix (e.g., 2001:db8::)
+      - name: length
+        type: int
+        required: true
+        range: "1-128"
+        description: Prefix length in bits
+    examples:
+      - input: "ipv6 prefix 1 2001:db8::/64"
+        expected:
+          id: 1
+          prefix: "2001:db8::"
+          prefix_length: 64
+          source: "static"
+        description: Standard /64 prefix for LAN
+      - input: "ipv6 prefix 2 2001:db8:1::/48"
+        expected:
+          id: 2
+          prefix: "2001:db8:1::"
+          prefix_length: 48
+          source: "static"
+        description: /48 site prefix for summarization
+      - input: "ipv6 prefix 3 fd00::/8"
+        expected:
+          id: 3
+          prefix: "fd00::"
+          prefix_length: 8
+          source: "static"
+        description: Unique Local Address (ULA) prefix
+      - input: "ipv6 prefix 10 2001:db8:abcd:1234::/64"
+        expected:
+          id: 10
+          prefix: "2001:db8:abcd:1234::"
+          prefix_length: 64
+          source: "static"
+        description: Specific /64 prefix with full network portion
+
+  # 26.x IPv6 prefix definition - RA (Router Advertisement) based
+  - name: ipv6 prefix ra
+    syntax: "ipv6 prefix <id> ra-prefix@<interface>::/<length>"
+    no_form: "no ipv6 prefix <id>"
+    chapter: 26
+    parser: ipv6_prefix.go
+    description: Define a dynamic IPv6 prefix derived from Router Advertisement received on an interface
+    parameters:
+      - name: id
+        type: int
+        required: true
+        range: "1-255"
+        description: Prefix ID for reference in other commands
+      - name: interface
+        type: interface
+        required: true
+        description: "Interface receiving Router Advertisements (lan1, lan2, pp1, etc.)"
+      - name: length
+        type: int
+        required: true
+        range: "1-128"
+        description: Prefix length in bits (typically matches advertised prefix)
+    examples:
+      - input: "ipv6 prefix 1 ra-prefix@lan2::/64"
+        expected:
+          id: 1
+          prefix_length: 64
+          source: "ra"
+          interface: "lan2"
+        description: Derive /64 prefix from RA on lan2 (WAN interface)
+      - input: "ipv6 prefix 2 ra-prefix@pp1::/64"
+        expected:
+          id: 2
+          prefix_length: 64
+          source: "ra"
+          interface: "pp1"
+        description: Derive prefix from RA on PPPoE interface
+      - input: "ipv6 prefix 5 ra-prefix@tunnel1::/48"
+        expected:
+          id: 5
+          prefix_length: 48
+          source: "ra"
+          interface: "tunnel1"
+        description: Derive /48 prefix from RA on tunnel interface
+
+  # 26.x IPv6 prefix definition - DHCPv6-PD (Prefix Delegation) based
+  - name: ipv6 prefix dhcpv6-pd
+    syntax: "ipv6 prefix <id> dhcp-prefix@<interface>::/<length>"
+    no_form: "no ipv6 prefix <id>"
+    chapter: 26
+    parser: ipv6_prefix.go
+    description: Define a dynamic IPv6 prefix obtained via DHCPv6 Prefix Delegation on an interface
+    parameters:
+      - name: id
+        type: int
+        required: true
+        range: "1-255"
+        description: Prefix ID for reference in other commands
+      - name: interface
+        type: interface
+        required: true
+        description: "Interface running DHCPv6 client with PD request (lan2, pp1, etc.)"
+      - name: length
+        type: int
+        required: true
+        range: "1-128"
+        description: Prefix length in bits (typically /48 or /56 from ISP)
+    examples:
+      - input: "ipv6 prefix 1 dhcp-prefix@lan2::/64"
+        expected:
+          id: 1
+          prefix_length: 64
+          source: "dhcpv6-pd"
+          interface: "lan2"
+        description: Derive /64 prefix from DHCPv6-PD on lan2
+      - input: "ipv6 prefix 2 dhcp-prefix@pp1::/56"
+        expected:
+          id: 2
+          prefix_length: 56
+          source: "dhcpv6-pd"
+          interface: "pp1"
+        description: Derive /56 prefix from DHCPv6-PD on PPPoE interface (typical ISP delegation)
+      - input: "ipv6 prefix 3 dhcp-prefix@tunnel1::/48"
+        expected:
+          id: 3
+          prefix_length: 48
+          source: "dhcpv6-pd"
+          interface: "tunnel1"
+        description: Derive /48 prefix from DHCPv6-PD on tunnel interface

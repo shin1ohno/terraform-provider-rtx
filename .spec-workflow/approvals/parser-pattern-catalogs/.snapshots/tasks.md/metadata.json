@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/parser-pattern-catalogs/tasks.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-20T13:33:41.080Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768916021072_oxpwd8h9y",
+      "approvalTitle": "Tasks: Parser Pattern Catalogs (12 tasks)"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-20T13:45:37.458Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768916021072_oxpwd8h9y",
+      "approvalTitle": "Tasks: Parser Pattern Catalogs (12 tasks)"
+    }
+  ]
+}

@@ -1,0 +1,225 @@
+# RTX System Command Patterns
+# Parser: internal/rtx/parsers/system.go
+
+category: system
+chapter: 9
+parser: system.go
+
+commands:
+  # 9.x Timezone setting
+  - name: timezone
+    syntax: "timezone <offset>"
+    no_form: "no timezone"
+    chapter: 9
+    parser: system.go
+    description: Set system timezone as UTC offset
+    parameters:
+      - name: offset
+        type: string
+        required: true
+        description: "UTC offset in ±HH:MM format (e.g., +09:00 for JST)"
+    examples:
+      - input: "timezone +09:00"
+        expected:
+          timezone: "+09:00"
+        description: Set timezone to Japan Standard Time (UTC+9)
+      - input: "timezone -05:00"
+        expected:
+          timezone: "-05:00"
+        description: Set timezone to Eastern Standard Time (UTC-5)
+      - input: "timezone +00:00"
+        expected:
+          timezone: "+00:00"
+        description: Set timezone to UTC
+
+  # Console character encoding
+  - name: console character
+    syntax: "console character <encoding>"
+    no_form: "no console character"
+    chapter: 9
+    parser: system.go
+    description: Set console character encoding for terminal display
+    parameters:
+      - name: encoding
+        type: enum
+        required: true
+        values: [ja.utf8, ja.sjis, ascii, euc-jp]
+        default: ja.utf8
+        description: Character encoding for console output
+    examples:
+      - input: "console character ja.utf8"
+        expected:
+          console:
+            character: "ja.utf8"
+        description: Use Japanese UTF-8 encoding (default)
+      - input: "console character ja.sjis"
+        expected:
+          console:
+            character: "ja.sjis"
+        description: Use Japanese Shift-JIS encoding
+      - input: "console character ascii"
+        expected:
+          console:
+            character: "ascii"
+        description: Use ASCII encoding only
+      - input: "console character euc-jp"
+        expected:
+          console:
+            character: "euc-jp"
+        description: Use EUC-JP encoding
+
+  # Console lines per page
+  - name: console lines
+    syntax: "console lines <lines>"
+    no_form: "no console lines"
+    chapter: 9
+    parser: system.go
+    description: Set number of lines per page for console output
+    parameters:
+      - name: lines
+        type: string
+        required: true
+        description: "Number of lines per page (positive integer) or 'infinity' for no paging"
+    examples:
+      - input: "console lines 24"
+        expected:
+          console:
+            lines: "24"
+        description: Set 24 lines per page (standard terminal)
+      - input: "console lines infinity"
+        expected:
+          console:
+            lines: "infinity"
+        description: Disable paging (continuous output)
+      - input: "console lines 50"
+        expected:
+          console:
+            lines: "50"
+        description: Set 50 lines per page for larger terminals
+
+  # Console prompt customization
+  - name: console prompt
+    syntax: "console prompt <prompt>"
+    no_form: "no console prompt"
+    chapter: 9
+    parser: system.go
+    description: Set custom console prompt string
+    parameters:
+      - name: prompt
+        type: string
+        required: true
+        description: Custom prompt string (quote if contains spaces)
+    examples:
+      - input: "console prompt RTX1200"
+        expected:
+          console:
+            prompt: "RTX1200"
+        description: Set simple prompt without spaces
+      - input: 'console prompt "Main Router"'
+        expected:
+          console:
+            prompt: "Main Router"
+        description: Set prompt with spaces (quoted)
+      - input: 'console prompt "Branch-Office-01>"'
+        expected:
+          console:
+            prompt: "Branch-Office-01>"
+        description: Set prompt with special characters
+
+  # System packet buffer tuning
+  - name: system packet-buffer
+    syntax: "system packet-buffer <size> max-buffer=<max_buffer> max-free=<max_free>"
+    no_form: "no system packet-buffer <size>"
+    chapter: 9
+    parser: system.go
+    description: Configure packet buffer allocation for network performance tuning
+    parameters:
+      - name: size
+        type: enum
+        required: true
+        values: [small, middle, large]
+        description: Packet buffer size category
+      - name: max_buffer
+        type: int
+        required: true
+        range: "1-65535"
+        description: Maximum number of buffers in this category
+      - name: max_free
+        type: int
+        required: true
+        range: "1-65535"
+        description: Maximum number of free buffers to maintain (must not exceed max_buffer)
+    examples:
+      - input: "system packet-buffer small max-buffer=5000 max-free=1300"
+        expected:
+          packet_buffers:
+            - size: "small"
+              max_buffer: 5000
+              max_free: 1300
+        description: Configure small packet buffers for high-speed small packet processing
+      - input: "system packet-buffer middle max-buffer=3000 max-free=800"
+        expected:
+          packet_buffers:
+            - size: "middle"
+              max_buffer: 3000
+              max_free: 800
+        description: Configure medium-sized packet buffers
+      - input: "system packet-buffer large max-buffer=2000 max-free=500"
+        expected:
+          packet_buffers:
+            - size: "large"
+              max_buffer: 2000
+              max_free: 500
+        description: Configure large packet buffers for jumbo frames
+
+  # Statistics traffic collection
+  - name: statistics traffic
+    syntax: "statistics traffic <state>"
+    no_form: "no statistics traffic"
+    chapter: 9
+    parser: system.go
+    description: Enable or disable traffic statistics collection
+    parameters:
+      - name: state
+        type: enum
+        required: true
+        values: [on, off]
+        default: "off"
+        description: Enable (on) or disable (off) traffic statistics
+    examples:
+      - input: "statistics traffic on"
+        expected:
+          statistics:
+            traffic: true
+        description: Enable traffic statistics collection
+      - input: "statistics traffic off"
+        expected:
+          statistics:
+            traffic: false
+        description: Disable traffic statistics collection
+
+  # Statistics NAT collection
+  - name: statistics nat
+    syntax: "statistics nat <state>"
+    no_form: "no statistics nat"
+    chapter: 9
+    parser: system.go
+    description: Enable or disable NAT statistics collection
+    parameters:
+      - name: state
+        type: enum
+        required: true
+        values: [on, off]
+        default: "off"
+        description: Enable (on) or disable (off) NAT statistics
+    examples:
+      - input: "statistics nat on"
+        expected:
+          statistics:
+            nat: true
+        description: Enable NAT statistics collection
+      - input: "statistics nat off"
+        expected:
+          statistics:
+            nat: false
+        description: Disable NAT statistics collection

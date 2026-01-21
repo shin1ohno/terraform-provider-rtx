@@ -1,0 +1,35 @@
+# DNS server select with all parameter combinations
+# Tests parsing of complex dns server select commands
+
+# Simple patterns
+dns server select 1 192.168.1.1 .
+dns server select 2 192.168.1.1 192.168.1.2 .
+dns server select 3 10.0.0.1 example.com
+
+# With EDNS
+dns server select 10 8.8.8.8 edns=on .
+dns server select 11 8.8.8.8 8.8.4.4 edns=on .
+
+# With record types
+dns server select 20 10.0.0.1 a example.com
+dns server select 21 10.0.0.1 aaaa ipv6.example.com
+dns server select 22 10.0.0.1 ptr 192.168.1.0/24
+dns server select 23 10.0.0.1 mx mail.example.com
+dns server select 24 10.0.0.1 ns ns.example.com
+dns server select 25 10.0.0.1 cname alias.example.com
+dns server select 26 10.0.0.1 any .
+
+# With EDNS and record types
+dns server select 30 8.8.8.8 edns=on aaaa .
+dns server select 31 8.8.8.8 edns=on any .
+
+# With original sender
+dns server select 40 192.168.1.1 . 10.0.0.0/8
+dns server select 41 192.168.1.1 example.com 192.168.0.0/16
+
+# With restrict pp
+dns server select 50 192.168.1.1 . restrict pp 1
+dns server select 51 192.168.1.1 . restrict pp 2
+
+# Full combination
+dns server select 100 10.0.0.53 10.0.0.54 edns=on aaaa *.corp.local 192.168.0.0/16 restrict pp 1

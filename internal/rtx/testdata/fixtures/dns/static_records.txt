@@ -1,0 +1,30 @@
+# DNS static record types fixture
+# Tests all record types supported by dns static command
+
+# A record - hostname to IPv4
+dns static a pc1.example.com 192.168.1.10
+dns static a server.local 10.0.0.1 ttl=3600
+
+# AAAA record - hostname to IPv6
+dns static aaaa pc1.example.com 2001:db8::1
+dns static aaaa ipv6host.local 2001:db8::100 ttl=7200
+
+# PTR record - reverse lookup
+dns static ptr 192.168.1.10 pc1.example.com
+dns static ptr 10.0.0.1 server.local
+
+# CNAME record - alias
+dns static cname mail.example.com mail2.example.com
+dns static cname www.local server.local
+
+# MX record - mail exchange
+dns static mx example.com mail.example.com
+dns static mx local.domain smtp.local.domain
+
+# NS record - name server
+dns static ns example.com ns1.example.com
+dns static ns internal.zone ns.internal.zone
+
+# Simple format (without record type)
+dns static myhost.local 192.168.1.100
+dns static router.home 192.168.1.1

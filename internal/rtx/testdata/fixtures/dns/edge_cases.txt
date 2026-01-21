@@ -1,0 +1,23 @@
+# Edge cases fixture
+# Tests boundary conditions and special patterns
+
+# Empty domain pattern (match all)
+dns server select 1 10.0.0.1 .
+
+# Wildcard patterns
+dns server select 2 10.0.0.1 *.example.com
+dns server select 3 10.0.0.1 *.*.corp.local
+
+# Maximum ID value
+dns server select 65535 10.0.0.1 .
+
+# Multiple DNS servers (up to 3)
+dns server 8.8.8.8 8.8.4.4 1.1.1.1
+
+# Long domain names
+dns static a very-long-hostname-with-many-parts.subdomain.example.com 192.168.1.10
+dns server select 100 10.0.0.1 aaaa very.long.subdomain.name.example.com
+
+# PTR with CIDR notation as query pattern
+dns server select 200 10.0.0.1 ptr 192.168.0.0/16
+dns server select 201 10.0.0.1 ptr 10.0.0.0/8

@@ -1,0 +1,262 @@
+# RTX PPTP Command Patterns
+# Extracted from: docs/RTX-commands/17_PPTP_機能の設定.md
+# Parser: internal/rtx/parsers/pptp.go
+
+category: pptp
+chapter: 17
+parser: pptp.go
+
+commands:
+  # 17.1.1 PPTP service control
+  - name: pptp service
+    syntax: "pptp service <service>"
+    no_form: "no pptp service [<service>]"
+    chapter: 17
+    section: "17.1.1"
+    parser: pptp.go
+    description: Enable or disable PPTP server functionality
+    parameters:
+      - name: service
+        type: enum
+        required: true
+        values: ["on", "off"]
+        default: "off"
+        description: PPTP server mode (on=enabled, off=disabled)
+    examples:
+      - input: "pptp service on"
+        expected:
+          enabled: true
+        description: Enable PPTP server
+      - input: "pptp service off"
+        expected:
+          enabled: false
+        description: Disable PPTP server
+
+  # 17.1.4 PPTP hostname configuration
+  - name: pptp hostname
+    syntax: "pptp hostname <name>"
+    no_form: "no pptp hostname [<name>]"
+    chapter: 17
+    section: "17.1.4"
+    parser: pptp.go
+    description: Set the PPTP hostname for client notification
+    parameters:
+      - name: name
+        type: string
+        required: true
+        description: Hostname (up to 64 bytes)
+    examples:
+      - input: "pptp hostname myrouter"
+        expected:
+          hostname: "myrouter"
+        description: Set PPTP hostname
+      - input: "pptp hostname vpn-server-01"
+        expected:
+          hostname: "vpn-server-01"
+        description: Set descriptive PPTP hostname
+
+  # 17.1.3 PPTP service type configuration
+  - name: pptp service type
+    syntax: "pptp service type <type>"
+    no_form: "no pptp service type [<type>]"
+    chapter: 17
+    section: "17.1.3"
+    parser: pptp.go
+    description: Set PPTP operation mode (server or client)
+    parameters:
+      - name: type
+        type: enum
+        required: true
+        values: ["server", "client"]
+        default: "server"
+        description: PPTP operation type
+    examples:
+      - input: "pptp service type server"
+        expected:
+          service_type: "server"
+        description: Configure as PPTP server
+      - input: "pptp service type client"
+        expected:
+          service_type: "client"
+        description: Configure as PPTP client
+
+  # 17.1.5 PPTP vendor name configuration
+  - name: pptp vendorname
+    syntax: "pptp vendorname <name>"
+    no_form: "no pptp vendorname [<name>]"
+    chapter: 17
+    section: "17.1.5"
+    parser: pptp.go
+    description: Set PPTP vendor name for Start-Control-Connection messages
+    parameters:
+      - name: name
+        type: string
+        required: true
+        description: Vendor name (up to 64 bytes)
+    examples:
+      - input: "pptp vendorname MyCompany"
+        expected:
+          vendor_name: "MyCompany"
+        description: Set PPTP vendor name
+
+  # 17.1.6 PPTP window size configuration
+  - name: pptp window size
+    syntax: "pptp window size <size>"
+    no_form: "no pptp window size [<size>]"
+    chapter: 17
+    section: "17.1.6"
+    parser: pptp.go
+    description: Set maximum number of unacknowledged PPTP packets in buffer
+    parameters:
+      - name: size
+        type: int
+        required: true
+        range: "1-128"
+        default: 32
+        description: Window size (packet count)
+    examples:
+      - input: "pptp window size 32"
+        expected:
+          window_size: 32
+        description: Set default window size
+      - input: "pptp window size 64"
+        expected:
+          window_size: 64
+        description: Set larger window size
+
+  # 17.1.9 PPTP syslog configuration
+  - name: pptp syslog
+    syntax: "pptp syslog <syslog>"
+    no_form: "no pptp syslog [<syslog>]"
+    chapter: 17
+    section: "17.1.9"
+    parser: pptp.go
+    description: Enable or disable PPTP connection control syslog output
+    parameters:
+      - name: syslog
+        type: enum
+        required: true
+        values: ["on", "off"]
+        default: "off"
+        description: Syslog output mode
+    examples:
+      - input: "pptp syslog on"
+        expected:
+          syslog_enabled: true
+        description: Enable PPTP syslog output
+      - input: "pptp syslog off"
+        expected:
+          syslog_enabled: false
+        description: Disable PPTP syslog output
+
+  # 17.2.1 PPTP tunnel disconnect time configuration
+  - name: pptp tunnel disconnect time
+    syntax: "pptp tunnel disconnect time <time>"
+    no_form: "no pptp tunnel disconnect time [<time>]"
+    chapter: 17
+    section: "17.2.1"
+    parser: pptp.go
+    description: Set idle disconnect timeout for PPTP tunnel
+    parameters:
+      - name: time
+        type: int
+        required: true
+        range: "1-21474836"
+        default: 60
+        description: Timeout in seconds (or "off" to disable)
+    examples:
+      - input: "pptp tunnel disconnect time 60"
+        expected:
+          disconnect_time: 60
+        description: Set 60 second idle timeout
+      - input: "pptp tunnel disconnect time 300"
+        expected:
+          disconnect_time: 300
+        description: Set 5 minute idle timeout
+      - input: "pptp tunnel disconnect time off"
+        expected:
+          disconnect_time: 0
+        description: Disable idle timeout
+
+  # 17.2.2 PPTP keepalive configuration
+  - name: pptp keepalive use
+    syntax: "pptp keepalive use <use>"
+    no_form: "no pptp keepalive use [<use>]"
+    chapter: 17
+    section: "17.2.2"
+    parser: pptp.go
+    description: Enable or disable PPTP tunnel keepalive
+    parameters:
+      - name: use
+        type: enum
+        required: true
+        values: ["on", "off"]
+        default: "on"
+        description: Keepalive mode
+    examples:
+      - input: "pptp keepalive use on"
+        expected:
+          keepalive_enabled: true
+        description: Enable PPTP keepalive
+      - input: "pptp keepalive use off"
+        expected:
+          keepalive_enabled: false
+        description: Disable PPTP keepalive
+
+  # 17.2.3 PPTP keepalive log configuration
+  - name: pptp keepalive log
+    syntax: "pptp keepalive log <log>"
+    no_form: "no pptp keepalive log [<log>]"
+    chapter: 17
+    section: "17.2.3"
+    parser: pptp.go
+    description: Enable or disable PPTP keepalive logging
+    parameters:
+      - name: log
+        type: enum
+        required: true
+        values: ["on", "off"]
+        default: "off"
+        description: Keepalive log mode
+    examples:
+      - input: "pptp keepalive log on"
+        expected:
+          keepalive_log: true
+        description: Enable keepalive logging
+      - input: "pptp keepalive log off"
+        expected:
+          keepalive_log: false
+        description: Disable keepalive logging
+
+  # 17.2.4 PPTP keepalive interval configuration
+  - name: pptp keepalive interval
+    syntax: "pptp keepalive interval <interval> [<count>]"
+    no_form: "no pptp keepalive interval [<interval> <count>]"
+    chapter: 17
+    section: "17.2.4"
+    parser: pptp.go
+    description: Set PPTP keepalive interval and failure detection count
+    parameters:
+      - name: interval
+        type: int
+        required: true
+        range: "1-65535"
+        default: 30
+        description: Keepalive interval in seconds
+      - name: count
+        type: int
+        required: false
+        range: "3-100"
+        default: 6
+        description: Failure detection count
+    examples:
+      - input: "pptp keepalive interval 30"
+        expected:
+          keepalive_interval: 30
+          keepalive_count: 6
+        description: Set 30 second interval with default count
+      - input: "pptp keepalive interval 60 10"
+        expected:
+          keepalive_interval: 60
+          keepalive_count: 10
+        description: Set 60 second interval with 10 failure count

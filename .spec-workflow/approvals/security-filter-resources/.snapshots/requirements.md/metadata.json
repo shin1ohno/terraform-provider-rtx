@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/filter-resources-import/requirements.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-20T06:12:06.142Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768889526134_lc4ubuhke",
+      "approvalTitle": "Requirements: Filter Resources Import"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-20T06:20:05.510Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768889982068_eq8oqx33s",
+      "approvalTitle": "Requirements: Security and Filter Resources"
+    }
+  ]
+}

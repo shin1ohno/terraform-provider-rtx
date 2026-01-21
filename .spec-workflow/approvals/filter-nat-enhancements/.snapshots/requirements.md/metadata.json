@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/filter-nat-enhancements/requirements.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-20T14:12:56.704Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768918376686_o3104u698",
+      "approvalTitle": "Filter & NAT Enhancements - Requirements"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-20T14:26:51.951Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768919128113_7ke4m5rf9",
+      "approvalTitle": "Filter & NAT Enhancements Requirements (Updated with RTX Command References)"
+    }
+  ]
+}

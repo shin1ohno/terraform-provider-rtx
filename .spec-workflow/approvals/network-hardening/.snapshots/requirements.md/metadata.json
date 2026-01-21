@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/network-hardening/requirements.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-20T16:33:47.692Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768926273269_qqkzj3a3l",
+      "approvalTitle": "Network Hardening Requirements (MAC ACL expansion)"
+    }
+  ]
+}

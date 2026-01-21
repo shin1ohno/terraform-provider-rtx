@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/parser-edge-case-tests/tasks.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-20T13:33:40.753Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768916020744_1ecuaa6fa",
+      "approvalTitle": "Tasks: Parser Edge Case Tests (19 tasks)"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-20T13:45:38.626Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768916020744_1ecuaa6fa",
+      "approvalTitle": "Tasks: Parser Edge Case Tests (19 tasks)"
+    }
+  ]
+}

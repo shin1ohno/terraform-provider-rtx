@@ -1,0 +1,44 @@
+# Static Route Multi-Gateway Configuration Test Fixture (REQ-3)
+# Tests parsing of same prefix with multiple gateways
+# Also tests weight and filter attributes
+
+# Default route with primary gateway
+ip route default gateway 192.168.1.1
+
+# Same prefix with multiple gateways for ECMP/failover
+ip route 10.33.128.0/21 gateway 192.168.1.20
+ip route 10.33.128.0/21 gateway 192.168.1.21 weight 10
+ip route 10.33.128.0/21 gateway 192.168.1.22 weight 20
+
+# Route with filter attribute
+ip route 172.16.0.0/12 gateway 192.168.1.1 filter 1
+ip route 172.16.0.0/12 gateway 192.168.1.2 filter 2
+
+# Route to PP interface
+ip route 10.10.0.0/16 gateway pp 1
+ip route 10.10.0.0/16 gateway pp 2 weight 5
+
+# Route to tunnel interface
+ip route 192.168.100.0/24 gateway tunnel 1
+ip route 192.168.100.0/24 gateway tunnel 2 weight 10
+
+# Route with keepalive option
+ip route 10.20.0.0/16 gateway 192.168.1.50 keepalive
+
+# Route with both weight and filter
+ip route 10.30.0.0/16 gateway 192.168.1.60 weight 5 filter 100
+ip route 10.30.0.0/16 gateway 192.168.1.61 weight 10 filter 101
+
+# Default route with DHCP-derived gateway
+ip route default gateway dhcp lan2
+
+# Route to null interface (blackhole)
+ip route 192.0.2.0/24 gateway null
+
+# Route with dotted mask notation (legacy format)
+ip route 10.0.0.0/255.0.0.0 gateway 192.168.1.100
+
+# Multiple gateways with mixed interface types
+ip route 10.40.0.0/16 gateway 192.168.1.70
+ip route 10.40.0.0/16 gateway pp 3 weight 100
+ip route 10.40.0.0/16 gateway tunnel 5 weight 200

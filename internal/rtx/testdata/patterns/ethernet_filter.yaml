@@ -1,0 +1,397 @@
+# RTX Ethernet Filter Command Patterns
+# Reference: RTX Command Reference Chapter 13 (Ethernet Filtering)
+# Parser: internal/rtx/parsers/ethernet_filter.go
+
+category: ethernet_filter
+chapter: 13
+parser: ethernet_filter.go
+
+commands:
+  # 13.1 Ethernet Filter Definition
+  - name: ethernet filter
+    syntax: "ethernet filter <number> <action> <src_mac> <dst_mac> [<ether_type>] [vlan <vlan_id>]"
+    no_form: "no ethernet filter <number>"
+    chapter: 13
+    section: "13.1"
+    parser: ethernet_filter.go
+    description: Define an Ethernet (Layer 2) filter rule for MAC address, EtherType, and VLAN filtering
+    parameters:
+      - name: number
+        type: int
+        required: true
+        range: "1-65535"
+        description: Filter rule number (unique identifier)
+      - name: action
+        type: enum
+        required: true
+        values: [pass, reject]
+        description: |
+          Action to take when filter matches:
+          - pass: Allow the packet through
+          - reject: Drop the packet
+      - name: src_mac
+        type: mac
+        required: true
+        description: |
+          Source MAC address. Supported formats:
+          - 00:11:22:33:44:55 (colon-separated)
+          - 0011.2233.4455 (Cisco dot notation)
+          - 00-11-22-33-44-55 (hyphen-separated)
+          - 001122334455 (no separator)
+          - * (wildcard - any MAC address)
+      - name: dst_mac
+        type: mac
+        required: true
+        description: |
+          Destination MAC address. Supported formats:
+          - 00:11:22:33:44:55 (colon-separated)
+          - 0011.2233.4455 (Cisco dot notation)
+          - 00-11-22-33-44-55 (hyphen-separated)
+          - 001122334455 (no separator)
+          - * (wildcard - any MAC address)
+      - name: ether_type
+        type: string
+        required: false
+        description: |
+          EtherType value in hexadecimal format (e.g., 0x0800 for IPv4).
+          Common values:
+          - 0x0800: IPv4
+          - 0x0806: ARP
+          - 0x86DD: IPv6
+          - 0x8100: VLAN tagged frame
+          - *: Wildcard (match any)
+      - name: vlan_id
+        type: int
+        required: false
+        range: "1-4094"
+        description: VLAN ID to match (IEEE 802.1Q)
+    examples:
+      # Basic filtering examples
+      - input: "ethernet filter 1 pass * *"
+        expected:
+          number: 1
+          action: pass
+          source_mac: "*"
+          dest_mac: "*"
+        description: Allow all Ethernet traffic (default pass rule)
+      - input: "ethernet filter 2 reject * *"
+        expected:
+          number: 2
+          action: reject
+          source_mac: "*"
+          dest_mac: "*"
+        description: Block all Ethernet traffic
+
+      # MAC address filtering examples - colon format
+      - input: "ethernet filter 10 pass 00:11:22:33:44:55 *"
+        expected:
+          number: 10
+          action: pass
+          source_mac: "00:11:22:33:44:55"
+          dest_mac: "*"
+        description: Allow traffic from specific source MAC (colon format)
+      - input: "ethernet filter 11 reject * 00:11:22:33:44:55"
+        expected:
+          number: 11
+          action: reject
+          source_mac: "*"
+          dest_mac: "00:11:22:33:44:55"
+        description: Block traffic to specific destination MAC (colon format)
+      - input: "ethernet filter 12 pass 00:11:22:33:44:55 aa:bb:cc:dd:ee:ff"
+        expected:
+          number: 12
+          action: pass
+          source_mac: "00:11:22:33:44:55"
+          dest_mac: "aa:bb:cc:dd:ee:ff"
+        description: Allow traffic between specific MAC addresses (colon format)
+
+      # MAC address filtering examples - Cisco dot notation
+      - input: "ethernet filter 20 pass 0011.2233.4455 *"
+        expected:
+          number: 20
+          action: pass
+          source_mac: "0011.2233.4455"
+          dest_mac: "*"
+        description: Allow traffic from specific source MAC (Cisco dot notation)
+      - input: "ethernet filter 21 reject * aabb.ccdd.eeff"
+        expected:
+          number: 21
+          action: reject
+          source_mac: "*"
+          dest_mac: "aabb.ccdd.eeff"
+        description: Block traffic to specific destination MAC (Cisco dot notation)
+
+      # MAC address filtering examples - hyphen format
+      - input: "ethernet filter 30 pass 00-11-22-33-44-55 *"
+        expected:
+          number: 30
+          action: pass
+          source_mac: "00-11-22-33-44-55"
+          dest_mac: "*"
+        description: Allow traffic from specific source MAC (hyphen format)
+
+      # MAC address filtering examples - no separator
+      - input: "ethernet filter 40 pass 001122334455 *"
+        expected:
+          number: 40
+          action: pass
+          source_mac: "001122334455"
+          dest_mac: "*"
+        description: Allow traffic from specific source MAC (no separator format)
+
+      # EtherType filtering examples
+      - input: "ethernet filter 100 pass * * 0x0800"
+        expected:
+          number: 100
+          action: pass
+          source_mac: "*"
+          dest_mac: "*"
+          ether_type: "0x0800"
+        description: Allow only IPv4 traffic
+      - input: "ethernet filter 101 pass * * 0x0806"
+        expected:
+          number: 101
+          action: pass
+          source_mac: "*"
+          dest_mac: "*"
+          ether_type: "0x0806"
+        description: Allow only ARP traffic
+      - input: "ethernet filter 102 pass * * 0x86DD"
+        expected:
+          number: 102
+          action: pass
+          source_mac: "*"
+          dest_mac: "*"
+          ether_type: "0x86DD"
+        description: Allow only IPv6 traffic
+      - input: "ethernet filter 103 reject * * 0x0800"
+        expected:
+          number: 103
+          action: reject
+          source_mac: "*"
+          dest_mac: "*"
+          ether_type: "0x0800"
+        description: Block all IPv4 traffic
+
+      # VLAN filtering examples
+      - input: "ethernet filter 200 pass * * vlan 100"
+        expected:
+          number: 200
+          action: pass
+          source_mac: "*"
+          dest_mac: "*"
+          vlan_id: 100
+        description: Allow traffic on VLAN 100
+      - input: "ethernet filter 201 reject * * vlan 200"
+        expected:
+          number: 201
+          action: reject
+          source_mac: "*"
+          dest_mac: "*"
+          vlan_id: 200
+        description: Block traffic on VLAN 200
+      - input: "ethernet filter 202 pass * * vlan 1"
+        expected:
+          number: 202
+          action: pass
+          source_mac: "*"
+          dest_mac: "*"
+          vlan_id: 1
+        description: Allow traffic on VLAN 1 (minimum VLAN ID)
+      - input: "ethernet filter 203 pass * * vlan 4094"
+        expected:
+          number: 203
+          action: pass
+          source_mac: "*"
+          dest_mac: "*"
+          vlan_id: 4094
+        description: Allow traffic on VLAN 4094 (maximum VLAN ID)
+
+      # Combined filtering examples (EtherType + VLAN)
+      - input: "ethernet filter 300 pass * * 0x0800 vlan 100"
+        expected:
+          number: 300
+          action: pass
+          source_mac: "*"
+          dest_mac: "*"
+          ether_type: "0x0800"
+          vlan_id: 100
+        description: Allow IPv4 traffic on VLAN 100
+      - input: "ethernet filter 301 reject * * 0x86DD vlan 200"
+        expected:
+          number: 301
+          action: reject
+          source_mac: "*"
+          dest_mac: "*"
+          ether_type: "0x86DD"
+          vlan_id: 200
+        description: Block IPv6 traffic on VLAN 200
+
+      # Combined filtering examples (MAC + EtherType)
+      - input: "ethernet filter 400 pass 00:11:22:33:44:55 * 0x0800"
+        expected:
+          number: 400
+          action: pass
+          source_mac: "00:11:22:33:44:55"
+          dest_mac: "*"
+          ether_type: "0x0800"
+        description: Allow IPv4 traffic from specific MAC
+      - input: "ethernet filter 401 reject * aa:bb:cc:dd:ee:ff 0x0806"
+        expected:
+          number: 401
+          action: reject
+          source_mac: "*"
+          dest_mac: "aa:bb:cc:dd:ee:ff"
+          ether_type: "0x0806"
+        description: Block ARP traffic to specific MAC
+
+      # Combined filtering examples (MAC + VLAN)
+      - input: "ethernet filter 500 pass 00:11:22:33:44:55 * vlan 100"
+        expected:
+          number: 500
+          action: pass
+          source_mac: "00:11:22:33:44:55"
+          dest_mac: "*"
+          vlan_id: 100
+        description: Allow traffic from specific MAC on VLAN 100
+
+      # Full combined filtering example (MAC + EtherType + VLAN)
+      - input: "ethernet filter 600 pass 00:11:22:33:44:55 aa:bb:cc:dd:ee:ff 0x0800 vlan 100"
+        expected:
+          number: 600
+          action: pass
+          source_mac: "00:11:22:33:44:55"
+          dest_mac: "aa:bb:cc:dd:ee:ff"
+          ether_type: "0x0800"
+          vlan_id: 100
+        description: Allow IPv4 traffic between specific MACs on VLAN 100
+
+      # Edge cases - filter numbers
+      - input: "ethernet filter 1 pass * *"
+        expected:
+          number: 1
+          action: pass
+          source_mac: "*"
+          dest_mac: "*"
+        description: Minimum filter number (1)
+      - input: "ethernet filter 65535 pass * *"
+        expected:
+          number: 65535
+          action: pass
+          source_mac: "*"
+          dest_mac: "*"
+        description: Maximum filter number (65535)
+
+  # 13.2 Interface Ethernet Filter Application
+  - name: ethernet interface filter
+    syntax: "ethernet <interface> filter <direction> <filter_numbers...>"
+    no_form: "no ethernet <interface> filter <direction>"
+    chapter: 13
+    section: "13.2"
+    parser: ethernet_filter.go
+    description: Apply Ethernet filters to an interface in specified direction
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        description: |
+          Interface name to apply filters:
+          - lan1, lan2, lan3, etc.
+          - port1, port2, etc.
+      - name: direction
+        type: enum
+        required: true
+        values: [in, out]
+        description: |
+          Direction to apply filters:
+          - in: Apply to incoming traffic
+          - out: Apply to outgoing traffic
+      - name: filter_numbers
+        type: string
+        required: true
+        description: Space-separated list of filter numbers to apply (evaluated in order)
+    examples:
+      # Basic interface filter application
+      - input: "ethernet lan1 filter in 1"
+        expected:
+          interface: lan1
+          direction: in
+          filter_numbers: [1]
+        description: Apply single filter to incoming traffic on lan1
+      - input: "ethernet lan1 filter out 1"
+        expected:
+          interface: lan1
+          direction: out
+          filter_numbers: [1]
+        description: Apply single filter to outgoing traffic on lan1
+      - input: "ethernet lan2 filter in 1"
+        expected:
+          interface: lan2
+          direction: in
+          filter_numbers: [1]
+        description: Apply filter to lan2 interface
+
+      # Multiple filters
+      - input: "ethernet lan1 filter in 1 2 3"
+        expected:
+          interface: lan1
+          direction: in
+          filter_numbers: [1, 2, 3]
+        description: Apply multiple filters to incoming traffic (evaluated in order)
+      - input: "ethernet lan1 filter out 10 20 30"
+        expected:
+          interface: lan1
+          direction: out
+          filter_numbers: [10, 20, 30]
+        description: Apply multiple filters to outgoing traffic
+      - input: "ethernet lan2 filter in 100 101 102 103 104"
+        expected:
+          interface: lan2
+          direction: in
+          filter_numbers: [100, 101, 102, 103, 104]
+        description: Apply many filters to lan2 interface
+
+      # Port interface examples
+      - input: "ethernet port1 filter in 1 2"
+        expected:
+          interface: port1
+          direction: in
+          filter_numbers: [1, 2]
+        description: Apply filters to port1 interface
+      - input: "ethernet port2 filter out 10 20"
+        expected:
+          interface: port2
+          direction: out
+          filter_numbers: [10, 20]
+        description: Apply filters to port2 interface
+
+# MAC Address Format Reference
+# The following MAC address formats are supported and normalized to colon-separated lowercase format:
+#
+# | Format        | Example           | Normalized Output    |
+# |---------------|-------------------|----------------------|
+# | Colon         | 00:11:22:33:44:55 | 00:11:22:33:44:55    |
+# | Cisco Dot     | 0011.2233.4455    | 00:11:22:33:44:55    |
+# | Hyphen        | 00-11-22-33-44-55 | 00:11:22:33:44:55    |
+# | No Separator  | 001122334455      | 00:11:22:33:44:55    |
+# | Wildcard      | *                 | *                    |
+#
+# Case is preserved in input but normalized to lowercase internally.
+
+# Common EtherType Values Reference
+# | EtherType | Protocol              |
+# |-----------|-----------------------|
+# | 0x0800    | IPv4                  |
+# | 0x0806    | ARP                   |
+# | 0x8035    | RARP                  |
+# | 0x86DD    | IPv6                  |
+# | 0x8100    | 802.1Q VLAN Tag       |
+# | 0x8847    | MPLS Unicast          |
+# | 0x8848    | MPLS Multicast        |
+# | 0x88CC    | LLDP                  |
+
+# VLAN ID Range Reference
+# - Minimum: 1
+# - Maximum: 4094
+# - 0 is reserved (native/untagged)
+# - 4095 is reserved

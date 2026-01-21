@@ -1,0 +1,42 @@
+# Admin User Full Attributes Configuration Test Fixture (REQ-5)
+# Tests parsing of user accounts with all attribute types
+
+# User with all connection types and GUI pages
+login user admin * administrator
+user attribute admin administrator=on connection=serial,telnet,ssh gui-page=dashboard,lan-map,config login-timer=3600
+
+# User with encrypted password and limited permissions
+login user operator encrypted $1$abcdefgh$ijklmnopqrstuvwxyz123
+user attribute operator administrator=off connection=ssh,http gui-page=dashboard,lan-map login-timer=1800
+
+# User with single connection type
+login user readonly mypassword123
+user attribute readonly administrator=off connection=ssh gui-page=dashboard login-timer=7200
+
+# User with no GUI pages (CLI only)
+login user cliuser clipass456
+user attribute cliuser administrator=off connection=serial,telnet,ssh login-timer=900
+
+# User with all connection types
+login user fullaccess fullpass789
+user attribute fullaccess administrator=on connection=serial,telnet,remote,ssh,sftp,http gui-page=dashboard,lan-map,config login-timer=0
+
+# User with sftp access only
+login user sftpuser sftppass
+user attribute sftpuser administrator=off connection=sftp login-timer=600
+
+# User with http (GUI) access only
+login user webuser webpass123
+user attribute webuser administrator=off connection=http gui-page=dashboard login-timer=1200
+
+# User with remote (PPP) connection type
+login user remoteuser remotepass
+user attribute remoteuser administrator=off connection=remote login-timer=3600
+
+# User with minimal attributes (defaults)
+login user basicuser basicpass
+user attribute basicuser administrator=off
+
+# User with only administrator flag
+login user superadmin superpass
+user attribute superadmin administrator=on login-timer=0

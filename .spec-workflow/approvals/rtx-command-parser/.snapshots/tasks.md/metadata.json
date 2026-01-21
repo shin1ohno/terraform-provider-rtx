@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/rtx-command-parser/tasks.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-20T13:02:25.815Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768914145806_rvyio19q2",
+      "approvalTitle": "RTX Command Parser Test Coverage - Tasks Definition"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-20T13:04:13.294Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768914145806_rvyio19q2",
+      "approvalTitle": "RTX Command Parser Test Coverage - Tasks Definition"
+    }
+  ]
+}

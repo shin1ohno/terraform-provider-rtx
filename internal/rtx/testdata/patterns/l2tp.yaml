@@ -1,0 +1,529 @@
+# RTX L2TP Command Patterns
+# Extracted from: docs/RTX-commands/16_L2TP_機能の設定.md
+# Parser: internal/rtx/parsers/l2tp.go
+
+category: l2tp
+chapter: 16
+parser: l2tp.go
+
+commands:
+  # 16.1 L2TP service control
+  - name: l2tp service
+    syntax: "l2tp service <service> [<version> [<version>]]"
+    no_form: "no l2tp service [<service> [<version> [<version>]]]"
+    chapter: 16
+    section: "16.1"
+    parser: l2tp.go
+    description: Enable or disable L2TP/L2TPv3 service
+    parameters:
+      - name: service
+        type: enum
+        required: true
+        values: ["on", "off"]
+        default: "off"
+        description: L2TP service state
+      - name: version
+        type: enum
+        required: false
+        values: ["l2tp", "l2tpv3"]
+        description: L2TP version to enable (l2tp=L2TPv2/IPsec, l2tpv3=L2TPv3)
+    examples:
+      - input: "l2tp service on"
+        expected:
+          enabled: true
+          protocols: []
+        description: Enable both L2TPv2 and L2TPv3
+      - input: "l2tp service on l2tp"
+        expected:
+          enabled: true
+          protocols: ["l2tp"]
+        description: Enable L2TP/IPsec only
+      - input: "l2tp service on l2tpv3"
+        expected:
+          enabled: true
+          protocols: ["l2tpv3"]
+        description: Enable L2TPv3 only
+      - input: "l2tp service on l2tpv3 l2tp"
+        expected:
+          enabled: true
+          protocols: ["l2tpv3", "l2tp"]
+        description: Enable both L2TPv2 and L2TPv3 explicitly
+      - input: "l2tp service off"
+        expected:
+          enabled: false
+          protocols: []
+        description: Disable L2TP service
+
+  # 16.2 L2TP tunnel authentication
+  - name: l2tp tunnel auth
+    syntax: "l2tp tunnel auth <switch> [<password>]"
+    no_form: "no l2tp tunnel auth [<switch> ...]"
+    chapter: 16
+    section: "16.2"
+    parser: l2tp.go
+    description: Configure L2TP tunnel authentication
+    parameters:
+      - name: switch
+        type: enum
+        required: true
+        values: ["on", "off"]
+        default: "off"
+        description: Enable or disable tunnel authentication
+      - name: password
+        type: password
+        required: false
+        description: Tunnel authentication password (32 characters max)
+    examples:
+      - input: "l2tp tunnel auth on"
+        expected:
+          tunnel_auth_enabled: true
+          tunnel_auth_password: ""
+        description: Enable tunnel auth with default password (device name)
+      - input: "l2tp tunnel auth on mysecretkey"
+        expected:
+          tunnel_auth_enabled: true
+          tunnel_auth_password: "mysecretkey"
+        description: Enable tunnel auth with custom password
+      - input: "l2tp tunnel auth off"
+        expected:
+          tunnel_auth_enabled: false
+        description: Disable tunnel authentication
+
+  # 16.3 L2TP tunnel disconnect timer
+  - name: l2tp tunnel disconnect time
+    syntax: "l2tp tunnel disconnect time <time>"
+    no_form: "no l2tp tunnel disconnect time [<time>]"
+    chapter: 16
+    section: "16.3"
+    parser: l2tp.go
+    description: Configure L2TP tunnel idle disconnect timer
+    parameters:
+      - name: time
+        type: int
+        required: true
+        range: "1-21474836"
+        default: 60
+        description: Idle timeout in seconds, or "off" to disable
+    examples:
+      - input: "l2tp tunnel disconnect time 300"
+        expected:
+          disconnect_time: 300
+        description: Set 5 minute idle timeout
+      - input: "l2tp tunnel disconnect time 60"
+        expected:
+          disconnect_time: 60
+        description: Set default 60 second idle timeout
+      - input: "l2tp tunnel disconnect time off"
+        expected:
+          disconnect_time: 0
+        description: Disable idle disconnect timer
+
+  # 16.4 L2TP keepalive configuration
+  - name: l2tp keepalive use
+    syntax: "l2tp keepalive use <switch> [<interval> [<count>]]"
+    no_form: "no l2tp keepalive use [<switch> ...]"
+    chapter: 16
+    section: "16.4"
+    parser: l2tp.go
+    description: Configure L2TP keepalive (Hello messages)
+    parameters:
+      - name: switch
+        type: enum
+        required: true
+        values: ["on", "off"]
+        default: "on"
+        description: Enable or disable keepalive
+      - name: interval
+        type: int
+        required: false
+        range: "1-600"
+        default: 10
+        description: Keepalive interval in seconds
+      - name: count
+        type: int
+        required: false
+        range: "1-50"
+        default: 6
+        description: Down detection count
+    examples:
+      - input: "l2tp keepalive use on"
+        expected:
+          keepalive_enabled: true
+          keepalive_interval: 10
+          keepalive_count: 6
+        description: Enable keepalive with defaults
+      - input: "l2tp keepalive use on 30 3"
+        expected:
+          keepalive_enabled: true
+          keepalive_interval: 30
+          keepalive_count: 3
+        description: Enable keepalive with custom interval and count
+      - input: "l2tp keepalive use off"
+        expected:
+          keepalive_enabled: false
+        description: Disable keepalive
+
+  # 16.5 L2TP keepalive log
+  - name: l2tp keepalive log
+    syntax: "l2tp keepalive log <log>"
+    no_form: "no l2tp keepalive log [<log>]"
+    chapter: 16
+    section: "16.5"
+    parser: l2tp.go
+    description: Configure L2TP keepalive logging
+    parameters:
+      - name: log
+        type: enum
+        required: true
+        values: ["on", "off"]
+        default: "off"
+        description: Enable or disable keepalive logging
+    examples:
+      - input: "l2tp keepalive log on"
+        expected:
+          keepalive_log: true
+        description: Enable keepalive logging
+      - input: "l2tp keepalive log off"
+        expected:
+          keepalive_log: false
+        description: Disable keepalive logging
+
+  # 16.6 L2TP syslog
+  - name: l2tp syslog
+    syntax: "l2tp syslog <syslog>"
+    no_form: "no l2tp syslog [<syslog>]"
+    chapter: 16
+    section: "16.6"
+    parser: l2tp.go
+    description: Configure L2TP connection control syslog output
+    parameters:
+      - name: syslog
+        type: enum
+        required: true
+        values: ["on", "off"]
+        default: "off"
+        description: Enable or disable connection control logging
+    examples:
+      - input: "l2tp syslog on"
+        expected:
+          syslog_enabled: true
+        description: Enable L2TP connection logging
+      - input: "l2tp syslog off"
+        expected:
+          syslog_enabled: false
+        description: Disable L2TP connection logging
+
+  # 16.7 L2TPv3 always-on
+  - name: l2tp always-on
+    syntax: "l2tp always-on <sw>"
+    no_form: "no l2tp always-on [<sw>]"
+    chapter: 16
+    section: "16.7"
+    parser: l2tp.go
+    description: Configure L2TPv3 always-on connection mode
+    parameters:
+      - name: sw
+        type: enum
+        required: true
+        values: ["on", "off"]
+        default: "on"
+        description: Enable or disable always-on mode
+    examples:
+      - input: "l2tp always-on on"
+        expected:
+          always_on: true
+        description: Enable always-on mode (default)
+      - input: "l2tp always-on off"
+        expected:
+          always_on: false
+        description: Disable always-on mode
+
+  # 16.8 L2TP hostname
+  - name: l2tp hostname
+    syntax: "l2tp hostname <hostname>"
+    no_form: "no l2tp hostname [<name>]"
+    chapter: 16
+    section: "16.8"
+    parser: l2tp.go
+    description: Set the hostname sent to connection peer
+    parameters:
+      - name: hostname
+        type: string
+        required: true
+        description: Hostname to send to peer (32 characters max)
+    examples:
+      - input: "l2tp hostname RTX1210"
+        expected:
+          hostname: "RTX1210"
+        description: Set hostname to device model
+      - input: "l2tp hostname branch-office-router"
+        expected:
+          hostname: "branch-office-router"
+        description: Set custom hostname
+
+  # 16.9 L2TPv3 local router ID
+  - name: l2tp local router-id
+    syntax: "l2tp local router-id <ipv4_address>"
+    no_form: "no l2tp local router-id [<ipv4_address>]"
+    chapter: 16
+    section: "16.9"
+    parser: l2tp.go
+    description: Set L2TPv3 local router ID for peer identification
+    parameters:
+      - name: ipv4_address
+        type: ipv4
+        required: true
+        default: "0.0.0.0"
+        description: IPv4 address used as local router ID
+    examples:
+      - input: "l2tp local router-id 192.168.1.1"
+        expected:
+          local_router_id: "192.168.1.1"
+        description: Set local router ID
+      - input: "l2tp local router-id 10.0.0.1"
+        expected:
+          local_router_id: "10.0.0.1"
+        description: Set local router ID with private address
+
+  # 16.10 L2TPv3 remote router ID
+  - name: l2tp remote router-id
+    syntax: "l2tp remote router-id <ipv4_address>"
+    no_form: "no l2tp remote router-id [<ipv4_address>]"
+    chapter: 16
+    section: "16.10"
+    parser: l2tp.go
+    description: Set L2TPv3 remote router ID for peer identification
+    parameters:
+      - name: ipv4_address
+        type: ipv4
+        required: true
+        default: "0.0.0.0"
+        description: IPv4 address of remote router ID
+    examples:
+      - input: "l2tp remote router-id 192.168.2.1"
+        expected:
+          remote_router_id: "192.168.2.1"
+        description: Set remote router ID
+      - input: "l2tp remote router-id 10.0.0.2"
+        expected:
+          remote_router_id: "10.0.0.2"
+        description: Set remote router ID with private address
+
+  # 16.11 L2TPv3 remote end ID
+  - name: l2tp remote end-id
+    syntax: "l2tp remote end-id <end-id>"
+    no_form: "no l2tp remote end-id [<end-id>]"
+    chapter: 16
+    section: "16.11"
+    parser: l2tp.go
+    description: Set L2TPv3 remote end ID string for peer matching
+    parameters:
+      - name: end-id
+        type: string
+        required: true
+        description: Remote end ID string (32 characters max)
+    examples:
+      - input: "l2tp remote end-id remote-router"
+        expected:
+          remote_end_id: "remote-router"
+        description: Set remote end ID
+      - input: "l2tp remote end-id branch-01"
+        expected:
+          remote_end_id: "branch-01"
+        description: Set remote end ID for branch office
+
+  # 14.4 Tunnel encapsulation (from chapter 14, used with L2TP)
+  - name: tunnel encapsulation
+    syntax: "tunnel encapsulation <type>"
+    no_form: "no tunnel encapsulation"
+    chapter: 14
+    section: "14.4"
+    parser: l2tp.go
+    description: Set tunnel interface encapsulation type for L2TP
+    parameters:
+      - name: type
+        type: enum
+        required: true
+        values: ["l2tp", "l2tpv3-raw", "l2tpv3"]
+        default: "ipsec"
+        description: Encapsulation type (l2tp=L2TP/IPsec, l2tpv3-raw=L2TPv3, l2tpv3=L2TPv3/IPsec)
+    examples:
+      - input: "tunnel encapsulation l2tp"
+        expected:
+          encapsulation: "l2tp"
+        description: L2TP/IPsec tunnel (L2TPv2)
+      - input: "tunnel encapsulation l2tpv3-raw"
+        expected:
+          encapsulation: "l2tpv3-raw"
+        description: L2TPv3 tunnel without IPsec
+      - input: "tunnel encapsulation l2tpv3"
+        expected:
+          encapsulation: "l2tpv3"
+        description: L2TPv3/IPsec tunnel
+
+  # 14.1 Tunnel enable (from chapter 14)
+  - name: tunnel enable
+    syntax: "tunnel enable <tunnel_num>"
+    no_form: "no tunnel enable <tunnel_num>"
+    chapter: 14
+    section: "14.1"
+    parser: l2tp.go
+    description: Enable tunnel interface
+    parameters:
+      - name: tunnel_num
+        type: int
+        required: true
+        description: Tunnel interface number or range
+    examples:
+      - input: "tunnel enable 1"
+        expected:
+          tunnel_id: 1
+          enabled: true
+        description: Enable tunnel 1
+      - input: "tunnel enable 1-10"
+        expected:
+          tunnel_range_start: 1
+          tunnel_range_end: 10
+          enabled: true
+        description: Enable tunnels 1 through 10
+
+  # 14.9 Tunnel endpoint address (from chapter 14)
+  - name: tunnel endpoint address
+    syntax: "tunnel endpoint address [<local>] <remote>"
+    no_form: "no tunnel endpoint address [[<local>] <remote>]"
+    chapter: 14
+    section: "14.9"
+    parser: l2tp.go
+    description: Set tunnel endpoint IP addresses
+    parameters:
+      - name: local
+        type: ipv4
+        required: false
+        description: Local endpoint IP address
+      - name: remote
+        type: ipv4
+        required: true
+        description: Remote endpoint IP address
+    examples:
+      - input: "tunnel endpoint address 192.168.1.1 203.0.113.1"
+        expected:
+          tunnel_source: "192.168.1.1"
+          tunnel_dest: "203.0.113.1"
+        description: Set both local and remote endpoints
+      - input: "tunnel endpoint address 203.0.113.1"
+        expected:
+          tunnel_dest: "203.0.113.1"
+        description: Set remote endpoint only (auto-select local)
+
+  # 11.2 PP auth accept (from chapter 11, used with L2TP LNS)
+  - name: pp auth accept
+    syntax: "pp auth accept <accept> [<accept>]"
+    no_form: "no pp auth accept [<accept>]"
+    chapter: 11
+    section: "11.2"
+    parser: l2tp.go
+    description: Configure accepted PPP authentication types for L2TP LNS
+    parameters:
+      - name: accept
+        type: enum
+        required: true
+        values: ["pap", "chap", "mschap", "mschap-v2"]
+        description: Authentication type to accept
+    examples:
+      - input: "pp auth accept pap"
+        expected:
+          auth_method: "pap"
+        description: Accept PAP authentication
+      - input: "pp auth accept chap"
+        expected:
+          auth_method: "chap"
+        description: Accept CHAP authentication
+      - input: "pp auth accept mschap-v2"
+        expected:
+          auth_method: "mschap-v2"
+        description: Accept MS-CHAPv2 authentication
+      - input: "pp auth accept chap pap"
+        expected:
+          auth_methods: ["chap", "pap"]
+        description: Accept both CHAP and PAP
+
+  # 11.4 PP auth myname (from chapter 11, used with L2TP)
+  - name: pp auth myname
+    syntax: "pp auth myname <myname> <password>"
+    no_form: "no pp auth myname [<myname> <password>]"
+    chapter: 11
+    section: "11.4"
+    parser: l2tp.go
+    description: Configure local PPP credentials for L2TP authentication
+    parameters:
+      - name: myname
+        type: string
+        required: true
+        description: Local username (64 characters max)
+      - name: password
+        type: password
+        required: true
+        description: Local password (64 characters max)
+    examples:
+      - input: "pp auth myname admin TEST_PASSWORD_2"
+        expected:
+          username: "admin"
+          password: "TEST_PASSWORD_2"
+        description: Set local credentials
+      - input: "pp auth myname vpnuser vpnpassword123"
+        expected:
+          username: "vpnuser"
+          password: "vpnpassword123"
+        description: Set VPN user credentials
+
+  # PP bind tunnel (used with L2TP LNS)
+  - name: pp bind tunnel
+    syntax: "pp bind tunnel<tunnel_num>"
+    no_form: "no pp bind tunnel<tunnel_num>"
+    chapter: 11
+    section: "11.16"
+    parser: l2tp.go
+    description: Bind PP interface to tunnel for L2TP LNS
+    parameters:
+      - name: tunnel_num
+        type: int
+        required: true
+        description: Tunnel interface number
+    examples:
+      - input: "pp bind tunnel1"
+        expected:
+          tunnel_id: 1
+        description: Bind to tunnel 1
+      - input: "pp bind tunnel10"
+        expected:
+          tunnel_id: 10
+        description: Bind to tunnel 10
+
+  # IP PP remote address pool (for L2TP LNS IP assignment)
+  - name: ip pp remote address pool
+    syntax: "ip pp remote address pool <start>-<end>"
+    no_form: "no ip pp remote address pool"
+    chapter: 8
+    section: "8.4"
+    parser: l2tp.go
+    description: Configure IP address pool for L2TP remote clients
+    parameters:
+      - name: start
+        type: ipv4
+        required: true
+        description: Start IP address of pool
+      - name: end
+        type: ipv4
+        required: true
+        description: End IP address of pool
+    examples:
+      - input: "ip pp remote address pool 192.168.100.10-192.168.100.50"
+        expected:
+          ip_pool_start: "192.168.100.10"
+          ip_pool_end: "192.168.100.50"
+        description: Assign IP pool range for VPN clients
+      - input: "ip pp remote address pool 10.0.0.100-10.0.0.200"
+        expected:
+          ip_pool_start: "10.0.0.100"
+          ip_pool_end: "10.0.0.200"
+        description: Assign larger IP pool range

@@ -1,0 +1,681 @@
+# IP Filter Command Patterns for Yamaha RTX Routers
+# Reference: RTX Command Reference Chapter 14 (IP Packet Filtering)
+# Parser: internal/rtx/parsers/ip_filter.go
+
+category: ip_filter
+chapter: 14
+parser: ip_filter.go
+
+commands:
+  # 14.1 Static IP Filter
+  - name: ip filter
+    syntax: "ip filter <number> <action> <source_address> <dest_address> <protocol> [<source_port>] [<dest_port>] [established]"
+    no_form: "no ip filter <number>"
+    chapter: 14
+    section: "14.1"
+    parser: ip_filter.go
+    description: Define a static IP filter rule for packet filtering
+    parameters:
+      - name: number
+        type: int
+        required: true
+        range: "1-65535"
+        description: Filter number (unique identifier)
+      - name: action
+        type: enum
+        required: true
+        values: [pass, reject, restrict, restrict-log]
+        description: |
+          Filter action:
+          - pass: Allow matching packets
+          - reject: Discard matching packets
+          - restrict: Rate limit matching packets
+          - restrict-log: Rate limit with logging
+      - name: source_address
+        type: string
+        required: true
+        description: |
+          Source IP address specification:
+          - "*" for any address
+          - Single IP: 192.168.1.1
+          - CIDR notation: 192.168.1.0/24
+          - IP/mask format: 192.168.1.0/255.255.255.0
+      - name: dest_address
+        type: string
+        required: true
+        description: |
+          Destination IP address specification:
+          - "*" for any address
+          - Single IP: 203.0.113.1
+          - CIDR notation: 203.0.113.0/24
+          - IP/mask format: 203.0.113.0/255.255.255.0
+      - name: protocol
+        type: enum
+        required: true
+        values: [tcp, udp, icmp, ip, "*", gre, esp, ah, icmp6]
+        description: |
+          Protocol to match:
+          - tcp: TCP protocol
+          - udp: UDP protocol
+          - icmp: ICMP protocol
+          - ip: All IP protocols
+          - "*": Any protocol (same as ip)
+          - gre: GRE tunneling protocol
+          - esp: IPsec ESP protocol
+          - ah: IPsec AH protocol
+          - icmp6: ICMPv6 protocol
+      - name: source_port
+        type: string
+        required: false
+        description: |
+          Source port specification (for TCP/UDP only):
+          - "*" for any port
+          - Single port: 80
+          - Port range: 1024-65535
+      - name: dest_port
+        type: string
+        required: false
+        description: |
+          Destination port specification (for TCP/UDP only):
+          - "*" for any port
+          - Single port: 443
+          - Port range: 80-443
+      - name: established
+        type: bool
+        required: false
+        default: false
+        description: Match established TCP connections only (TCP protocol only)
+    examples:
+      - input: "ip filter 100 pass * * *"
+        expected:
+          number: 100
+          action: "pass"
+          source_address: "*"
+          dest_address: "*"
+          protocol: "*"
+        description: Allow all traffic (permit any)
+      - input: "ip filter 101 reject * * *"
+        expected:
+          number: 101
+          action: "reject"
+          source_address: "*"
+          dest_address: "*"
+          protocol: "*"
+        description: Block all traffic (deny any)
+      - input: "ip filter 200 pass 192.168.1.0/24 * tcp * 80"
+        expected:
+          number: 200
+          action: "pass"
+          source_address: "192.168.1.0/24"
+          dest_address: "*"
+          protocol: "tcp"
+          source_port: "*"
+          dest_port: "80"
+        description: Allow HTTP traffic from internal network
+      - input: "ip filter 201 pass 192.168.1.0/24 * tcp * 443"
+        expected:
+          number: 201
+          action: "pass"
+          source_address: "192.168.1.0/24"
+          dest_address: "*"
+          protocol: "tcp"
+          source_port: "*"
+          dest_port: "443"
+        description: Allow HTTPS traffic from internal network
+      - input: "ip filter 300 pass * 192.168.1.0/24 tcp * 22"
+        expected:
+          number: 300
+          action: "pass"
+          source_address: "*"
+          dest_address: "192.168.1.0/24"
+          protocol: "tcp"
+          source_port: "*"
+          dest_port: "22"
+        description: Allow SSH access to internal network
+      - input: "ip filter 400 pass * * icmp"
+        expected:
+          number: 400
+          action: "pass"
+          source_address: "*"
+          dest_address: "*"
+          protocol: "icmp"
+        description: Allow all ICMP traffic
+      - input: "ip filter 500 reject 10.0.0.0/8 * *"
+        expected:
+          number: 500
+          action: "reject"
+          source_address: "10.0.0.0/8"
+          dest_address: "*"
+          protocol: "*"
+        description: Block traffic from 10.0.0.0/8 network
+      - input: "ip filter 600 pass * * tcp * * established"
+        expected:
+          number: 600
+          action: "pass"
+          source_address: "*"
+          dest_address: "*"
+          protocol: "tcp"
+          source_port: "*"
+          dest_port: "*"
+          established: true
+        description: Allow established TCP connections (return traffic)
+      - input: "ip filter 700 pass 192.168.1.100 203.0.113.50 tcp 1024-65535 80"
+        expected:
+          number: 700
+          action: "pass"
+          source_address: "192.168.1.100"
+          dest_address: "203.0.113.50"
+          protocol: "tcp"
+          source_port: "1024-65535"
+          dest_port: "80"
+        description: Allow specific host to specific server HTTP
+      - input: "ip filter 800 pass * * udp * 53"
+        expected:
+          number: 800
+          action: "pass"
+          source_address: "*"
+          dest_address: "*"
+          protocol: "udp"
+          source_port: "*"
+          dest_port: "53"
+        description: Allow DNS queries (UDP)
+      - input: "ip filter 900 pass * * gre"
+        expected:
+          number: 900
+          action: "pass"
+          source_address: "*"
+          dest_address: "*"
+          protocol: "gre"
+        description: Allow GRE protocol for tunneling
+      - input: "ip filter 1000 pass * * esp"
+        expected:
+          number: 1000
+          action: "pass"
+          source_address: "*"
+          dest_address: "*"
+          protocol: "esp"
+        description: Allow IPsec ESP protocol
+      - input: "ip filter 1100 restrict 192.168.1.0/24 * *"
+        expected:
+          number: 1100
+          action: "restrict"
+          source_address: "192.168.1.0/24"
+          dest_address: "*"
+          protocol: "*"
+        description: Rate limit traffic from internal network
+      - input: "ip filter 1200 restrict-log * 192.168.1.1 tcp * 80"
+        expected:
+          number: 1200
+          action: "restrict-log"
+          source_address: "*"
+          dest_address: "192.168.1.1"
+          protocol: "tcp"
+          source_port: "*"
+          dest_port: "80"
+        description: Rate limit HTTP to server with logging
+
+  # 14.2 Dynamic IP Filter (Stateful Inspection)
+  - name: ip filter dynamic
+    syntax: "ip filter dynamic <number> <source> <dest> <protocol> [syslog on]"
+    no_form: "no ip filter dynamic <number>"
+    chapter: 14
+    section: "14.2"
+    parser: ip_filter.go
+    description: Define a dynamic (stateful) IP filter rule for automatic return traffic handling
+    parameters:
+      - name: number
+        type: int
+        required: true
+        range: "1-65535"
+        description: Dynamic filter number (unique identifier)
+      - name: source
+        type: string
+        required: true
+        description: |
+          Source address specification:
+          - "*" for any address
+          - Single IP: 192.168.1.1
+          - CIDR notation: 192.168.1.0/24
+      - name: dest
+        type: string
+        required: true
+        description: |
+          Destination address specification:
+          - "*" for any address
+          - Single IP: 203.0.113.1
+          - CIDR notation: 203.0.113.0/24
+      - name: protocol
+        type: enum
+        required: true
+        values: [ftp, www, smtp, pop3, dns, domain, telnet, ssh, tcp, udp, "*"]
+        description: |
+          Protocol or application-layer protocol:
+          - ftp: FTP with data connection tracking
+          - www: HTTP/HTTPS traffic
+          - smtp: SMTP mail traffic
+          - pop3: POP3 mail retrieval
+          - dns/domain: DNS queries
+          - telnet: Telnet sessions
+          - ssh: SSH connections
+          - tcp: Generic TCP
+          - udp: Generic UDP
+          - "*": All protocols
+      - name: syslog
+        type: bool
+        required: false
+        default: false
+        description: Enable syslog logging for this dynamic filter
+    examples:
+      - input: "ip filter dynamic 1 * * ftp"
+        expected:
+          number: 1
+          source: "*"
+          dest: "*"
+          protocol: "ftp"
+        description: Dynamic filter for FTP with data connection tracking
+      - input: "ip filter dynamic 2 192.168.1.0/24 * www"
+        expected:
+          number: 2
+          source: "192.168.1.0/24"
+          dest: "*"
+          protocol: "www"
+        description: Dynamic filter for HTTP from internal network
+      - input: "ip filter dynamic 3 * * dns"
+        expected:
+          number: 3
+          source: "*"
+          dest: "*"
+          protocol: "dns"
+        description: Dynamic filter for DNS queries
+      - input: "ip filter dynamic 4 * * tcp"
+        expected:
+          number: 4
+          source: "*"
+          dest: "*"
+          protocol: "tcp"
+        description: Dynamic filter for all TCP traffic
+      - input: "ip filter dynamic 5 * * udp"
+        expected:
+          number: 5
+          source: "*"
+          dest: "*"
+          protocol: "udp"
+        description: Dynamic filter for all UDP traffic
+      - input: "ip filter dynamic 6 192.168.1.0/24 * smtp syslog on"
+        expected:
+          number: 6
+          source: "192.168.1.0/24"
+          dest: "*"
+          protocol: "smtp"
+          syslog: true
+        description: Dynamic filter for SMTP with syslog logging
+      - input: "ip filter dynamic 7 * * ssh"
+        expected:
+          number: 7
+          source: "*"
+          dest: "*"
+          protocol: "ssh"
+        description: Dynamic filter for SSH connections
+      - input: "ip filter dynamic 8 192.168.1.100 * telnet"
+        expected:
+          number: 8
+          source: "192.168.1.100"
+          dest: "*"
+          protocol: "telnet"
+        description: Dynamic filter for Telnet from specific host
+      - input: "ip filter dynamic 9 * * pop3"
+        expected:
+          number: 9
+          source: "*"
+          dest: "*"
+          protocol: "pop3"
+        description: Dynamic filter for POP3 mail retrieval
+      - input: "ip filter dynamic 10 * * *"
+        expected:
+          number: 10
+          source: "*"
+          dest: "*"
+          protocol: "*"
+        description: Dynamic filter for all protocols
+
+  # 14.3 Interface Secure Filter
+  - name: ip interface secure filter
+    syntax: "ip <interface> secure filter <direction> <filter_numbers...> [dynamic <dynamic_numbers...>]"
+    no_form: "no ip <interface> secure filter <direction>"
+    chapter: 14
+    section: "14.3"
+    parser: ip_filter.go
+    description: Apply IP filters to an interface in specified direction
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        description: |
+          Interface name:
+          - LAN interfaces: lan1, lan2, lan3
+          - PP interfaces: pp 1, pp 2
+          - Tunnel interfaces: tunnel 1, tunnel 2
+      - name: direction
+        type: enum
+        required: true
+        values: [in, out]
+        description: |
+          Filter direction:
+          - in: Apply to incoming packets
+          - out: Apply to outgoing packets
+      - name: filter_numbers
+        type: string
+        required: true
+        description: Space-separated list of static filter numbers to apply
+      - name: dynamic_numbers
+        type: string
+        required: false
+        description: Space-separated list of dynamic filter numbers to apply
+    examples:
+      - input: "ip lan1 secure filter in 100"
+        expected:
+          interface: "lan1"
+          direction: "in"
+          filters: [100]
+        description: Apply single filter to LAN1 incoming
+      - input: "ip lan1 secure filter out 200 201 202"
+        expected:
+          interface: "lan1"
+          direction: "out"
+          filters: [200, 201, 202]
+        description: Apply multiple filters to LAN1 outgoing
+      - input: "ip lan2 secure filter in 100 101 dynamic 1 2"
+        expected:
+          interface: "lan2"
+          direction: "in"
+          static_filters: [100, 101]
+          dynamic_filters: [1, 2]
+        description: Apply both static and dynamic filters
+      - input: "ip lan1 secure filter in 100 200 300 400 dynamic 10 20 30"
+        expected:
+          interface: "lan1"
+          direction: "in"
+          static_filters: [100, 200, 300, 400]
+          dynamic_filters: [10, 20, 30]
+        description: Complex filter configuration
+      - input: "ip pp secure filter in 500"
+        expected:
+          interface: "pp"
+          direction: "in"
+          filters: [500]
+        description: Apply filter to PP interface (requires pp select context)
+      - input: "ip tunnel secure filter out 600 601"
+        expected:
+          interface: "tunnel"
+          direction: "out"
+          filters: [600, 601]
+        description: Apply filters to tunnel interface (requires tunnel select context)
+
+  # IPv6 Static Filter
+  - name: ipv6 filter
+    syntax: "ipv6 filter <number> <action> <source_address> <dest_address> <protocol> [<source_port>] [<dest_port>]"
+    no_form: "no ipv6 filter <number>"
+    chapter: 14
+    section: "14.4"
+    parser: ip_filter.go
+    description: Define a static IPv6 filter rule for packet filtering
+    parameters:
+      - name: number
+        type: int
+        required: true
+        range: "1-65535"
+        description: Filter number (unique identifier)
+      - name: action
+        type: enum
+        required: true
+        values: [pass, reject, restrict, restrict-log]
+        description: |
+          Filter action:
+          - pass: Allow matching packets
+          - reject: Discard matching packets
+          - restrict: Rate limit matching packets
+          - restrict-log: Rate limit with logging
+      - name: source_address
+        type: string
+        required: true
+        description: |
+          Source IPv6 address specification:
+          - "*" for any address
+          - Single IP: 2001:db8::1
+          - CIDR notation: 2001:db8::/32
+      - name: dest_address
+        type: string
+        required: true
+        description: |
+          Destination IPv6 address specification:
+          - "*" for any address
+          - Single IP: 2001:db8::2
+          - CIDR notation: 2001:db8:1::/48
+      - name: protocol
+        type: enum
+        required: true
+        values: [tcp, udp, icmp6, ip, "*"]
+        description: |
+          Protocol to match:
+          - tcp: TCP protocol
+          - udp: UDP protocol
+          - icmp6: ICMPv6 protocol
+          - ip: All IP protocols
+          - "*": Any protocol
+      - name: source_port
+        type: string
+        required: false
+        description: Source port specification (for TCP/UDP only)
+      - name: dest_port
+        type: string
+        required: false
+        description: Destination port specification (for TCP/UDP only)
+    examples:
+      - input: "ipv6 filter 100 pass * * *"
+        expected:
+          number: 100
+          action: "pass"
+          source_address: "*"
+          dest_address: "*"
+          protocol: "*"
+        description: Allow all IPv6 traffic
+      - input: "ipv6 filter 200 pass 2001:db8::/32 * tcp * 80"
+        expected:
+          number: 200
+          action: "pass"
+          source_address: "2001:db8::/32"
+          dest_address: "*"
+          protocol: "tcp"
+          source_port: "*"
+          dest_port: "80"
+        description: Allow HTTP from IPv6 prefix
+      - input: "ipv6 filter 300 pass * * icmp6"
+        expected:
+          number: 300
+          action: "pass"
+          source_address: "*"
+          dest_address: "*"
+          protocol: "icmp6"
+        description: Allow all ICMPv6 traffic (required for NDP)
+      - input: "ipv6 filter 400 reject * * *"
+        expected:
+          number: 400
+          action: "reject"
+          source_address: "*"
+          dest_address: "*"
+          protocol: "*"
+        description: Block all IPv6 traffic (deny any)
+      - input: "ipv6 filter 500 pass 2001:db8:1::/48 * tcp * 443"
+        expected:
+          number: 500
+          action: "pass"
+          source_address: "2001:db8:1::/48"
+          dest_address: "*"
+          protocol: "tcp"
+          source_port: "*"
+          dest_port: "443"
+        description: Allow HTTPS from specific IPv6 prefix
+      - input: "ipv6 filter 600 pass * 2001:db8::1 tcp * 22"
+        expected:
+          number: 600
+          action: "pass"
+          source_address: "*"
+          dest_address: "2001:db8::1"
+          protocol: "tcp"
+          source_port: "*"
+          dest_port: "22"
+        description: Allow SSH access to specific IPv6 host
+
+  # IPv6 Dynamic Filter
+  - name: ipv6 filter dynamic
+    syntax: "ipv6 filter dynamic <number> <source> <dest> <protocol> [syslog on]"
+    no_form: "no ipv6 filter dynamic <number>"
+    chapter: 14
+    section: "14.5"
+    parser: ip_filter.go
+    description: Define a dynamic (stateful) IPv6 filter rule
+    parameters:
+      - name: number
+        type: int
+        required: true
+        range: "1-65535"
+        description: Dynamic filter number
+      - name: source
+        type: string
+        required: true
+        description: Source IPv6 address specification
+      - name: dest
+        type: string
+        required: true
+        description: Destination IPv6 address specification
+      - name: protocol
+        type: enum
+        required: true
+        values: [ftp, www, smtp, pop3, dns, domain, telnet, ssh, tcp, udp, "*"]
+        description: Protocol or application-layer protocol
+      - name: syslog
+        type: bool
+        required: false
+        default: false
+        description: Enable syslog logging
+    examples:
+      - input: "ipv6 filter dynamic 1 * * tcp"
+        expected:
+          number: 1
+          source: "*"
+          dest: "*"
+          protocol: "tcp"
+        description: Dynamic filter for all IPv6 TCP traffic
+      - input: "ipv6 filter dynamic 2 2001:db8::/32 * www"
+        expected:
+          number: 2
+          source: "2001:db8::/32"
+          dest: "*"
+          protocol: "www"
+        description: Dynamic filter for HTTP from IPv6 prefix
+      - input: "ipv6 filter dynamic 3 * * dns syslog on"
+        expected:
+          number: 3
+          source: "*"
+          dest: "*"
+          protocol: "dns"
+          syslog: true
+        description: Dynamic filter for IPv6 DNS with logging
+
+  # IPv6 Interface Secure Filter
+  - name: ipv6 interface secure filter
+    syntax: "ipv6 <interface> secure filter <direction> <filter_numbers...> [dynamic <dynamic_numbers...>]"
+    no_form: "no ipv6 <interface> secure filter <direction>"
+    chapter: 14
+    section: "14.6"
+    parser: ip_filter.go
+    description: Apply IPv6 filters to an interface in specified direction
+    parameters:
+      - name: interface
+        type: interface
+        required: true
+        description: Interface name (lan1, lan2, pp, tunnel, etc.)
+      - name: direction
+        type: enum
+        required: true
+        values: [in, out]
+        description: Filter direction
+      - name: filter_numbers
+        type: string
+        required: true
+        description: Space-separated list of static IPv6 filter numbers
+      - name: dynamic_numbers
+        type: string
+        required: false
+        description: Space-separated list of dynamic IPv6 filter numbers
+    examples:
+      - input: "ipv6 lan1 secure filter in 100"
+        expected:
+          interface: "lan1"
+          direction: "in"
+          filters: [100]
+        description: Apply single IPv6 filter to LAN1 incoming
+      - input: "ipv6 lan1 secure filter out 200 300 dynamic 1 2"
+        expected:
+          interface: "lan1"
+          direction: "out"
+          static_filters: [200, 300]
+          dynamic_filters: [1, 2]
+        description: Apply static and dynamic IPv6 filters
+      - input: "ipv6 lan2 secure filter in 100 200 300"
+        expected:
+          interface: "lan2"
+          direction: "in"
+          filters: [100, 200, 300]
+        description: Apply multiple IPv6 filters
+
+# Common filter patterns for firewall configuration
+filter_patterns:
+  # Basic Internet Access from Internal Network
+  basic_internet_access:
+    description: Allow internal network to access Internet, block external initiation
+    filters:
+      - "ip filter 100 pass 192.168.1.0/24 * *"
+      - "ip filter 101 pass * * tcp * * established"
+      - "ip filter 102 reject * * *"
+    interface_config:
+      - "ip lan1 secure filter in 100"
+      - "ip lan2 secure filter in 101 102"
+
+  # Stateful Firewall with Dynamic Filters
+  stateful_firewall:
+    description: Stateful inspection firewall allowing outbound connections
+    filters:
+      - "ip filter 100 pass * * icmp"
+      - "ip filter 101 reject * * *"
+    dynamic_filters:
+      - "ip filter dynamic 1 * * ftp"
+      - "ip filter dynamic 2 * * www"
+      - "ip filter dynamic 3 * * dns"
+      - "ip filter dynamic 4 * * smtp"
+      - "ip filter dynamic 5 * * pop3"
+    interface_config:
+      - "ip lan2 secure filter in 100 101 dynamic 1 2 3 4 5"
+
+  # Web Server in DMZ
+  web_server_dmz:
+    description: Allow HTTP/HTTPS access to web server
+    filters:
+      - "ip filter 200 pass * 192.168.2.10 tcp * 80"
+      - "ip filter 201 pass * 192.168.2.10 tcp * 443"
+      - "ip filter 202 pass * * tcp * * established"
+      - "ip filter 203 reject * * *"
+    interface_config:
+      - "ip lan2 secure filter in 200 201 202 203"
+
+  # VPN Gateway
+  vpn_gateway:
+    description: Allow IPsec VPN traffic
+    filters:
+      - "ip filter 300 pass * * esp"
+      - "ip filter 301 pass * * ah"
+      - "ip filter 302 pass * * udp * 500"
+      - "ip filter 303 pass * * udp * 4500"
+      - "ip filter 304 reject * * *"
+    interface_config:
+      - "ip lan2 secure filter in 300 301 302 303 304"

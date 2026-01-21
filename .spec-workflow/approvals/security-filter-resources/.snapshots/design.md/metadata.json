@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/security-filter-resources/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-20T06:22:38.796Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768890158786_djj8rijef",
+      "approvalTitle": "Design: Security and Filter Resources"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-20T06:51:48.078Z",
+      "trigger": "approved",
+      "approvalId": "approval_1768890158786_djj8rijef",
+      "approvalTitle": "Design: Security and Filter Resources"
+    }
+  ]
+}
