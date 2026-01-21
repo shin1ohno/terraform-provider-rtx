@@ -314,7 +314,7 @@ func TestResourceRTXAccessListIPSchemaValidation(t *testing.T) {
 	})
 
 	t.Run("protocol validation", func(t *testing.T) {
-		validProtocols := []string{"tcp", "udp", "icmp", "ip", "gre", "esp", "ah", "*"}
+		validProtocols := []string{"tcp", "udp", "icmp", "ip", "gre", "esp", "ah", "tcpfin", "tcprst", "*"}
 		for _, proto := range validProtocols {
 			_, errs := resource.Schema["protocol"].ValidateFunc(proto, "protocol")
 			assert.Empty(t, errs, "protocol '%s' should be valid", proto)

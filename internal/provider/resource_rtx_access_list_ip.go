@@ -53,7 +53,7 @@ func resourceRTXAccessListIP() *schema.Resource {
 				Optional:     true,
 				Computed:     true,
 				Description:  "Protocol: tcp, udp, icmp, ip, gre, esp, ah, or * for any",
-				ValidateFunc: validation.StringInSlice([]string{"tcp", "udp", "udp,tcp", "tcp,udp", "icmp", "ip", "gre", "esp", "ah", "*"}, false),
+				ValidateFunc: validation.StringInSlice([]string{"tcp", "udp", "udp,tcp", "tcp,udp", "icmp", "ip", "gre", "esp", "ah", "tcpfin", "tcprst", "*"}, false),
 			},
 			"source_port": {
 				Type:        schema.TypeString,
