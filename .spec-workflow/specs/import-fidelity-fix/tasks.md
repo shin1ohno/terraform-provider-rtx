@@ -2,7 +2,7 @@
 
 ## Phase 1: P0 - Critical Parser Fixes
 
-- [ ] 1. Fix DNS server_select field parsing order (REQ-1)
+- [x] 1. Fix DNS server_select field parsing order (REQ-1)
   - File: `internal/rtx/parsers/dns.go`
   - Refactor `parseDNSServerSelectFields` to parse fields in correct order:
     1. servers (1-2 IPs) from beginning
@@ -17,9 +17,9 @@
   - Purpose: Ensure DNS forwarding rules are accurately imported
   - _Leverage: `internal/rtx/parsers/dns.go` existing isIPOrCIDR, validRecordTypes_
   - _Requirements: REQ-1_
-  - _Prompt: Implement the task for spec import-fidelity-fix, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Developer specializing in text parsing | Task: Refactor parseDNSServerSelectFields to parse fields in strict order per RTX command specification for REQ-1 | Restrictions: Do not change DNSServerSelect struct, maintain backward compatibility, handle IPv6 addresses | _Leverage: internal/rtx/parsers/dns.go for isIPOrCIDR function | _Requirements: REQ-1 | Success: Test with two servers captures both in servers array, record_type aaaa preserved, query_pattern . captured correctly | After completing, use log-implementation tool, then mark [x]_
+  - _Completed: 2026-01-21 - Refactored parseDNSServerSelectFields with strict phase-based field order parsing. Added TestParseDNSServerSelectStrictOrder test with 8 test cases._
 
-- [ ] 2. Fix Interface secure_filter array truncation (REQ-2)
+- [x] 2. Fix Interface secure_filter array truncation (REQ-2)
   - File: `internal/rtx/parsers/interface_config.go`
   - Investigate `parseFilterList` for truncation cause
   - Check SSH output buffer size in `internal/client/`
@@ -29,7 +29,7 @@
   - Purpose: Ensure all firewall filter IDs are captured
   - _Leverage: `internal/rtx/parsers/interface_config.go` parseFilterList_
   - _Requirements: REQ-2_
-  - _Prompt: Implement the task for spec import-fidelity-fix, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Developer debugging parser issues | Task: Investigate and fix secure_filter array truncation in parseFilterList for REQ-2 | Restrictions: Do not change InterfaceConfig struct, maintain dynamic filter separation | _Leverage: internal/rtx/parsers/interface_config.go | _Requirements: REQ-2 | Success: Test with 13 filter IDs captures all correctly, no truncated IDs like 20010 | After completing, use log-implementation tool, then mark [x]_
+  - _Completed: 2026-01-21 - Root cause was PTY terminal width (40 cols). Fixed in commit bd748e3 by changing all SSH session implementations to use width=512. parseFilterList and regex were correct. Added comprehensive test cases for 13+ filter IDs._
 
 ## Phase 2: P1 - High Priority Parser Fixes
 
@@ -69,7 +69,7 @@
   - _Requirements: REQ-4_
   - _Completed: 2026-01-20 - Parser was correct. Fixed resourceRTXL2TPImport to set l2tpv3_config including tunnel_auth. Added REQ-4 test cases._
 
-- [ ] 6. Relax schema constraints for import compatibility (REQ-6)
+- [x] 6. Relax schema constraints for import compatibility (REQ-6)
   - File: Various `internal/provider/resource_rtx_*.go`
   - Audit schemas for `Required: true` on optional router attributes
   - Change to `Optional: true` where appropriate for import
@@ -78,7 +78,7 @@
   - Purpose: Enable import without validation errors
   - _Leverage: Existing resource schemas_
   - _Requirements: REQ-6_
-  - _Prompt: Implement the task for spec import-fidelity-fix, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Terraform Provider Developer specializing in schema design | Task: Relax schema constraints for import compatibility per REQ-6 | Restrictions: Don't break existing configurations, maintain validation for Create | _Leverage: internal/provider/resource_rtx_*.go schemas | _Requirements: REQ-6 | Success: Import succeeds without Required attribute errors, no perpetual diffs | After completing, use log-implementation tool, then mark [x]_
+  - _Completed: 2026-01-21 - Changed Default to Computed in rtx_static_route (distance, permanent, filter), rtx_admin_user (encrypted, administrator), and rtx_l2tp (local_router_id, remote_router_id in l2tpv3_config)._
 
 ## Phase 4: Testing and Validation
 

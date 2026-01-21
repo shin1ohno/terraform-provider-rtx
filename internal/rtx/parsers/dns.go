@@ -198,7 +198,15 @@ func isIPOrCIDR(s string) bool {
 }
 
 // parseDNSServerSelectFields parses the fields after "dns server select <id>"
-// Format: <server1> [<server2>] [edns=on] [type] <query-pattern> [original-sender] [restrict pp n]
+// Format: <server1> [<server2>] [edns=on] [record_type] <query-pattern> [original-sender] [restrict pp n]
+//
+// The parsing follows strict RTX command order:
+// 1. servers (1-2 IPs) from beginning
+// 2. edns=on if present (literal match)
+// 3. record_type if in validRecordTypes AND not "." (dot is always query_pattern)
+// 4. query_pattern (required, first non-IP/non-keyword after optional fields)
+// 5. original_sender (optional, IP/CIDR after query_pattern)
+// 6. restrict pp n if present
 func parseDNSServerSelectFields(id int, rest string) *DNSServerSelect {
 	fields := strings.Fields(rest)
 	if len(fields) < 2 {
@@ -213,7 +221,7 @@ func parseDNSServerSelectFields(id int, rest string) *DNSServerSelect {
 
 	i := 0
 
-	// Parse servers (at the beginning, 1-2 IPs)
+	// Phase 1: Parse servers (at the beginning, 1-2 IPs)
 	for i < len(fields) && isValidIPForDNS(fields[i]) {
 		sel.Servers = append(sel.Servers, fields[i])
 		i++
@@ -223,53 +231,44 @@ func parseDNSServerSelectFields(id int, rest string) *DNSServerSelect {
 		return nil
 	}
 
-	// Parse remaining fields
-	for i < len(fields) {
-		field := fields[i]
+	// Phase 2: Check for edns=on (must come before record_type)
+	if i < len(fields) && fields[i] == "edns=on" {
+		sel.EDNS = true
+		i++
+	}
 
-		// Check for edns=on
-		if field == "edns=on" {
-			sel.EDNS = true
-			i++
-			continue
-		}
+	// Phase 3: Check for record_type (must come before query_pattern)
+	// Note: "." is NOT a valid record type, it's always a query pattern
+	if i < len(fields) && validRecordTypes[fields[i]] && fields[i] != "." {
+		sel.RecordType = fields[i]
+		i++
+	}
 
-		// Check for record type
-		if validRecordTypes[field] {
-			sel.RecordType = field
-			i++
-			continue
-		}
-
-		// Check for "restrict pp n"
-		if field == "restrict" && i+2 < len(fields) && fields[i+1] == "pp" {
-			if pp, err := strconv.Atoi(fields[i+2]); err == nil {
-				sel.RestrictPP = pp
-			}
-			i += 3
-			continue
-		}
-
-		// Check if it looks like an IP/CIDR (original sender)
-		if isIPOrCIDR(field) {
-			sel.OriginalSender = field
-			i++
-			continue
-		}
-
-		// Must be the query pattern (domain)
-		if sel.QueryPattern == "" {
-			sel.QueryPattern = field
-			i++
-			continue
-		}
-
-		// Unknown field, skip
+	// Phase 4: Parse query_pattern (required)
+	// The next non-IP/non-keyword field is the query pattern
+	if i < len(fields) {
+		// query_pattern can be: ".", "*.example.com", "example.com", etc.
+		// It is NOT an IP address at this point (servers already parsed)
+		sel.QueryPattern = fields[i]
 		i++
 	}
 
 	if sel.QueryPattern == "" {
 		return nil
+	}
+
+	// Phase 5: Check for original_sender (optional, IP/CIDR after query_pattern)
+	if i < len(fields) && isIPOrCIDR(fields[i]) {
+		sel.OriginalSender = fields[i]
+		i++
+	}
+
+	// Phase 6: Check for "restrict pp n" (must be at the end)
+	if i < len(fields) && fields[i] == "restrict" && i+2 < len(fields) && fields[i+1] == "pp" {
+		if pp, err := strconv.Atoi(fields[i+2]); err == nil {
+			sel.RestrictPP = pp
+		}
+		// i += 3 // Not needed as we're done parsing
 	}
 
 	return sel

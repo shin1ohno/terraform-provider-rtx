@@ -1047,3 +1047,137 @@ func TestParseDNSServerSelectREQ1Cases(t *testing.T) {
 		})
 	}
 }
+
+// TestParseDNSServerSelectStrictOrder verifies strict field order parsing (Task 1 success criteria)
+// Success criteria from spec:
+// - Test with two servers captures both in servers array
+// - record_type aaaa preserved
+// - query_pattern . captured correctly
+func TestParseDNSServerSelectStrictOrder(t *testing.T) {
+	tests := []struct {
+		name            string
+		input           string
+		expectedServers []string
+		expectedEDNS    bool
+		expectedType    string
+		expectedPattern string
+		expectedSender  string
+		expectedPP      int
+	}{
+		{
+			// Success criteria 1: Two servers captured in servers array
+			name:            "two servers both captured",
+			input:           "dns server select 1 10.0.0.1 10.0.0.2 example.com",
+			expectedServers: []string{"10.0.0.1", "10.0.0.2"},
+			expectedPattern: "example.com",
+		},
+		{
+			// Success criteria 2: record_type aaaa preserved
+			name:            "aaaa record type preserved",
+			input:           "dns server select 2 10.0.0.1 aaaa example.com",
+			expectedServers: []string{"10.0.0.1"},
+			expectedType:    "aaaa",
+			expectedPattern: "example.com",
+		},
+		{
+			// Success criteria 3: query_pattern . captured correctly
+			name:            "dot query pattern captured",
+			input:           "dns server select 3 10.0.0.1 10.0.0.2 .",
+			expectedServers: []string{"10.0.0.1", "10.0.0.2"},
+			expectedType:    "", // dot is not record type
+			expectedPattern: ".",
+		},
+		{
+			// Combined: two servers, aaaa, and dot pattern
+			name:            "two servers aaaa dot combined",
+			input:           "dns server select 4 10.0.0.1 10.0.0.2 aaaa .",
+			expectedServers: []string{"10.0.0.1", "10.0.0.2"},
+			expectedType:    "aaaa",
+			expectedPattern: ".",
+		},
+		{
+			// IPv6 server addresses
+			name:            "IPv6 servers",
+			input:           "dns server select 5 2001:db8::1 2001:db8::2 aaaa .",
+			expectedServers: []string{"2001:db8::1", "2001:db8::2"},
+			expectedType:    "aaaa",
+			expectedPattern: ".",
+		},
+		{
+			// Verify second server is NOT parsed as original_sender
+			name:            "second server not as original_sender",
+			input:           "dns server select 6 192.168.1.1 192.168.1.2 .",
+			expectedServers: []string{"192.168.1.1", "192.168.1.2"},
+			expectedPattern: ".",
+			expectedSender:  "", // 192.168.1.2 should be in servers, not original_sender
+		},
+		{
+			// original_sender comes AFTER query_pattern
+			name:            "original_sender after query_pattern",
+			input:           "dns server select 7 10.0.0.1 example.com 192.168.0.0/24",
+			expectedServers: []string{"10.0.0.1"},
+			expectedPattern: "example.com",
+			expectedSender:  "192.168.0.0/24",
+		},
+		{
+			// Full example with all fields in correct order
+			name:            "all fields correct order",
+			input:           "dns server select 8 10.0.0.1 10.0.0.2 edns=on aaaa . 192.168.1.0/24 restrict pp 1",
+			expectedServers: []string{"10.0.0.1", "10.0.0.2"},
+			expectedEDNS:    true,
+			expectedType:    "aaaa",
+			expectedPattern: ".",
+			expectedSender:  "192.168.1.0/24",
+			expectedPP:      1,
+		},
+	}
+
+	parser := NewDNSParser()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config, err := parser.ParseDNSConfig(tt.input)
+			if err != nil {
+				t.Fatalf("Parse failed: %v", err)
+			}
+
+			if len(config.ServerSelect) != 1 {
+				t.Fatalf("Expected 1 server select entry, got %d", len(config.ServerSelect))
+			}
+
+			sel := config.ServerSelect[0]
+
+			// Verify servers count and values
+			if len(sel.Servers) != len(tt.expectedServers) {
+				t.Errorf("Servers count: expected %d, got %d (servers: %v)",
+					len(tt.expectedServers), len(sel.Servers), sel.Servers)
+			} else {
+				for i, expected := range tt.expectedServers {
+					if sel.Servers[i] != expected {
+						t.Errorf("Server[%d]: expected %s, got %s", i, expected, sel.Servers[i])
+					}
+				}
+			}
+
+			if sel.EDNS != tt.expectedEDNS {
+				t.Errorf("EDNS: expected %v, got %v", tt.expectedEDNS, sel.EDNS)
+			}
+
+			if sel.RecordType != tt.expectedType {
+				t.Errorf("RecordType: expected %q, got %q", tt.expectedType, sel.RecordType)
+			}
+
+			if sel.QueryPattern != tt.expectedPattern {
+				t.Errorf("QueryPattern: expected %q, got %q", tt.expectedPattern, sel.QueryPattern)
+			}
+
+			if sel.OriginalSender != tt.expectedSender {
+				t.Errorf("OriginalSender: expected %q, got %q", tt.expectedSender, sel.OriginalSender)
+			}
+
+			if sel.RestrictPP != tt.expectedPP {
+				t.Errorf("RestrictPP: expected %d, got %d", tt.expectedPP, sel.RestrictPP)
+			}
+		})
+	}
+}
