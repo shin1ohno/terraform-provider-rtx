@@ -10,6 +10,10 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// DefaultMaxParallelism is the default maximum number of concurrent operations
+// RTX routers support up to 8 simultaneous SSH connections
+const DefaultMaxParallelism = 6
+
 // rtxClient is the concrete implementation of the Client interface
 type rtxClient struct {
 	config         *Config
@@ -17,6 +21,7 @@ type rtxClient struct {
 	promptDetector PromptDetector
 	parsers        map[string]Parser
 	retryStrategy  RetryStrategy
+	semaphore      chan struct{} // Limits concurrent operations
 
 	mu                    sync.Mutex
 	session               Session
@@ -58,12 +63,19 @@ func NewClient(config *Config, opts ...Option) (Client, error) {
 		return nil, err
 	}
 
+	// Determine max parallelism
+	maxParallelism := config.MaxParallelism
+	if maxParallelism <= 0 {
+		maxParallelism = DefaultMaxParallelism
+	}
+
 	c := &rtxClient{
 		config:         config,
 		dialer:         &sshDialer{},
 		promptDetector: &defaultPromptDetector{},
 		parsers:        make(map[string]Parser),
 		retryStrategy:  &noRetry{},
+		semaphore:      make(chan struct{}, maxParallelism),
 	}
 
 	// Apply options
@@ -230,6 +242,15 @@ func (c *rtxClient) Close() error {
 
 // Run executes a command and returns the result
 func (c *rtxClient) Run(ctx context.Context, cmd Command) (Result, error) {
+	// Acquire semaphore to limit concurrent operations
+	select {
+	case c.semaphore <- struct{}{}:
+		// Acquired semaphore slot
+		defer func() { <-c.semaphore }()
+	case <-ctx.Done():
+		return Result{}, ctx.Err()
+	}
+
 	c.mu.Lock()
 	if !c.active {
 		c.mu.Unlock()

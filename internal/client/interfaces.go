@@ -869,6 +869,7 @@ type Config struct {
 	HostKey          string // Fixed host key for verification (base64 encoded)
 	KnownHostsFile   string // Path to known_hosts file
 	SkipHostKeyCheck bool   // Skip host key verification (insecure)
+	MaxParallelism   int    // Maximum number of concurrent operations (default: 6)
 }
 
 // InterfaceConfig represents interface configuration on an RTX router

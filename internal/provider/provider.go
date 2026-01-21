@@ -90,6 +90,13 @@ func New(version string) *schema.Provider {
 				DefaultFunc: schema.EnvDefaultFunc("RTX_SKIP_HOST_KEY_CHECK", false),
 				Description: "Skip SSH host key verification. WARNING: This is insecure and should only be used for testing. Can be set with RTX_SKIP_HOST_KEY_CHECK environment variable.",
 			},
+			"max_parallelism": {
+				Type:        schema.TypeInt,
+				Optional:    true,
+				Default:     6,
+				DefaultFunc: schema.EnvDefaultFunc("RTX_MAX_PARALLELISM", 6),
+				Description: "Maximum number of concurrent operations. RTX routers support up to 8 simultaneous SSH connections. Defaults to 6. Can be set with RTX_MAX_PARALLELISM environment variable.",
+			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
 			"rtx_access_list_extended":      resourceRTXAccessListExtended(),
@@ -167,6 +174,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	sshHostKey := d.Get("ssh_host_key").(string)
 	knownHostsFile := d.Get("known_hosts_file").(string)
 	skipHostKeyCheck := d.Get("skip_host_key_check").(bool)
+	maxParallelism := d.Get("max_parallelism").(int)
 
 	// If admin_password is not set, use the same as password
 	if adminPassword == "" {
@@ -193,6 +201,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		HostKey:          sshHostKey,
 		KnownHostsFile:   knownHostsFile,
 		SkipHostKeyCheck: skipHostKeyCheck,
+		MaxParallelism:   maxParallelism,
 	}
 
 	// Create SSH client with default options
