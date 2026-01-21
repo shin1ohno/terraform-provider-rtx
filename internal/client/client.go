@@ -11,8 +11,9 @@ import (
 )
 
 // DefaultMaxParallelism is the default maximum number of concurrent operations
-// RTX routers support up to 8 simultaneous SSH connections
-const DefaultMaxParallelism = 6
+// RTX routers support up to 8 simultaneous SSH connections, but lower values
+// are more stable in practice
+const DefaultMaxParallelism = 4
 
 // rtxClient is the concrete implementation of the Client interface
 type rtxClient struct {

@@ -93,9 +93,9 @@ func New(version string) *schema.Provider {
 			"max_parallelism": {
 				Type:        schema.TypeInt,
 				Optional:    true,
-				Default:     6,
-				DefaultFunc: schema.EnvDefaultFunc("RTX_MAX_PARALLELISM", 6),
-				Description: "Maximum number of concurrent operations. RTX routers support up to 8 simultaneous SSH connections. Defaults to 6. Can be set with RTX_MAX_PARALLELISM environment variable.",
+				Default:     4,
+				DefaultFunc: schema.EnvDefaultFunc("RTX_MAX_PARALLELISM", 4),
+				Description: "Maximum number of concurrent operations. RTX routers support up to 8 simultaneous SSH connections, but lower values are more stable. Defaults to 4. Can be set with RTX_MAX_PARALLELISM environment variable.",
 			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
