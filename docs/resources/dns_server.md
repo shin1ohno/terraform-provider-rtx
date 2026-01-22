@@ -45,11 +45,21 @@ Required:
 
 - `id` (Number) Selector ID (positive integer)
 - `query_pattern` (String) Domain pattern to match (e.g., '.', '*.example.com', 'internal.net')
-- `servers` (List of String) DNS server IP addresses for this selector (IPv4 or IPv6)
+- `server` (Block List, Min: 1, Max: 2) DNS servers for this selector (1-2 servers with per-server EDNS settings) (see [below for nested schema](#nestedblock--server_select--server))
 
 Optional:
 
-- `edns` (Boolean) Enable EDNS (Extension mechanisms for DNS)
 - `original_sender` (String) Source IP/CIDR restriction for DNS queries
 - `record_type` (String) DNS record type to match: a, aaaa, ptr, mx, ns, cname, any
 - `restrict_pp` (Number) PP session restriction (0 = no restriction)
+
+<a id="nestedblock--server_select--server"></a>
+### Nested Schema for `server_select.server`
+
+Required:
+
+- `address` (String) DNS server IP address (IPv4 or IPv6)
+
+Optional:
+
+- `edns` (Boolean) Enable EDNS (Extension mechanisms for DNS) for this server
