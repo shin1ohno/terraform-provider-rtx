@@ -234,6 +234,13 @@ The filter resources support the product goal of providing comprehensive network
 - Filter lookups use `grep` for efficient pattern matching
 - List operations parse all relevant filter lines in a single command
 
+### Parsing Reliability
+
+- Filter number parsing must correctly handle RTX line wrapping at ~80 characters
+- When filter numbers span line boundaries (e.g., `20010` at line end, `0` at next line), the parser must reconstruct the original number (`200100`)
+- Smart line joining: if a line ends with a digit AND continuation line starts with a digit, join without space (mid-number wrap)
+- Round-trip consistency: parse → generate → parse must produce identical results for all filter number configurations
+
 ### Security
 
 - No sensitive data in filter rules (no passwords, no credentials)
@@ -448,3 +455,4 @@ resource "rtx_ipv6_filter_dynamic" "main" {
 | Date | Source | Changes |
 |------|--------|---------|
 | 2025-01-23 | Implementation Code | Initial master spec created from implementation analysis |
+| 2026-01-23 | filter-number-parsing-fix | Added parsing reliability requirements for line wrapping handling |

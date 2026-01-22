@@ -574,6 +574,11 @@ internal/
 
 8. **Direction Semantics**: `in` refers to traffic entering the router through the interface, `out` refers to traffic leaving through the interface.
 
+9. **Line Wrapping in RTX Output**: The RTX router wraps output lines at approximately 80 characters. When filter numbers span line boundaries, the `preprocessWrappedLines` function in `interface_config.go` uses smart line joining:
+   - If a line ends with a digit AND the next continuation line starts with a digit, join without a space (mid-number wrap detected)
+   - Otherwise, join with a space (normal word boundary wrap)
+   - This prevents filter numbers like `200100` from being incorrectly split into `20010` and `0`
+
 ## State Handling
 
 - Persist only configuration attributes in Terraform state
@@ -586,3 +591,4 @@ internal/
 | Date | Source Spec | Changes |
 |------|-------------|---------|
 | 2025-01-23 | Implementation Code | Initial master design created from implementation analysis |
+| 2026-01-23 | filter-number-parsing-fix | Documented smart line joining for RTX output line wrapping in preprocessWrappedLines |
