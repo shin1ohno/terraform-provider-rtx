@@ -13,10 +13,10 @@ terraform {
 }
 
 provider "rtx" {
-  host               = var.rtx_host
-  username           = var.rtx_username
-  password           = var.rtx_password
-  admin_password     = var.rtx_admin_password
+  host                = var.rtx_host
+  username            = var.rtx_username
+  password            = var.rtx_password
+  admin_password      = var.rtx_admin_password
   skip_host_key_check = true
 }
 
@@ -39,10 +39,10 @@ resource "rtx_pppoe" "flets_primary" {
 # PP interface IP configuration for the PPPoE connection
 resource "rtx_pp_interface" "flets_primary" {
   pp_number      = rtx_pppoe.flets_primary.pp_number
-  ip_address     = "ipcp"  # Dynamic IP assignment from ISP
-  mtu            = 1454    # Standard MTU for PPPoE (1500 - 8 - 38)
-  tcp_mss        = 1414    # TCP MSS limit (MTU - 40)
-  nat_descriptor = 1000    # Link to NAT masquerade
+  ip_address     = "ipcp" # Dynamic IP assignment from ISP
+  mtu            = 1454   # Standard MTU for PPPoE (1500 - 8 - 38)
+  tcp_mss        = 1414   # TCP MSS limit (MTU - 40)
+  nat_descriptor = 1000   # Link to NAT masquerade
 
   # Basic security filters for WAN interface
   secure_filter_in  = [200020, 200021, 200022, 200023, 200024, 200025, 200099]
@@ -54,7 +54,7 @@ resource "rtx_pp_interface" "flets_primary" {
 # NAT masquerade for FLET'S connection
 resource "rtx_nat_masquerade" "flets_primary" {
   descriptor_id = 1000
-  outer_address = "ipcp"  # Use the PPPoE assigned address
+  outer_address = "ipcp" # Use the PPPoE assigned address
   inner_network = "192.168.1.0/24"
   enabled       = true
 }
@@ -139,7 +139,7 @@ resource "rtx_static_route" "default_primary" {
 resource "rtx_static_route" "default_secondary" {
   destination = "default"
   gateway     = "pp 2"
-  metric      = 10  # Higher metric = lower priority
+  metric      = 10 # Higher metric = lower priority
 }
 
 # =============================================================================
@@ -153,7 +153,7 @@ resource "rtx_pppoe" "legacy_isp" {
   bind_interface = "lan2"
   username       = var.legacy_isp_username
   password       = var.legacy_isp_password
-  auth_method    = "pap"  # Use PAP for legacy compatibility
+  auth_method    = "pap" # Use PAP for legacy compatibility
   always_on      = true
   enabled        = true
 }
@@ -180,7 +180,7 @@ resource "rtx_pppoe" "internet_service" {
   bind_interface = "lan2"
   username       = var.multi_service_username
   password       = var.multi_service_password
-  service_name   = "INTERNET"  # Specific service name
+  service_name   = "INTERNET" # Specific service name
   auth_method    = "chap"
   always_on      = true
   enabled        = true
@@ -203,15 +203,15 @@ resource "rtx_pp_interface" "internet_service" {
 # Useful for metered connections or backup links.
 
 resource "rtx_pppoe" "on_demand" {
-  pp_number         = 5
-  name              = "On-Demand Backup Link"
-  bind_interface    = "lan3"
-  username          = var.backup_isp_username
-  password          = var.backup_isp_password
-  auth_method       = "chap"
-  always_on         = false  # Allow disconnection
+  pp_number          = 5
+  name               = "On-Demand Backup Link"
+  bind_interface     = "lan3"
+  username           = var.backup_isp_username
+  password           = var.backup_isp_password
+  auth_method        = "chap"
+  always_on          = false # Allow disconnection
   disconnect_timeout = 300   # Disconnect after 5 minutes of idle
-  enabled           = true
+  enabled            = true
 }
 
 resource "rtx_pp_interface" "on_demand" {

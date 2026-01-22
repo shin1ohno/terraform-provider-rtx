@@ -56,38 +56,38 @@ resource "rtx_nat_static" "port_mapping" {
 
   # HTTP to web server
   entry {
-    inside_local       = "192.168.1.20"
-    inside_local_port  = 80
-    outside_global     = "203.0.113.1"
+    inside_local        = "192.168.1.20"
+    inside_local_port   = 80
+    outside_global      = "203.0.113.1"
     outside_global_port = 80
-    protocol           = "tcp"
+    protocol            = "tcp"
   }
 
   # HTTPS to web server
   entry {
-    inside_local       = "192.168.1.20"
-    inside_local_port  = 443
-    outside_global     = "203.0.113.1"
+    inside_local        = "192.168.1.20"
+    inside_local_port   = 443
+    outside_global      = "203.0.113.1"
     outside_global_port = 443
-    protocol           = "tcp"
+    protocol            = "tcp"
   }
 
   # SMTP to mail server
   entry {
-    inside_local       = "192.168.1.21"
-    inside_local_port  = 25
-    outside_global     = "203.0.113.1"
+    inside_local        = "192.168.1.21"
+    inside_local_port   = 25
+    outside_global      = "203.0.113.1"
     outside_global_port = 25
-    protocol           = "tcp"
+    protocol            = "tcp"
   }
 
   # DNS to internal DNS server
   entry {
-    inside_local       = "192.168.1.22"
-    inside_local_port  = 53
-    outside_global     = "203.0.113.1"
+    inside_local        = "192.168.1.22"
+    inside_local_port   = 53
+    outside_global      = "203.0.113.1"
     outside_global_port = 53
-    protocol           = "udp"
+    protocol            = "udp"
   }
 }
 

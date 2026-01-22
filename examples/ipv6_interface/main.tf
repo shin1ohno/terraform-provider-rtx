@@ -96,7 +96,7 @@ resource "rtx_ipv6_interface" "bridge" {
   }
 
   address {
-    address = "fd00::1/64"  # ULA address for local network
+    address = "fd00::1/64" # ULA address for local network
   }
 }
 
@@ -138,7 +138,7 @@ resource "rtx_ipv6_interface" "secured" {
 
   # Outbound security filters with stateful inspection
   secure_filter_out  = [10, 20, 30]
-  dynamic_filter_out = [100, 101]  # Dynamic filters for stateful inspection
+  dynamic_filter_out = [100, 101] # Dynamic filters for stateful inspection
 }
 
 # ============================================================
@@ -168,9 +168,9 @@ resource "rtx_ipv6_interface" "full_example" {
   rtadv {
     enabled   = true
     prefix_id = rtx_ipv6_prefix.full_prefix.id
-    o_flag    = true  # Use DHCPv6 for other configuration
-    m_flag    = true  # Use DHCPv6 for managed addresses
-    lifetime  = 3600  # 1 hour router lifetime
+    o_flag    = true # Use DHCPv6 for other configuration
+    m_flag    = true # Use DHCPv6 for managed addresses
+    lifetime  = 3600 # 1 hour router lifetime
   }
 
   # DHCPv6 server mode

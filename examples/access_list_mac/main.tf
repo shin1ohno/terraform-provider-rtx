@@ -19,24 +19,24 @@ resource "rtx_access_list_mac" "allow_known_devices" {
   name = "allowed_macs"
 
   entry {
-    sequence          = 10
-    ace_action        = "permit"
-    source_address    = "00:11:22:33:44:55"
-    destination_any   = true
+    sequence        = 10
+    ace_action      = "permit"
+    source_address  = "00:11:22:33:44:55"
+    destination_any = true
   }
 
   entry {
-    sequence          = 20
-    ace_action        = "permit"
-    source_address    = "00:11:22:33:44:66"
-    destination_any   = true
+    sequence        = 20
+    ace_action      = "permit"
+    source_address  = "00:11:22:33:44:66"
+    destination_any = true
   }
 
   # Deny all other traffic (implicit deny at end)
   entry {
-    sequence       = 100
-    ace_action     = "deny"
-    source_any     = true
+    sequence        = 100
+    ace_action      = "deny"
+    source_any      = true
     destination_any = true
   }
 }
@@ -48,36 +48,36 @@ resource "rtx_access_list_mac" "protocol_filter" {
 
   # Allow IPv4 traffic (EtherType 0x0800)
   entry {
-    sequence       = 10
-    ace_action     = "permit"
-    source_any     = true
+    sequence        = 10
+    ace_action      = "permit"
+    source_any      = true
     destination_any = true
-    ethertype      = "0x0800"
+    ethertype       = "0x0800"
   }
 
   # Allow ARP traffic (EtherType 0x0806)
   entry {
-    sequence       = 20
-    ace_action     = "permit"
-    source_any     = true
+    sequence        = 20
+    ace_action      = "permit"
+    source_any      = true
     destination_any = true
-    ethertype      = "0x0806"
+    ethertype       = "0x0806"
   }
 
   # Allow IPv6 traffic (EtherType 0x86DD)
   entry {
-    sequence       = 30
-    ace_action     = "permit"
-    source_any     = true
+    sequence        = 30
+    ace_action      = "permit"
+    source_any      = true
     destination_any = true
-    ethertype      = "0x86DD"
+    ethertype       = "0x86DD"
   }
 
   # Deny all other protocols
   entry {
-    sequence       = 100
-    ace_action     = "deny"
-    source_any     = true
+    sequence        = 100
+    ace_action      = "deny"
+    source_any      = true
     destination_any = true
   }
 }
@@ -88,27 +88,27 @@ resource "rtx_access_list_mac" "vlan_filter" {
 
   # Allow traffic from VLAN 10
   entry {
-    sequence       = 10
-    ace_action     = "permit"
-    source_any     = true
+    sequence        = 10
+    ace_action      = "permit"
+    source_any      = true
     destination_any = true
-    vlan_id        = 10
+    vlan_id         = 10
   }
 
   # Allow traffic from VLAN 20
   entry {
-    sequence       = 20
-    ace_action     = "permit"
-    source_any     = true
+    sequence        = 20
+    ace_action      = "permit"
+    source_any      = true
     destination_any = true
-    vlan_id        = 20
+    vlan_id         = 20
   }
 
   # Deny all other VLAN traffic
   entry {
-    sequence       = 100
-    ace_action     = "deny"
-    source_any     = true
+    sequence        = 100
+    ace_action      = "deny"
+    source_any      = true
     destination_any = true
   }
 }

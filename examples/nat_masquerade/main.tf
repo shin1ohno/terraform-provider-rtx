@@ -31,29 +31,29 @@ resource "rtx_nat_masquerade" "with_port_forwarding" {
 
   # Forward HTTP traffic to internal web server
   static_entry {
-    entry_number      = 1
-    inside_local      = "192.168.2.10"
-    inside_local_port = 80
+    entry_number        = 1
+    inside_local        = "192.168.2.10"
+    inside_local_port   = 80
     outside_global_port = 80
-    protocol          = "tcp"
+    protocol            = "tcp"
   }
 
   # Forward HTTPS traffic to internal web server
   static_entry {
-    entry_number      = 2
-    inside_local      = "192.168.2.10"
-    inside_local_port = 443
+    entry_number        = 2
+    inside_local        = "192.168.2.10"
+    inside_local_port   = 443
     outside_global_port = 443
-    protocol          = "tcp"
+    protocol            = "tcp"
   }
 
   # Forward SSH to internal server on non-standard external port
   static_entry {
-    entry_number      = 3
-    inside_local      = "192.168.2.20"
-    inside_local_port = 22
+    entry_number        = 3
+    inside_local        = "192.168.2.20"
+    inside_local_port   = 22
     outside_global_port = 2222
-    protocol          = "tcp"
+    protocol            = "tcp"
   }
 }
 
@@ -72,20 +72,20 @@ resource "rtx_nat_masquerade" "vpn_passthrough" {
 
   # Forward IKE (UDP 500) to VPN server
   static_entry {
-    entry_number      = 2
-    inside_local      = "192.168.3.100"
-    inside_local_port = 500
+    entry_number        = 2
+    inside_local        = "192.168.3.100"
+    inside_local_port   = 500
     outside_global_port = 500
-    protocol          = "udp"
+    protocol            = "udp"
   }
 
   # Forward NAT-T (UDP 4500) to VPN server
   static_entry {
-    entry_number      = 3
-    inside_local      = "192.168.3.100"
-    inside_local_port = 4500
+    entry_number        = 3
+    inside_local        = "192.168.3.100"
+    inside_local_port   = 4500
     outside_global_port = 4500
-    protocol          = "udp"
+    protocol            = "udp"
   }
 }
 

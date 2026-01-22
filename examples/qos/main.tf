@@ -114,7 +114,7 @@ resource "rtx_service_policy" "lan1_qos" {
 resource "rtx_shape" "wan_limit" {
   interface     = "wan1"
   direction     = "output"
-  shape_average = 10000000  # 10 Mbps in bps
+  shape_average = 10000000 # 10 Mbps in bps
 }
 
 # ============================================================================
@@ -125,17 +125,17 @@ resource "rtx_shape" "wan_limit" {
 # Define class maps for different traffic types
 resource "rtx_class_map" "realtime" {
   name                   = "realtime-apps"
-  match_destination_port = [5060, 5061, 16384, 16385, 16386, 16387]  # SIP + RTP
+  match_destination_port = [5060, 5061, 16384, 16385, 16386, 16387] # SIP + RTP
 }
 
 resource "rtx_class_map" "interactive" {
   name                   = "interactive-apps"
-  match_destination_port = [22, 23, 3389]  # SSH, Telnet, RDP
+  match_destination_port = [22, 23, 3389] # SSH, Telnet, RDP
 }
 
 resource "rtx_class_map" "streaming" {
   name                   = "streaming-apps"
-  match_destination_port = [80, 443, 8080]  # HTTP/HTTPS
+  match_destination_port = [80, 443, 8080] # HTTP/HTTPS
 }
 
 # Define policy map with bandwidth allocation
@@ -182,7 +182,7 @@ resource "rtx_service_policy" "complete_policy" {
 resource "rtx_shape" "complete_shaping" {
   interface     = "lan2"
   direction     = "output"
-  shape_average = 50000000  # 50 Mbps
+  shape_average = 50000000 # 50 Mbps
 
   depends_on = [rtx_service_policy.complete_policy]
 }

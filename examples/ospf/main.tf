@@ -27,8 +27,8 @@ resource "rtx_ospf" "basic" {
 
   # Network to include in OSPF
   network {
-    prefix   = "192.168.1.0/24"
-    area_id  = "0.0.0.0"
+    prefix  = "192.168.1.0/24"
+    area_id = "0.0.0.0"
   }
 }
 
@@ -46,22 +46,22 @@ resource "rtx_ospf" "multi_area" {
 
   # Stub area
   area {
-    area_id     = "0.0.0.1"
-    type        = "stub"
-    no_summary  = false
+    area_id      = "0.0.0.1"
+    type         = "stub"
+    no_summary   = false
     default_cost = 10
   }
 
   # Network in backbone
   network {
-    prefix   = "10.0.0.0/24"
-    area_id  = "0.0.0.0"
+    prefix  = "10.0.0.0/24"
+    area_id = "0.0.0.0"
   }
 
   # Network in stub area
   network {
-    prefix   = "192.168.1.0/24"
-    area_id  = "0.0.0.1"
+    prefix  = "192.168.1.0/24"
+    area_id = "0.0.0.1"
   }
 }
 
@@ -82,8 +82,8 @@ resource "rtx_ospf" "nssa" {
   }
 
   network {
-    prefix   = "10.0.0.0/24"
-    area_id  = "0.0.0.0"
+    prefix  = "10.0.0.0/24"
+    area_id = "0.0.0.0"
   }
 }
 
@@ -108,7 +108,7 @@ resource "rtx_ospf" "nbma" {
   }
 
   network {
-    prefix   = "10.0.0.0/24"
-    area_id  = "0.0.0.0"
+    prefix  = "10.0.0.0/24"
+    area_id = "0.0.0.0"
   }
 }

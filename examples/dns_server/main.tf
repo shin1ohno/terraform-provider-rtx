@@ -53,8 +53,8 @@ resource "rtx_dns_server" "full" {
     id            = 10
     servers       = ["10.0.0.53"]
     edns          = true
-    record_type   = "any"  # a, aaaa, ptr, mx, ns, cname, any
-    query_pattern = "."    # Match all queries
+    record_type   = "any" # a, aaaa, ptr, mx, ns, cname, any
+    query_pattern = "."   # Match all queries
   }
 
   # Static DNS host entries (local DNS overrides)

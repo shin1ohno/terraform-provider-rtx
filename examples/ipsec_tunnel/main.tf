@@ -16,18 +16,18 @@ provider "rtx" {
 
 # Basic Site-to-Site IPsec VPN tunnel
 resource "rtx_ipsec_tunnel" "site_to_site" {
-  tunnel_id     = 1
-  local_id      = "203.0.113.1"
-  remote_id     = "203.0.113.2"
-  remote_name   = "remote-office"
+  tunnel_id      = 1
+  local_id       = "203.0.113.1"
+  remote_id      = "203.0.113.2"
+  remote_name    = "remote-office"
   pre_shared_key = var.psk
 
   # IKEv2 proposal
   ikev2_proposal {
-    encryption   = "aes256-cbc"
-    hash         = "sha256"
-    dh_group     = 14
-    lifetime     = 86400
+    encryption = "aes256-cbc"
+    hash       = "sha256"
+    dh_group   = 14
+    lifetime   = 86400
   }
 
   # IPsec transform
@@ -63,10 +63,10 @@ resource "rtx_ipsec_tunnel" "with_dpd" {
 
   # Enable DPD for detecting dead peers
   dpd {
-    enabled   = true
-    interval  = 30
-    retry     = 5
-    action    = "restart"
+    enabled  = true
+    interval = 30
+    retry    = 5
+    action   = "restart"
   }
 }
 
@@ -90,7 +90,7 @@ resource "rtx_ipsec_tunnel" "aead" {
     authentication   = "sha384-hmac"
     pfs_group        = 19
     lifetime_seconds = 3600
-    lifetime_bytes   = 4294967296  # 4GB
+    lifetime_bytes   = 4294967296 # 4GB
   }
 }
 

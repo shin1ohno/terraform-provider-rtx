@@ -26,7 +26,7 @@ resource "rtx_snmp_server" "full" {
   community {
     name       = var.snmp_community_rw
     permission = "rw"
-    acl        = "10"  # Restrict to specific hosts via ACL
+    acl        = "10" # Restrict to specific hosts via ACL
   }
 
   # Trap receiver - primary monitoring server
@@ -52,7 +52,7 @@ resource "rtx_snmp_server" "monitoring_only" {
   community {
     name       = var.snmp_community_ro
     permission = "ro"
-    acl        = "20"  # Only allow monitoring subnet
+    acl        = "20" # Only allow monitoring subnet
   }
 
   host {

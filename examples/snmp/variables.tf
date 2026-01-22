@@ -6,7 +6,7 @@ variable "snmp_community_ro" {
   description = "SNMP read-only community string"
   type        = string
   sensitive   = true
-  default     = "public"  # Change this in production!
+  default     = "public" # Change this in production!
 
   validation {
     condition     = length(var.snmp_community_ro) >= 8
@@ -18,7 +18,7 @@ variable "snmp_community_rw" {
   description = "SNMP read-write community string"
   type        = string
   sensitive   = true
-  default     = "private"  # Change this in production!
+  default     = "private" # Change this in production!
 
   validation {
     condition     = length(var.snmp_community_rw) >= 12

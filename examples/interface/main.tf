@@ -13,10 +13,10 @@ terraform {
 
 # Provider configuration (use environment variables for credentials)
 provider "rtx" {
-  host               = var.rtx_host
-  username           = var.rtx_username
-  password           = var.rtx_password
-  admin_password     = var.rtx_admin_password
+  host                = var.rtx_host
+  username            = var.rtx_username
+  password            = var.rtx_password
+  admin_password      = var.rtx_admin_password
   skip_host_key_check = true
 }
 
@@ -102,8 +102,8 @@ variable "rtx_admin_password" {
 output "wan_interface" {
   description = "WAN interface configuration"
   value = {
-    name          = rtx_interface.wan.name
-    description   = rtx_interface.wan.description
+    name           = rtx_interface.wan.name
+    description    = rtx_interface.wan.description
     nat_descriptor = rtx_interface.wan.nat_descriptor
   }
 }
@@ -111,8 +111,8 @@ output "wan_interface" {
 output "lan_interface" {
   description = "LAN interface configuration"
   value = {
-    name      = rtx_interface.lan.name
+    name       = rtx_interface.lan.name
     ip_address = rtx_interface.lan.ip_address
-    proxyarp  = rtx_interface.lan.proxyarp
+    proxyarp   = rtx_interface.lan.proxyarp
   }
 }

@@ -12,7 +12,7 @@ provider "rtx" {
   username       = var.rtx_username
   password       = var.rtx_password
   admin_password = var.admin_password
-  
+
   # テスト環境の場合
   skip_host_key_check = var.skip_host_key_check
 }
@@ -49,15 +49,15 @@ resource "rtx_dhcp_binding" "pro-2" {
 }
 
 resource "rtx_dhcp_binding" "pro-3" {
-  scope_id = 1
-  ip_address = "192.168.1.23"
-  mac_address = "b6:1a:27:ea:28:29"  # User's actual MAC from router config
-  use_mac_as_client_id = true  # Use correct field name
+  scope_id             = 1
+  ip_address           = "192.168.1.23"
+  mac_address          = "b6:1a:27:ea:28:29" # User's actual MAC from router config
+  use_mac_as_client_id = true                # Use correct field name
 }
 
 resource "rtx_dhcp_binding" "server" {
   scope_id             = 1
-  ip_address           = "192.168.1.51"  # IP変更テスト
+  ip_address           = "192.168.1.51" # IP変更テスト
   mac_address          = "aa:bb:cc:dd:ee:ff"
   use_mac_as_client_id = true
 }

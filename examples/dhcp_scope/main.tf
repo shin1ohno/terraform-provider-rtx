@@ -83,8 +83,8 @@ resource "rtx_dhcp_scope" "with_binding" {
 # Static DHCP binding within the scope
 # Note: The binding automatically depends on the scope through scope_id
 resource "rtx_dhcp_binding" "server" {
-  scope_id   = rtx_dhcp_scope.with_binding.scope_id
-  ip_address = "192.168.3.100"
+  scope_id    = rtx_dhcp_scope.with_binding.scope_id
+  ip_address  = "192.168.3.100"
   mac_address = "00:11:22:33:44:55"
 
   # Ensure scope exists before creating binding
