@@ -214,6 +214,101 @@ user attribute admin administrator=on connection=ssh,telnet,http gui-page=dashbo
 			},
 			wantErr: false,
 		},
+		// REQ-2 and REQ-3: Verify login-timer and gui-page parsing for shin1ohno user
+		{
+			name: "REQ-2/REQ-3 shin1ohno user with all connection types and attributes",
+			input: `
+login user shin1ohno encrypted $1$shin1pass
+user attribute shin1ohno connection=serial,telnet,remote,ssh,sftp,http gui-page=dashboard,lan-map,config login-timer=3600
+`,
+			expected: &AdminConfig{
+				Users: []UserConfig{
+					{
+						Username:  "shin1ohno",
+						Password:  "$1$shin1pass",
+						Encrypted: true,
+						Attributes: UserAttributes{
+							Administrator: false,
+							Connection:    []string{"serial", "telnet", "remote", "ssh", "sftp", "http"},
+							GUIPages:      []string{"dashboard", "lan-map", "config"},
+							LoginTimer:    3600,
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		// Additional edge cases for login-timer variations
+		{
+			name: "login-timer=0 (infinite timeout)",
+			input: `
+login user timeout0 encrypted $1$pass0
+user attribute timeout0 connection=ssh login-timer=0
+`,
+			expected: &AdminConfig{
+				Users: []UserConfig{
+					{
+						Username:  "timeout0",
+						Password:  "$1$pass0",
+						Encrypted: true,
+						Attributes: UserAttributes{
+							Administrator: false,
+							Connection:    []string{"ssh"},
+							GUIPages:      []string{},
+							LoginTimer:    0,
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "login-timer=300 (5 minutes)",
+			input: `
+login user timeout300 encrypted $1$pass300
+user attribute timeout300 administrator=on connection=telnet login-timer=300
+`,
+			expected: &AdminConfig{
+				Users: []UserConfig{
+					{
+						Username:  "timeout300",
+						Password:  "$1$pass300",
+						Encrypted: true,
+						Attributes: UserAttributes{
+							Administrator: true,
+							Connection:    []string{"telnet"},
+							GUIPages:      []string{},
+							LoginTimer:    300,
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		// Edge cases for gui-page variations
+		{
+			name: "empty gui-page (gui-page=none)",
+			input: `
+login user guiempty encrypted $1$passempty
+user attribute guiempty administrator=on gui-page=none connection=http
+`,
+			expected: &AdminConfig{
+				Users: []UserConfig{
+					{
+						Username:  "guiempty",
+						Password:  "$1$passempty",
+						Encrypted: true,
+						Attributes: UserAttributes{
+							Administrator: true,
+							Connection:    []string{"http"},
+							GUIPages:      []string{},
+							LoginTimer:    0,
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
 	}
 
 	parser := NewAdminParser()
