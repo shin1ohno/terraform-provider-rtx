@@ -1,0 +1,12 @@
+{
+  "id": "approval_1769087252303_3jb0tovbn",
+  "title": "Design Document with Atomic Update Pattern for VPN",
+  "filePath": ".spec-workflow/specs/comprehensive-crud-tests/design.md",
+  "type": "document",
+  "status": "rejected",
+  "createdAt": "2026-01-22T13:07:32.303Z",
+  "category": "spec",
+  "categoryName": "comprehensive-crud-tests",
+  "response": "ひょっとして、今の設計では、create/update/deleteの際、RTXコマンドを1行づつ実行していますか？\n\n少なくとも1リソース分はまとめて送ってしまうべきです。\n\nまた、consがなければ、terraform applyなりをするときに一括で全リソースの変更を送ってしまった方が実行が早くなります。ただ、consがなければです。",
+  "respondedAt": "2026-01-22T13:11:26.957Z"
+}

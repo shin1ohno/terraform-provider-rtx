@@ -1,0 +1,12 @@
+{
+  "id": "approval_1769087568043_ucw7lyhnm",
+  "title": "Design Document with Batch Command Execution Strategy",
+  "filePath": ".spec-workflow/specs/comprehensive-crud-tests/design.md",
+  "type": "document",
+  "status": "rejected",
+  "createdAt": "2026-01-22T13:12:48.043Z",
+  "category": "spec",
+  "categoryName": "comprehensive-crud-tests",
+  "response": "特定のリソースだけでなく、全てのリソースに関して1リソースごとのBatch送信であることを明記して下さい",
+  "respondedAt": "2026-01-22T13:16:05.946Z"
+}

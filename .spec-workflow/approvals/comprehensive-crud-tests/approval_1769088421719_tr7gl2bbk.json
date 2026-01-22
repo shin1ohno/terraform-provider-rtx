@@ -1,0 +1,12 @@
+{
+  "id": "approval_1769088421719_tr7gl2bbk",
+  "title": "Tasks document with TDD cycle (73 tasks)",
+  "filePath": ".spec-workflow/specs/comprehensive-crud-tests/tasks.md",
+  "type": "document",
+  "status": "approved",
+  "createdAt": "2026-01-22T13:27:01.719Z",
+  "category": "spec",
+  "categoryName": "comprehensive-crud-tests",
+  "response": "Approved via dashboard",
+  "respondedAt": "2026-01-22T13:27:29.888Z"
+}

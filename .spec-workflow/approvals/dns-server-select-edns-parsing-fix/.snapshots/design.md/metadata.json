@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/dns-server-select-edns-parsing-fix/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-22T09:10:47.612Z",
+      "trigger": "initial",
+      "approvalId": "approval_1769073047605_zdg2p4yzb",
+      "approvalTitle": "Design: DNS Server Select Per-Server EDNS Support"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-22T09:13:32.766Z",
+      "trigger": "approved",
+      "approvalId": "approval_1769073047605_zdg2p4yzb",
+      "approvalTitle": "Design: DNS Server Select Per-Server EDNS Support"
+    }
+  ]
+}

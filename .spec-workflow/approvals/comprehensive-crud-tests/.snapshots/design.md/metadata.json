@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/comprehensive-crud-tests/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-22T12:37:04.115Z",
+      "trigger": "initial",
+      "approvalId": "approval_1769085424106_i7iezsbn1",
+      "approvalTitle": "Design: Test Architecture for 15 Resources"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-22T13:17:22.523Z",
+      "trigger": "approved",
+      "approvalId": "approval_1769087793709_xwyicyayx",
+      "approvalTitle": "Design Document - All Resources Use Batch Execution"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "approval_1769087959907_ys37dlp0o",
+  "title": "Tasks Document for Comprehensive CRUD Tests",
+  "filePath": ".spec-workflow/specs/comprehensive-crud-tests/tasks.md",
+  "type": "document",
+  "status": "rejected",
+  "createdAt": "2026-01-22T13:19:19.907Z",
+  "category": "spec",
+  "categoryName": "comprehensive-crud-tests",
+  "response": "テストを書くだけじゃなくて、テストを書く -> 実装を修正 -> テストのGreenを確認っていうタスクの順番を表現して欲しいです",
+  "respondedAt": "2026-01-22T13:22:11.987Z"
+}
