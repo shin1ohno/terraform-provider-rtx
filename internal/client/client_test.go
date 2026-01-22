@@ -356,6 +356,7 @@ func TestClient_Run(t *testing.T) {
 				promptDetector: tt.detector,
 				retryStrategy:  &MockRetryStrategy{},
 				active:         true, // Set as connected for testing
+				semaphore:      make(chan struct{}, 1),
 			}
 			// Initialize executor for the test (session is nil so executor will be used)
 			client.executor = NewSSHExecutor(tt.session, tt.detector, &MockRetryStrategy{})
@@ -497,6 +498,7 @@ func TestClient_Integration(t *testing.T) {
 			config:         config,
 			dialer:         dialer,
 			promptDetector: detector,
+			semaphore:      make(chan struct{}, 1),
 		}
 
 		ctx := context.Background()
@@ -548,7 +550,7 @@ func TestClient_ErrorScenarios(t *testing.T) {
 					Password: "password",
 					Timeout:  30,
 				}
-				return &rtxClient{config: config}
+				return &rtxClient{config: config, semaphore: make(chan struct{}, 1)}
 			},
 			testFunc: func(c Client) error {
 				_, err := c.Run(context.Background(), Command{Key: "test", Payload: "test"})
@@ -667,6 +669,7 @@ func TestClientTimeoutHandling(t *testing.T) {
 			promptDetector: detector,
 			retryStrategy:  &MockRetryStrategy{},
 			active:         true, // Set as connected for testing
+			semaphore:      make(chan struct{}, 1),
 		}
 		// Initialize executor for the test (session is nil so executor will be used)
 		client.executor = NewSSHExecutor(session, detector, &MockRetryStrategy{})

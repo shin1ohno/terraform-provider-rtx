@@ -23,7 +23,7 @@ func TestDNSService_Get(t *testing.T) {
 				m.On("Run", mock.Anything, "show config | grep dns").
 					Return([]byte(`dns server 8.8.8.8 8.8.4.4
 dns domain example.com
-dns service on
+dns service recursive
 dns private address spoof on
 `), nil)
 			},
@@ -45,7 +45,7 @@ dns private address spoof on
 					Return([]byte(`dns server 8.8.8.8
 dns server select 1 192.168.1.1 internal.example.com
 dns static router 192.168.1.1
-dns service on
+dns service recursive
 `), nil)
 			},
 			expected: &DNSConfig{
@@ -138,7 +138,7 @@ func TestDNSService_Configure(t *testing.T) {
 			mockSetup: func(m *MockExecutor) {
 				m.On("Run", mock.Anything, "dns server 8.8.8.8 8.8.4.4").
 					Return([]byte(""), nil)
-				m.On("Run", mock.Anything, "dns service on").
+				m.On("Run", mock.Anything, "dns service recursive").
 					Return([]byte(""), nil)
 				m.On("Run", mock.Anything, "dns private address spoof off").
 					Return([]byte(""), nil)
@@ -159,7 +159,7 @@ func TestDNSService_Configure(t *testing.T) {
 					Return([]byte(""), nil)
 				m.On("Run", mock.Anything, "dns server 8.8.8.8").
 					Return([]byte(""), nil)
-				m.On("Run", mock.Anything, "dns service on").
+				m.On("Run", mock.Anything, "dns service recursive").
 					Return([]byte(""), nil)
 				m.On("Run", mock.Anything, "dns private address spoof on").
 					Return([]byte(""), nil)
@@ -207,7 +207,7 @@ func TestDNSService_Configure(t *testing.T) {
 					Return([]byte(""), nil)
 				m.On("Run", mock.Anything, "dns static router 192.168.1.1").
 					Return([]byte(""), nil)
-				m.On("Run", mock.Anything, "dns service on").
+				m.On("Run", mock.Anything, "dns service recursive").
 					Return([]byte(""), nil)
 				m.On("Run", mock.Anything, "dns private address spoof off").
 					Return([]byte(""), nil)
