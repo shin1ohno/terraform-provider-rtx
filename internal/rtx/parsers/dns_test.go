@@ -396,6 +396,211 @@ func TestBuildDNSServerSelectCommand(t *testing.T) {
 			},
 			expected: "dns server select 5 10.0.0.1 edns=on 10.0.0.2 aaaa .",
 		},
+		// === ID boundary values ===
+		{
+			name: "ID minimum (1)",
+			sel: DNSServerSelect{
+				ID:           1,
+				Servers:      []DNSServer{{Address: "8.8.8.8", EDNS: false}},
+				QueryPattern: ".",
+			},
+			expected: "dns server select 1 8.8.8.8 .",
+		},
+		{
+			name: "ID maximum (65535)",
+			sel: DNSServerSelect{
+				ID:           65535,
+				Servers:      []DNSServer{{Address: "8.8.8.8", EDNS: false}},
+				QueryPattern: ".",
+			},
+			expected: "dns server select 65535 8.8.8.8 .",
+		},
+		{
+			name: "invalid - ID zero",
+			sel: DNSServerSelect{
+				ID:           0,
+				Servers:      []DNSServer{{Address: "8.8.8.8", EDNS: false}},
+				QueryPattern: ".",
+			},
+			expected: "",
+		},
+		// === All record types ===
+		{
+			name: "record type: a (default, omitted)",
+			sel: DNSServerSelect{
+				ID:           10,
+				Servers:      []DNSServer{{Address: "8.8.8.8", EDNS: false}},
+				RecordType:   "a",
+				QueryPattern: ".",
+			},
+			expected: "dns server select 10 8.8.8.8 .",
+		},
+		{
+			name: "record type: ptr",
+			sel: DNSServerSelect{
+				ID:           11,
+				Servers:      []DNSServer{{Address: "8.8.8.8", EDNS: false}},
+				RecordType:   "ptr",
+				QueryPattern: ".",
+			},
+			expected: "dns server select 11 8.8.8.8 ptr .",
+		},
+		{
+			name: "record type: mx",
+			sel: DNSServerSelect{
+				ID:           12,
+				Servers:      []DNSServer{{Address: "8.8.8.8", EDNS: false}},
+				RecordType:   "mx",
+				QueryPattern: ".",
+			},
+			expected: "dns server select 12 8.8.8.8 mx .",
+		},
+		{
+			name: "record type: ns",
+			sel: DNSServerSelect{
+				ID:           13,
+				Servers:      []DNSServer{{Address: "8.8.8.8", EDNS: false}},
+				RecordType:   "ns",
+				QueryPattern: ".",
+			},
+			expected: "dns server select 13 8.8.8.8 ns .",
+		},
+		{
+			name: "record type: cname",
+			sel: DNSServerSelect{
+				ID:           14,
+				Servers:      []DNSServer{{Address: "8.8.8.8", EDNS: false}},
+				RecordType:   "cname",
+				QueryPattern: ".",
+			},
+			expected: "dns server select 14 8.8.8.8 cname .",
+		},
+		// === IPv6 servers ===
+		{
+			name: "single IPv6 server",
+			sel: DNSServerSelect{
+				ID:           20,
+				Servers:      []DNSServer{{Address: "2001:4860:4860::8888", EDNS: false}},
+				QueryPattern: ".",
+			},
+			expected: "dns server select 20 2001:4860:4860::8888 .",
+		},
+		{
+			name: "two IPv6 servers with EDNS",
+			sel: DNSServerSelect{
+				ID: 21,
+				Servers: []DNSServer{
+					{Address: "2606:4700:4700::1111", EDNS: true},
+					{Address: "2606:4700:4700::1001", EDNS: true},
+				},
+				RecordType:   "aaaa",
+				QueryPattern: ".",
+			},
+			expected: "dns server select 21 2606:4700:4700::1111 edns=on 2606:4700:4700::1001 edns=on aaaa .",
+		},
+		{
+			name: "mixed IPv4 and IPv6",
+			sel: DNSServerSelect{
+				ID: 22,
+				Servers: []DNSServer{
+					{Address: "8.8.8.8", EDNS: true},
+					{Address: "2001:4860:4860::8888", EDNS: true},
+				},
+				QueryPattern: ".",
+			},
+			expected: "dns server select 22 8.8.8.8 edns=on 2001:4860:4860::8888 edns=on .",
+		},
+		// === Query pattern variations ===
+		{
+			name: "query pattern: wildcard subdomain",
+			sel: DNSServerSelect{
+				ID:           30,
+				Servers:      []DNSServer{{Address: "10.0.0.53", EDNS: false}},
+				QueryPattern: "*.internal.corp.example.com",
+			},
+			expected: "dns server select 30 10.0.0.53 *.internal.corp.example.com",
+		},
+		{
+			name: "query pattern: simple domain",
+			sel: DNSServerSelect{
+				ID:           31,
+				Servers:      []DNSServer{{Address: "10.0.0.53", EDNS: false}},
+				QueryPattern: "home.local",
+			},
+			expected: "dns server select 31 10.0.0.53 home.local",
+		},
+		// === OriginalSender variations ===
+		{
+			name: "original sender: single IP",
+			sel: DNSServerSelect{
+				ID:             40,
+				Servers:        []DNSServer{{Address: "10.0.0.53", EDNS: false}},
+				QueryPattern:   ".",
+				OriginalSender: "192.168.1.100",
+			},
+			expected: "dns server select 40 10.0.0.53 . 192.168.1.100",
+		},
+		{
+			name: "original sender: CIDR /16",
+			sel: DNSServerSelect{
+				ID:             41,
+				Servers:        []DNSServer{{Address: "10.0.0.53", EDNS: false}},
+				QueryPattern:   ".",
+				OriginalSender: "10.0.0.0/16",
+			},
+			expected: "dns server select 41 10.0.0.53 . 10.0.0.0/16",
+		},
+		// === EDNS combinations ===
+		{
+			name: "EDNS: both servers off",
+			sel: DNSServerSelect{
+				ID: 50,
+				Servers: []DNSServer{
+					{Address: "1.1.1.1", EDNS: false},
+					{Address: "1.0.0.1", EDNS: false},
+				},
+				QueryPattern: ".",
+			},
+			expected: "dns server select 50 1.1.1.1 1.0.0.1 .",
+		},
+		{
+			name: "EDNS: second server only",
+			sel: DNSServerSelect{
+				ID: 51,
+				Servers: []DNSServer{
+					{Address: "1.1.1.1", EDNS: false},
+					{Address: "1.0.0.1", EDNS: true},
+				},
+				QueryPattern: ".",
+			},
+			expected: "dns server select 51 1.1.1.1 1.0.0.1 edns=on .",
+		},
+		// === Complex real-world example ===
+		{
+			name: "real-world: Cloudflare IPv6 with AAAA filter",
+			sel: DNSServerSelect{
+				ID: 500100,
+				Servers: []DNSServer{
+					{Address: "2606:4700:4700::1111", EDNS: true},
+					{Address: "2606:4700:4700::1001", EDNS: true},
+				},
+				RecordType:   "aaaa",
+				QueryPattern: ".",
+			},
+			expected: "dns server select 500100 2606:4700:4700::1111 edns=on 2606:4700:4700::1001 edns=on aaaa .",
+		},
+		{
+			name: "real-world: internal DNS with restrict",
+			sel: DNSServerSelect{
+				ID:             100,
+				Servers:        []DNSServer{{Address: "192.168.1.1", EDNS: false}},
+				RecordType:     "any",
+				QueryPattern:   "*.corp.local",
+				OriginalSender: "192.168.0.0/16",
+				RestrictPP:     1,
+			},
+			expected: "dns server select 100 192.168.1.1 any *.corp.local 192.168.0.0/16 restrict pp 1",
+		},
 	}
 
 	for _, tt := range tests {
