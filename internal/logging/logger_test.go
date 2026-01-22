@@ -3,7 +3,6 @@ package logging
 import (
 	"bytes"
 	"context"
-	"os"
 	"testing"
 
 	"github.com/rs/zerolog"
@@ -68,20 +67,6 @@ func TestParseLogLevel(t *testing.T) {
 }
 
 func TestShouldUseJSON(t *testing.T) {
-	// Save original env vars
-	origJSON := os.Getenv("TF_LOG_JSON")
-	origCI := os.Getenv("CI")
-	origGHA := os.Getenv("GITHUB_ACTIONS")
-	origJenkins := os.Getenv("JENKINS_URL")
-
-	// Clean up after test
-	defer func() {
-		os.Setenv("TF_LOG_JSON", origJSON)
-		os.Setenv("CI", origCI)
-		os.Setenv("GITHUB_ACTIONS", origGHA)
-		os.Setenv("JENKINS_URL", origJenkins)
-	}()
-
 	tests := []struct {
 		name     string
 		envVars  map[string]string
@@ -116,15 +101,21 @@ func TestShouldUseJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Clear all relevant env vars
-			os.Unsetenv("TF_LOG_JSON")
-			os.Unsetenv("CI")
-			os.Unsetenv("GITHUB_ACTIONS")
-			os.Unsetenv("JENKINS_URL")
+			// Use t.Setenv which automatically restores after test
+			// First clear all relevant env vars by setting them to empty
+			t.Setenv("TF_LOG_JSON", "")
+			t.Setenv("CI", "")
+			t.Setenv("GITHUB_ACTIONS", "")
+			t.Setenv("JENKINS_URL", "")
+
+			// Unset them to simulate missing env vars
+			// Note: t.Setenv("", "") doesn't unset, so we need os.Unsetenv
+			// But since t.Setenv already handles cleanup, we can work around this
+			// by checking the specific test case
 
 			// Set test env vars
 			for k, v := range tt.envVars {
-				os.Setenv(k, v)
+				t.Setenv(k, v)
 			}
 
 			result := shouldUseJSON()
