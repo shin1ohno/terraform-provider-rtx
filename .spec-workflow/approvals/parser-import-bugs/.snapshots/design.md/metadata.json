@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/parser-import-bugs/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-22T04:21:06.050Z",
+      "trigger": "initial",
+      "approvalId": "approval_1769055666038_mip3mq1ik",
+      "approvalTitle": "Design: Parser Import Bugs Fix"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-22T04:21:48.589Z",
+      "trigger": "approved",
+      "approvalId": "approval_1769055666038_mip3mq1ik",
+      "approvalTitle": "Design: Parser Import Bugs Fix"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/import-fidelity-v2/tasks.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-22T04:46:04.096Z",
+      "trigger": "initial",
+      "approvalId": "approval_1769057164085_wpzqi8iyk",
+      "approvalTitle": "Import Fidelity Fix v2 - Requirements, Design, Tasks"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-22T04:59:33.942Z",
+      "trigger": "approved",
+      "approvalId": "approval_1769057164085_wpzqi8iyk",
+      "approvalTitle": "Import Fidelity Fix v2 - Requirements, Design, Tasks"
+    }
+  ]
+}

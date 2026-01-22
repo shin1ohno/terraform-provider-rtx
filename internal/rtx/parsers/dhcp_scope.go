@@ -11,6 +11,8 @@ import (
 type DHCPScope struct {
 	ScopeID       int              `json:"scope_id"`
 	Network       string           `json:"network"`                  // CIDR notation: "192.168.1.0/24"
+	RangeStart    string           `json:"range_start,omitempty"`    // Start IP of allocation range (if specified)
+	RangeEnd      string           `json:"range_end,omitempty"`      // End IP of allocation range (if specified)
 	LeaseTime     string           `json:"lease_time,omitempty"`     // Go duration format or "infinite"
 	ExcludeRanges []ExcludeRange   `json:"exclude_ranges,omitempty"` // Excluded IP ranges
 	Options       DHCPScopeOptions `json:"options,omitempty"`        // DHCP options (dns, routers, etc.)
@@ -51,6 +53,9 @@ func (p *DHCPScopeParser) ParseScopeConfig(raw string) ([]DHCPScope, error) {
 	scopePattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+(\d+)\s+([0-9.]+/\d+)(?:\s+gateway\s+([0-9.]+))?(?:\s+expire\s+(\S+))?\s*$`)
 	// Pattern for scope with expire but no gateway (expire comes right after network)
 	scopeExpireOnlyPattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+(\d+)\s+([0-9.]+/\d+)\s+expire\s+(\S+)\s*$`)
+	// Pattern for IP range format: dhcp scope <id> <start_ip>-<end_ip>/<mask> [gateway <ip>] [expire <time>]
+	// e.g., "dhcp scope 1 192.168.1.20-192.168.1.99/16 gateway 192.168.1.253 expire 12:00"
+	scopeRangePattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+(\d+)\s+([0-9.]+)-([0-9.]+)/(\d+)(?:\s+gateway\s+([0-9.]+))?(?:\s+expire\s+(\S+))?\s*$`)
 	// dhcp scope option <id> dns=<dns1>[,<dns2>[,<dns3>]] [router=<gw1>[,<gw2>]] [domain=<domain>]
 	optionPattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+option\s+(\d+)\s+(.+)\s*$`)
 	// dhcp scope <id> except <start>-<end>
@@ -62,7 +67,38 @@ func (p *DHCPScopeParser) ParseScopeConfig(raw string) ([]DHCPScope, error) {
 			continue
 		}
 
-		// Try scope with expire only pattern first (more specific pattern)
+		// Try IP range pattern first (most specific pattern)
+		// This handles "dhcp scope 1 192.168.1.20-192.168.1.99/16 gateway 192.168.1.253 expire 12:00"
+		if matches := scopeRangePattern.FindStringSubmatch(line); len(matches) >= 5 {
+			scopeID, err := strconv.Atoi(matches[1])
+			if err != nil {
+				continue
+			}
+
+			scope, exists := scopes[scopeID]
+			if !exists {
+				scope = &DHCPScope{
+					ScopeID:       scopeID,
+					ExcludeRanges: []ExcludeRange{},
+				}
+				scopes[scopeID] = scope
+			}
+
+			scope.RangeStart = matches[2]
+			scope.RangeEnd = matches[3]
+			scope.Network = matches[2] + "/" + matches[4] // Store as start_ip/mask for compatibility
+			// Gateway support
+			if len(matches) > 5 && matches[5] != "" {
+				scope.Options.Routers = []string{matches[5]}
+			}
+			// Expire time
+			if len(matches) > 6 && matches[6] != "" {
+				scope.LeaseTime = convertRTXLeaseTimeToGo(matches[6])
+			}
+			continue
+		}
+
+		// Try scope with expire only pattern (more specific pattern)
 		// This handles "dhcp scope 1 192.168.0.0/16 expire 24:00" (no gateway)
 		if matches := scopeExpireOnlyPattern.FindStringSubmatch(line); len(matches) >= 4 {
 			scopeID, err := strconv.Atoi(matches[1])

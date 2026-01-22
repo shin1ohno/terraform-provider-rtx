@@ -1,6 +1,7 @@
 package parsers
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -1901,6 +1902,217 @@ func TestBuildNATDescriptorAddressOuterCommand_YAMLPatterns(t *testing.T) {
 			result := BuildNATDescriptorAddressOuterCommand(tt.id, tt.address)
 			if result != tt.expected {
 				t.Errorf("got %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestNATMasqueradeProtocolOnlyRoundTrip tests the round-trip: parse → build → parse for protocol-only entries
+func TestNATMasqueradeProtocolOnlyRoundTrip(t *testing.T) {
+	tests := []struct {
+		name         string
+		descriptorID int
+		input        string
+		expected     MasqueradeStaticEntry
+	}{
+		{
+			name:         "ESP round-trip",
+			descriptorID: 1000,
+			input:        "nat descriptor masquerade static 1000 1 192.168.1.253 esp",
+			expected: MasqueradeStaticEntry{
+				EntryNumber: 1,
+				InsideLocal: "192.168.1.253",
+				Protocol:    "esp",
+			},
+		},
+		{
+			name:         "AH round-trip",
+			descriptorID: 1000,
+			input:        "nat descriptor masquerade static 1000 2 192.168.1.253 ah",
+			expected: MasqueradeStaticEntry{
+				EntryNumber: 2,
+				InsideLocal: "192.168.1.253",
+				Protocol:    "ah",
+			},
+		},
+		{
+			name:         "GRE round-trip",
+			descriptorID: 2000,
+			input:        "nat descriptor masquerade static 2000 1 10.0.0.100 gre",
+			expected: MasqueradeStaticEntry{
+				EntryNumber: 1,
+				InsideLocal: "10.0.0.100",
+				Protocol:    "gre",
+			},
+		},
+		{
+			name:         "ICMP round-trip",
+			descriptorID: 500,
+			input:        "nat descriptor masquerade static 500 5 172.16.0.1 icmp",
+			expected: MasqueradeStaticEntry{
+				EntryNumber: 5,
+				InsideLocal: "172.16.0.1",
+				Protocol:    "icmp",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Step 1: Parse the original input
+			config := fmt.Sprintf("nat descriptor type %d masquerade\n%s", tt.descriptorID, tt.input)
+			result, err := ParseNATMasqueradeConfig(config)
+			if err != nil {
+				t.Fatalf("Parse step 1 failed: %v", err)
+			}
+
+			if len(result) != 1 || len(result[0].StaticEntries) != 1 {
+				t.Fatalf("Expected 1 descriptor with 1 static entry, got %d descriptors", len(result))
+			}
+
+			parsedEntry := result[0].StaticEntries[0]
+
+			// Verify parsed entry matches expected
+			if parsedEntry.EntryNumber != tt.expected.EntryNumber {
+				t.Errorf("Entry number mismatch: got %d, want %d", parsedEntry.EntryNumber, tt.expected.EntryNumber)
+			}
+			if parsedEntry.InsideLocal != tt.expected.InsideLocal {
+				t.Errorf("InsideLocal mismatch: got %q, want %q", parsedEntry.InsideLocal, tt.expected.InsideLocal)
+			}
+			if parsedEntry.Protocol != tt.expected.Protocol {
+				t.Errorf("Protocol mismatch: got %q, want %q", parsedEntry.Protocol, tt.expected.Protocol)
+			}
+			// Protocol-only entries should have nil ports
+			if parsedEntry.InsideLocalPort != nil {
+				t.Errorf("InsideLocalPort should be nil for protocol-only entry, got %d", *parsedEntry.InsideLocalPort)
+			}
+			if parsedEntry.OutsideGlobalPort != nil {
+				t.Errorf("OutsideGlobalPort should be nil for protocol-only entry, got %d", *parsedEntry.OutsideGlobalPort)
+			}
+
+			// Step 2: Build command from parsed entry
+			builtCmd := BuildNATMasqueradeStaticCommand(result[0].DescriptorID, parsedEntry.EntryNumber, parsedEntry)
+
+			// Verify built command matches original input
+			if builtCmd != tt.input {
+				t.Errorf("Build command mismatch:\n  got:  %q\n  want: %q", builtCmd, tt.input)
+			}
+
+			// Step 3: Parse the built command again
+			config2 := fmt.Sprintf("nat descriptor type %d masquerade\n%s", tt.descriptorID, builtCmd)
+			result2, err := ParseNATMasqueradeConfig(config2)
+			if err != nil {
+				t.Fatalf("Parse step 2 failed: %v", err)
+			}
+
+			if len(result2) != 1 || len(result2[0].StaticEntries) != 1 {
+				t.Fatalf("Expected 1 descriptor with 1 static entry after round-trip, got %d descriptors", len(result2))
+			}
+
+			// Verify round-trip produces identical entry
+			roundTripEntry := result2[0].StaticEntries[0]
+			if roundTripEntry.EntryNumber != parsedEntry.EntryNumber {
+				t.Errorf("Round-trip entry number mismatch: got %d, want %d", roundTripEntry.EntryNumber, parsedEntry.EntryNumber)
+			}
+			if roundTripEntry.InsideLocal != parsedEntry.InsideLocal {
+				t.Errorf("Round-trip InsideLocal mismatch: got %q, want %q", roundTripEntry.InsideLocal, parsedEntry.InsideLocal)
+			}
+			if roundTripEntry.Protocol != parsedEntry.Protocol {
+				t.Errorf("Round-trip Protocol mismatch: got %q, want %q", roundTripEntry.Protocol, parsedEntry.Protocol)
+			}
+		})
+	}
+}
+
+// TestNATMasqueradePortBasedRoundTrip tests the round-trip: parse → build → parse for port-based entries
+func TestNATMasqueradePortBasedRoundTrip(t *testing.T) {
+	tests := []struct {
+		name         string
+		descriptorID int
+		input        string
+		expected     MasqueradeStaticEntry
+	}{
+		{
+			name:         "TCP with same ports round-trip",
+			descriptorID: 1,
+			input:        "nat descriptor masquerade static 1 1 ipcp:80=192.168.1.100:80 tcp",
+			expected: MasqueradeStaticEntry{
+				EntryNumber:       1,
+				OutsideGlobal:     "ipcp",
+				OutsideGlobalPort: intPtr(80),
+				InsideLocal:       "192.168.1.100",
+				InsideLocalPort:   intPtr(80),
+				Protocol:          "tcp",
+			},
+		},
+		{
+			name:         "UDP with different ports round-trip",
+			descriptorID: 2,
+			input:        "nat descriptor masquerade static 2 3 203.0.113.1:8080=10.0.0.50:80 udp",
+			expected: MasqueradeStaticEntry{
+				EntryNumber:       3,
+				OutsideGlobal:     "203.0.113.1",
+				OutsideGlobalPort: intPtr(8080),
+				InsideLocal:       "10.0.0.50",
+				InsideLocalPort:   intPtr(80),
+				Protocol:          "udp",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Step 1: Parse the original input
+			config := fmt.Sprintf("nat descriptor type %d masquerade\n%s", tt.descriptorID, tt.input)
+			result, err := ParseNATMasqueradeConfig(config)
+			if err != nil {
+				t.Fatalf("Parse step 1 failed: %v", err)
+			}
+
+			if len(result) != 1 || len(result[0].StaticEntries) != 1 {
+				t.Fatalf("Expected 1 descriptor with 1 static entry, got %d descriptors", len(result))
+			}
+
+			parsedEntry := result[0].StaticEntries[0]
+
+			// Step 2: Build command from parsed entry
+			builtCmd := BuildNATMasqueradeStaticCommand(result[0].DescriptorID, parsedEntry.EntryNumber, parsedEntry)
+
+			// Verify built command matches original input
+			if builtCmd != tt.input {
+				t.Errorf("Build command mismatch:\n  got:  %q\n  want: %q", builtCmd, tt.input)
+			}
+
+			// Step 3: Parse the built command again
+			config2 := fmt.Sprintf("nat descriptor type %d masquerade\n%s", tt.descriptorID, builtCmd)
+			result2, err := ParseNATMasqueradeConfig(config2)
+			if err != nil {
+				t.Fatalf("Parse step 2 failed: %v", err)
+			}
+
+			if len(result2) != 1 || len(result2[0].StaticEntries) != 1 {
+				t.Fatalf("Expected 1 descriptor with 1 static entry after round-trip, got %d descriptors", len(result2))
+			}
+
+			// Verify round-trip produces identical entry
+			roundTripEntry := result2[0].StaticEntries[0]
+			if roundTripEntry.EntryNumber != parsedEntry.EntryNumber {
+				t.Errorf("Round-trip entry number mismatch")
+			}
+			if roundTripEntry.OutsideGlobal != parsedEntry.OutsideGlobal {
+				t.Errorf("Round-trip OutsideGlobal mismatch: got %q, want %q", roundTripEntry.OutsideGlobal, parsedEntry.OutsideGlobal)
+			}
+			if *roundTripEntry.OutsideGlobalPort != *parsedEntry.OutsideGlobalPort {
+				t.Errorf("Round-trip OutsideGlobalPort mismatch")
+			}
+			if roundTripEntry.InsideLocal != parsedEntry.InsideLocal {
+				t.Errorf("Round-trip InsideLocal mismatch")
+			}
+			if *roundTripEntry.InsideLocalPort != *parsedEntry.InsideLocalPort {
+				t.Errorf("Round-trip InsideLocalPort mismatch")
+			}
+			if roundTripEntry.Protocol != parsedEntry.Protocol {
+				t.Errorf("Round-trip Protocol mismatch")
 			}
 		})
 	}

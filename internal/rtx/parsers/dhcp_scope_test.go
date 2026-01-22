@@ -72,6 +72,48 @@ func TestParseScopeConfig(t *testing.T) {
 			},
 		},
 		{
+			name:  "scope with IP range format (start-end/mask with gateway and expire)",
+			input: `dhcp scope 1 192.168.1.20-192.168.1.99/16 gateway 192.168.1.253 expire 12:00`,
+			expected: []DHCPScope{
+				{
+					ScopeID:       1,
+					Network:       "192.168.1.20/16",
+					RangeStart:    "192.168.1.20",
+					RangeEnd:      "192.168.1.99",
+					Options:       DHCPScopeOptions{Routers: []string{"192.168.1.253"}},
+					LeaseTime:     "12h",
+					ExcludeRanges: []ExcludeRange{},
+				},
+			},
+		},
+		{
+			name:  "scope with IP range format (no gateway, no expire)",
+			input: `dhcp scope 2 10.0.0.100-10.0.0.200/8`,
+			expected: []DHCPScope{
+				{
+					ScopeID:       2,
+					Network:       "10.0.0.100/8",
+					RangeStart:    "10.0.0.100",
+					RangeEnd:      "10.0.0.200",
+					ExcludeRanges: []ExcludeRange{},
+				},
+			},
+		},
+		{
+			name:  "scope with IP range format (with expire only)",
+			input: `dhcp scope 1 192.168.0.50-192.168.0.150/24 expire 24:00`,
+			expected: []DHCPScope{
+				{
+					ScopeID:       1,
+					Network:       "192.168.0.50/24",
+					RangeStart:    "192.168.0.50",
+					RangeEnd:      "192.168.0.150",
+					LeaseTime:     "24h",
+					ExcludeRanges: []ExcludeRange{},
+				},
+			},
+		},
+		{
 			name: "scope with DNS option",
 			input: `dhcp scope 1 192.168.1.0/24
 dhcp scope option 1 dns=8.8.8.8,8.8.4.4`,
@@ -221,6 +263,12 @@ dhcp scope option 2 dns=1.1.1.1 router=192.168.2.1`,
 
 				if got.Network != expected.Network {
 					t.Errorf("scope %d: network = %q, want %q", expected.ScopeID, got.Network, expected.Network)
+				}
+				if got.RangeStart != expected.RangeStart {
+					t.Errorf("scope %d: range_start = %q, want %q", expected.ScopeID, got.RangeStart, expected.RangeStart)
+				}
+				if got.RangeEnd != expected.RangeEnd {
+					t.Errorf("scope %d: range_end = %q, want %q", expected.ScopeID, got.RangeEnd, expected.RangeEnd)
 				}
 				if got.LeaseTime != expected.LeaseTime {
 					t.Errorf("scope %d: lease_time = %q, want %q", expected.ScopeID, got.LeaseTime, expected.LeaseTime)

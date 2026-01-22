@@ -40,6 +40,20 @@ func resourceRTXDHCPScope() *schema.Resource {
 				Description:  "The network address in CIDR notation (e.g., '192.168.1.0/24')",
 				ValidateFunc: validateCIDR,
 			},
+			"range_start": {
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				Description:  "Start IP address of the DHCP allocation range (parsed from IP range format)",
+				ValidateFunc: validateIPAddress,
+			},
+			"range_end": {
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				Description:  "End IP address of the DHCP allocation range (parsed from IP range format)",
+				ValidateFunc: validateIPAddress,
+			},
 			"lease_time": {
 				Type:         schema.TypeString,
 				Optional:     true,
@@ -154,6 +168,12 @@ func resourceRTXDHCPScopeRead(ctx context.Context, d *schema.ResourceData, meta 
 	if err := d.Set("network", scope.Network); err != nil {
 		return diag.FromErr(err)
 	}
+	if err := d.Set("range_start", scope.RangeStart); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("range_end", scope.RangeEnd); err != nil {
+		return diag.FromErr(err)
+	}
 	if err := d.Set("lease_time", scope.LeaseTime); err != nil {
 		return diag.FromErr(err)
 	}
@@ -246,6 +266,8 @@ func resourceRTXDHCPScopeImport(ctx context.Context, d *schema.ResourceData, met
 	d.SetId(strconv.Itoa(scopeID))
 	d.Set("scope_id", scope.ScopeID)
 	d.Set("network", scope.Network)
+	d.Set("range_start", scope.RangeStart)
+	d.Set("range_end", scope.RangeEnd)
 	d.Set("lease_time", scope.LeaseTime)
 
 	excludeRanges := make([]map[string]interface{}, len(scope.ExcludeRanges))

@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/parser-import-bugs/tasks.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-22T04:22:44.006Z",
+      "trigger": "initial",
+      "approvalId": "approval_1769055763994_64niu70en",
+      "approvalTitle": "Tasks: Parser Import Bugs Implementation"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-22T04:23:06.482Z",
+      "trigger": "approved",
+      "approvalId": "approval_1769055763994_64niu70en",
+      "approvalTitle": "Tasks: Parser Import Bugs Implementation"
+    }
+  ]
+}

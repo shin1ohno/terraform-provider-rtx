@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/parser-import-bugs/requirements.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-22T04:12:20.441Z",
+      "trigger": "initial",
+      "approvalId": "approval_1769055140394_mi5ht2cf7",
+      "approvalTitle": "Parser Import Bugs - Requirements"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-22T04:18:25.018Z",
+      "trigger": "approved",
+      "approvalId": "approval_1769055422224_gzywjmldr",
+      "approvalTitle": "Requirements: Parser Import Bugs (with RTX command formats)"
+    }
+  ]
+}
