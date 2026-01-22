@@ -316,15 +316,20 @@ type DNSConfig struct {
     PrivateSpoof bool              `json:"private_spoof"` // dns private address spoof on/off
 }
 
+// DNSServer represents a DNS server with per-server EDNS configuration
+type DNSServer struct {
+    Address string `json:"address"` // DNS server IP address (IPv4 or IPv6)
+    EDNS    bool   `json:"edns"`    // Enable EDNS for this server
+}
+
 // DNSServerSelect represents a domain-based DNS server selection entry
 type DNSServerSelect struct {
-    ID             int      `json:"id"`              // Selector ID (1-65535)
-    Servers        []string `json:"servers"`         // DNS server IPs
-    EDNS           bool     `json:"edns"`            // Enable EDNS
-    RecordType     string   `json:"record_type"`     // DNS record type
-    QueryPattern   string   `json:"query_pattern"`   // Domain pattern
-    OriginalSender string   `json:"original_sender"` // Source IP/CIDR restriction
-    RestrictPP     int      `json:"restrict_pp"`     // PP session restriction
+    ID             int         `json:"id"`              // Selector ID (1-65535)
+    Servers        []DNSServer `json:"servers"`         // DNS servers with per-server EDNS
+    RecordType     string      `json:"record_type"`     // DNS record type
+    QueryPattern   string      `json:"query_pattern"`   // Domain pattern
+    OriginalSender string      `json:"original_sender"` // Source IP/CIDR restriction
+    RestrictPP     int         `json:"restrict_pp"`     // PP session restriction
 }
 
 // DNSHost represents a static DNS host entry
@@ -556,11 +561,12 @@ internal/
    - server_id is ForceNew - changing it recreates the resource
    - Maximum 4 DDNS configurations per router
 
-4. **EDNS Handling**
-   - Parser layer uses per-server EDNS (DNSServer struct with EDNS bool)
-   - Client layer simplifies to single EDNS bool per select entry
-   - When converting from parser to client, EDNS is true if any server has it
-   - When converting from client to parser, EDNS is applied to all servers
+4. **EDNS Handling (Per-Server)**
+   - Parser layer uses per-server EDNS (`DNSServer` struct with `Address` and `EDNS` fields)
+   - Client layer mirrors parser layer with `[]DNSServer` in `DNSServerSelect`
+   - Provider layer uses nested `server` blocks with `address` and `edns` attributes
+   - Type alignment: Parser, Client, and Provider all support per-server EDNS
+   - Conversion functions perform direct mapping between layers
 
 5. **Line Wrapping in Parser**
    - RTX router wraps output at ~80 characters
@@ -589,3 +595,4 @@ internal/
 | Date | Source Spec | Changes |
 |------|-------------|---------|
 | 2026-01-23 | Implementation code | Initial master design document |
+| 2026-01-23 | dns-server-select-per-server-edns | Updated DNSServerSelect to use `[]DNSServer` for per-server EDNS; aligned Client layer with Parser layer; updated EDNS handling notes |

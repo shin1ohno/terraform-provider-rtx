@@ -94,11 +94,23 @@ The Delete operation resets DNS configuration to defaults:
 ##### Acceptance Criteria
 
 1. WHEN `server_select` entries are specified THEN the provider SHALL configure domain-based DNS routing
-2. EACH server_select entry MUST have an `id` (positive integer), `servers` (1-2 IPs), and `query_pattern`
-3. IF `edns` is true THEN the provider SHALL append `edns=on` to server addresses
-4. IF `record_type` is specified (a, aaaa, ptr, mx, ns, cname, any) THEN the provider SHALL include it in the command
-5. IF `original_sender` is specified THEN the provider SHALL restrict queries by source IP/CIDR
-6. IF `restrict_pp` is specified THEN the provider SHALL restrict queries to a specific PP session
+2. EACH server_select entry MUST have an `id` (positive integer), 1-2 `server` blocks, and `query_pattern`
+3. EACH `server` block within a `server_select` entry MUST have an `address` (IPv4 or IPv6) and MAY have `edns` (boolean, defaults to false)
+4. IF a `server` block has `edns = true` THEN the provider SHALL append `edns=on` after that server's address
+5. IF `record_type` is specified (a, aaaa, ptr, mx, ns, cname, any) THEN the provider SHALL include it in the command
+6. IF `original_sender` is specified THEN the provider SHALL restrict queries by source IP/CIDR
+7. IF `restrict_pp` is specified THEN the provider SHALL restrict queries to a specific PP session
+
+##### Per-Server EDNS Specification
+
+The RTX router supports per-server EDNS configuration in the command syntax:
+```
+dns server select 500000 . a 1.1.1.1 edns=on 1.0.0.1 edns=on
+```
+
+This allows different EDNS settings for each DNS server within a single server_select entry:
+- Server 1 may have EDNS enabled while Server 2 has it disabled
+- The Terraform schema must support this granularity via nested `server` blocks
 
 #### Requirement 3: Static DNS Hosts
 
@@ -136,7 +148,9 @@ The Delete operation resets DNS configuration to defaults:
 |-----------|------------|
 | name_servers | Maximum 3 entries, each must be valid IPv4 address |
 | server_select.id | Positive integer (1-65535) |
-| server_select.servers | 1-2 entries, each must be valid IPv4 or IPv6 address |
+| server_select.server | 1-2 blocks required (MinItems: 1, MaxItems: 2) |
+| server_select.server.address | Must be valid IPv4 or IPv6 address |
+| server_select.server.edns | Boolean, defaults to false |
 | server_select.record_type | One of: a, aaaa, ptr, mx, ns, cname, any |
 | hosts.address | Must be valid IP address |
 
@@ -208,18 +222,44 @@ resource "rtx_dns_server" "main" {
 
   server_select {
     id            = 1
-    servers       = ["192.168.1.10"]
     query_pattern = "internal.example.com"
+
+    server {
+      address = "192.168.1.10"
+    }
   }
 
   server_select {
     id              = 2
-    servers         = ["10.0.0.1", "10.0.0.2"]
-    edns            = true
     record_type     = "any"
     query_pattern   = "."
     original_sender = "192.168.1.0/24"
     restrict_pp     = 1
+
+    server {
+      address = "10.0.0.1"
+      edns    = true
+    }
+    server {
+      address = "10.0.0.2"
+      edns    = true
+    }
+  }
+
+  # Example with mixed EDNS settings
+  server_select {
+    id            = 500000
+    query_pattern = "."
+    record_type   = "a"
+
+    server {
+      address = "1.1.1.1"
+      edns    = true
+    }
+    server {
+      address = "1.0.0.1"
+      edns    = false
+    }
   }
 
   hosts {
@@ -246,8 +286,9 @@ resource "rtx_dns_server" "main" {
 | name_servers | list(string) | No | - | No | List of DNS server IPs (max 3) |
 | server_select | list(object) | No | - | No | Domain-based DNS server selection |
 | server_select.id | int | Yes | - | No | Selector ID (positive integer) |
-| server_select.servers | list(string) | Yes | - | No | DNS server IPs (1-2) |
-| server_select.edns | bool | No | false (computed) | No | Enable EDNS |
+| server_select.server | list(object) | Yes | - | No | DNS servers with per-server EDNS (MinItems: 1, MaxItems: 2) |
+| server_select.server.address | string | Yes | - | No | DNS server IP address (IPv4 or IPv6) |
+| server_select.server.edns | bool | No | false | No | Enable EDNS for this server |
 | server_select.record_type | string | No | "a" (computed) | No | DNS record type |
 | server_select.query_pattern | string | Yes | - | No | Domain pattern to match |
 | server_select.original_sender | string | No | - | No | Source IP/CIDR restriction |
@@ -532,3 +573,4 @@ resource "rtx_ddns" "dyndns" {
 | Date | Source Spec | Changes |
 |------|-------------|---------|
 | 2026-01-23 | Implementation code | Initial master spec creation |
+| 2026-01-23 | dns-server-select-per-server-edns | Updated server_select schema to use nested `server` blocks with per-server EDNS support |
