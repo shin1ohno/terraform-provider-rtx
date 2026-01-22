@@ -48,6 +48,30 @@ func TestParseScopeConfig(t *testing.T) {
 			},
 		},
 		{
+			name:  "scope with expire only (no gateway)",
+			input: `dhcp scope 1 192.168.0.0/16 expire 24:00`,
+			expected: []DHCPScope{
+				{
+					ScopeID:       1,
+					Network:       "192.168.0.0/16",
+					LeaseTime:     "24h",
+					ExcludeRanges: []ExcludeRange{},
+				},
+			},
+		},
+		{
+			name:  "scope with large network and expire (no gateway)",
+			input: `dhcp scope 2 10.0.0.0/8 expire 48:00`,
+			expected: []DHCPScope{
+				{
+					ScopeID:       2,
+					Network:       "10.0.0.0/8",
+					LeaseTime:     "48h",
+					ExcludeRanges: []ExcludeRange{},
+				},
+			},
+		},
+		{
 			name: "scope with DNS option",
 			input: `dhcp scope 1 192.168.1.0/24
 dhcp scope option 1 dns=8.8.8.8,8.8.4.4`,

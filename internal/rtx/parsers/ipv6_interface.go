@@ -48,6 +48,8 @@ func ParseIPv6InterfaceConfig(raw string, interfaceName string) (*IPv6InterfaceC
 		Addresses: []IPv6Address{},
 	}
 
+	// Preprocess to handle wrapped lines (long filter lists can span multiple lines)
+	raw = preprocessWrappedLines(raw)
 	lines := strings.Split(raw, "\n")
 
 	// Patterns for parsing IPv6 interface configuration

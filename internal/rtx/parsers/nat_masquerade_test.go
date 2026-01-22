@@ -1384,17 +1384,22 @@ func TestBuildShowNATDescriptorCommand(t *testing.T) {
 		{
 			name:     "descriptor 1",
 			id:       1,
-			expected: `show config | grep -E "nat descriptor (type|address outer|address inner|masquerade static) 1 "`,
+			expected: `show config | grep "nat descriptor" | grep -E "( 1 | 1$)"`,
 		},
 		{
 			name:     "descriptor 10",
 			id:       10,
-			expected: `show config | grep -E "nat descriptor (type|address outer|address inner|masquerade static) 10 "`,
+			expected: `show config | grep "nat descriptor" | grep -E "( 10 | 10$)"`,
 		},
 		{
 			name:     "descriptor 100",
 			id:       100,
-			expected: `show config | grep -E "nat descriptor (type|address outer|address inner|masquerade static) 100 "`,
+			expected: `show config | grep "nat descriptor" | grep -E "( 100 | 100$)"`,
+		},
+		{
+			name:     "descriptor 1000 - matches type line without trailing space",
+			id:       1000,
+			expected: `show config | grep "nat descriptor" | grep -E "( 1000 | 1000$)"`,
 		},
 	}
 
@@ -1545,6 +1550,102 @@ nat descriptor address inner 65535 10.0.0.0-10.0.0.255`,
 					OuterAddress:  "ipcp",
 					InnerNetwork:  "10.0.0.0-10.0.0.255",
 					StaticEntries: []MasqueradeStaticEntry{},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "descriptor ID 1000 with VPN passthrough",
+			input: `nat descriptor type 1000 masquerade
+nat descriptor address outer 1000 primary
+nat descriptor address inner 1000 192.168.1.0-192.168.1.255
+nat descriptor masquerade static 1000 1 192.168.1.253 esp
+nat descriptor masquerade static 1000 2 192.168.1.253 ah`,
+			expected: []NATMasquerade{
+				{
+					DescriptorID: 1000,
+					OuterAddress: "primary",
+					InnerNetwork: "192.168.1.0-192.168.1.255",
+					StaticEntries: []MasqueradeStaticEntry{
+						{
+							EntryNumber: 1,
+							InsideLocal: "192.168.1.253",
+							Protocol:    "esp",
+							// InsideLocalPort and OutsideGlobalPort are nil for protocol-only
+						},
+						{
+							EntryNumber: 2,
+							InsideLocal: "192.168.1.253",
+							Protocol:    "ah",
+							// InsideLocalPort and OutsideGlobalPort are nil for protocol-only
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "descriptor 1000 with multiple mixed static entries",
+			input: `nat descriptor type 1000 masquerade
+nat descriptor address outer 1000 ipcp
+nat descriptor address inner 1000 10.0.0.0-10.0.255.255
+nat descriptor masquerade static 1000 1 10.0.0.100 tcp 443
+nat descriptor masquerade static 1000 2 10.0.0.100 tcp 8443=443
+nat descriptor masquerade static 1000 3 10.0.0.200 esp
+nat descriptor masquerade static 1000 4 10.0.0.200 gre`,
+			expected: []NATMasquerade{
+				{
+					DescriptorID: 1000,
+					OuterAddress: "ipcp",
+					InnerNetwork: "10.0.0.0-10.0.255.255",
+					StaticEntries: []MasqueradeStaticEntry{
+						{
+							EntryNumber:       1,
+							InsideLocal:       "10.0.0.100",
+							InsideLocalPort:   intPtr(443),
+							OutsideGlobalPort: intPtr(443),
+							Protocol:          "tcp",
+						},
+						{
+							EntryNumber:       2,
+							InsideLocal:       "10.0.0.100",
+							InsideLocalPort:   intPtr(443),
+							OutsideGlobalPort: intPtr(8443),
+							Protocol:          "tcp",
+						},
+						{
+							EntryNumber: 3,
+							InsideLocal: "10.0.0.200",
+							Protocol:    "esp",
+						},
+						{
+							EntryNumber: 4,
+							InsideLocal: "10.0.0.200",
+							Protocol:    "gre",
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "protocol-only entries icmp",
+			input: `nat descriptor type 500 masquerade
+nat descriptor address outer 500 pp1
+nat descriptor address inner 500 172.16.0.0-172.16.0.255
+nat descriptor masquerade static 500 1 172.16.0.1 icmp`,
+			expected: []NATMasquerade{
+				{
+					DescriptorID: 500,
+					OuterAddress: "pp1",
+					InnerNetwork: "172.16.0.0-172.16.0.255",
+					StaticEntries: []MasqueradeStaticEntry{
+						{
+							EntryNumber: 1,
+							InsideLocal: "172.16.0.1",
+							Protocol:    "icmp",
+						},
+					},
 				},
 			},
 			wantErr: false,

@@ -221,8 +221,10 @@ func parseDNSServerSelectFields(id int, rest string) *DNSServerSelect {
 
 	i := 0
 
-	// Phase 1: Parse servers (at the beginning, 1-2 IPs)
-	for i < len(fields) && isValidIPForDNS(fields[i]) {
+	// Phase 1: Parse servers (at the beginning, max 2 IPs per RTX specification)
+	// RTX routers support at most 2 DNS servers per select entry
+	const maxServers = 2
+	for i < len(fields) && isValidIPForDNS(fields[i]) && len(sel.Servers) < maxServers {
 		sel.Servers = append(sel.Servers, fields[i])
 		i++
 	}

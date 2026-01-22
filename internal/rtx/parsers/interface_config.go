@@ -381,10 +381,11 @@ func preprocessWrappedLines(input string) string {
 	input = strings.ReplaceAll(input, "\r\n", "\n")
 
 	// Pattern to detect a continuation line:
-	// - Must start with a number (filter ID continuation)
+	// - RTX wraps long lines at ~80 chars, continuation starts with space(s) then digit
+	// - Also handle lines that start directly with a digit (no leading space)
 	// - May contain numbers, 'dynamic' keyword, and spaces
 	// This handles both simple number continuations and "numbers dynamic numbers" patterns
-	continuationPattern := regexp.MustCompile(`^\d`)
+	continuationPattern := regexp.MustCompile(`^(\s+)?\d`)
 
 	lines := strings.Split(input, "\n")
 	var result []string

@@ -44,9 +44,13 @@ func (p *DHCPScopeParser) ParseScopeConfig(raw string) ([]DHCPScope, error) {
 	lines := strings.Split(raw, "\n")
 
 	// Patterns for different scope configuration lines
-	// dhcp scope <id> <network>/<prefix> [expire <time>]
+	// dhcp scope <id> <network>/<prefix> [gateway <ip>] [expire <time>]
 	// Note: gateway is now handled via "dhcp scope option <id> router=..."
+	// Both "dhcp scope 1 192.168.0.0/16 expire 24:00" (no gateway) and
+	// "dhcp scope 1 192.168.0.0/16 gateway 192.168.0.1 expire 24:00" must be supported
 	scopePattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+(\d+)\s+([0-9.]+/\d+)(?:\s+gateway\s+([0-9.]+))?(?:\s+expire\s+(\S+))?\s*$`)
+	// Pattern for scope with expire but no gateway (expire comes right after network)
+	scopeExpireOnlyPattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+(\d+)\s+([0-9.]+/\d+)\s+expire\s+(\S+)\s*$`)
 	// dhcp scope option <id> dns=<dns1>[,<dns2>[,<dns3>]] [router=<gw1>[,<gw2>]] [domain=<domain>]
 	optionPattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+option\s+(\d+)\s+(.+)\s*$`)
 	// dhcp scope <id> except <start>-<end>
@@ -58,7 +62,29 @@ func (p *DHCPScopeParser) ParseScopeConfig(raw string) ([]DHCPScope, error) {
 			continue
 		}
 
-		// Try scope definition pattern
+		// Try scope with expire only pattern first (more specific pattern)
+		// This handles "dhcp scope 1 192.168.0.0/16 expire 24:00" (no gateway)
+		if matches := scopeExpireOnlyPattern.FindStringSubmatch(line); len(matches) >= 4 {
+			scopeID, err := strconv.Atoi(matches[1])
+			if err != nil {
+				continue
+			}
+
+			scope, exists := scopes[scopeID]
+			if !exists {
+				scope = &DHCPScope{
+					ScopeID:       scopeID,
+					ExcludeRanges: []ExcludeRange{},
+				}
+				scopes[scopeID] = scope
+			}
+
+			scope.Network = matches[2]
+			scope.LeaseTime = convertRTXLeaseTimeToGo(matches[3])
+			continue
+		}
+
+		// Try scope definition pattern (with optional gateway)
 		if matches := scopePattern.FindStringSubmatch(line); len(matches) >= 3 {
 			scopeID, err := strconv.Atoi(matches[1])
 			if err != nil {

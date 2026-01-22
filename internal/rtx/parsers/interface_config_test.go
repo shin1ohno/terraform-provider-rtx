@@ -203,6 +203,37 @@ ip tunnel1 secure filter in 300 301`,
 				DynamicFilterOut: []int{200080, 200081, 200082, 200083, 200084, 200085},
 			},
 		},
+		{
+			name: "Bug-1: 10+ filter numbers with RTX 80-char line wrapping (space+digit continuation)",
+			input: "ip lan2 secure filter in 200020 200021 200022 200023 200024 200025 200103\n" +
+				" 200100 200102 200104 200101 200105 200099",
+			interfaceName: "lan2",
+			expected: &InterfaceConfig{
+				Name:           "lan2",
+				SecureFilterIn: []int{200020, 200021, 200022, 200023, 200024, 200025, 200103, 200100, 200102, 200104, 200101, 200105, 200099},
+			},
+		},
+		{
+			name: "Bug-1: 6-digit filter numbers spanning multiple wrapped lines",
+			input: "ip lan2 secure filter in 200100 200102 200104 200106 200108\n" +
+				" 200110 200112 200114 200116 200118",
+			interfaceName: "lan2",
+			expected: &InterfaceConfig{
+				Name:           "lan2",
+				SecureFilterIn: []int{200100, 200102, 200104, 200106, 200108, 200110, 200112, 200114, 200116, 200118},
+			},
+		},
+		{
+			name: "Bug-1: dynamic keyword with wrapped lines",
+			input: "ip lan2 secure filter out 200020 200021 200022 200023 200024\n" +
+				" 200025 200026 dynamic 200080 200081 200082",
+			interfaceName: "lan2",
+			expected: &InterfaceConfig{
+				Name:             "lan2",
+				SecureFilterOut:  []int{200020, 200021, 200022, 200023, 200024, 200025, 200026},
+				DynamicFilterOut: []int{200080, 200081, 200082},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -814,6 +845,21 @@ func TestPreprocessWrappedLines(t *testing.T) {
 			name:     "multiple wrapped continuations",
 			input:    "ip lan2 secure filter in 1 2 3\n4 5 6\n7 8 9\nip lan2 nat descriptor 1",
 			expected: "ip lan2 secure filter in 1 2 3 4 5 6 7 8 9\nip lan2 nat descriptor 1",
+		},
+		{
+			name:     "RTX 80-char wrapped line with leading spaces",
+			input:    "ip lan2 secure filter in 200020 200021 200022 200023 200024 200025 200103\n 200100 200102 200104 200101 200105 200099",
+			expected: "ip lan2 secure filter in 200020 200021 200022 200023 200024 200025 200103 200100 200102 200104 200101 200105 200099",
+		},
+		{
+			name:     "6-digit filter numbers with wrapped lines",
+			input:    "ip lan2 secure filter in 200100 200102 200104 200106 200108\n 200110 200112 200114",
+			expected: "ip lan2 secure filter in 200100 200102 200104 200106 200108 200110 200112 200114",
+		},
+		{
+			name:     "dynamic keyword on wrapped continuation line",
+			input:    "ip lan2 secure filter out 200020 200021 200022 200023 200024\n 200025 200026 dynamic 200080 200081 200082",
+			expected: "ip lan2 secure filter out 200020 200021 200022 200023 200024 200025 200026 dynamic 200080 200081 200082",
 		},
 	}
 

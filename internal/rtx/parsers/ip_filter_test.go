@@ -1956,3 +1956,414 @@ func equalIntSlice(a, b []int) bool {
 	}
 	return true
 }
+
+// ============================================================================
+// Tests for IPv6 Dynamic Filter Parser
+// ============================================================================
+
+func TestParseIPv6FilterDynamicConfig(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []IPFilterDynamic
+		wantErr  bool
+	}{
+		{
+			name:  "basic ftp protocol",
+			input: "ipv6 filter dynamic 10 * * ftp",
+			expected: []IPFilterDynamic{
+				{
+					Number:   10,
+					Source:   "*",
+					Dest:     "*",
+					Protocol: "ftp",
+				},
+			},
+		},
+		{
+			name:  "domain protocol",
+			input: "ipv6 filter dynamic 20 * * domain",
+			expected: []IPFilterDynamic{
+				{
+					Number:   20,
+					Source:   "*",
+					Dest:     "*",
+					Protocol: "domain",
+				},
+			},
+		},
+		{
+			name:  "www protocol",
+			input: "ipv6 filter dynamic 30 * * www",
+			expected: []IPFilterDynamic{
+				{
+					Number:   30,
+					Source:   "*",
+					Dest:     "*",
+					Protocol: "www",
+				},
+			},
+		},
+		{
+			name:  "smtp protocol",
+			input: "ipv6 filter dynamic 40 * * smtp",
+			expected: []IPFilterDynamic{
+				{
+					Number:   40,
+					Source:   "*",
+					Dest:     "*",
+					Protocol: "smtp",
+				},
+			},
+		},
+		{
+			name:  "pop3 protocol",
+			input: "ipv6 filter dynamic 50 * * pop3",
+			expected: []IPFilterDynamic{
+				{
+					Number:   50,
+					Source:   "*",
+					Dest:     "*",
+					Protocol: "pop3",
+				},
+			},
+		},
+		{
+			name:  "submission protocol",
+			input: "ipv6 filter dynamic 60 * * submission",
+			expected: []IPFilterDynamic{
+				{
+					Number:   60,
+					Source:   "*",
+					Dest:     "*",
+					Protocol: "submission",
+				},
+			},
+		},
+		{
+			name:  "tcp protocol",
+			input: "ipv6 filter dynamic 70 * * tcp",
+			expected: []IPFilterDynamic{
+				{
+					Number:   70,
+					Source:   "*",
+					Dest:     "*",
+					Protocol: "tcp",
+				},
+			},
+		},
+		{
+			name:  "udp protocol",
+			input: "ipv6 filter dynamic 80 * * udp",
+			expected: []IPFilterDynamic{
+				{
+					Number:   80,
+					Source:   "*",
+					Dest:     "*",
+					Protocol: "udp",
+				},
+			},
+		},
+		{
+			name:  "with syslog on",
+			input: "ipv6 filter dynamic 100 * * ftp syslog on",
+			expected: []IPFilterDynamic{
+				{
+					Number:   100,
+					Source:   "*",
+					Dest:     "*",
+					Protocol: "ftp",
+					SyslogOn: true,
+				},
+			},
+		},
+		{
+			name:  "with IPv6 source network",
+			input: "ipv6 filter dynamic 110 2001:db8::/32 * www",
+			expected: []IPFilterDynamic{
+				{
+					Number:   110,
+					Source:   "2001:db8::/32",
+					Dest:     "*",
+					Protocol: "www",
+				},
+			},
+		},
+		{
+			name:  "with IPv6 source and dest networks",
+			input: "ipv6 filter dynamic 120 2001:db8:1::/48 2001:db8:2::/48 smtp",
+			expected: []IPFilterDynamic{
+				{
+					Number:   120,
+					Source:   "2001:db8:1::/48",
+					Dest:     "2001:db8:2::/48",
+					Protocol: "smtp",
+				},
+			},
+		},
+		{
+			name: "multiple IPv6 dynamic filters - 8 protocols",
+			input: `ipv6 filter dynamic 10 * * ftp
+ipv6 filter dynamic 20 * * domain
+ipv6 filter dynamic 30 * * www
+ipv6 filter dynamic 40 * * smtp
+ipv6 filter dynamic 50 * * pop3
+ipv6 filter dynamic 60 * * submission
+ipv6 filter dynamic 70 * * tcp
+ipv6 filter dynamic 80 * * udp`,
+			expected: []IPFilterDynamic{
+				{Number: 10, Source: "*", Dest: "*", Protocol: "ftp"},
+				{Number: 20, Source: "*", Dest: "*", Protocol: "domain"},
+				{Number: 30, Source: "*", Dest: "*", Protocol: "www"},
+				{Number: 40, Source: "*", Dest: "*", Protocol: "smtp"},
+				{Number: 50, Source: "*", Dest: "*", Protocol: "pop3"},
+				{Number: 60, Source: "*", Dest: "*", Protocol: "submission"},
+				{Number: 70, Source: "*", Dest: "*", Protocol: "tcp"},
+				{Number: 80, Source: "*", Dest: "*", Protocol: "udp"},
+			},
+		},
+		{
+			name: "multiple filters with syslog options",
+			input: `ipv6 filter dynamic 10 * * ftp syslog on
+ipv6 filter dynamic 20 * * www
+ipv6 filter dynamic 30 * * smtp syslog on`,
+			expected: []IPFilterDynamic{
+				{Number: 10, Source: "*", Dest: "*", Protocol: "ftp", SyslogOn: true},
+				{Number: 20, Source: "*", Dest: "*", Protocol: "www", SyslogOn: false},
+				{Number: 30, Source: "*", Dest: "*", Protocol: "smtp", SyslogOn: true},
+			},
+		},
+		{
+			name:     "empty input",
+			input:    "",
+			expected: []IPFilterDynamic{},
+		},
+		{
+			name:     "only comments",
+			input:    "# This is a comment\n# Another comment",
+			expected: []IPFilterDynamic{},
+		},
+		{
+			name: "skip static IPv6 filter lines",
+			input: `ipv6 filter 100 pass * * tcp
+ipv6 filter dynamic 10 * * ftp
+ipv6 lan1 secure filter in 100`,
+			expected: []IPFilterDynamic{
+				{Number: 10, Source: "*", Dest: "*", Protocol: "ftp"},
+			},
+		},
+		{
+			name: "mixed IPv4 and IPv6 dynamic filters - only IPv6 parsed",
+			input: `ip filter dynamic 10 * * ftp
+ipv6 filter dynamic 20 * * www
+ip filter dynamic 30 * * smtp`,
+			expected: []IPFilterDynamic{
+				{Number: 20, Source: "*", Dest: "*", Protocol: "www"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ParseIPv6FilterDynamicConfig(tt.input)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error, got nil")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			if len(result) != len(tt.expected) {
+				t.Errorf("expected %d filters, got %d", len(tt.expected), len(result))
+				return
+			}
+
+			for i, expected := range tt.expected {
+				got := result[i]
+				if got.Number != expected.Number {
+					t.Errorf("filter[%d].Number = %d, want %d", i, got.Number, expected.Number)
+				}
+				if got.Source != expected.Source {
+					t.Errorf("filter[%d].Source = %q, want %q", i, got.Source, expected.Source)
+				}
+				if got.Dest != expected.Dest {
+					t.Errorf("filter[%d].Dest = %q, want %q", i, got.Dest, expected.Dest)
+				}
+				if got.Protocol != expected.Protocol {
+					t.Errorf("filter[%d].Protocol = %q, want %q", i, got.Protocol, expected.Protocol)
+				}
+				if got.SyslogOn != expected.SyslogOn {
+					t.Errorf("filter[%d].SyslogOn = %v, want %v", i, got.SyslogOn, expected.SyslogOn)
+				}
+			}
+		})
+	}
+}
+
+func TestBuildIPv6FilterDynamicCommand(t *testing.T) {
+	tests := []struct {
+		name     string
+		filter   IPFilterDynamic
+		expected string
+	}{
+		{
+			name: "basic ftp protocol",
+			filter: IPFilterDynamic{
+				Number:   10,
+				Source:   "*",
+				Dest:     "*",
+				Protocol: "ftp",
+			},
+			expected: "ipv6 filter dynamic 10 * * ftp",
+		},
+		{
+			name: "domain protocol",
+			filter: IPFilterDynamic{
+				Number:   20,
+				Source:   "*",
+				Dest:     "*",
+				Protocol: "domain",
+			},
+			expected: "ipv6 filter dynamic 20 * * domain",
+		},
+		{
+			name: "www protocol with syslog",
+			filter: IPFilterDynamic{
+				Number:   30,
+				Source:   "*",
+				Dest:     "*",
+				Protocol: "www",
+				SyslogOn: true,
+			},
+			expected: "ipv6 filter dynamic 30 * * www syslog on",
+		},
+		{
+			name: "smtp protocol with IPv6 network",
+			filter: IPFilterDynamic{
+				Number:   40,
+				Source:   "2001:db8::/32",
+				Dest:     "*",
+				Protocol: "smtp",
+			},
+			expected: "ipv6 filter dynamic 40 2001:db8::/32 * smtp",
+		},
+		{
+			name: "tcp protocol with both IPv6 networks",
+			filter: IPFilterDynamic{
+				Number:   50,
+				Source:   "2001:db8:1::/48",
+				Dest:     "2001:db8:2::/48",
+				Protocol: "tcp",
+			},
+			expected: "ipv6 filter dynamic 50 2001:db8:1::/48 2001:db8:2::/48 tcp",
+		},
+		{
+			name: "submission protocol with syslog",
+			filter: IPFilterDynamic{
+				Number:   60,
+				Source:   "*",
+				Dest:     "*",
+				Protocol: "submission",
+				SyslogOn: true,
+			},
+			expected: "ipv6 filter dynamic 60 * * submission syslog on",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := BuildIPv6FilterDynamicCommand(tt.filter)
+			if result != tt.expected {
+				t.Errorf("BuildIPv6FilterDynamicCommand() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestBuildDeleteIPv6FilterDynamicCommand(t *testing.T) {
+	tests := []struct {
+		name     string
+		number   int
+		expected string
+	}{
+		{
+			name:     "delete dynamic filter 10",
+			number:   10,
+			expected: "no ipv6 filter dynamic 10",
+		},
+		{
+			name:     "delete dynamic filter 65535",
+			number:   65535,
+			expected: "no ipv6 filter dynamic 65535",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := BuildDeleteIPv6FilterDynamicCommand(tt.number)
+			if result != tt.expected {
+				t.Errorf("BuildDeleteIPv6FilterDynamicCommand() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestParseAndBuildIPv6DynamicRoundTrip tests that parsing and building produces the same command
+func TestParseAndBuildIPv6DynamicRoundTrip(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{
+			name:  "basic ftp",
+			input: "ipv6 filter dynamic 10 * * ftp",
+		},
+		{
+			name:  "domain protocol",
+			input: "ipv6 filter dynamic 20 * * domain",
+		},
+		{
+			name:  "www protocol",
+			input: "ipv6 filter dynamic 30 * * www",
+		},
+		{
+			name:  "with syslog",
+			input: "ipv6 filter dynamic 40 * * smtp syslog on",
+		},
+		{
+			name:  "with IPv6 network",
+			input: "ipv6 filter dynamic 50 2001:db8::/32 * tcp",
+		},
+		{
+			name:  "with both IPv6 networks",
+			input: "ipv6 filter dynamic 60 2001:db8:1::/48 2001:db8:2::/48 udp",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Parse the input
+			filters, err := ParseIPv6FilterDynamicConfig(tt.input)
+			if err != nil {
+				t.Fatalf("Failed to parse: %v", err)
+			}
+			if len(filters) != 1 {
+				t.Fatalf("Expected 1 filter, got %d", len(filters))
+			}
+
+			// Build command from parsed filter
+			result := BuildIPv6FilterDynamicCommand(filters[0])
+
+			// Compare (should match original input)
+			if result != tt.input {
+				t.Errorf("Round-trip failed:\n  input:  %q\n  output: %q", tt.input, result)
+			}
+		})
+	}
+}
