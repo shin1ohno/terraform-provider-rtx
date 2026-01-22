@@ -1,12 +1,11 @@
 package main
 
 import (
-	"context"
 	"flag"
-	"log"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
+
 	"github.com/sh1/terraform-provider-rtx/internal/provider"
 )
 
@@ -23,7 +22,7 @@ import (
 var (
 	// these will be set by the goreleaser configuration
 	// to appropriate values for the compiled binary
-	version string = "dev"
+	version = "dev"
 
 	// goreleaser can also pass the specific commit if you want
 	// commit  string = ""
@@ -42,11 +41,8 @@ func main() {
 	}
 
 	if debugMode {
-		err := plugin.Debug(context.Background(), "registry.terraform.io/sh1/rtx", opts)
-		if err != nil {
-			log.Fatal(err.Error())
-		}
-		return
+		opts.Debug = true
+		opts.ProviderAddr = "registry.terraform.io/sh1/rtx"
 	}
 
 	plugin.Serve(opts)

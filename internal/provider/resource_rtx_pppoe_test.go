@@ -107,9 +107,9 @@ func TestBuildPPPoEConfigFromResourceData_DefaultValues(t *testing.T) {
 	config := buildPPPoEConfigFromResourceData(d)
 
 	assert.Equal(t, "chap", config.Authentication.Method) // Default auth method
-	assert.True(t, config.AlwaysOn)                        // Default is true
-	assert.True(t, config.Enabled)                         // Default is true
-	assert.Equal(t, 0, config.DisconnectTimeout)           // Default is 0
+	assert.True(t, config.AlwaysOn)                       // Default is true
+	assert.True(t, config.Enabled)                        // Default is true
+	assert.Equal(t, 0, config.DisconnectTimeout)          // Default is 0
 }
 
 func TestBuildPPPoEConfigFromResourceData_AllAuthMethods(t *testing.T) {

@@ -3,13 +3,15 @@ package provider
 import (
 	"context"
 	"fmt"
-	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strconv"
 	"strings"
+
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+
 	"github.com/sh1/terraform-provider-rtx/internal/client"
 )
 
@@ -58,19 +60,19 @@ func resourceRTXL2TP() *schema.Resource {
 				Description: "Administratively shut down the tunnel.",
 			},
 			"tunnel_source": {
-			Type:        schema.TypeString,
-			Optional:    true,
-			Description: "Source IP address or interface.",
-		},
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "Source IP address or interface.",
+			},
 			"tunnel_destination": {
-			Type:        schema.TypeString,
-			Optional:    true,
+				Type:        schema.TypeString,
+				Optional:    true,
 				Description: "Destination IP address or FQDN.",
 			},
 			"tunnel_dest_type": {
-			Type:         schema.TypeString,
-			Optional:     true,
-			Computed:     true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
 				Description:  "Destination type: 'ip' or 'fqdn'.",
 				ValidateFunc: validation.StringInSlice([]string{"ip", "fqdn"}, false),
 			},
@@ -215,16 +217,16 @@ func resourceRTXL2TP() *schema.Resource {
 				Description: "Enable keepalive.",
 			},
 			"keepalive_interval": {
-			Type:         schema.TypeInt,
-			Optional:     true,
-			Computed:     true,
+				Type:         schema.TypeInt,
+				Optional:     true,
+				Computed:     true,
 				Description:  "Keepalive interval in seconds.",
 				ValidateFunc: validation.IntAtLeast(1),
 			},
 			"keepalive_retry": {
-			Type:         schema.TypeInt,
-			Optional:     true,
-			Computed:     true,
+				Type:         schema.TypeInt,
+				Optional:     true,
+				Computed:     true,
 				Description:  "Keepalive retry count.",
 				ValidateFunc: validation.IntAtLeast(1),
 			},

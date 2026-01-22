@@ -9,23 +9,23 @@ import (
 
 // L2TPConfig represents L2TP/L2TPv3 configuration on an RTX router
 type L2TPConfig struct {
-	ID               int              `json:"id"`                          // Tunnel ID
-	Name             string           `json:"name,omitempty"`              // Description
-	Version          string           `json:"version"`                     // "l2tp" (v2) or "l2tpv3" (v3)
-	Mode             string           `json:"mode"`                        // "lns" (L2TPv2 server) or "l2vpn" (L2TPv3)
-	Shutdown         bool             `json:"shutdown"`                    // Administratively shut down
-	TunnelSource     string           `json:"tunnel_source"`               // Source IP/interface
-	TunnelDest       string           `json:"tunnel_dest"`                 // Destination IP/FQDN
-	TunnelDestType   string           `json:"tunnel_dest_type,omitempty"`  // "ip" or "fqdn"
-	Authentication   *L2TPAuth        `json:"authentication,omitempty"`    // L2TPv2 authentication
-	IPPool           *L2TPIPPool      `json:"ip_pool,omitempty"`           // L2TPv2 IP pool
-	IPsecProfile     *L2TPIPsec       `json:"ipsec_profile,omitempty"`     // IPsec encryption
-	L2TPv3Config     *L2TPv3Config    `json:"l2tpv3_config,omitempty"`     // L2TPv3-specific config
-	KeepaliveEnabled bool             `json:"keepalive_enabled,omitempty"` // Keepalive enabled
-	KeepaliveConfig  *L2TPKeepalive   `json:"keepalive_config,omitempty"`  // Keepalive settings
-	DisconnectTime   int              `json:"disconnect_time,omitempty"`   // Idle disconnect time
-	AlwaysOn         bool             `json:"always_on,omitempty"`         // Always-on mode
-	Enabled          bool             `json:"enabled"`                     // Service enabled
+	ID               int            `json:"id"`                          // Tunnel ID
+	Name             string         `json:"name,omitempty"`              // Description
+	Version          string         `json:"version"`                     // "l2tp" (v2) or "l2tpv3" (v3)
+	Mode             string         `json:"mode"`                        // "lns" (L2TPv2 server) or "l2vpn" (L2TPv3)
+	Shutdown         bool           `json:"shutdown"`                    // Administratively shut down
+	TunnelSource     string         `json:"tunnel_source"`               // Source IP/interface
+	TunnelDest       string         `json:"tunnel_dest"`                 // Destination IP/FQDN
+	TunnelDestType   string         `json:"tunnel_dest_type,omitempty"`  // "ip" or "fqdn"
+	Authentication   *L2TPAuth      `json:"authentication,omitempty"`    // L2TPv2 authentication
+	IPPool           *L2TPIPPool    `json:"ip_pool,omitempty"`           // L2TPv2 IP pool
+	IPsecProfile     *L2TPIPsec     `json:"ipsec_profile,omitempty"`     // IPsec encryption
+	L2TPv3Config     *L2TPv3Config  `json:"l2tpv3_config,omitempty"`     // L2TPv3-specific config
+	KeepaliveEnabled bool           `json:"keepalive_enabled,omitempty"` // Keepalive enabled
+	KeepaliveConfig  *L2TPKeepalive `json:"keepalive_config,omitempty"`  // Keepalive settings
+	DisconnectTime   int            `json:"disconnect_time,omitempty"`   // Idle disconnect time
+	AlwaysOn         bool           `json:"always_on,omitempty"`         // Always-on mode
+	Enabled          bool           `json:"enabled"`                     // Service enabled
 }
 
 // L2TPAuth represents L2TPv2 authentication configuration
@@ -50,13 +50,13 @@ type L2TPIPsec struct {
 
 // L2TPv3Config represents L2TPv3-specific configuration
 type L2TPv3Config struct {
-	LocalRouterID   string           `json:"local_router_id"`            // Local router ID
-	RemoteRouterID  string           `json:"remote_router_id"`           // Remote router ID
-	RemoteEndID     string           `json:"remote_end_id,omitempty"`    // Remote end ID (hostname)
-	SessionID       int              `json:"session_id,omitempty"`       // Session ID
-	CookieSize      int              `json:"cookie_size,omitempty"`      // Cookie size (0, 4, 8)
-	BridgeInterface string           `json:"bridge_interface,omitempty"` // Bridge interface
-	TunnelAuth      *L2TPTunnelAuth  `json:"tunnel_auth,omitempty"`      // Tunnel authentication
+	LocalRouterID   string          `json:"local_router_id"`            // Local router ID
+	RemoteRouterID  string          `json:"remote_router_id"`           // Remote router ID
+	RemoteEndID     string          `json:"remote_end_id,omitempty"`    // Remote end ID (hostname)
+	SessionID       int             `json:"session_id,omitempty"`       // Session ID
+	CookieSize      int             `json:"cookie_size,omitempty"`      // Cookie size (0, 4, 8)
+	BridgeInterface string          `json:"bridge_interface,omitempty"` // Bridge interface
+	TunnelAuth      *L2TPTunnelAuth `json:"tunnel_auth,omitempty"`      // Tunnel authentication
 }
 
 // L2TPTunnelAuth represents L2TPv3 tunnel authentication

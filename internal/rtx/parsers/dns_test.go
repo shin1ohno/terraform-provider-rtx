@@ -166,10 +166,10 @@ func TestParseDNSConfig_DomainLookup(t *testing.T) {
 
 func TestParseDNSConfig_ServiceAndSpoof(t *testing.T) {
 	tests := []struct {
-		name          string
-		input         string
-		serviceOn     bool
-		privateSpoof  bool
+		name         string
+		input        string
+		serviceOn    bool
+		privateSpoof bool
 	}{
 		{
 			name:         "both on",
@@ -850,13 +850,13 @@ func TestBuildDeleteDNSCommand(t *testing.T) {
 // and stored in the EDNS boolean field, not in QueryPattern
 func TestParseDNSServerSelectEDNS(t *testing.T) {
 	tests := []struct {
-		name                string
-		input               string
-		expectedEDNS        bool
-		expectedRecordType  string
-		expectedPattern     string
-		expectedSender      string
-		expectedRestrictPP  int
+		name               string
+		input              string
+		expectedEDNS       bool
+		expectedRecordType string
+		expectedPattern    string
+		expectedSender     string
+		expectedRestrictPP int
 	}{
 		{
 			name:               "edns=on before record type",
@@ -888,21 +888,21 @@ func TestParseDNSServerSelectEDNS(t *testing.T) {
 			expectedSender:     "192.168.1.0/24",
 		},
 		{
-			name:                "edns=on with restrict pp",
-			input:               "dns server select 5 10.0.0.1 edns=on . restrict pp 1",
-			expectedEDNS:        true,
-			expectedRecordType:  "", // not specified in input
-			expectedPattern:     ".",
-			expectedRestrictPP:  1,
+			name:               "edns=on with restrict pp",
+			input:              "dns server select 5 10.0.0.1 edns=on . restrict pp 1",
+			expectedEDNS:       true,
+			expectedRecordType: "", // not specified in input
+			expectedPattern:    ".",
+			expectedRestrictPP: 1,
 		},
 		{
-			name:                "full options with edns=on",
-			input:               "dns server select 6 10.0.0.53 edns=on aaaa *.corp.example.com 192.168.1.0/24 restrict pp 2",
-			expectedEDNS:        true,
-			expectedRecordType:  "aaaa",
-			expectedPattern:     "*.corp.example.com",
-			expectedSender:      "192.168.1.0/24",
-			expectedRestrictPP:  2,
+			name:               "full options with edns=on",
+			input:              "dns server select 6 10.0.0.53 edns=on aaaa *.corp.example.com 192.168.1.0/24 restrict pp 2",
+			expectedEDNS:       true,
+			expectedRecordType: "aaaa",
+			expectedPattern:    "*.corp.example.com",
+			expectedSender:     "192.168.1.0/24",
+			expectedRestrictPP: 2,
 		},
 		{
 			name:               "domain with equals sign (not edns)",

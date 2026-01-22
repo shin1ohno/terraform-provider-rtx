@@ -85,9 +85,9 @@ func TestBuildPPIPConfigFromResourceData_DefaultValues(t *testing.T) {
 	d := schema.TestResourceDataRaw(t, resourceRTXPPInterface().Schema, input)
 	config := buildPPIPConfigFromResourceData(d)
 
-	assert.Equal(t, "", config.Address)     // Default is empty
-	assert.Equal(t, 0, config.MTU)          // Default is 0
-	assert.Equal(t, 0, config.TCPMSSLimit)  // Default is 0
+	assert.Equal(t, "", config.Address)      // Default is empty
+	assert.Equal(t, 0, config.MTU)           // Default is 0
+	assert.Equal(t, 0, config.TCPMSSLimit)   // Default is 0
 	assert.Equal(t, 0, config.NATDescriptor) // Default is 0
 	assert.Nil(t, config.SecureFilterIn)
 	assert.Nil(t, config.SecureFilterOut)

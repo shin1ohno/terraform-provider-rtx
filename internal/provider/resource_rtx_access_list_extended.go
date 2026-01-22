@@ -3,12 +3,14 @@ package provider
 import (
 	"context"
 	"fmt"
-	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
+
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+
 	"github.com/sh1/terraform-provider-rtx/internal/client"
 )
 
@@ -318,21 +320,21 @@ func flattenAccessListExtendedEntries(entries []client.AccessListExtendedEntry) 
 
 	for _, entry := range entries {
 		e := map[string]interface{}{
-			"sequence":                 entry.Sequence,
-			"ace_rule_action":          entry.AceRuleAction,
-			"ace_rule_protocol":        entry.AceRuleProtocol,
-			"source_any":               entry.SourceAny,
-			"source_prefix":            entry.SourcePrefix,
-			"source_prefix_mask":       entry.SourcePrefixMask,
-			"source_port_equal":        entry.SourcePortEqual,
-			"source_port_range":        entry.SourcePortRange,
-			"destination_any":          entry.DestinationAny,
-			"destination_prefix":       entry.DestinationPrefix,
-			"destination_prefix_mask":  entry.DestinationPrefixMask,
-			"destination_port_equal":   entry.DestinationPortEqual,
-			"destination_port_range":   entry.DestinationPortRange,
-			"established":              entry.Established,
-			"log":                      entry.Log,
+			"sequence":                entry.Sequence,
+			"ace_rule_action":         entry.AceRuleAction,
+			"ace_rule_protocol":       entry.AceRuleProtocol,
+			"source_any":              entry.SourceAny,
+			"source_prefix":           entry.SourcePrefix,
+			"source_prefix_mask":      entry.SourcePrefixMask,
+			"source_port_equal":       entry.SourcePortEqual,
+			"source_port_range":       entry.SourcePortRange,
+			"destination_any":         entry.DestinationAny,
+			"destination_prefix":      entry.DestinationPrefix,
+			"destination_prefix_mask": entry.DestinationPrefixMask,
+			"destination_port_equal":  entry.DestinationPortEqual,
+			"destination_port_range":  entry.DestinationPortRange,
+			"established":             entry.Established,
+			"log":                     entry.Log,
 		}
 		result = append(result, e)
 	}

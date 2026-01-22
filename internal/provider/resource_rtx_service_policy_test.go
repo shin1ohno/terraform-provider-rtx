@@ -6,11 +6,11 @@ import (
 
 func TestParseServicePolicyID(t *testing.T) {
 	tests := []struct {
-		name        string
-		id          string
-		wantIface   string
-		wantDir     string
-		wantErr     bool
+		name      string
+		id        string
+		wantIface string
+		wantDir   string
+		wantErr   bool
 	}{
 		{
 			name:      "valid output",

@@ -16,12 +16,12 @@ type StaticRoute struct {
 
 // NextHop represents a next hop configuration for a static route
 type NextHop struct {
-	NextHop   string `json:"next_hop,omitempty"`   // Gateway IP address
-	Interface string `json:"interface,omitempty"`  // Interface (pp 1, tunnel 1, etc.)
-	Distance  int    `json:"distance"`             // Administrative distance (weight)
-	Name      string `json:"name,omitempty"`       // Route description
-	Permanent bool   `json:"permanent"`            // Keep route when interface down
-	Filter    int    `json:"filter,omitempty"`     // IP filter number (RTX-specific)
+	NextHop   string `json:"next_hop,omitempty"`  // Gateway IP address
+	Interface string `json:"interface,omitempty"` // Interface (pp 1, tunnel 1, etc.)
+	Distance  int    `json:"distance"`            // Administrative distance (weight)
+	Name      string `json:"name,omitempty"`      // Route description
+	Permanent bool   `json:"permanent"`           // Keep route when interface down
+	Filter    int    `json:"filter,omitempty"`    // IP filter number (RTX-specific)
 }
 
 // StaticRouteParser parses static route configuration output

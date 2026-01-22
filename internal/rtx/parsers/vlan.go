@@ -9,13 +9,13 @@ import (
 
 // VLAN represents a VLAN configuration on an RTX router
 type VLAN struct {
-	VlanID        int    `json:"vlan_id"`                  // VLAN ID (1-4094)
-	Name          string `json:"name,omitempty"`           // VLAN name/description
-	Interface     string `json:"interface"`                // Parent interface (lan1, lan2)
-	VlanInterface string `json:"vlan_interface"`           // Computed: lan1/1, lan1/2, etc.
-	IPAddress     string `json:"ip_address,omitempty"`     // IP address
-	IPMask        string `json:"ip_mask,omitempty"`        // Subnet mask
-	Shutdown      bool   `json:"shutdown"`                 // Admin state (true = shutdown)
+	VlanID        int    `json:"vlan_id"`              // VLAN ID (1-4094)
+	Name          string `json:"name,omitempty"`       // VLAN name/description
+	Interface     string `json:"interface"`            // Parent interface (lan1, lan2)
+	VlanInterface string `json:"vlan_interface"`       // Computed: lan1/1, lan1/2, etc.
+	IPAddress     string `json:"ip_address,omitempty"` // IP address
+	IPMask        string `json:"ip_mask,omitempty"`    // Subnet mask
+	Shutdown      bool   `json:"shutdown"`             // Admin state (true = shutdown)
 }
 
 // VLANParser parses VLAN configuration output

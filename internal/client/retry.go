@@ -16,8 +16,8 @@ func (r *noRetry) Next(retry int) (delay time.Duration, giveUp bool) {
 
 // ExponentialBackoff implements an exponential backoff retry strategy
 type ExponentialBackoff struct {
-	BaseDelay time.Duration
-	MaxDelay  time.Duration
+	BaseDelay  time.Duration
+	MaxDelay   time.Duration
 	MaxRetries int
 }
 
@@ -35,13 +35,13 @@ func (r *ExponentialBackoff) Next(retry int) (delay time.Duration, giveUp bool) 
 	if retry >= r.MaxRetries {
 		return 0, true
 	}
-	
+
 	// Calculate exponential delay with jitter
 	delay = time.Duration(float64(r.BaseDelay) * math.Pow(2, float64(retry)))
 	if delay > r.MaxDelay {
 		delay = r.MaxDelay
 	}
-	
+
 	// Add jitter (±10%) using cryptographically secure random
 	jitterMax := int64(float64(delay) * 0.1)
 	if jitterMax > 0 {
@@ -51,7 +51,7 @@ func (r *ExponentialBackoff) Next(retry int) (delay time.Duration, giveUp bool) 
 			delay += jitter
 		}
 	}
-	
+
 	return delay, false
 }
 
@@ -95,12 +95,12 @@ func IsRetryable(err error) bool {
 	if err == nil {
 		return false
 	}
-	
+
 	// Check if it's explicitly marked as retryable
 	if _, ok := err.(*RetryableError); ok {
 		return true
 	}
-	
+
 	// Check for specific error conditions that are retryable
 	switch err {
 	case ErrTimeout:

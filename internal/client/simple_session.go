@@ -1,3 +1,9 @@
+//go:build ignore
+// +build ignore
+
+// This file contains unused session implementation that was kept for reference.
+// It is excluded from builds via the ignore build tag.
+
 package client
 
 import (
@@ -5,10 +11,11 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 
 	"golang.org/x/crypto/ssh"
 )
@@ -96,13 +103,13 @@ func (s *simpleRTXSession) Send(cmd string) ([]byte, error) {
 	}
 
 	logging.Global().Debug().Str("component", "simple-session").Msgf("Sending RTX command: %s", cmd)
-	
+
 	output, err := s.sendCommand(cmd)
 	if err != nil {
 		logging.Global().Error().Str("component", "simple-session").Msgf("RTX command failed: %v", err)
 		return nil, err
 	}
-	
+
 	logging.Global().Debug().Str("component", "simple-session").Msgf("RTX command output length: %d", len(output))
 	return output, nil
 }
@@ -121,7 +128,7 @@ func (s *simpleRTXSession) sendCommand(cmd string) ([]byte, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to read: %w", err)
 		}
-		
+
 		// Skip the command echo line
 		if strings.TrimSpace(line) == cmd {
 			break
@@ -145,7 +152,7 @@ func (s *simpleRTXSession) waitForPrompt() error {
 // readUntilPrompt reads output until a prompt is found
 func (s *simpleRTXSession) readUntilPrompt(output io.Writer) error {
 	timeout := time.After(10 * time.Second)
-	
+
 	for {
 		select {
 		case <-timeout:
@@ -200,11 +207,11 @@ func (s *simpleRTXSession) Close() error {
 
 	// Send exit command
 	fmt.Fprintln(s.stdin, "exit")
-	
+
 	// Close the session
 	if s.session != nil {
 		return s.session.Close()
 	}
-	
+
 	return nil
 }

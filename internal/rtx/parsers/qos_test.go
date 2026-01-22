@@ -62,11 +62,11 @@ queue lan2 class filter 1 100`,
 			wantErr:     false,
 		},
 		{
-			name:      "empty config",
-			raw:       "",
-			iface:     "lan1",
-			wantType:  "",
-			wantErr:   false,
+			name:     "empty config",
+			raw:      "",
+			iface:    "lan1",
+			wantType: "",
+			wantErr:  false,
 		},
 		{
 			name: "config for different interface",
@@ -690,11 +690,11 @@ func TestParseServicePolicy(t *testing.T) {
 	parser := NewQoSParser()
 
 	tests := []struct {
-		name      string
-		raw       string
-		iface     string
+		name       string
+		raw        string
+		iface      string
 		wantPolicy string
-		wantErr   bool
+		wantErr    bool
 	}{
 		{
 			name:       "found policy",

@@ -3,14 +3,16 @@ package provider
 import (
 	"context"
 	"fmt"
-	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"net"
 	"strconv"
 	"strings"
 
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+
 	"github.com/sh1/terraform-provider-rtx/internal/client"
 )
 

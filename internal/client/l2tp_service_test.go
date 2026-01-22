@@ -3,8 +3,9 @@ package client
 import (
 	"testing"
 
-	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 func TestConvertFromParserL2TPConfig_TunnelAuth(t *testing.T) {

@@ -9,16 +9,16 @@ import (
 
 // IPFilter represents a static IP filter rule on an RTX router
 type IPFilter struct {
-	Number        int    `json:"number"`                   // Filter number (1-65535)
-	Action        string `json:"action"`                   // pass, reject, restrict, restrict-log
-	SourceAddress string `json:"source_address"`           // Source IP/network or "*"
-	SourceMask    string `json:"source_mask,omitempty"`    // Source mask (for non-CIDR format)
-	DestAddress   string `json:"dest_address"`             // Destination IP/network or "*"
-	DestMask      string `json:"dest_mask,omitempty"`      // Destination mask (for non-CIDR format)
-	Protocol      string `json:"protocol"`                 // tcp, udp, icmp, ip, * (any)
-	SourcePort    string `json:"source_port,omitempty"`    // Source port(s) or "*"
-	DestPort      string `json:"dest_port,omitempty"`      // Destination port(s) or "*"
-	Established   bool   `json:"established,omitempty"`    // Match established TCP connections
+	Number        int    `json:"number"`                // Filter number (1-65535)
+	Action        string `json:"action"`                // pass, reject, restrict, restrict-log
+	SourceAddress string `json:"source_address"`        // Source IP/network or "*"
+	SourceMask    string `json:"source_mask,omitempty"` // Source mask (for non-CIDR format)
+	DestAddress   string `json:"dest_address"`          // Destination IP/network or "*"
+	DestMask      string `json:"dest_mask,omitempty"`   // Destination mask (for non-CIDR format)
+	Protocol      string `json:"protocol"`              // tcp, udp, icmp, ip, * (any)
+	SourcePort    string `json:"source_port,omitempty"` // Source port(s) or "*"
+	DestPort      string `json:"dest_port,omitempty"`   // Destination port(s) or "*"
+	Established   bool   `json:"established,omitempty"` // Match established TCP connections
 }
 
 // IPFilterDynamic represents a dynamic (stateful) IP filter on an RTX router

@@ -2,8 +2,8 @@ package provider
 
 import (
 	"context"
-	"fmt"
 	"crypto/md5"
+	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -54,7 +54,7 @@ func dataSourceRTXSystemInfoRead(ctx context.Context, d *schema.ResourceData, me
 	var diags diag.Diagnostics
 
 	apiClient := meta.(*apiClient)
-	
+
 	// Get system information from the router
 	systemInfo, err := apiClient.client.GetSystemInfo(ctx)
 	if err != nil {

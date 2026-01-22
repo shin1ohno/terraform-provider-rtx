@@ -3,8 +3,9 @@ package client
 import (
 	"context"
 	"fmt"
-	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"time"
+
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 )
 
 // Executor interface defines how commands are executed

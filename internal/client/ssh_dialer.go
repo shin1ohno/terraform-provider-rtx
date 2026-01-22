@@ -8,9 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
+
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 )
 
 // sshDialer is the default SSH connection dialer
@@ -53,17 +54,16 @@ func (d *sshDialer) Dial(ctx context.Context, host string, config *Config) (Sess
 		return nil, err
 	}
 	logger.Debug().Msg("SSH connection established")
-	
+
 	// Use the working session implementation that matches our successful test
 	session, err := newWorkingSession(client)
 	if err != nil {
 		client.Close()
 		return nil, fmt.Errorf("failed to create RTX session: %w", err)
 	}
-	
+
 	return session, nil
 }
-
 
 // getHostKeyCallback returns the appropriate host key callback based on configuration
 func (d *sshDialer) getHostKeyCallback(config *Config) ssh.HostKeyCallback {
@@ -105,21 +105,21 @@ func (d *sshDialer) createFixedHostKeyCallback(expectedKeyB64 string) ssh.HostKe
 		if err != nil {
 			return fmt.Errorf("invalid host key format: %w", err)
 		}
-		
+
 		// Get the provided key data
 		providedKeyData := key.Marshal()
-		
+
 		// Compare the keys
 		if len(expectedKeyData) != len(providedKeyData) {
 			return fmt.Errorf("%w: host key mismatch for %s", ErrHostKeyMismatch, hostname)
 		}
-		
+
 		for i, b := range expectedKeyData {
 			if providedKeyData[i] != b {
 				return fmt.Errorf("%w: host key mismatch for %s", ErrHostKeyMismatch, hostname)
 			}
 		}
-		
+
 		return nil
 	}
 }
@@ -130,14 +130,14 @@ func (d *sshDialer) createKnownHostsCallback(knownHostsPath string) (ssh.HostKey
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Wrap the callback to convert knownhosts errors to our custom error type
 	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 		err := callback(hostname, remote, key)
 		if err != nil {
 			// Check if it's a key-related error and wrap it
 			errStr := err.Error()
-			if strings.Contains(errStr, "key") && (strings.Contains(errStr, "mismatch") || 
+			if strings.Contains(errStr, "key") && (strings.Contains(errStr, "mismatch") ||
 				strings.Contains(errStr, "changed") || strings.Contains(errStr, "unknown")) {
 				return fmt.Errorf("%w: %s", ErrHostKeyMismatch, err.Error())
 			}

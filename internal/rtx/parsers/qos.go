@@ -29,18 +29,18 @@ type QoSClass struct {
 
 // ClassMap represents a class-map configuration for traffic classification
 type ClassMap struct {
-	Name                string   `json:"name"`                            // Class map name
-	MatchProtocol       string   `json:"match_protocol,omitempty"`        // Protocol to match (http, sip, etc.)
-	MatchDestinationPort []int   `json:"match_destination_port,omitempty"` // Destination ports to match
-	MatchSourcePort     []int    `json:"match_source_port,omitempty"`     // Source ports to match
-	MatchDSCP           string   `json:"match_dscp,omitempty"`            // DSCP value to match
-	MatchFilter         int      `json:"match_filter,omitempty"`          // IP filter number to match
+	Name                 string `json:"name"`                             // Class map name
+	MatchProtocol        string `json:"match_protocol,omitempty"`         // Protocol to match (http, sip, etc.)
+	MatchDestinationPort []int  `json:"match_destination_port,omitempty"` // Destination ports to match
+	MatchSourcePort      []int  `json:"match_source_port,omitempty"`      // Source ports to match
+	MatchDSCP            string `json:"match_dscp,omitempty"`             // DSCP value to match
+	MatchFilter          int    `json:"match_filter,omitempty"`           // IP filter number to match
 }
 
 // PolicyMap represents a policy-map configuration
 type PolicyMap struct {
-	Name    string             `json:"name"`              // Policy map name
-	Classes []PolicyMapClass   `json:"classes,omitempty"` // Policy map classes
+	Name    string           `json:"name"`              // Policy map name
+	Classes []PolicyMapClass `json:"classes,omitempty"` // Policy map classes
 }
 
 // PolicyMapClass represents a class within a policy map
@@ -54,17 +54,17 @@ type PolicyMapClass struct {
 
 // ServicePolicy represents a service-policy attachment to an interface
 type ServicePolicy struct {
-	Interface string `json:"interface"` // Interface name
-	Direction string `json:"direction"` // input or output
+	Interface string `json:"interface"`  // Interface name
+	Direction string `json:"direction"`  // input or output
 	PolicyMap string `json:"policy_map"` // Policy map name
 }
 
 // ShapeConfig represents traffic shaping configuration
 type ShapeConfig struct {
-	Interface    string `json:"interface"`              // Interface name
-	Direction    string `json:"direction"`              // input or output
-	ShapeAverage int    `json:"shape_average"`          // Average rate in bps
-	ShapeBurst   int    `json:"shape_burst,omitempty"`  // Burst size in bytes
+	Interface    string `json:"interface"`             // Interface name
+	Direction    string `json:"direction"`             // input or output
+	ShapeAverage int    `json:"shape_average"`         // Average rate in bps
+	ShapeBurst   int    `json:"shape_burst,omitempty"` // Burst size in bytes
 }
 
 // QoSParser parses QoS configuration output
@@ -171,7 +171,7 @@ func (p *QoSParser) ParseQoSConfig(raw string, iface string) (*QoSConfig, error)
 // ParseClassMap parses class-map configuration
 func (p *QoSParser) ParseClassMap(raw string, name string) (*ClassMap, error) {
 	cm := &ClassMap{
-		Name: name,
+		Name:                 name,
 		MatchDestinationPort: []int{},
 		MatchSourcePort:      []int{},
 	}

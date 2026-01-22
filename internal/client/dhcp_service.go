@@ -3,9 +3,10 @@ package client
 import (
 	"context"
 	"fmt"
-	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"net"
 	"strings"
+
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
@@ -30,14 +31,14 @@ func (s *DHCPService) CreateBinding(ctx context.Context, binding DHCPBinding) er
 	if err := validateDHCPBinding(binding); err != nil {
 		return fmt.Errorf("invalid binding: %w", err)
 	}
-	
+
 	// Check context before expensive operations
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
 	}
-	
+
 	// Convert client.DHCPBinding to parsers.DHCPBinding
 	parserBinding := parsers.DHCPBinding{
 		ScopeID:             binding.ScopeID,
@@ -46,25 +47,25 @@ func (s *DHCPService) CreateBinding(ctx context.Context, binding DHCPBinding) er
 		ClientIdentifier:    binding.ClientIdentifier,
 		UseClientIdentifier: binding.UseClientIdentifier,
 	}
-	
+
 	cmd := parsers.BuildDHCPBindCommand(parserBinding)
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return fmt.Errorf("failed to create DHCP binding: %w", err)
 	}
-	
+
 	// Check if there's an error in the output
 	if len(output) > 0 && containsError(string(output)) {
 		return fmt.Errorf("command failed: %s", string(output))
 	}
-	
+
 	// Save configuration after successful creation
 	if s.client != nil {
 		if err := s.client.SaveConfig(ctx); err != nil {
 			return fmt.Errorf("binding created but failed to save configuration: %w", err)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -75,19 +76,19 @@ func (s *DHCPService) DeleteBinding(ctx context.Context, scopeID int, ipAddress 
 	if err != nil {
 		return fmt.Errorf("failed to delete DHCP binding: %w", err)
 	}
-	
+
 	// Check if there's an error in the output
 	if len(output) > 0 && containsError(string(output)) {
 		return fmt.Errorf("command failed: %s", string(output))
 	}
-	
+
 	// Save configuration after successful deletion
 	if s.client != nil {
 		if err := s.client.SaveConfig(ctx); err != nil {
 			return fmt.Errorf("binding deleted but failed to save configuration: %w", err)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -98,16 +99,16 @@ func (s *DHCPService) ListBindings(ctx context.Context, scopeID int) ([]DHCPBind
 	if err != nil {
 		return nil, fmt.Errorf("failed to list DHCP bindings: %w", err)
 	}
-	
+
 	logging.FromContext(ctx).Debug().Str("service", "dhcp").Msgf("DHCP bindings raw output for scope %d: %q", scopeID, string(output))
-	
+
 	// Parse the output
 	parser := parsers.NewDHCPBindingsParser()
 	parserBindings, err := parser.ParseBindings(string(output), scopeID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse DHCP bindings: %w", err)
 	}
-	
+
 	// Convert parsers.DHCPBinding to client.DHCPBinding
 	bindings := make([]DHCPBinding, len(parserBindings))
 	for i, pb := range parserBindings {
@@ -119,7 +120,7 @@ func (s *DHCPService) ListBindings(ctx context.Context, scopeID int) ([]DHCPBind
 			UseClientIdentifier: pb.UseClientIdentifier,
 		}
 	}
-	
+
 	return bindings, nil
 }
 
@@ -136,7 +137,7 @@ func containsError(output string) bool {
 		"already exists",
 		"not found",
 	}
-	
+
 	outputLower := strings.ToLower(output)
 	for _, pattern := range errorPatterns {
 		if strings.Contains(outputLower, strings.ToLower(pattern)) {
@@ -151,11 +152,11 @@ func validateDHCPBinding(binding DHCPBinding) error {
 	if binding.ScopeID <= 0 {
 		return fmt.Errorf("scope_id must be positive")
 	}
-	
+
 	if net.ParseIP(binding.IPAddress) == nil {
 		return fmt.Errorf("invalid IP address: %s", binding.IPAddress)
 	}
-	
+
 	// Validate either MAC address or client identifier
 	if binding.ClientIdentifier != "" {
 		// Validate client identifier format
@@ -163,13 +164,13 @@ func validateDHCPBinding(binding DHCPBinding) error {
 		if len(parts) < 2 {
 			return fmt.Errorf("client_identifier must be in format 'type:data' (e.g., '01:aa:bb:cc:dd:ee:ff')")
 		}
-		
+
 		// Validate each part is valid hex
 		for i, part := range parts {
 			if len(part) != 2 {
 				return fmt.Errorf("client_identifier must contain 2-character hex octets at position %d, got %q", i, part)
 			}
-			
+
 			for _, c := range part {
 				if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
 					return fmt.Errorf("client_identifier contains invalid hex character '%c' at position %d", c, i)
@@ -185,7 +186,6 @@ func validateDHCPBinding(binding DHCPBinding) error {
 	} else {
 		return fmt.Errorf("either mac_address or client_identifier must be specified")
 	}
-	
+
 	return nil
 }
-

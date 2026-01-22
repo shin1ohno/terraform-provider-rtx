@@ -1,8 +1,9 @@
 package client
 
 import (
-	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
+
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 )
 
 // sensitivePatterns defines patterns that indicate sensitive data in commands

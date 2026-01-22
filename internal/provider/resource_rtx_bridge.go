@@ -3,12 +3,14 @@ package provider
 import (
 	"context"
 	"fmt"
-	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"regexp"
 	"strings"
 
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+
 	"github.com/sh1/terraform-provider-rtx/internal/client"
 )
 
@@ -222,4 +224,3 @@ func validateBridgeMember(v interface{}, k string) ([]string, []error) {
 		fmt.Errorf("%q must be a valid interface name (lan*, lan*/*, tunnel*, pp*, loopback*, bridge*), got %q", k, value),
 	}
 }
-

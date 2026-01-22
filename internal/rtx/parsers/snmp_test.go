@@ -86,7 +86,7 @@ snmp syslocation Building A, Floor 3`,
 			},
 		},
 		{
-			name: "all trap types",
+			name:  "all trap types",
 			input: `snmp trap enable snmp all`,
 			want: &SNMPConfig{
 				Communities: []SNMPCommunity{},

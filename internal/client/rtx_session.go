@@ -1,3 +1,9 @@
+//go:build ignore
+// +build ignore
+
+// This file contains unused session implementation that was kept for reference.
+// It is excluded from builds via the ignore build tag.
+
 package client
 
 import (
@@ -6,9 +12,10 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"sync"
 	"time"
+
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 
 	"golang.org/x/crypto/ssh"
 )
@@ -147,14 +154,10 @@ func (r *rtxShellSession) executeCommand(cmd string) ([]byte, error) {
 	// RTX routers echo the command back, so we need to remove it
 	// Find the first newline after the command
 	cmdEcho := []byte(cmd + "\r\n")
-	if bytes.HasPrefix(output, cmdEcho) {
-		output = output[len(cmdEcho):]
-	} else {
-		// Try with just \n
-		cmdEcho = []byte(cmd + "\n")
-		if bytes.HasPrefix(output, cmdEcho) {
-			output = output[len(cmdEcho):]
-		}
+	output = bytes.TrimPrefix(output, cmdEcho)
+	// Try with just \n if \r\n prefix was not present
+	if bytes.HasPrefix(output, []byte(cmd+"\n")) {
+		output = bytes.TrimPrefix(output, []byte(cmd+"\n"))
 	}
 
 	// The output includes the prompt at the end, which we keep
@@ -166,7 +169,7 @@ func (r *rtxShellSession) executeCommand(cmd string) ([]byte, error) {
 func (r *rtxShellSession) readUntilPrompt() ([]byte, error) {
 	var output bytes.Buffer
 	timeout := time.After(10 * time.Second)
-	
+
 	for {
 		select {
 		case <-r.ctx.Done():
@@ -216,7 +219,7 @@ func (r *rtxShellSession) Close() error {
 
 	// Send exit command
 	fmt.Fprintln(r.stdin, "exit")
-	
+
 	// Close the session
 	if r.session != nil {
 		return r.session.Close()

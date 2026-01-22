@@ -8,10 +8,10 @@ import (
 
 func TestBuildDNSConfigFromResourceData_BasicConfig(t *testing.T) {
 	resourceData := schema.TestResourceDataRaw(t, resourceRTXDNSServer().Schema, map[string]interface{}{
-		"domain_lookup":          true,
-		"name_servers":           []interface{}{"8.8.8.8", "8.8.4.4"},
-		"service_on":             true,
-		"private_address_spoof":  false,
+		"domain_lookup":         true,
+		"name_servers":          []interface{}{"8.8.8.8", "8.8.4.4"},
+		"service_on":            true,
+		"private_address_spoof": false,
 	})
 
 	config := buildDNSConfigFromResourceData(resourceData)
@@ -56,16 +56,28 @@ func TestBuildDNSConfigFromResourceData_WithServerSelect(t *testing.T) {
 		"domain_lookup": true,
 		"server_select": []interface{}{
 			map[string]interface{}{
-				"id":            1,
-				"servers":       []interface{}{"192.168.1.1"},
-				"edns":          false,
+				"id": 1,
+				"server": []interface{}{
+					map[string]interface{}{
+						"address": "192.168.1.1",
+						"edns":    false,
+					},
+				},
 				"record_type":   "a",
 				"query_pattern": "internal.example.com",
 			},
 			map[string]interface{}{
-				"id":              2,
-				"servers":         []interface{}{"10.0.0.1", "10.0.0.2"},
-				"edns":            true,
+				"id": 2,
+				"server": []interface{}{
+					map[string]interface{}{
+						"address": "10.0.0.1",
+						"edns":    true,
+					},
+					map[string]interface{}{
+						"address": "10.0.0.2",
+						"edns":    false,
+					},
+				},
 				"record_type":     "any",
 				"query_pattern":   ".",
 				"original_sender": "192.168.1.0/24",
@@ -88,6 +100,12 @@ func TestBuildDNSConfigFromResourceData_WithServerSelect(t *testing.T) {
 	if len(config.ServerSelect[0].Servers) != 1 {
 		t.Errorf("Expected 1 server in first select, got %d", len(config.ServerSelect[0].Servers))
 	}
+	if config.ServerSelect[0].Servers[0].Address != "192.168.1.1" {
+		t.Errorf("Expected server address '192.168.1.1', got '%s'", config.ServerSelect[0].Servers[0].Address)
+	}
+	if config.ServerSelect[0].Servers[0].EDNS {
+		t.Error("Expected EDNS to be false for first server")
+	}
 	if config.ServerSelect[0].QueryPattern != "internal.example.com" {
 		t.Errorf("Expected query pattern 'internal.example.com', got '%s'", config.ServerSelect[0].QueryPattern)
 	}
@@ -99,8 +117,12 @@ func TestBuildDNSConfigFromResourceData_WithServerSelect(t *testing.T) {
 	if len(config.ServerSelect[1].Servers) != 2 {
 		t.Errorf("Expected 2 servers in second select, got %d", len(config.ServerSelect[1].Servers))
 	}
-	if !config.ServerSelect[1].EDNS {
-		t.Error("Expected EDNS to be true in second select")
+	// Check per-server EDNS settings
+	if !config.ServerSelect[1].Servers[0].EDNS {
+		t.Error("Expected EDNS to be true for first server in second select")
+	}
+	if config.ServerSelect[1].Servers[1].EDNS {
+		t.Error("Expected EDNS to be false for second server in second select")
 	}
 	if config.ServerSelect[1].RecordType != "any" {
 		t.Errorf("Expected record type 'any', got '%s'", config.ServerSelect[1].RecordType)
@@ -156,9 +178,13 @@ func TestBuildDNSConfigFromResourceData_FullConfig(t *testing.T) {
 		"name_servers":  []interface{}{"8.8.8.8", "1.1.1.1"},
 		"server_select": []interface{}{
 			map[string]interface{}{
-				"id":            1,
-				"servers":       []interface{}{"192.168.1.1"},
-				"edns":          false,
+				"id": 1,
+				"server": []interface{}{
+					map[string]interface{}{
+						"address": "192.168.1.1",
+						"edns":    false,
+					},
+				},
 				"record_type":   "a",
 				"query_pattern": "internal.example.com",
 			},

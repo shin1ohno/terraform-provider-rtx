@@ -100,7 +100,7 @@ func (p *PPPParser) ParsePPPoEConfig(raw string) ([]PPPoEConfig, error) {
 
 	// LCP echo patterns
 	pppLcpMruPattern := regexp.MustCompile(`^\s*ppp\s+lcp\s+mru\s+on\s+(\d+)\s*$`)
-	pppIpcpIpAddressPattern := regexp.MustCompile(`^\s*ppp\s+ipcp\s+ipaddress\s+(on|off)\s*$`)
+	pppIpcpIPAddressPattern := regexp.MustCompile(`^\s*ppp\s+ipcp\s+ipaddress\s+(on|off)\s*$`)
 	pppCcpPattern := regexp.MustCompile(`^\s*ppp\s+ccp\s+type\s+(\S+)\s*$`)
 
 	var currentPPNum int
@@ -266,7 +266,7 @@ func (p *PPPParser) ParsePPPoEConfig(raw string) ([]PPPoEConfig, error) {
 
 		// Ignore other ppp settings for now (lcp mru, ipcp, ccp)
 		_ = pppLcpMruPattern
-		_ = pppIpcpIpAddressPattern
+		_ = pppIpcpIPAddressPattern
 		_ = pppCcpPattern
 	}
 

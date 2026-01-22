@@ -9,53 +9,53 @@ import (
 
 // IPsecTunnel represents an IPsec tunnel configuration on an RTX router
 type IPsecTunnel struct {
-	ID             int            `json:"id"`                        // Tunnel ID
-	Name           string         `json:"name,omitempty"`            // Description/name
-	LocalAddress   string         `json:"local_address"`             // Local endpoint IP
-	RemoteAddress  string         `json:"remote_address"`            // Remote endpoint IP
-	PreSharedKey   string         `json:"pre_shared_key"`            // IKE pre-shared key
-	IKEv2Proposal  IKEv2Proposal  `json:"ikev2_proposal"`            // IKE Phase 1 proposal
-	IPsecTransform IPsecTransform `json:"ipsec_transform"`           // IPsec Phase 2 transform
-	LocalNetwork   string         `json:"local_network"`             // Local network CIDR
-	RemoteNetwork  string         `json:"remote_network"`            // Remote network CIDR
-	DPDEnabled     bool           `json:"dpd_enabled"`               // Dead Peer Detection enabled
-	DPDInterval    int            `json:"dpd_interval,omitempty"`    // DPD interval in seconds
-	DPDRetry       int            `json:"dpd_retry,omitempty"`       // DPD retry count
-	Enabled        bool           `json:"enabled"`                   // Tunnel enabled
-	SAPolicy       int            `json:"sa_policy,omitempty"`       // SA policy number
-	IKELocalID     string         `json:"ike_local_id,omitempty"`    // IKE local ID
-	IKERemoteID    string         `json:"ike_remote_id,omitempty"`   // IKE remote ID
-	NATTraversal   bool           `json:"nat_traversal,omitempty"`   // NAT-T enabled
-	PFSGroup       string         `json:"pfs_group,omitempty"`       // PFS DH group
+	ID             int            `json:"id"`                      // Tunnel ID
+	Name           string         `json:"name,omitempty"`          // Description/name
+	LocalAddress   string         `json:"local_address"`           // Local endpoint IP
+	RemoteAddress  string         `json:"remote_address"`          // Remote endpoint IP
+	PreSharedKey   string         `json:"pre_shared_key"`          // IKE pre-shared key
+	IKEv2Proposal  IKEv2Proposal  `json:"ikev2_proposal"`          // IKE Phase 1 proposal
+	IPsecTransform IPsecTransform `json:"ipsec_transform"`         // IPsec Phase 2 transform
+	LocalNetwork   string         `json:"local_network"`           // Local network CIDR
+	RemoteNetwork  string         `json:"remote_network"`          // Remote network CIDR
+	DPDEnabled     bool           `json:"dpd_enabled"`             // Dead Peer Detection enabled
+	DPDInterval    int            `json:"dpd_interval,omitempty"`  // DPD interval in seconds
+	DPDRetry       int            `json:"dpd_retry,omitempty"`     // DPD retry count
+	Enabled        bool           `json:"enabled"`                 // Tunnel enabled
+	SAPolicy       int            `json:"sa_policy,omitempty"`     // SA policy number
+	IKELocalID     string         `json:"ike_local_id,omitempty"`  // IKE local ID
+	IKERemoteID    string         `json:"ike_remote_id,omitempty"` // IKE remote ID
+	NATTraversal   bool           `json:"nat_traversal,omitempty"` // NAT-T enabled
+	PFSGroup       string         `json:"pfs_group,omitempty"`     // PFS DH group
 }
 
 // IKEv2Proposal represents IKE Phase 1 proposal settings
 type IKEv2Proposal struct {
-	EncryptionAES256 bool `json:"encryption_aes256"`      // Use AES-256 encryption
-	EncryptionAES128 bool `json:"encryption_aes128"`      // Use AES-128 encryption
-	Encryption3DES   bool `json:"encryption_3des"`        // Use 3DES encryption
-	IntegritySHA256  bool `json:"integrity_sha256"`       // Use SHA-256 integrity
-	IntegritySHA1    bool `json:"integrity_sha1"`         // Use SHA-1 integrity
-	IntegrityMD5     bool `json:"integrity_md5"`          // Use MD5 integrity
-	GroupFourteen    bool `json:"group_fourteen"`         // DH group 14 (2048-bit)
-	GroupFive        bool `json:"group_five"`             // DH group 5 (1536-bit)
-	GroupTwo         bool `json:"group_two"`              // DH group 2 (1024-bit)
-	LifetimeSeconds  int  `json:"lifetime_seconds"`       // SA lifetime in seconds
+	EncryptionAES256 bool `json:"encryption_aes256"` // Use AES-256 encryption
+	EncryptionAES128 bool `json:"encryption_aes128"` // Use AES-128 encryption
+	Encryption3DES   bool `json:"encryption_3des"`   // Use 3DES encryption
+	IntegritySHA256  bool `json:"integrity_sha256"`  // Use SHA-256 integrity
+	IntegritySHA1    bool `json:"integrity_sha1"`    // Use SHA-1 integrity
+	IntegrityMD5     bool `json:"integrity_md5"`     // Use MD5 integrity
+	GroupFourteen    bool `json:"group_fourteen"`    // DH group 14 (2048-bit)
+	GroupFive        bool `json:"group_five"`        // DH group 5 (1536-bit)
+	GroupTwo         bool `json:"group_two"`         // DH group 2 (1024-bit)
+	LifetimeSeconds  int  `json:"lifetime_seconds"`  // SA lifetime in seconds
 }
 
 // IPsecTransform represents IPsec Phase 2 transform settings
 type IPsecTransform struct {
-	Protocol          string `json:"protocol"`                  // esp or ah
-	EncryptionAES256  bool   `json:"encryption_aes256"`         // Use AES-256 encryption
-	EncryptionAES128  bool   `json:"encryption_aes128"`         // Use AES-128 encryption
-	Encryption3DES    bool   `json:"encryption_3des"`           // Use 3DES encryption
-	IntegritySHA256   bool   `json:"integrity_sha256"`          // Use SHA-256-HMAC
-	IntegritySHA1     bool   `json:"integrity_sha1"`            // Use SHA-1-HMAC
-	IntegrityMD5      bool   `json:"integrity_md5"`             // Use MD5-HMAC
-	PFSGroupFourteen  bool   `json:"pfs_group_fourteen"`        // PFS DH group 14
-	PFSGroupFive      bool   `json:"pfs_group_five"`            // PFS DH group 5
-	PFSGroupTwo       bool   `json:"pfs_group_two"`             // PFS DH group 2
-	LifetimeSeconds   int    `json:"lifetime_seconds"`          // SA lifetime in seconds
+	Protocol         string `json:"protocol"`           // esp or ah
+	EncryptionAES256 bool   `json:"encryption_aes256"`  // Use AES-256 encryption
+	EncryptionAES128 bool   `json:"encryption_aes128"`  // Use AES-128 encryption
+	Encryption3DES   bool   `json:"encryption_3des"`    // Use 3DES encryption
+	IntegritySHA256  bool   `json:"integrity_sha256"`   // Use SHA-256-HMAC
+	IntegritySHA1    bool   `json:"integrity_sha1"`     // Use SHA-1-HMAC
+	IntegrityMD5     bool   `json:"integrity_md5"`      // Use MD5-HMAC
+	PFSGroupFourteen bool   `json:"pfs_group_fourteen"` // PFS DH group 14
+	PFSGroupFive     bool   `json:"pfs_group_five"`     // PFS DH group 5
+	PFSGroupTwo      bool   `json:"pfs_group_two"`      // PFS DH group 2
+	LifetimeSeconds  int    `json:"lifetime_seconds"`   // SA lifetime in seconds
 }
 
 // IPsecTunnelParser parses IPsec tunnel configuration output

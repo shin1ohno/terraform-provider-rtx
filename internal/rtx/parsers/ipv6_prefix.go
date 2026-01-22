@@ -10,11 +10,11 @@ import (
 
 // IPv6Prefix represents an IPv6 prefix definition on an RTX router
 type IPv6Prefix struct {
-	ID           int    `json:"id"`                      // Prefix ID (1-255)
-	Prefix       string `json:"prefix"`                  // Static prefix value (e.g., "2001:db8::")
-	PrefixLength int    `json:"prefix_length"`           // Prefix length (e.g., 64)
-	Source       string `json:"source"`                  // "static", "ra", or "dhcpv6-pd"
-	Interface    string `json:"interface,omitempty"`     // Source interface for ra/pd
+	ID           int    `json:"id"`                  // Prefix ID (1-255)
+	Prefix       string `json:"prefix"`              // Static prefix value (e.g., "2001:db8::")
+	PrefixLength int    `json:"prefix_length"`       // Prefix length (e.g., 64)
+	Source       string `json:"source"`              // "static", "ra", or "dhcpv6-pd"
+	Interface    string `json:"interface,omitempty"` // Source interface for ra/pd
 }
 
 // IPv6PrefixParser parses IPv6 prefix configuration output

@@ -149,19 +149,19 @@ func TestNewClient(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client, err := NewClient(tt.config)
-			
+
 			if tt.wantErr {
 				if err == nil {
 					t.Errorf("NewClient() expected error, got nil")
 				}
 				return
 			}
-			
+
 			if err != nil {
 				t.Errorf("NewClient() unexpected error: %v", err)
 				return
 			}
-			
+
 			if client == nil {
 				t.Error("NewClient() returned nil client")
 			}
@@ -171,11 +171,11 @@ func TestNewClient(t *testing.T) {
 
 func TestClient_Dial(t *testing.T) {
 	tests := []struct {
-		name     string
-		dialer   ConnDialer
-		timeout  time.Duration
-		wantErr  bool
-		errType  error
+		name    string
+		dialer  ConnDialer
+		timeout time.Duration
+		wantErr bool
+		errType error
 	}{
 		{
 			name: "successful connection",
@@ -235,7 +235,7 @@ func TestClient_Dial(t *testing.T) {
 				Password: "password",
 				Timeout:  30,
 			}
-			
+
 			client := &rtxClient{
 				config: config,
 				dialer: tt.dialer,
@@ -265,12 +265,12 @@ func TestClient_Dial(t *testing.T) {
 
 func TestClient_Run(t *testing.T) {
 	tests := []struct {
-		name         string
-		session      *MockSession
-		detector     PromptDetector
-		command      Command
-		wantErr      bool
-		wantRawData  []byte
+		name        string
+		session     *MockSession
+		detector    PromptDetector
+		command     Command
+		wantErr     bool
+		wantRawData []byte
 	}{
 		{
 			name: "successful command execution",
@@ -350,7 +350,7 @@ func TestClient_Run(t *testing.T) {
 				Password: "password",
 				Timeout:  30,
 			}
-			
+
 			client := &rtxClient{
 				config:         config,
 				promptDetector: tt.detector,
@@ -435,7 +435,7 @@ func TestClient_Close(t *testing.T) {
 				Password: "password",
 				Timeout:  30,
 			}
-			
+
 			client := &rtxClient{
 				config:  config,
 				session: tt.session,
@@ -643,10 +643,8 @@ func TestClientTimeoutHandling(t *testing.T) {
 	t.Run("command timeout", func(t *testing.T) {
 		session := &MockSession{
 			SendFunc: func(cmd string) ([]byte, error) {
-				select {
-				case <-time.After(1 * time.Second):
-					return []byte("RTX1200>"), nil
-				}
+				<-time.After(1 * time.Second)
+				return []byte("RTX1200>"), nil
 			},
 		}
 

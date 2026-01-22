@@ -29,20 +29,20 @@ type DDNSServerConfig struct {
 
 // DDNSConfig represents the overall DDNS configuration
 type DDNSConfig struct {
-	NetVolante     []NetVolanteConfig `json:"netvolante"`      // NetVolante DNS configurations
-	CustomServers  []DDNSServerConfig `json:"custom_servers"`  // Custom DDNS server configurations
+	NetVolante    []NetVolanteConfig `json:"netvolante"`     // NetVolante DNS configurations
+	CustomServers []DDNSServerConfig `json:"custom_servers"` // Custom DDNS server configurations
 }
 
 // DDNSStatus represents the status of DDNS registration
 type DDNSStatus struct {
-	Type           string `json:"type"`             // "netvolante" or "custom"
-	Interface      string `json:"interface"`        // Interface name
-	ServerID       int    `json:"server_id"`        // Server ID (for custom DDNS)
-	Hostname       string `json:"hostname"`         // Registered hostname
-	CurrentIP      string `json:"current_ip"`       // Currently registered IP address
-	LastUpdate     string `json:"last_update"`      // Last update timestamp
-	Status         string `json:"status"`           // Status: registered, updating, error
-	ErrorMessage   string `json:"error_message"`    // Error message if any
+	Type         string `json:"type"`          // "netvolante" or "custom"
+	Interface    string `json:"interface"`     // Interface name
+	ServerID     int    `json:"server_id"`     // Server ID (for custom DDNS)
+	Hostname     string `json:"hostname"`      // Registered hostname
+	CurrentIP    string `json:"current_ip"`    // Currently registered IP address
+	LastUpdate   string `json:"last_update"`   // Last update timestamp
+	Status       string `json:"status"`        // Status: registered, updating, error
+	ErrorMessage string `json:"error_message"` // Error message if any
 }
 
 // DDNSParser parses DDNS configuration output

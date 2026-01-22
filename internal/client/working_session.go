@@ -8,27 +8,28 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"golang.org/x/crypto/ssh"
+
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 )
 
 // workingSession implements a working SSH session for RTX routers
 // This is based on the successful expect script test
 type workingSession struct {
-	client     *ssh.Client
-	session    *ssh.Session
-	stdin      io.WriteCloser
-	stdout     io.Reader
-	mu         sync.Mutex
-	closed     bool
-	adminMode  bool // Track if we're in administrator mode
+	client    *ssh.Client
+	session   *ssh.Session
+	stdin     io.WriteCloser
+	stdout    io.Reader
+	mu        sync.Mutex
+	closed    bool
+	adminMode bool // Track if we're in administrator mode
 }
 
 // newWorkingSession creates a new working session
 func newWorkingSession(client *ssh.Client) (*workingSession, error) {
 	logger := logging.Global()
 	logger.Debug().Msg("Creating new working session")
-	
+
 	// Create session first
 	session, err := client.NewSession()
 	if err != nil {
@@ -108,7 +109,7 @@ func (s *workingSession) Send(cmd string) ([]byte, error) {
 	defer s.mu.Unlock()
 
 	logger.Debug().Str("command", SanitizeCommandForLog(cmd)).Bool("closed", s.closed).Msg("workingSession.Send called")
-	
+
 	if s.closed {
 		return nil, fmt.Errorf("session is closed")
 	}
@@ -250,12 +251,12 @@ func (s *workingSession) readUntilString(target string, timeout time.Duration) (
 	for time.Since(start) < timeout {
 		// Read some data
 		chunk := make([]byte, 1024)
-		
+
 		// Set read deadline if possible
 		if conn, ok := s.stdout.(interface{ SetReadDeadline(time.Time) error }); ok {
-			conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+			_ = conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
 		}
-		
+
 		n, err := s.stdout.Read(chunk)
 		if err != nil && err != io.EOF {
 			// Timeout is expected, continue
@@ -284,7 +285,7 @@ func (s *workingSession) readUntilString(target string, timeout time.Duration) (
 // cleanOutput removes command echo and prompt from output
 func (s *workingSession) cleanOutput(output, cmd string) string {
 	lines := strings.Split(output, "\n")
-	
+
 	// Remove command echo (first line that matches command)
 	for i, line := range lines {
 		if strings.TrimSpace(line) == cmd {
@@ -429,14 +430,14 @@ func (s *workingSession) readUntilPromptOrSaveConfirmation(timeout time.Duration
 
 		if n > 0 {
 			buffer.WriteByte(buf[0])
-			
+
 			content := buffer.String()
-			
+
 			// Check for save configuration prompt
 			if s.isSaveConfigurationPrompt(content) {
 				return buffer.Bytes(), nil
 			}
-			
+
 			// Check for normal prompt (user mode or admin mode)
 			lines := strings.Split(content, "\n")
 			if len(lines) > 0 {
@@ -467,7 +468,7 @@ func (s *workingSession) readUntilPromptOrSaveConfirmation(timeout time.Duration
 // isSaveConfigurationPrompt checks if the text contains a configuration save prompt
 func (s *workingSession) isSaveConfigurationPrompt(text string) bool {
 	lowerText := strings.ToLower(text)
-	
+
 	// Common RTX router save configuration prompts
 	savePrompts := []string{
 		"save configuration?",
@@ -479,12 +480,12 @@ func (s *workingSession) isSaveConfigurationPrompt(text string) bool {
 		"save changes?",
 		"保存しますか",
 	}
-	
+
 	for _, prompt := range savePrompts {
 		if strings.Contains(lowerText, prompt) {
 			return true
 		}
 	}
-	
+
 	return false
 }

@@ -3,8 +3,9 @@ package client
 import (
 	"context"
 	"fmt"
-	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
+
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
@@ -326,7 +327,6 @@ func (s *EthernetFilterService) GetAccessListMAC(ctx context.Context, name strin
 	// Attempt to populate apply from interface filter config
 	if len(acl.Entries) > 0 {
 		allIDs := make(map[int]struct{}, len(acl.Entries))
-		var ordered []int
 		for _, e := range acl.Entries {
 			id := e.FilterID
 			if id == 0 {
@@ -334,7 +334,6 @@ func (s *EthernetFilterService) GetAccessListMAC(ctx context.Context, name strin
 			}
 			if id > 0 {
 				allIDs[id] = struct{}{}
-				ordered = append(ordered, id)
 			}
 		}
 

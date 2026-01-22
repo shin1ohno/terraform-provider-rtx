@@ -19,9 +19,9 @@ type SNMPConfig struct {
 
 // SNMPCommunity represents an SNMP community configuration
 type SNMPCommunity struct {
-	Name       string `json:"name"`                 // Community string name
-	Permission string `json:"permission"`           // "ro" (read-only) or "rw" (read-write)
-	ACL        string `json:"acl,omitempty"`        // Access control list (optional)
+	Name       string `json:"name"`          // Community string name
+	Permission string `json:"permission"`    // "ro" (read-only) or "rw" (read-write)
+	ACL        string `json:"acl,omitempty"` // Access control list (optional)
 }
 
 // SNMPHost represents an SNMP trap host configuration
@@ -300,13 +300,13 @@ func ValidateSNMPConfig(config SNMPConfig) error {
 
 	// Validate trap types
 	validTrapTypes := map[string]bool{
-		"all":             true,
-		"authentication":  true,
-		"coldstart":       true,
-		"warmstart":       true,
-		"linkdown":        true,
-		"linkup":          true,
-		"enterprise":      true,
+		"all":            true,
+		"authentication": true,
+		"coldstart":      true,
+		"warmstart":      true,
+		"linkdown":       true,
+		"linkup":         true,
+		"enterprise":     true,
 	}
 	for _, trapType := range config.TrapEnable {
 		if !validTrapTypes[strings.ToLower(trapType)] {

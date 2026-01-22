@@ -130,7 +130,7 @@ func TestValidateClientIdentifierFormat(t *testing.T) {
 			identifier:  "01:AA:BB:CC:DD:EE:FF",
 			expectError: false,
 		},
-		// Valid ASCII-based (02 prefix)  
+		// Valid ASCII-based (02 prefix)
 		{
 			name:        "Valid ASCII-based identifier",
 			identifier:  "02:68:6f:73:74:6e:61:6d:65", // "hostname" in hex
@@ -138,7 +138,7 @@ func TestValidateClientIdentifierFormat(t *testing.T) {
 		},
 		// Valid vendor-specific (FF prefix)
 		{
-			name:        "Valid vendor-specific identifier", 
+			name:        "Valid vendor-specific identifier",
 			identifier:  "ff:00:01:02:03:04:05",
 			expectError: false,
 		},

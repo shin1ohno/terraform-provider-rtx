@@ -622,4 +622,3 @@ ip lan1/2 address 192.168.20.1/24`
 		t.Error("expected error for non-existent VLAN, got nil")
 	}
 }
-

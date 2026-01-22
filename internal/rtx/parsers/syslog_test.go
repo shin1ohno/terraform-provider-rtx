@@ -643,11 +643,11 @@ func TestIsValidSyslogHost(t *testing.T) {
 		{"syslog-server", true},
 		{"syslog1", true},
 		{"log.local", true},
-		{"::1", true}, // IPv6 localhost
+		{"::1", true},         // IPv6 localhost
 		{"2001:db8::1", true}, // IPv6
-		{"192.168.1", true}, // Looks like a hostname with dots (could be internal DNS)
-		{"-invalid", false}, // Invalid hostname (starts with hyphen)
-		{"", false}, // Empty
+		{"192.168.1", true},   // Looks like a hostname with dots (could be internal DNS)
+		{"-invalid", false},   // Invalid hostname (starts with hyphen)
+		{"", false},           // Empty
 		{"with space", false}, // Invalid hostname
 	}
 

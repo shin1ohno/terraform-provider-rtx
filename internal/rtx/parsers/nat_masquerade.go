@@ -10,20 +10,20 @@ import (
 
 // NATMasquerade represents a NAT masquerade configuration on an RTX router
 type NATMasquerade struct {
-	DescriptorID  int                      `json:"descriptor_id"`
-	OuterAddress  string                   `json:"outer_address"`            // "ipcp", interface name, or specific IP
-	InnerNetwork  string                   `json:"inner_network"`            // IP range: "192.168.1.0-192.168.1.255"
-	StaticEntries []MasqueradeStaticEntry  `json:"static_entries,omitempty"` // Static port mappings
+	DescriptorID  int                     `json:"descriptor_id"`
+	OuterAddress  string                  `json:"outer_address"`            // "ipcp", interface name, or specific IP
+	InnerNetwork  string                  `json:"inner_network"`            // IP range: "192.168.1.0-192.168.1.255"
+	StaticEntries []MasqueradeStaticEntry `json:"static_entries,omitempty"` // Static port mappings
 }
 
 // MasqueradeStaticEntry represents a static port mapping entry
 type MasqueradeStaticEntry struct {
 	EntryNumber       int    `json:"entry_number"`
-	InsideLocal       string `json:"inside_local"`                   // Internal IP address
-	InsideLocalPort   *int   `json:"inside_local_port,omitempty"`    // Internal port (nil for protocol-only like ESP/AH/GRE)
-	OutsideGlobal     string `json:"outside_global,omitempty"`       // External IP address (or "ipcp")
-	OutsideGlobalPort *int   `json:"outside_global_port,omitempty"`  // External port (nil for protocol-only)
-	Protocol          string `json:"protocol,omitempty"`             // "tcp", "udp", "esp", "ah", "gre", or empty
+	InsideLocal       string `json:"inside_local"`                  // Internal IP address
+	InsideLocalPort   *int   `json:"inside_local_port,omitempty"`   // Internal port (nil for protocol-only like ESP/AH/GRE)
+	OutsideGlobal     string `json:"outside_global,omitempty"`      // External IP address (or "ipcp")
+	OutsideGlobalPort *int   `json:"outside_global_port,omitempty"` // External port (nil for protocol-only)
+	Protocol          string `json:"protocol,omitempty"`            // "tcp", "udp", "esp", "ah", "gre", or empty
 }
 
 // ParseNATMasqueradeConfig parses the output of "show config" command

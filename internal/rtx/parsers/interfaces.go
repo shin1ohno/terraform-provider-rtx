@@ -9,7 +9,7 @@ import (
 // Interface represents a network interface on an RTX router
 type Interface struct {
 	Name        string            `json:"name"`
-	Kind        string            `json:"kind"`        // lan, wan, pp, vlan
+	Kind        string            `json:"kind"` // lan, wan, pp, vlan
 	AdminUp     bool              `json:"admin_up"`
 	LinkUp      bool              `json:"link_up"`
 	MAC         string            `json:"mac,omitempty"`
@@ -53,7 +53,7 @@ func init() {
 			},
 		},
 	})
-	
+
 	// Register RTX12xx parser
 	rtx12xxParser := &rtx12xxInterfacesParser{
 		BaseInterfacesParser: BaseInterfacesParser{
@@ -69,7 +69,7 @@ func init() {
 	}
 	Register("interfaces", "RTX1210", rtx12xxParser)
 	Register("interfaces", "RTX1220", rtx12xxParser)
-	
+
 	// Create aliases for model families
 	_ = RegisterAlias("interfaces", "RTX1210", "RTX12xx")
 }
@@ -88,29 +88,29 @@ func (p *rtx830InterfacesParser) CanHandle(model string) bool {
 func (p *rtx830InterfacesParser) ParseInterfaces(raw string) ([]Interface, error) {
 	var interfaces []Interface
 	lines := strings.Split(raw, "\n")
-	
+
 	var currentInterface *Interface
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		
+
 		// Check if this is a new interface line
 		if match := p.modelPatterns["interface"].FindStringSubmatch(line); len(match) > 1 {
 			// Save previous interface if exists
 			if currentInterface != nil {
 				interfaces = append(interfaces, *currentInterface)
 			}
-			
+
 			// Start new interface
 			currentInterface = &Interface{
 				Name:       match[1],
 				Kind:       getInterfaceKind(match[1]),
 				Attributes: make(map[string]string),
 			}
-			
+
 			// Check status in the same line
 			if p.modelPatterns["status"].MatchString(match[2]) {
 				status := p.modelPatterns["status"].FindString(match[2])
@@ -119,27 +119,27 @@ func (p *rtx830InterfacesParser) ParseInterfaces(raw string) ([]Interface, error
 			}
 			continue
 		}
-		
+
 		if currentInterface == nil {
 			continue
 		}
-		
+
 		// Parse IPv4 address
 		if match := p.modelPatterns["ipv4"].FindStringSubmatch(line); len(match) > 1 {
 			currentInterface.IPv4 = match[1]
 		}
-		
+
 		// Parse MAC address
 		if match := p.modelPatterns["mac"].FindStringSubmatch(line); len(match) > 1 {
 			currentInterface.MAC = strings.ToUpper(match[1])
 		}
 	}
-	
+
 	// Don't forget the last interface
 	if currentInterface != nil {
 		interfaces = append(interfaces, *currentInterface)
 	}
-	
+
 	return interfaces, nil
 }
 
@@ -157,22 +157,22 @@ func (p *rtx12xxInterfacesParser) CanHandle(model string) bool {
 func (p *rtx12xxInterfacesParser) ParseInterfaces(raw string) ([]Interface, error) {
 	var interfaces []Interface
 	lines := strings.Split(raw, "\n")
-	
+
 	var currentInterface *Interface
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		
+
 		// Check if this is a new interface line
 		if match := p.modelPatterns["interface"].FindStringSubmatch(line); len(match) > 1 {
 			// Save previous interface if exists
 			if currentInterface != nil {
 				interfaces = append(interfaces, *currentInterface)
 			}
-			
+
 			// Start new interface
 			currentInterface = &Interface{
 				Name:       match[1],
@@ -181,43 +181,43 @@ func (p *rtx12xxInterfacesParser) ParseInterfaces(raw string) ([]Interface, erro
 			}
 			continue
 		}
-		
+
 		if currentInterface == nil {
 			continue
 		}
-		
+
 		// Parse status
 		if match := p.modelPatterns["status"].FindStringSubmatch(line); len(match) > 1 {
 			currentInterface.LinkUp = strings.ToLower(match[1]) == "up"
 			currentInterface.AdminUp = currentInterface.LinkUp
 		}
-		
+
 		// Parse IPv4 address
 		if match := p.modelPatterns["ipv4"].FindStringSubmatch(line); len(match) > 1 {
 			currentInterface.IPv4 = match[1]
 		}
-		
+
 		// Parse IPv6 address
 		if match := p.modelPatterns["ipv6"].FindStringSubmatch(line); len(match) > 1 {
 			currentInterface.IPv6 = match[1]
 		}
-		
+
 		// Parse MAC address
 		if match := p.modelPatterns["mac"].FindStringSubmatch(line); len(match) > 1 {
 			currentInterface.MAC = strings.ToUpper(match[1])
 		}
-		
+
 		// Parse MTU
 		if match := p.modelPatterns["mtu"].FindStringSubmatch(line); len(match) > 1 {
 			_, _ = fmt.Sscanf(match[1], "%d", &currentInterface.MTU)
 		}
 	}
-	
+
 	// Don't forget the last interface
 	if currentInterface != nil {
 		interfaces = append(interfaces, *currentInterface)
 	}
-	
+
 	return interfaces, nil
 }
 

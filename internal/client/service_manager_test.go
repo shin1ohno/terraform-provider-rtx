@@ -61,10 +61,6 @@ func (m *mockServiceExecutor) getCommands() []string {
 	return m.commands
 }
 
-func (m *mockServiceExecutor) clearCommands() {
-	m.commands = []string{}
-}
-
 func TestServiceManager_GetHTTPD(t *testing.T) {
 	executor := newMockServiceExecutor()
 	executor.setOutput("grep httpd", `httpd host lan1

@@ -18,12 +18,12 @@ func NewParserRegistry() *ParserRegistry {
 	r := &ParserRegistry{
 		parsers: make(map[string]Parser),
 	}
-	
+
 	// Register default parsers
 	r.Register("show environment", &environmentParser{})
 	r.Register("show status boot", &bootStatusParser{})
 	r.Register("show config", &rawParser{})
-	
+
 	return r
 }
 
@@ -60,7 +60,7 @@ type environmentParser struct{}
 func (p *environmentParser) Parse(raw []byte) (interface{}, error) {
 	output := string(raw)
 	info := &EnvironmentInfo{}
-	
+
 	// Parse temperature (example: "Temperature: 45.5C")
 	if match := regexp.MustCompile(`Temperature:\s*([\d.]+)`).FindStringSubmatch(output); len(match) > 1 {
 		temp, err := strconv.ParseFloat(match[1], 64)
@@ -68,7 +68,7 @@ func (p *environmentParser) Parse(raw []byte) (interface{}, error) {
 			info.Temperature = temp
 		}
 	}
-	
+
 	// Parse CPU usage (example: "CPU: 25%")
 	if match := regexp.MustCompile(`CPU:\s*(\d+)%`).FindStringSubmatch(output); len(match) > 1 {
 		cpu, err := strconv.Atoi(match[1])
@@ -76,7 +76,7 @@ func (p *environmentParser) Parse(raw []byte) (interface{}, error) {
 			info.CPUUsage = cpu
 		}
 	}
-	
+
 	// Parse memory usage (example: "Memory: 60%")
 	if match := regexp.MustCompile(`Memory:\s*(\d+)%`).FindStringSubmatch(output); len(match) > 1 {
 		mem, err := strconv.Atoi(match[1])
@@ -84,7 +84,7 @@ func (p *environmentParser) Parse(raw []byte) (interface{}, error) {
 			info.MemoryUsage = mem
 		}
 	}
-	
+
 	return info, nil
 }
 
@@ -102,25 +102,25 @@ type bootStatusParser struct{}
 func (p *bootStatusParser) Parse(raw []byte) (interface{}, error) {
 	output := string(raw)
 	status := &BootStatus{}
-	
+
 	// Parse version (example: "RTX1210 Rev.14.01.38")
 	if match := regexp.MustCompile(`RTX\d+\s+Rev\.([\d.]+)`).FindStringSubmatch(output); len(match) > 1 {
 		status.Version = match[1]
 	}
-	
+
 	// Parse uptime (example: "Uptime: 10 days 5:30:45")
 	if match := regexp.MustCompile(`Uptime:\s*(\d+)\s*days?\s*(\d+):(\d+):(\d+)`).FindStringSubmatch(output); len(match) > 4 {
 		days, _ := strconv.Atoi(match[1])
 		hours, _ := strconv.Atoi(match[2])
 		minutes, _ := strconv.Atoi(match[3])
 		seconds, _ := strconv.Atoi(match[4])
-		
+
 		status.Uptime = time.Duration(days)*24*time.Hour +
 			time.Duration(hours)*time.Hour +
 			time.Duration(minutes)*time.Minute +
 			time.Duration(seconds)*time.Second
 	}
-	
+
 	// Parse last reboot reason
 	if idx := strings.Index(output, "Reboot by"); idx != -1 {
 		endIdx := strings.IndexByte(output[idx:], '\n')
@@ -130,7 +130,7 @@ func (p *bootStatusParser) Parse(raw []byte) (interface{}, error) {
 			status.LastReboot = strings.TrimSpace(output[idx : idx+endIdx])
 		}
 	}
-	
+
 	return status, nil
 }
 
@@ -138,42 +138,6 @@ func (p *bootStatusParser) Parse(raw []byte) (interface{}, error) {
 type ConfigSection struct {
 	Name  string
 	Lines []string
-}
-
-// configParser parses router configuration output
-type configParser struct{}
-
-func (p *configParser) Parse(raw []byte) (interface{}, error) {
-	lines := strings.Split(string(raw), "\n")
-	sections := make([]ConfigSection, 0)
-	
-	var currentSection *ConfigSection
-	
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		
-		// Detect section headers (lines ending with colon)
-		if strings.HasSuffix(line, ":") {
-			if currentSection != nil {
-				sections = append(sections, *currentSection)
-			}
-			currentSection = &ConfigSection{
-				Name:  strings.TrimSuffix(line, ":"),
-				Lines: make([]string, 0),
-			}
-		} else if currentSection != nil {
-			currentSection.Lines = append(currentSection.Lines, line)
-		}
-	}
-	
-	if currentSection != nil {
-		sections = append(sections, *currentSection)
-	}
-	
-	return sections, nil
 }
 
 // ParseError wraps parsing errors with context

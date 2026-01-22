@@ -15,26 +15,12 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-
-// createKnownHostsFile creates a temporary known_hosts file for testing
-func createKnownHostsFile(t *testing.T, host, hostKey string) string {
-	tmpDir := t.TempDir()
-	knownHostsPath := filepath.Join(tmpDir, "known_hosts")
-
-	content := fmt.Sprintf("%s ssh-rsa %s\n", host, hostKey)
-	if err := os.WriteFile(knownHostsPath, []byte(content), 0600); err != nil {
-		t.Fatalf("Failed to create known_hosts file: %v", err)
-	}
-
-	return knownHostsPath
-}
-
-// TestSSHDialer_HostKeyVerification tests host key verification using mock dialer 
+// TestSSHDialer_HostKeyVerification tests host key verification using mock dialer
 func TestSSHDialer_HostKeyVerification(t *testing.T) {
 	tests := []struct {
-		name               string
-		config             *Config
-		wantErrContains    string
+		name            string
+		config          *Config
+		wantErrContains string
 	}{
 		{
 			name: "missing known_hosts file error",
@@ -66,7 +52,7 @@ func TestSSHDialer_HostKeyVerification(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			dialer := &sshDialer{}
 			callback := dialer.getHostKeyCallback(tt.config)
-			
+
 			// Test that callback is created (even if it might fail later)
 			if callback == nil {
 				t.Error("getHostKeyCallback() returned nil")
@@ -84,15 +70,15 @@ func TestSSHDialer_HostKeyVerification(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Failed to create signer: %v", err)
 				}
-				
+
 				mockAddr := &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 22}
 				err = callback("testhost:22", mockAddr, signer.PublicKey())
-				
+
 				if err == nil {
 					t.Error("Expected error for missing known_hosts file")
 					return
 				}
-				
+
 				if !strings.Contains(err.Error(), tt.wantErrContains) {
 					t.Errorf("Expected error containing %q, got %q", tt.wantErrContains, err.Error())
 				}
@@ -115,7 +101,7 @@ func TestHostKeyCallback_FixedHostKey(t *testing.T) {
 	}
 
 	correctHostKey := base64.StdEncoding.EncodeToString(signer.PublicKey().Marshal())
-	
+
 	// Generate another key for the wrong key test
 	wrongPrivateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -141,7 +127,7 @@ func TestHostKeyCallback_FixedHostKey(t *testing.T) {
 			wantErr:     false,
 		},
 		{
-			name:        "incorrect host key", 
+			name:        "incorrect host key",
 			configKey:   wrongHostKey,
 			providedKey: signer.PublicKey(),
 			wantErr:     true,
@@ -180,7 +166,7 @@ func TestHostKeyCallback_FixedHostKey(t *testing.T) {
 	}
 }
 
-// TestHostKeyCallback_KnownHosts tests the known_hosts file verification logic  
+// TestHostKeyCallback_KnownHosts tests the known_hosts file verification logic
 func TestHostKeyCallback_KnownHosts(t *testing.T) {
 	// Generate test key pair
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -207,39 +193,39 @@ func TestHostKeyCallback_KnownHosts(t *testing.T) {
 	wrongHostKey := base64.StdEncoding.EncodeToString(wrongSigner.PublicKey().Marshal())
 
 	tests := []struct {
-		name             string
+		name              string
 		knownHostsContent string
-		testHost         string
-		providedKey      ssh.PublicKey
-		wantErr          bool
+		testHost          string
+		providedKey       ssh.PublicKey
+		wantErr           bool
 	}{
 		{
-			name: "matching host and key",
+			name:              "matching host and key",
 			knownHostsContent: fmt.Sprintf("testhost ssh-rsa %s\n", hostKey),
-			testHost:         "testhost:22",
-			providedKey:      signer.PublicKey(),
-			wantErr:          false,
+			testHost:          "testhost:22",
+			providedKey:       signer.PublicKey(),
+			wantErr:           false,
 		},
 		{
-			name: "matching host with port in known_hosts",
+			name:              "matching host with port in known_hosts",
 			knownHostsContent: fmt.Sprintf("[testhost]:2222 ssh-rsa %s\n", hostKey),
-			testHost:         "testhost:2222", 
-			providedKey:      signer.PublicKey(),
-			wantErr:          false,
+			testHost:          "testhost:2222",
+			providedKey:       signer.PublicKey(),
+			wantErr:           false,
 		},
 		{
-			name: "host not in known_hosts",
+			name:              "host not in known_hosts",
 			knownHostsContent: fmt.Sprintf("otherhost ssh-rsa %s\n", hostKey),
-			testHost:         "testhost:22",
-			providedKey:      signer.PublicKey(),
-			wantErr:          true,
+			testHost:          "testhost:22",
+			providedKey:       signer.PublicKey(),
+			wantErr:           true,
 		},
 		{
-			name: "wrong key for host",
+			name:              "wrong key for host",
 			knownHostsContent: fmt.Sprintf("testhost ssh-rsa %s\n", wrongHostKey),
-			testHost:         "testhost:22",
-			providedKey:      signer.PublicKey(),
-			wantErr:          true,
+			testHost:          "testhost:22",
+			providedKey:       signer.PublicKey(),
+			wantErr:           true,
 		},
 	}
 
@@ -279,9 +265,9 @@ func TestHostKeyCallback_KnownHosts(t *testing.T) {
 // TestSSHDialer_HostKeyCallbackSelection tests that the dialer selects the correct callback
 func TestSSHDialer_HostKeyCallbackSelection(t *testing.T) {
 	tests := []struct {
-		name               string
-		config             *Config
-		expectedCallback   string // "fixed", "known_hosts", or "insecure"
+		name             string
+		config           *Config
+		expectedCallback string // "fixed", "known_hosts", or "insecure"
 	}{
 		{
 			name: "fixed host key takes priority",
@@ -307,8 +293,8 @@ func TestSSHDialer_HostKeyCallbackSelection(t *testing.T) {
 			expectedCallback: "insecure",
 		},
 		{
-			name: "insecure when no keys configured",
-			config: &Config{},
+			name:             "insecure when no keys configured",
+			config:           &Config{},
 			expectedCallback: "insecure",
 		},
 	}
@@ -316,16 +302,16 @@ func TestSSHDialer_HostKeyCallbackSelection(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dialer := &sshDialer{}
-			
+
 			// We can't directly test the callback selection without refactoring the code,
 			// but we can test the configuration validation logic
 			callback := dialer.getHostKeyCallback(tt.config)
-			
+
 			// This test ensures the callback is not nil
 			if callback == nil {
 				t.Error("getHostKeyCallback() returned nil")
 			}
-			
+
 			// The specific callback type testing would require code refactoring
 			// to expose the callback creation methods, which we'll implement in the actual code
 		})

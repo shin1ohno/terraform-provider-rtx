@@ -57,7 +57,7 @@ func TestBuildNetVolanteConfigFromResourceData_DefaultValues(t *testing.T) {
 
 	assert.Equal(t, "pp 1", config.Interface)
 	assert.Equal(t, "test.aa0.netvolante.jp", config.Hostname)
-	assert.Equal(t, 1, config.Server)  // Default is 1
+	assert.Equal(t, 1, config.Server)   // Default is 1
 	assert.Equal(t, 60, config.Timeout) // Default is 60
 	assert.False(t, config.IPv6)        // Default is false
 }

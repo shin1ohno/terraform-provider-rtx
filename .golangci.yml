@@ -56,3 +56,20 @@ issues:
     - path: _test\.go
       linters:
         - unparam
+    # Ignore var-naming for test functions (testAccXxx_yyy is standard Terraform convention)
+    - path: _test\.go
+      linters:
+        - revive
+      text: "var-naming.*testAcc"
+    # Ignore d.Set error return checks (standard Terraform provider pattern)
+    - linters:
+        - errcheck
+      text: "Error return value of `d.Set` is not checked"
+    # Ignore Close() error return checks in deferred cleanup
+    - linters:
+        - errcheck
+      text: "Error return value of `.*\\.Close` is not checked"
+    # Ignore fmt.Fprintln error checks (typically for prompt writing)
+    - linters:
+        - errcheck
+      text: "Error return value of `fmt.Fprintln` is not checked"

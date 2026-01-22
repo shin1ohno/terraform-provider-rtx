@@ -23,9 +23,10 @@ func NewBridgeParser() *BridgeParser {
 // ParseBridgeConfig parses the output of "show config | grep bridge" command
 // and returns a list of bridge configurations
 // Example input lines:
-//   bridge member bridge1 lan1
-//   bridge member bridge1 lan1 tunnel1
-//   bridge member bridge2 lan2
+//
+//	bridge member bridge1 lan1
+//	bridge member bridge1 lan1 tunnel1
+//	bridge member bridge2 lan2
 func (p *BridgeParser) ParseBridgeConfig(raw string) ([]BridgeConfig, error) {
 	bridges := make(map[string]*BridgeConfig)
 	lines := strings.Split(raw, "\n")
@@ -134,12 +135,12 @@ func ValidateBridgeMember(member string) error {
 
 	// Valid member patterns
 	validPatterns := []*regexp.Regexp{
-		regexp.MustCompile(`^lan\d+$`),           // lan1, lan2, etc.
-		regexp.MustCompile(`^lan\d+/\d+$`),       // lan1/1 (VLAN interfaces)
-		regexp.MustCompile(`^tunnel\d+$`),        // tunnel1, tunnel2, etc.
-		regexp.MustCompile(`^pp\d+$`),            // pp1, pp2, etc.
-		regexp.MustCompile(`^loopback\d+$`),      // loopback1, etc.
-		regexp.MustCompile(`^bridge\d+$`),        // nested bridge (rare but possible)
+		regexp.MustCompile(`^lan\d+$`),      // lan1, lan2, etc.
+		regexp.MustCompile(`^lan\d+/\d+$`),  // lan1/1 (VLAN interfaces)
+		regexp.MustCompile(`^tunnel\d+$`),   // tunnel1, tunnel2, etc.
+		regexp.MustCompile(`^pp\d+$`),       // pp1, pp2, etc.
+		regexp.MustCompile(`^loopback\d+$`), // loopback1, etc.
+		regexp.MustCompile(`^bridge\d+$`),   // nested bridge (rare but possible)
 	}
 
 	for _, pattern := range validPatterns {

@@ -2,10 +2,12 @@ package provider
 
 import (
 	"context"
+
 	"github.com/sh1/terraform-provider-rtx/internal/logging"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+
 	"github.com/sh1/terraform-provider-rtx/internal/client"
 )
 

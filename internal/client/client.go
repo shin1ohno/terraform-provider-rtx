@@ -6,8 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 	"golang.org/x/crypto/ssh"
+
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 // DefaultMaxParallelism is the default maximum number of concurrent operations
@@ -688,10 +689,7 @@ func validateConfig(config *Config) error {
 		config.Timeout = 30 // Default timeout
 	}
 
-	// Validate host key configuration
-	if config.HostKey != "" && config.KnownHostsFile != "" {
-		// Both specified - HostKey takes priority, but we warn about it in logs if needed
-	}
+	// Note: When both HostKey and KnownHostsFile are specified, HostKey takes priority
 
 	return nil
 }

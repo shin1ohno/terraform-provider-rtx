@@ -3,12 +3,14 @@ package provider
 import (
 	"context"
 	"fmt"
-	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
+
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+
 	"github.com/sh1/terraform-provider-rtx/internal/client"
 )
 
@@ -32,11 +34,11 @@ func resourceRTXAdminUser() *schema.Resource {
 				ValidateFunc: validateUsername,
 			},
 			"password": {
-			Type:        schema.TypeString,
-			Optional:    true,
-			Sensitive:   true,
-			Description: "Password for the admin user. Required for create, optional for import.",
-		},
+				Type:        schema.TypeString,
+				Optional:    true,
+				Sensitive:   true,
+				Description: "Password for the admin user. Required for create, optional for import.",
+			},
 			"encrypted": {
 				Type:        schema.TypeBool,
 				Optional:    true,

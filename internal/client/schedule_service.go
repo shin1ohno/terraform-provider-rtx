@@ -3,8 +3,9 @@ package client
 import (
 	"context"
 	"fmt"
-	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
+
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
@@ -301,13 +302,5 @@ func (s *ScheduleService) toParserKronPolicy(policy KronPolicy) parsers.KronPoli
 	return parsers.KronPolicy{
 		Name:     policy.Name,
 		Commands: policy.Commands,
-	}
-}
-
-// fromParserKronPolicy converts parsers.KronPolicy to client.KronPolicy
-func (s *ScheduleService) fromParserKronPolicy(pp parsers.KronPolicy) KronPolicy {
-	return KronPolicy{
-		Name:     pp.Name,
-		Commands: pp.Commands,
 	}
 }

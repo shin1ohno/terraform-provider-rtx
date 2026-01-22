@@ -4,8 +4,9 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/sh1/terraform-provider-rtx/internal/client"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/sh1/terraform-provider-rtx/internal/client"
 )
 
 func TestBuildNATStaticFromResourceData(t *testing.T) {

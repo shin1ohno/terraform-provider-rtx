@@ -1,13 +1,20 @@
+//go:build ignore
+// +build ignore
+
+// This file contains unused session implementation that was kept for reference.
+// It is excluded from builds via the ignore build tag.
+
 package client
 
 import (
 	"bytes"
 	"fmt"
 	"io"
-	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 
 	"golang.org/x/crypto/ssh"
 )
@@ -110,12 +117,12 @@ func (s *rtxExpectSession) readLoop() {
 // expectPrompt waits for a prompt
 func (s *rtxExpectSession) expectPrompt(timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
-	
+
 	for time.Now().Before(deadline) {
 		s.mu.Lock()
 		content := s.buffer.String()
 		s.mu.Unlock()
-		
+
 		// Check for prompt
 		if strings.Contains(content, ">") || strings.Contains(content, "#") {
 			// Check if it's at the end of a line
@@ -127,10 +134,10 @@ func (s *rtxExpectSession) expectPrompt(timeout time.Duration) error {
 				}
 			}
 		}
-		
+
 		time.Sleep(50 * time.Millisecond)
 	}
-	
+
 	return fmt.Errorf("timeout waiting for prompt")
 }
 
@@ -151,20 +158,20 @@ func (s *rtxExpectSession) Send(cmd string) ([]byte, error) {
 
 	// Clear buffer
 	s.buffer.Reset()
-	
+
 	// Send command
 	if err := s.sendLine(cmd); err != nil {
 		return nil, fmt.Errorf("failed to send command: %w", err)
 	}
-	
+
 	// Wait for prompt
 	if err := s.expectPrompt(30 * time.Second); err != nil {
 		return nil, fmt.Errorf("failed to get response: %w", err)
 	}
-	
+
 	// Get output
 	output := s.buffer.String()
-	
+
 	// Remove command echo and prompt
 	lines := strings.Split(output, "\n")
 	if len(lines) > 0 && strings.TrimSpace(lines[0]) == cmd {
@@ -172,12 +179,12 @@ func (s *rtxExpectSession) Send(cmd string) ([]byte, error) {
 	}
 	if len(lines) > 0 {
 		lastLine := lines[len(lines)-1]
-		if strings.HasSuffix(strings.TrimSpace(lastLine), ">") || 
-		   strings.HasSuffix(strings.TrimSpace(lastLine), "#") {
+		if strings.HasSuffix(strings.TrimSpace(lastLine), ">") ||
+			strings.HasSuffix(strings.TrimSpace(lastLine), "#") {
 			lines = lines[:len(lines)-1]
 		}
 	}
-	
+
 	return []byte(strings.Join(lines, "\n")), nil
 }
 
@@ -191,15 +198,15 @@ func (s *rtxExpectSession) Close() error {
 	}
 
 	s.closed = true
-	
+
 	// Send exit
 	fmt.Fprintln(s.stdin, "exit")
 	time.Sleep(100 * time.Millisecond)
-	
+
 	// Close session
 	if s.session != nil {
 		return s.session.Close()
 	}
-	
+
 	return nil
 }

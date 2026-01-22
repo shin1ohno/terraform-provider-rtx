@@ -9,10 +9,10 @@ import (
 
 // mockBridgeExecutor implements Executor for testing
 type mockBridgeExecutor struct {
-	output    []byte
-	err       error
-	lastCmd   string
-	cmdLog    []string
+	output  []byte
+	err     error
+	lastCmd string
+	cmdLog  []string
 }
 
 func (m *mockBridgeExecutor) Run(ctx context.Context, cmd string) ([]byte, error) {

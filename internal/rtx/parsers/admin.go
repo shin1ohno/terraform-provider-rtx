@@ -25,9 +25,9 @@ type UserConfig struct {
 // UserAttributes represents user attribute configuration
 type UserAttributes struct {
 	Administrator bool     `json:"administrator"`
-	Connection    []string `json:"connection"`    // serial, telnet, remote, ssh, sftp, http
-	GUIPages      []string `json:"gui_pages"`     // dashboard, lan-map, config
-	LoginTimer    int      `json:"login_timer"`   // seconds (0 = infinite)
+	Connection    []string `json:"connection"`  // serial, telnet, remote, ssh, sftp, http
+	GUIPages      []string `json:"gui_pages"`   // dashboard, lan-map, config
+	LoginTimer    int      `json:"login_timer"` // seconds (0 = infinite)
 }
 
 // AdminParser is the interface for parsing admin configuration

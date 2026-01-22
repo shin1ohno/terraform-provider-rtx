@@ -78,7 +78,7 @@ ip pp remote address pool 192.168.1.100-192.168.1.200`,
 			},
 		},
 		{
-			name: "PPTP disabled",
+			name:  "PPTP disabled",
 			input: `pptp service off`,
 			expected: &PPTPConfig{
 				Enabled: false,

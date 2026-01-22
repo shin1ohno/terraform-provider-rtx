@@ -149,6 +149,7 @@ func TestWithContext(t *testing.T) {
 
 func TestFromContext_NilContext(t *testing.T) {
 	// Should return global logger without panic
+	//nolint:staticcheck // SA1012: intentionally testing nil context behavior
 	logger := FromContext(nil)
 	// Just verify it doesn't panic and returns a valid logger
 	logger.Info().Msg("test")

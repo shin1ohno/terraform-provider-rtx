@@ -4,8 +4,9 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/sh1/terraform-provider-rtx/internal/client"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/sh1/terraform-provider-rtx/internal/client"
 )
 
 func TestBuildInterfaceACLFromResourceData(t *testing.T) {
@@ -17,14 +18,14 @@ func TestBuildInterfaceACLFromResourceData(t *testing.T) {
 		{
 			name: "basic interface ACL with IP access groups",
 			input: map[string]interface{}{
-				"interface":               "lan1",
-				"ip_access_group_in":      "acl-in",
-				"ip_access_group_out":     "acl-out",
-				"ipv6_access_group_in":    "",
-				"ipv6_access_group_out":   "",
-				"dynamic_filters_in":      []interface{}{},
-				"dynamic_filters_out":     []interface{}{},
-				"ipv6_dynamic_filters_in": []interface{}{},
+				"interface":                "lan1",
+				"ip_access_group_in":       "acl-in",
+				"ip_access_group_out":      "acl-out",
+				"ipv6_access_group_in":     "",
+				"ipv6_access_group_out":    "",
+				"dynamic_filters_in":       []interface{}{},
+				"dynamic_filters_out":      []interface{}{},
+				"ipv6_dynamic_filters_in":  []interface{}{},
 				"ipv6_dynamic_filters_out": []interface{}{},
 			},
 			expected: client.InterfaceACL{
@@ -36,14 +37,14 @@ func TestBuildInterfaceACLFromResourceData(t *testing.T) {
 		{
 			name: "interface ACL with IPv6 access groups",
 			input: map[string]interface{}{
-				"interface":               "lan2",
-				"ip_access_group_in":      "",
-				"ip_access_group_out":     "",
-				"ipv6_access_group_in":    "acl-v6-in",
-				"ipv6_access_group_out":   "acl-v6-out",
-				"dynamic_filters_in":      []interface{}{},
-				"dynamic_filters_out":     []interface{}{},
-				"ipv6_dynamic_filters_in": []interface{}{},
+				"interface":                "lan2",
+				"ip_access_group_in":       "",
+				"ip_access_group_out":      "",
+				"ipv6_access_group_in":     "acl-v6-in",
+				"ipv6_access_group_out":    "acl-v6-out",
+				"dynamic_filters_in":       []interface{}{},
+				"dynamic_filters_out":      []interface{}{},
+				"ipv6_dynamic_filters_in":  []interface{}{},
 				"ipv6_dynamic_filters_out": []interface{}{},
 			},
 			expected: client.InterfaceACL{
@@ -55,14 +56,14 @@ func TestBuildInterfaceACLFromResourceData(t *testing.T) {
 		{
 			name: "interface ACL with dynamic filters",
 			input: map[string]interface{}{
-				"interface":               "pp1",
-				"ip_access_group_in":      "",
-				"ip_access_group_out":     "",
-				"ipv6_access_group_in":    "",
-				"ipv6_access_group_out":   "",
-				"dynamic_filters_in":      []interface{}{100, 101, 102},
-				"dynamic_filters_out":     []interface{}{200, 201},
-				"ipv6_dynamic_filters_in": []interface{}{},
+				"interface":                "pp1",
+				"ip_access_group_in":       "",
+				"ip_access_group_out":      "",
+				"ipv6_access_group_in":     "",
+				"ipv6_access_group_out":    "",
+				"dynamic_filters_in":       []interface{}{100, 101, 102},
+				"dynamic_filters_out":      []interface{}{200, 201},
+				"ipv6_dynamic_filters_in":  []interface{}{},
 				"ipv6_dynamic_filters_out": []interface{}{},
 			},
 			expected: client.InterfaceACL{
@@ -74,44 +75,44 @@ func TestBuildInterfaceACLFromResourceData(t *testing.T) {
 		{
 			name: "interface ACL with IPv6 dynamic filters",
 			input: map[string]interface{}{
-				"interface":               "tunnel1",
-				"ip_access_group_in":      "",
-				"ip_access_group_out":     "",
-				"ipv6_access_group_in":    "",
-				"ipv6_access_group_out":   "",
-				"dynamic_filters_in":      []interface{}{},
-				"dynamic_filters_out":     []interface{}{},
-				"ipv6_dynamic_filters_in": []interface{}{300, 301},
+				"interface":                "tunnel1",
+				"ip_access_group_in":       "",
+				"ip_access_group_out":      "",
+				"ipv6_access_group_in":     "",
+				"ipv6_access_group_out":    "",
+				"dynamic_filters_in":       []interface{}{},
+				"dynamic_filters_out":      []interface{}{},
+				"ipv6_dynamic_filters_in":  []interface{}{300, 301},
 				"ipv6_dynamic_filters_out": []interface{}{400},
 			},
 			expected: client.InterfaceACL{
-				Interface:            "tunnel1",
-				IPv6DynamicFiltersIn: []int{300, 301},
+				Interface:             "tunnel1",
+				IPv6DynamicFiltersIn:  []int{300, 301},
 				IPv6DynamicFiltersOut: []int{400},
 			},
 		},
 		{
 			name: "interface ACL with all options",
 			input: map[string]interface{}{
-				"interface":               "bridge1",
-				"ip_access_group_in":      "full-acl-in",
-				"ip_access_group_out":     "full-acl-out",
-				"ipv6_access_group_in":    "full-v6-acl-in",
-				"ipv6_access_group_out":   "full-v6-acl-out",
-				"dynamic_filters_in":      []interface{}{10, 20},
-				"dynamic_filters_out":     []interface{}{30},
-				"ipv6_dynamic_filters_in": []interface{}{40},
+				"interface":                "bridge1",
+				"ip_access_group_in":       "full-acl-in",
+				"ip_access_group_out":      "full-acl-out",
+				"ipv6_access_group_in":     "full-v6-acl-in",
+				"ipv6_access_group_out":    "full-v6-acl-out",
+				"dynamic_filters_in":       []interface{}{10, 20},
+				"dynamic_filters_out":      []interface{}{30},
+				"ipv6_dynamic_filters_in":  []interface{}{40},
 				"ipv6_dynamic_filters_out": []interface{}{50, 60},
 			},
 			expected: client.InterfaceACL{
-				Interface:            "bridge1",
-				IPAccessGroupIn:      "full-acl-in",
-				IPAccessGroupOut:     "full-acl-out",
-				IPv6AccessGroupIn:    "full-v6-acl-in",
-				IPv6AccessGroupOut:   "full-v6-acl-out",
-				DynamicFiltersIn:     []int{10, 20},
-				DynamicFiltersOut:    []int{30},
-				IPv6DynamicFiltersIn: []int{40},
+				Interface:             "bridge1",
+				IPAccessGroupIn:       "full-acl-in",
+				IPAccessGroupOut:      "full-acl-out",
+				IPv6AccessGroupIn:     "full-v6-acl-in",
+				IPv6AccessGroupOut:    "full-v6-acl-out",
+				DynamicFiltersIn:      []int{10, 20},
+				DynamicFiltersOut:     []int{30},
+				IPv6DynamicFiltersIn:  []int{40},
 				IPv6DynamicFiltersOut: []int{50, 60},
 			},
 		},

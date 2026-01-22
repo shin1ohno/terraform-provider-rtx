@@ -1211,15 +1211,20 @@ type DNSConfig struct {
 	PrivateSpoof bool              `json:"private_spoof"` // dns private address spoof on/off
 }
 
+// DNSServer represents a DNS server with its per-server EDNS setting
+type DNSServer struct {
+	Address string `json:"address"` // DNS server IP address (IPv4 or IPv6)
+	EDNS    bool   `json:"edns"`    // Enable EDNS for this server
+}
+
 // DNSServerSelect represents a domain-based DNS server selection entry
 type DNSServerSelect struct {
-	ID             int      `json:"id"`              // Selector ID (1-65535)
-	Servers        []string `json:"servers"`         // DNS server IPs
-	EDNS           bool     `json:"edns"`            // Enable EDNS (Extension mechanisms for DNS)
-	RecordType     string   `json:"record_type"`     // DNS record type: a, aaaa, ptr, mx, ns, cname, any
-	QueryPattern   string   `json:"query_pattern"`   // Domain pattern: ".", "*.example.com", etc.
-	OriginalSender string   `json:"original_sender"` // Source IP/CIDR restriction
-	RestrictPP     int      `json:"restrict_pp"`     // PP session restriction (0=none)
+	ID             int         `json:"id"`              // Selector ID (1-65535)
+	Servers        []DNSServer `json:"servers"`         // DNS servers with per-server EDNS
+	RecordType     string      `json:"record_type"`     // DNS record type: a, aaaa, ptr, mx, ns, cname, any
+	QueryPattern   string      `json:"query_pattern"`   // Domain pattern: ".", "*.example.com", etc.
+	OriginalSender string      `json:"original_sender"` // Source IP/CIDR restriction
+	RestrictPP     int         `json:"restrict_pp"`     // PP session restriction (0=none)
 }
 
 // DNSHost represents a static DNS host entry

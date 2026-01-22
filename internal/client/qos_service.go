@@ -3,10 +3,11 @@ package client
 import (
 	"context"
 	"fmt"
-	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
@@ -653,17 +654,6 @@ func (s *QoSService) toParserClassMap(cm ClassMap) parsers.ClassMap {
 	}
 }
 
-func (s *QoSService) fromParserClassMap(pcm parsers.ClassMap) ClassMap {
-	return ClassMap{
-		Name:                 pcm.Name,
-		MatchProtocol:        pcm.MatchProtocol,
-		MatchDestinationPort: pcm.MatchDestinationPort,
-		MatchSourcePort:      pcm.MatchSourcePort,
-		MatchDSCP:            pcm.MatchDSCP,
-		MatchFilter:          pcm.MatchFilter,
-	}
-}
-
 func (s *QoSService) toParserPolicyMap(pm PolicyMap) parsers.PolicyMap {
 	classes := make([]parsers.PolicyMapClass, len(pm.Classes))
 	for i, c := range pm.Classes {
@@ -677,23 +667,6 @@ func (s *QoSService) toParserPolicyMap(pm PolicyMap) parsers.PolicyMap {
 	}
 	return parsers.PolicyMap{
 		Name:    pm.Name,
-		Classes: classes,
-	}
-}
-
-func (s *QoSService) fromParserPolicyMap(ppm parsers.PolicyMap) PolicyMap {
-	classes := make([]PolicyMapClass, len(ppm.Classes))
-	for i, c := range ppm.Classes {
-		classes[i] = PolicyMapClass{
-			Name:             c.Name,
-			Priority:         c.Priority,
-			BandwidthPercent: c.BandwidthPercent,
-			PoliceCIR:        c.PoliceCIR,
-			QueueLimit:       c.QueueLimit,
-		}
-	}
-	return PolicyMap{
-		Name:    ppm.Name,
 		Classes: classes,
 	}
 }

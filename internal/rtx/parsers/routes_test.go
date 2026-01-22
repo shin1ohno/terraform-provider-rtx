@@ -184,8 +184,8 @@ func TestRTX12xxRoutesParser_ParseRoutes(t *testing.T) {
 			},
 		},
 		{
-			name: "Without header",
-			raw:  `0.0.0.0/0       192.168.1.1     LAN1        S        1`,
+			name:     "Without header",
+			raw:      `0.0.0.0/0       192.168.1.1     LAN1        S        1`,
 			expected: []Route{}, // Should not parse without header
 		},
 		{
@@ -227,7 +227,7 @@ func TestRoutesParser_Parse(t *testing.T) {
 		raw := "S   0.0.0.0/0         via 192.168.1.1    dev LAN1 metric 1"
 		result, err := rtx830Parser.Parse(raw)
 		assert.NoError(t, err)
-		
+
 		routes, ok := result.([]Route)
 		assert.True(t, ok)
 		assert.Len(t, routes, 1)
@@ -242,7 +242,7 @@ func TestRoutesParser_Parse(t *testing.T) {
 0.0.0.0/0       192.168.1.1     LAN1        S        1`
 		result, err := rtx12xxParser.Parse(raw)
 		assert.NoError(t, err)
-		
+
 		routes, ok := result.([]Route)
 		assert.True(t, ok)
 		assert.Len(t, routes, 1)

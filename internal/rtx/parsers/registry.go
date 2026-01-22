@@ -30,7 +30,7 @@ func NewRegistry() *Registry {
 func (r *Registry) Register(command, model string, parser Parser) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	
+
 	key := fmt.Sprintf("%s:%s", command, model)
 	r.parsers[key] = parser
 }
@@ -39,13 +39,13 @@ func (r *Registry) Register(command, model string, parser Parser) {
 func (r *Registry) RegisterAlias(command, model, aliasModel string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	
+
 	sourceKey := fmt.Sprintf("%s:%s", command, model)
 	parser, exists := r.parsers[sourceKey]
 	if !exists {
 		return fmt.Errorf("parser not found for %s:%s", command, model)
 	}
-	
+
 	aliasKey := fmt.Sprintf("%s:%s", command, aliasModel)
 	r.parsers[aliasKey] = parser
 	return nil
@@ -55,13 +55,13 @@ func (r *Registry) RegisterAlias(command, model, aliasModel string) error {
 func (r *Registry) Get(command, model string) (Parser, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	// Try exact match first
 	key := fmt.Sprintf("%s:%s", command, model)
 	if parser, exists := r.parsers[key]; exists {
 		return parser, nil
 	}
-	
+
 	// Try model family match (e.g., RTX12xx for RTX1210, RTX1220)
 	if len(model) >= 5 && model[:3] == "RTX" {
 		familyKey := fmt.Sprintf("%s:RTX%cxxx", command, model[3])
@@ -69,7 +69,7 @@ func (r *Registry) Get(command, model string) (Parser, error) {
 			return parser, nil
 		}
 	}
-	
+
 	return nil, fmt.Errorf("no parser found for command %q and model %q", command, model)
 }
 

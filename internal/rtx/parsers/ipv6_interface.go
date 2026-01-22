@@ -28,11 +28,11 @@ type IPv6Address struct {
 
 // RTADVConfig represents Router Advertisement configuration
 type RTADVConfig struct {
-	Enabled  bool   `json:"enabled"`            // RTADV enabled
-	PrefixID int    `json:"prefix_id"`          // Prefix ID to advertise
-	OFlag    bool   `json:"o_flag"`             // Other Configuration Flag (O flag)
-	MFlag    bool   `json:"m_flag"`             // Managed Address Configuration Flag (M flag)
-	Lifetime int    `json:"lifetime,omitempty"` // Router lifetime in seconds
+	Enabled  bool `json:"enabled"`            // RTADV enabled
+	PrefixID int  `json:"prefix_id"`          // Prefix ID to advertise
+	OFlag    bool `json:"o_flag"`             // Other Configuration Flag (O flag)
+	MFlag    bool `json:"m_flag"`             // Managed Address Configuration Flag (M flag)
+	Lifetime int  `json:"lifetime,omitempty"` // Router lifetime in seconds
 }
 
 // IPv6 interface name patterns for RTX routers
@@ -461,9 +461,5 @@ func IsValidIPv6CIDR(cidr string) bool {
 
 	// Basic IPv6 format check (contains colons)
 	addr := parts[0]
-	if !strings.Contains(addr, ":") {
-		return false
-	}
-
-	return true
+	return strings.Contains(addr, ":")
 }

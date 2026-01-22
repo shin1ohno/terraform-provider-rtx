@@ -147,7 +147,7 @@ func TestPPPService_Get(t *testing.T) {
 		t.Errorf("Get() unexpected error: %v", err)
 	}
 	if config == nil {
-		t.Error("Get() returned nil config")
+		t.Fatal("Get() returned nil config")
 	}
 	if config.Number != 1 {
 		t.Errorf("Get() config.Number = %d, want 1", config.Number)

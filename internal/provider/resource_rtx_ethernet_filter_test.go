@@ -4,8 +4,9 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/sh1/terraform-provider-rtx/internal/client"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/sh1/terraform-provider-rtx/internal/client"
 )
 
 func TestBuildEthernetFilterFromResourceData_MACBasedFilter(t *testing.T) {
@@ -142,13 +143,13 @@ func TestResourceRTXEthernetFilterSchema(t *testing.T) {
 
 func TestFlattenEthernetFilterToResourceData(t *testing.T) {
 	tests := []struct {
-		name       string
-		number     int
-		action     string
-		sourceMAC  string
-		destMAC    string
-		etherType  string
-		vlanID     int
+		name      string
+		number    int
+		action    string
+		sourceMAC string
+		destMAC   string
+		etherType string
+		vlanID    int
 	}{
 		{
 			name:      "basic MAC filter",

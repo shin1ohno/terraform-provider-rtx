@@ -9,6 +9,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+
 	"github.com/sh1/terraform-provider-rtx/internal/client"
 	"github.com/sh1/terraform-provider-rtx/internal/logging"
 )
@@ -29,6 +30,7 @@ func init() {
 	// }
 }
 
+// New creates a new RTX provider instance with the given version string.
 func New(version string) *schema.Provider {
 	return &schema.Provider{
 		Schema: map[string]*schema.Schema{
@@ -234,7 +236,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		Key:     "show environment",
 		Payload: "show environment",
 	}
-	
+
 	logger.Debug().Msg("Provider: Running test command")
 	if _, err := sshClient.Run(ctx, testCmd); err != nil {
 		// Close the connection if test fails
@@ -247,7 +249,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		return nil, diags
 	}
 	logger.Debug().Msg("Provider: Test command successful")
-	
+
 	// Important: Do NOT close the connection here!
 	// The connection must remain open for subsequent operations
 

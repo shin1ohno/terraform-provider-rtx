@@ -8,11 +8,11 @@ import (
 
 // Route represents a routing table entry on an RTX router
 type Route struct {
-	Destination string `json:"destination"`         // Network prefix (e.g., "192.168.1.0/24", "0.0.0.0/0")
-	Gateway     string `json:"gateway"`            // Next hop gateway ("*" for directly connected routes)
-	Interface   string `json:"interface"`          // Outgoing interface
-	Protocol    string `json:"protocol"`           // S=static, C=connected, R=RIP, O=OSPF, B=BGP, D=DHCP
-	Metric      *int   `json:"metric,omitempty"`   // Route metric (optional)
+	Destination string `json:"destination"`      // Network prefix (e.g., "192.168.1.0/24", "0.0.0.0/0")
+	Gateway     string `json:"gateway"`          // Next hop gateway ("*" for directly connected routes)
+	Interface   string `json:"interface"`        // Outgoing interface
+	Protocol    string `json:"protocol"`         // S=static, C=connected, R=RIP, O=OSPF, B=BGP, D=DHCP
+	Metric      *int   `json:"metric,omitempty"` // Route metric (optional)
 }
 
 // RoutesParser is the interface for parsing routing table information
@@ -46,7 +46,7 @@ func init() {
 			},
 		},
 	})
-	
+
 	// Register RTX12xx routes parser
 	rtx12xxParser := &rtx12xxRoutesParser{
 		BaseRoutesParser: BaseRoutesParser{
@@ -61,7 +61,7 @@ func init() {
 	}
 	Register("routes", "RTX1210", rtx12xxParser)
 	Register("routes", "RTX1220", rtx12xxParser)
-	
+
 	// Create aliases for model families
 	_ = RegisterAlias("routes", "RTX1210", "RTX12xx")
 }
@@ -80,43 +80,43 @@ func (p *rtx830RoutesParser) CanHandle(model string) bool {
 func (p *rtx830RoutesParser) ParseRoutes(raw string) ([]Route, error) {
 	routes := make([]Route, 0)
 	lines := strings.Split(raw, "\n")
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		
+
 		// Try to match route pattern
 		if match := p.modelPatterns["route"].FindStringSubmatch(line); len(match) >= 3 {
 			route := Route{
 				Protocol:    match[1],
 				Destination: match[2],
 			}
-			
+
 			// Gateway (match[3]) - may be empty for connected routes
 			if len(match) > 3 && match[3] != "" {
 				route.Gateway = match[3]
 			} else {
 				route.Gateway = "*" // Connected route
 			}
-			
+
 			// Interface (match[4])
 			if len(match) > 4 && match[4] != "" {
 				route.Interface = match[4]
 			}
-			
+
 			// Metric (match[5])
 			if len(match) > 5 && match[5] != "" {
 				if metric, err := strconv.Atoi(match[5]); err == nil {
 					route.Metric = &metric
 				}
 			}
-			
+
 			routes = append(routes, route)
 		}
 	}
-	
+
 	return routes, nil
 }
 
@@ -134,26 +134,26 @@ func (p *rtx12xxRoutesParser) CanHandle(model string) bool {
 func (p *rtx12xxRoutesParser) ParseRoutes(raw string) ([]Route, error) {
 	routes := make([]Route, 0)
 	lines := strings.Split(raw, "\n")
-	
+
 	headerFound := false
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		
+
 		// Check for header line
 		if p.modelPatterns["header"].MatchString(line) {
 			headerFound = true
 			continue
 		}
-		
+
 		// Skip until we find the header
 		if !headerFound {
 			continue
 		}
-		
+
 		// Try to match route pattern
 		if match := p.modelPatterns["route"].FindStringSubmatch(line); len(match) >= 6 {
 			route := Route{
@@ -162,17 +162,17 @@ func (p *rtx12xxRoutesParser) ParseRoutes(raw string) ([]Route, error) {
 				Interface:   match[3],
 				Protocol:    match[4],
 			}
-			
+
 			// Handle metric (match[5])
 			if match[5] != "-" && match[5] != "" {
 				if metric, err := strconv.Atoi(match[5]); err == nil {
 					route.Metric = &metric
 				}
 			}
-			
+
 			routes = append(routes, route)
 		}
 	}
-	
+
 	return routes, nil
 }

@@ -39,7 +39,7 @@ func TestInterfacesParsers(t *testing.T) {
 				if lan1.MAC != "00:A0:DE:12:34:56" {
 					t.Errorf("LAN1 MAC = %s, want 00:A0:DE:12:34:56", lan1.MAC)
 				}
-				
+
 				// Validate LAN2
 				lan2 := findInterface(interfaces, "LAN2")
 				if lan2 == nil {
@@ -48,7 +48,7 @@ func TestInterfacesParsers(t *testing.T) {
 				if lan2.LinkUp {
 					t.Error("LAN2 should be down")
 				}
-				
+
 				// Validate PP1
 				pp1 := findInterface(interfaces, "PP1")
 				if pp1 == nil {
@@ -82,7 +82,7 @@ func TestInterfacesParsers(t *testing.T) {
 				if lan1.MTU != 1500 {
 					t.Errorf("LAN1 MTU = %d, want 1500", lan1.MTU)
 				}
-				
+
 				// Validate WAN1 with IPv6
 				wan1 := findInterface(interfaces, "WAN1")
 				if wan1 == nil {
@@ -91,7 +91,7 @@ func TestInterfacesParsers(t *testing.T) {
 				if wan1.IPv6 != "2001:db8::1/64" {
 					t.Errorf("WAN1 IPv6 = %s, want 2001:db8::1/64", wan1.IPv6)
 				}
-				
+
 				// Validate PP1
 				pp1 := findInterface(interfaces, "PP1")
 				if pp1 == nil {
@@ -103,7 +103,7 @@ func TestInterfacesParsers(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Read test data
@@ -111,30 +111,30 @@ func TestInterfacesParsers(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to read test data: %v", err)
 			}
-			
+
 			// Get parser
 			parser, err := Get("interfaces", tt.model)
 			if err != nil {
 				t.Fatalf("failed to get parser: %v", err)
 			}
-			
+
 			// Parse
 			result, err := parser.Parse(string(data))
 			if err != nil {
 				t.Fatalf("parse error: %v", err)
 			}
-			
+
 			// Type assert
 			interfaces, ok := result.([]Interface)
 			if !ok {
 				t.Fatalf("expected []Interface, got %T", result)
 			}
-			
+
 			// Check count
 			if len(interfaces) != tt.wantCount {
 				t.Errorf("got %d interfaces, want %d", len(interfaces), tt.wantCount)
 			}
-			
+
 			// Validate
 			if tt.validate != nil {
 				tt.validate(t, interfaces)
@@ -158,7 +158,7 @@ func TestInterfaceKind(t *testing.T) {
 		{"VLAN10.20", "vlan"},
 		{"unknown", "unknown"},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := getInterfaceKind(tt.name)
@@ -171,7 +171,7 @@ func TestInterfaceKind(t *testing.T) {
 
 func TestGoldenFiles(t *testing.T) {
 	models := []string{"RTX830", "RTX1210"}
-	
+
 	for _, model := range models {
 		t.Run(model+" golden", func(t *testing.T) {
 			// Read input
@@ -180,28 +180,28 @@ func TestGoldenFiles(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to read input: %v", err)
 			}
-			
+
 			// Get parser
 			parser, err := Get("interfaces", model)
 			if err != nil {
 				t.Fatalf("failed to get parser: %v", err)
 			}
-			
+
 			// Parse
 			result, err := parser.Parse(string(input))
 			if err != nil {
 				t.Fatalf("parse error: %v", err)
 			}
-			
+
 			// Convert to JSON for comparison
 			got, err := json.MarshalIndent(result, "", "  ")
 			if err != nil {
 				t.Fatalf("failed to marshal result: %v", err)
 			}
-			
+
 			// Check golden file
 			goldenPath := filepath.Join("..", "testdata", model, "show_interface.golden.json")
-			
+
 			if update := os.Getenv("UPDATE_GOLDEN"); update == "true" {
 				// Update golden file
 				err = os.WriteFile(goldenPath, got, 0644)
@@ -221,7 +221,7 @@ func TestGoldenFiles(t *testing.T) {
 					t.Log("Created golden file")
 					return
 				}
-				
+
 				if string(got) != string(want) {
 					t.Errorf("output mismatch\ngot:\n%s\nwant:\n%s", string(got), string(want))
 				}
@@ -251,7 +251,7 @@ func TestParserCanHandle(t *testing.T) {
 		{&rtx12xxInterfacesParser{}, "RTX1220", true},
 		{&rtx12xxInterfacesParser{}, "RTX830", false},
 	}
-	
+
 	for _, tt := range tests {
 		name := reflect.TypeOf(tt.parser).Elem().Name() + "/" + tt.model
 		t.Run(name, func(t *testing.T) {

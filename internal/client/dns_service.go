@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+
 	"github.com/sh1/terraform-provider-rtx/internal/logging"
 
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
@@ -401,10 +402,10 @@ func (s *DNSService) fromParserConfig(parserConfig *parsers.DNSConfig) DNSConfig
 // convertDNSServerSelectToParser converts client DNSServerSelect to parser DNSServerSelect
 func convertDNSServerSelectToParser(sel DNSServerSelect) parsers.DNSServerSelect {
 	servers := make([]parsers.DNSServer, len(sel.Servers))
-	for i, addr := range sel.Servers {
+	for i, srv := range sel.Servers {
 		servers[i] = parsers.DNSServer{
-			Address: addr,
-			EDNS:    sel.EDNS, // Apply EDNS setting to all servers
+			Address: srv.Address,
+			EDNS:    srv.EDNS,
 		}
 	}
 	return parsers.DNSServerSelect{
@@ -419,18 +420,16 @@ func convertDNSServerSelectToParser(sel DNSServerSelect) parsers.DNSServerSelect
 
 // convertDNSServerSelectFromParser converts parser DNSServerSelect to client DNSServerSelect
 func convertDNSServerSelectFromParser(sel parsers.DNSServerSelect) DNSServerSelect {
-	servers := make([]string, len(sel.Servers))
-	edns := false
+	servers := make([]DNSServer, len(sel.Servers))
 	for i, srv := range sel.Servers {
-		servers[i] = srv.Address
-		if srv.EDNS {
-			edns = true // If any server has EDNS, set the flag
+		servers[i] = DNSServer{
+			Address: srv.Address,
+			EDNS:    srv.EDNS,
 		}
 	}
 	return DNSServerSelect{
 		ID:             sel.ID,
 		Servers:        servers,
-		EDNS:           edns,
 		RecordType:     sel.RecordType,
 		QueryPattern:   sel.QueryPattern,
 		OriginalSender: sel.OriginalSender,

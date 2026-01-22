@@ -3,11 +3,13 @@ package provider
 import (
 	"context"
 	"fmt"
+
 	"github.com/sh1/terraform-provider-rtx/internal/logging"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+
 	"github.com/sh1/terraform-provider-rtx/internal/client"
 )
 
@@ -56,21 +58,28 @@ func resourceRTXDNSServer() *schema.Resource {
 							Description:  "Selector ID (positive integer)",
 							ValidateFunc: validation.IntAtLeast(1),
 						},
-						"servers": {
+						"server": {
 							Type:        schema.TypeList,
 							Required:    true,
-							Description: "DNS server IP addresses for this selector (IPv4 or IPv6)",
+							Description: "DNS servers for this selector (1-2 servers with per-server EDNS settings)",
 							MinItems:    1,
-							Elem: &schema.Schema{
-								Type:         schema.TypeString,
-								ValidateFunc: validateIPAddressAny,
+							MaxItems:    2,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"address": {
+										Type:         schema.TypeString,
+										Required:     true,
+										Description:  "DNS server IP address (IPv4 or IPv6)",
+										ValidateFunc: validateIPAddressAny,
+									},
+									"edns": {
+										Type:        schema.TypeBool,
+										Optional:    true,
+										Default:     false,
+										Description: "Enable EDNS (Extension mechanisms for DNS) for this server",
+									},
+								},
 							},
-						},
-						"edns": {
-							Type:        schema.TypeBool,
-							Optional:    true,
-							Computed:    true,
-							Description: "Enable EDNS (Extension mechanisms for DNS)",
 						},
 						"record_type": {
 							Type:         schema.TypeString,
@@ -181,13 +190,20 @@ func resourceRTXDNSServerRead(ctx context.Context, d *schema.ResourceData, meta 
 		return diag.FromErr(err)
 	}
 
-	// Convert ServerSelect to list
+	// Convert ServerSelect to list with nested server blocks
 	serverSelects := make([]map[string]interface{}, len(config.ServerSelect))
 	for i, sel := range config.ServerSelect {
+		// Convert servers to nested block format
+		servers := make([]map[string]interface{}, len(sel.Servers))
+		for j, srv := range sel.Servers {
+			servers[j] = map[string]interface{}{
+				"address": srv.Address,
+				"edns":    srv.EDNS,
+			}
+		}
 		serverSelects[i] = map[string]interface{}{
 			"id":              sel.ID,
-			"servers":         sel.Servers,
-			"edns":            sel.EDNS,
+			"server":          servers,
 			"record_type":     sel.RecordType,
 			"query_pattern":   sel.QueryPattern,
 			"original_sender": sel.OriginalSender,
@@ -268,13 +284,20 @@ func resourceRTXDNSServerImport(ctx context.Context, d *schema.ResourceData, met
 	d.Set("service_on", config.ServiceOn)
 	d.Set("private_address_spoof", config.PrivateSpoof)
 
-	// Set server_select
+	// Set server_select with nested server blocks
 	serverSelects := make([]map[string]interface{}, len(config.ServerSelect))
 	for i, sel := range config.ServerSelect {
+		// Convert servers to nested block format
+		servers := make([]map[string]interface{}, len(sel.Servers))
+		for j, srv := range sel.Servers {
+			servers[j] = map[string]interface{}{
+				"address": srv.Address,
+				"edns":    srv.EDNS,
+			}
+		}
 		serverSelects[i] = map[string]interface{}{
 			"id":              sel.ID,
-			"servers":         sel.Servers,
-			"edns":            sel.EDNS,
+			"server":          servers,
 			"record_type":     sel.RecordType,
 			"query_pattern":   sel.QueryPattern,
 			"original_sender": sel.OriginalSender,
@@ -316,24 +339,26 @@ func buildDNSConfigFromResourceData(d *schema.ResourceData) client.DNSConfig {
 		}
 	}
 
-	// Handle server_select list
+	// Handle server_select list with nested server blocks
 	if v, ok := d.GetOk("server_select"); ok {
 		serverSelectList := v.([]interface{})
 		for _, selRaw := range serverSelectList {
 			selMap := selRaw.(map[string]interface{})
 
-			// Extract servers
-			servers := []string{}
-			if serversRaw, ok := selMap["servers"].([]interface{}); ok {
-				for _, s := range serversRaw {
-					servers = append(servers, s.(string))
+			// Extract servers from nested block
+			servers := []client.DNSServer{}
+			if serverListRaw, ok := selMap["server"].([]interface{}); ok {
+				for _, srvRaw := range serverListRaw {
+					srvMap := srvRaw.(map[string]interface{})
+					server := client.DNSServer{
+						Address: srvMap["address"].(string),
+						EDNS:    false, // Default value
+					}
+					if ednsVal, ok := srvMap["edns"].(bool); ok {
+						server.EDNS = ednsVal
+					}
+					servers = append(servers, server)
 				}
-			}
-
-			// Extract new fields
-			edns := false
-			if v, ok := selMap["edns"].(bool); ok {
-				edns = v
 			}
 
 			recordType := "a"
@@ -359,7 +384,6 @@ func buildDNSConfigFromResourceData(d *schema.ResourceData) client.DNSConfig {
 			config.ServerSelect = append(config.ServerSelect, client.DNSServerSelect{
 				ID:             selMap["id"].(int),
 				Servers:        servers,
-				EDNS:           edns,
 				RecordType:     recordType,
 				QueryPattern:   queryPattern,
 				OriginalSender: originalSender,

@@ -28,7 +28,7 @@ func TestParseSystemConfig(t *testing.T) {
 			},
 		},
 		{
-			name: "console character only",
+			name:  "console character only",
 			input: `console character ja.utf8`,
 			expected: &SystemConfig{
 				Console: &ConsoleConfig{
@@ -38,7 +38,7 @@ func TestParseSystemConfig(t *testing.T) {
 			},
 		},
 		{
-			name: "console lines infinity",
+			name:  "console lines infinity",
 			input: `console lines infinity`,
 			expected: &SystemConfig{
 				Console: &ConsoleConfig{
@@ -48,7 +48,7 @@ func TestParseSystemConfig(t *testing.T) {
 			},
 		},
 		{
-			name: "console lines number",
+			name:  "console lines number",
 			input: `console lines 24`,
 			expected: &SystemConfig{
 				Console: &ConsoleConfig{
@@ -58,7 +58,7 @@ func TestParseSystemConfig(t *testing.T) {
 			},
 		},
 		{
-			name: "console prompt simple",
+			name:  "console prompt simple",
 			input: `console prompt RTX1210`,
 			expected: &SystemConfig{
 				Console: &ConsoleConfig{
@@ -68,7 +68,7 @@ func TestParseSystemConfig(t *testing.T) {
 			},
 		},
 		{
-			name: "console prompt with spaces",
+			name:  "console prompt with spaces",
 			input: `console prompt "[RTX1210] "`,
 			expected: &SystemConfig{
 				Console: &ConsoleConfig{
@@ -92,7 +92,7 @@ console prompt "[RTX1210] "`,
 			},
 		},
 		{
-			name: "packet buffer small",
+			name:  "packet buffer small",
 			input: `system packet-buffer small max-buffer=5000 max-free=1300`,
 			expected: &SystemConfig{
 				PacketBuffers: []PacketBufferConfig{
@@ -114,7 +114,7 @@ system packet-buffer large max-buffer=20000 max-free=5600`,
 			},
 		},
 		{
-			name: "statistics traffic on",
+			name:  "statistics traffic on",
 			input: `statistics traffic on`,
 			expected: &SystemConfig{
 				PacketBuffers: []PacketBufferConfig{},
@@ -124,7 +124,7 @@ system packet-buffer large max-buffer=20000 max-free=5600`,
 			},
 		},
 		{
-			name: "statistics nat off",
+			name:  "statistics nat off",
 			input: `statistics nat off`,
 			expected: &SystemConfig{
 				PacketBuffers: []PacketBufferConfig{},
