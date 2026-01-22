@@ -10,7 +10,7 @@ tunnel encapsulation l2tpv3
 tunnel endpoint address 192.168.1.1 10.0.0.1
 l2tp local router-id 1.1.1.1
 l2tp remote router-id 2.2.2.2
-l2tp tunnel auth on TEST_PASSWORD_2word
+l2tp tunnel auth on TEST_PASSWORD_3
 l2tp always-on on
 l2tp keepalive use on 30 5
 description "Site-A to Site-B L2TPv3 VPN"

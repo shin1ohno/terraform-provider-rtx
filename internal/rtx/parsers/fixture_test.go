@@ -276,8 +276,8 @@ func TestFixture_L2TPTunnelAuth(t *testing.T) {
 		t.Error("Tunnel 1: TunnelAuth should be enabled")
 	}
 
-	if tunnel1.L2TPv3Config.TunnelAuth.Password != "TEST_PASSWORD_2word" {
-		t.Errorf("Tunnel 1: expected password 'TEST_PASSWORD_2word', got %q", tunnel1.L2TPv3Config.TunnelAuth.Password)
+	if tunnel1.L2TPv3Config.TunnelAuth.Password != "TEST_PASSWORD_3" {
+		t.Errorf("Tunnel 1: expected password 'TEST_PASSWORD_3', got %q", tunnel1.L2TPv3Config.TunnelAuth.Password)
 	}
 
 	// Find tunnel 2 with auth on but no password
