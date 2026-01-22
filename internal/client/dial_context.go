@@ -25,7 +25,7 @@ func DialContext(ctx context.Context, network, addr string, config *ssh.ClientCo
 	var sshClient *ssh.Client
 	defer func() {
 		if sshClient == nil && conn != nil {
-			conn.Close()
+			_ = conn.Close()
 		}
 	}()
 	
@@ -41,7 +41,7 @@ func DialContext(ctx context.Context, network, addr string, config *ssh.ClientCo
 	// This ensures all goroutines exit if the context is cancelled
 	go func() {
 		<-ctx.Done()
-		sshClient.Close() // This also closes the underlying net.Conn
+		_ = sshClient.Close() // This also closes the underlying net.Conn
 	}()
 	
 	return sshClient, nil

@@ -1127,22 +1127,22 @@ func (s *IPFilterService) DeleteInterfaceACL(ctx context.Context, iface string) 
 	// Remove IPv4 inbound filters
 	cmd := parsers.BuildDeleteInterfaceSecureFilterCommand(iface, "in")
 	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Removing interface ACL inbound with command: %s", cmd)
-	s.executor.Run(ctx, cmd) // Ignore error if not configured
+	_, _ = s.executor.Run(ctx, cmd) // Ignore error if not configured
 
 	// Remove IPv4 outbound filters
 	cmd = parsers.BuildDeleteInterfaceSecureFilterCommand(iface, "out")
 	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Removing interface ACL outbound with command: %s", cmd)
-	s.executor.Run(ctx, cmd) // Ignore error if not configured
+	_, _ = s.executor.Run(ctx, cmd) // Ignore error if not configured
 
 	// Remove IPv6 inbound filters
 	cmd = parsers.BuildDeleteInterfaceIPv6SecureFilterCommand(iface, "in")
 	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Removing interface IPv6 ACL inbound with command: %s", cmd)
-	s.executor.Run(ctx, cmd) // Ignore error if not configured
+	_, _ = s.executor.Run(ctx, cmd) // Ignore error if not configured
 
 	// Remove IPv6 outbound filters
 	cmd = parsers.BuildDeleteInterfaceIPv6SecureFilterCommand(iface, "out")
 	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Removing interface IPv6 ACL outbound with command: %s", cmd)
-	s.executor.Run(ctx, cmd) // Ignore error if not configured
+	_, _ = s.executor.Run(ctx, cmd) // Ignore error if not configured
 
 	// Save configuration
 	if s.client != nil {

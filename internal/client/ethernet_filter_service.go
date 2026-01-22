@@ -552,12 +552,12 @@ func (s *EthernetFilterService) DeleteInterfaceMACACL(ctx context.Context, iface
 	// Remove inbound filters
 	cmd := parsers.BuildDeleteInterfaceEthernetFilterCommand(iface, "in")
 	logging.FromContext(ctx).Debug().Str("service", "ethernet_filter").Msgf("Removing interface MAC ACL inbound with command: %s", cmd)
-	s.executor.Run(ctx, cmd) // Ignore error if not configured
+	_, _ = s.executor.Run(ctx, cmd) // Ignore error if not configured
 
 	// Remove outbound filters
 	cmd = parsers.BuildDeleteInterfaceEthernetFilterCommand(iface, "out")
 	logging.FromContext(ctx).Debug().Str("service", "ethernet_filter").Msgf("Removing interface MAC ACL outbound with command: %s", cmd)
-	s.executor.Run(ctx, cmd) // Ignore error if not configured
+	_, _ = s.executor.Run(ctx, cmd) // Ignore error if not configured
 
 	// Save configuration
 	if s.client != nil {

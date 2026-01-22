@@ -63,7 +63,7 @@ func init() {
 	Register("routes", "RTX1220", rtx12xxParser)
 	
 	// Create aliases for model families
-	RegisterAlias("routes", "RTX1210", "RTX12xx")
+	_ = RegisterAlias("routes", "RTX1210", "RTX12xx")
 }
 
 // Parse implements the Parser interface

@@ -71,7 +71,7 @@ func init() {
 	Register("interfaces", "RTX1220", rtx12xxParser)
 	
 	// Create aliases for model families
-	RegisterAlias("interfaces", "RTX1210", "RTX12xx")
+	_ = RegisterAlias("interfaces", "RTX1210", "RTX12xx")
 }
 
 // Parse implements the Parser interface
@@ -209,7 +209,7 @@ func (p *rtx12xxInterfacesParser) ParseInterfaces(raw string) ([]Interface, erro
 		
 		// Parse MTU
 		if match := p.modelPatterns["mtu"].FindStringSubmatch(line); len(match) > 1 {
-			fmt.Sscanf(match[1], "%d", &currentInterface.MTU)
+			_, _ = fmt.Sscanf(match[1], "%d", &currentInterface.MTU)
 		}
 	}
 	
