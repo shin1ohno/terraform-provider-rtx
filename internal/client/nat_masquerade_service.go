@@ -40,44 +40,23 @@ func (s *NATMasqueradeService) Create(ctx context.Context, nat NATMasquerade) er
 	default:
 	}
 
+	// Collect all commands
+	commands := []string{}
+
 	// Step 1: Set NAT descriptor type to masquerade
 	cmd := parsers.BuildNATDescriptorTypeMasqueradeCommand(nat.DescriptorID)
 	logging.FromContext(ctx).Debug().Str("service", "nat_masquerade").Msgf("Creating NAT masquerade with command: %s", cmd)
-
-	output, err := s.executor.Run(ctx, cmd)
-	if err != nil {
-		return fmt.Errorf("failed to create NAT masquerade type: %w", err)
-	}
-
-	if len(output) > 0 && containsError(string(output)) {
-		return fmt.Errorf("command failed: %s", string(output))
-	}
+	commands = append(commands, cmd)
 
 	// Step 2: Set outer address
 	cmd = parsers.BuildNATDescriptorAddressOuterCommand(nat.DescriptorID, nat.OuterAddress)
 	logging.FromContext(ctx).Debug().Str("service", "nat_masquerade").Msgf("Setting outer address with command: %s", cmd)
-
-	output, err = s.executor.Run(ctx, cmd)
-	if err != nil {
-		return fmt.Errorf("failed to set outer address: %w", err)
-	}
-
-	if len(output) > 0 && containsError(string(output)) {
-		return fmt.Errorf("outer address command failed: %s", string(output))
-	}
+	commands = append(commands, cmd)
 
 	// Step 3: Set inner network
 	cmd = parsers.BuildNATDescriptorAddressInnerCommand(nat.DescriptorID, nat.InnerNetwork)
 	logging.FromContext(ctx).Debug().Str("service", "nat_masquerade").Msgf("Setting inner network with command: %s", cmd)
-
-	output, err = s.executor.Run(ctx, cmd)
-	if err != nil {
-		return fmt.Errorf("failed to set inner network: %w", err)
-	}
-
-	if len(output) > 0 && containsError(string(output)) {
-		return fmt.Errorf("inner network command failed: %s", string(output))
-	}
+	commands = append(commands, cmd)
 
 	// Step 4: Configure static entries
 	for i, entry := range nat.StaticEntries {
@@ -91,15 +70,17 @@ func (s *NATMasqueradeService) Create(ctx context.Context, nat NATMasquerade) er
 		}
 		cmd = parsers.BuildNATMasqueradeStaticCommand(nat.DescriptorID, entry.EntryNumber, parserEntry)
 		logging.FromContext(ctx).Debug().Str("service", "nat_masquerade").Msgf("Adding static entry %d with command: %s", i+1, cmd)
+		commands = append(commands, cmd)
+	}
 
-		output, err = s.executor.Run(ctx, cmd)
-		if err != nil {
-			return fmt.Errorf("failed to add static entry %d: %w", i+1, err)
-		}
+	// Execute all commands in batch
+	output, err := s.executor.RunBatch(ctx, commands)
+	if err != nil {
+		return fmt.Errorf("failed to create NAT masquerade: %w", err)
+	}
 
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("static entry %d command failed: %s", i+1, string(output))
-		}
+	if len(output) > 0 && containsError(string(output)) {
+		return fmt.Errorf("command failed: %s", string(output))
 	}
 
 	// Save configuration
@@ -170,34 +151,21 @@ func (s *NATMasqueradeService) Update(ctx context.Context, nat NATMasquerade) er
 		return fmt.Errorf("failed to get current NAT masquerade: %w", err)
 	}
 
+	// Collect all commands
+	commands := []string{}
+
 	// Update outer address if changed
 	if currentNAT.OuterAddress != nat.OuterAddress {
 		cmd := parsers.BuildNATDescriptorAddressOuterCommand(nat.DescriptorID, nat.OuterAddress)
 		logging.FromContext(ctx).Debug().Str("service", "nat_masquerade").Msgf("Updating outer address with command: %s", cmd)
-
-		output, err := s.executor.Run(ctx, cmd)
-		if err != nil {
-			return fmt.Errorf("failed to update outer address: %w", err)
-		}
-
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("outer address command failed: %s", string(output))
-		}
+		commands = append(commands, cmd)
 	}
 
 	// Update inner network if changed
 	if currentNAT.InnerNetwork != nat.InnerNetwork {
 		cmd := parsers.BuildNATDescriptorAddressInnerCommand(nat.DescriptorID, nat.InnerNetwork)
 		logging.FromContext(ctx).Debug().Str("service", "nat_masquerade").Msgf("Updating inner network with command: %s", cmd)
-
-		output, err := s.executor.Run(ctx, cmd)
-		if err != nil {
-			return fmt.Errorf("failed to update inner network: %w", err)
-		}
-
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("inner network command failed: %s", string(output))
-		}
+		commands = append(commands, cmd)
 	}
 
 	// Handle static entries: remove old entries that are not in new configuration
@@ -212,7 +180,7 @@ func (s *NATMasqueradeService) Update(ctx context.Context, nat NATMasquerade) er
 		if !found {
 			cmd := parsers.BuildDeleteNATMasqueradeStaticCommand(nat.DescriptorID, oldEntry.EntryNumber)
 			logging.FromContext(ctx).Debug().Str("service", "nat_masquerade").Msgf("Removing static entry with command: %s", cmd)
-			_, _ = s.executor.Run(ctx, cmd) // Ignore errors for cleanup
+			commands = append(commands, cmd)
 		}
 	}
 
@@ -228,14 +196,18 @@ func (s *NATMasqueradeService) Update(ctx context.Context, nat NATMasquerade) er
 		}
 		cmd := parsers.BuildNATMasqueradeStaticCommand(nat.DescriptorID, entry.EntryNumber, parserEntry)
 		logging.FromContext(ctx).Debug().Str("service", "nat_masquerade").Msgf("Setting static entry %d with command: %s", i+1, cmd)
+		commands = append(commands, cmd)
+	}
 
-		output, err := s.executor.Run(ctx, cmd)
+	// Execute all commands in batch
+	if len(commands) > 0 {
+		output, err := s.executor.RunBatch(ctx, commands)
 		if err != nil {
-			return fmt.Errorf("failed to set static entry %d: %w", i+1, err)
+			return fmt.Errorf("failed to update NAT masquerade: %w", err)
 		}
 
 		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("static entry %d command failed: %s", i+1, string(output))
+			return fmt.Errorf("command failed: %s", string(output))
 		}
 	}
 
@@ -261,7 +233,8 @@ func (s *NATMasqueradeService) Delete(ctx context.Context, descriptorID int) err
 	cmd := parsers.BuildDeleteNATMasqueradeCommand(descriptorID)
 	logging.FromContext(ctx).Debug().Str("service", "nat_masquerade").Msgf("Deleting NAT masquerade with command: %s", cmd)
 
-	output, err := s.executor.Run(ctx, cmd)
+	// Execute command in batch
+	output, err := s.executor.RunBatch(ctx, []string{cmd})
 	if err != nil {
 		return fmt.Errorf("failed to delete NAT masquerade: %w", err)
 	}

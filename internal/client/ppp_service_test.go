@@ -32,6 +32,18 @@ func (m *mockPPPExecutor) Run(ctx context.Context, cmd string) ([]byte, error) {
 	return []byte{}, nil
 }
 
+func (m *mockPPPExecutor) RunBatch(ctx context.Context, cmds []string) ([]byte, error) {
+	var allOutput []byte
+	for _, cmd := range cmds {
+		output, err := m.Run(ctx, cmd)
+		if err != nil {
+			return allOutput, err
+		}
+		allOutput = append(allOutput, output...)
+	}
+	return allOutput, nil
+}
+
 func (m *mockPPPExecutor) setResponse(cmd string, resp []byte) {
 	m.responses[cmd] = resp
 }

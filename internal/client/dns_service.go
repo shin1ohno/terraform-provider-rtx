@@ -91,15 +91,7 @@ func (s *DNSService) Configure(ctx context.Context, config DNSConfig) error {
 
 	// Configure server select entries
 	for _, sel := range config.ServerSelect {
-		parserSel := parsers.DNSServerSelect{
-			ID:             sel.ID,
-			Servers:        sel.Servers,
-			EDNS:           sel.EDNS,
-			RecordType:     sel.RecordType,
-			QueryPattern:   sel.QueryPattern,
-			OriginalSender: sel.OriginalSender,
-			RestrictPP:     sel.RestrictPP,
-		}
+		parserSel := convertDNSServerSelectToParser(sel)
 		cmd := parsers.BuildDNSServerSelectCommand(parserSel)
 		if cmd == "" {
 			continue
@@ -234,15 +226,7 @@ func (s *DNSService) Update(ctx context.Context, config DNSConfig) error {
 	}
 	// Add/update new entries
 	for _, sel := range config.ServerSelect {
-		parserSel := parsers.DNSServerSelect{
-			ID:             sel.ID,
-			Servers:        sel.Servers,
-			EDNS:           sel.EDNS,
-			RecordType:     sel.RecordType,
-			QueryPattern:   sel.QueryPattern,
-			OriginalSender: sel.OriginalSender,
-			RestrictPP:     sel.RestrictPP,
-		}
+		parserSel := convertDNSServerSelectToParser(sel)
 		cmd := parsers.BuildDNSServerSelectCommand(parserSel)
 		if cmd == "" {
 			continue
@@ -366,15 +350,7 @@ func (s *DNSService) Reset(ctx context.Context) error {
 func (s *DNSService) toParserConfig(config DNSConfig) parsers.DNSConfig {
 	serverSelect := make([]parsers.DNSServerSelect, len(config.ServerSelect))
 	for i, sel := range config.ServerSelect {
-		serverSelect[i] = parsers.DNSServerSelect{
-			ID:             sel.ID,
-			Servers:        sel.Servers,
-			EDNS:           sel.EDNS,
-			RecordType:     sel.RecordType,
-			QueryPattern:   sel.QueryPattern,
-			OriginalSender: sel.OriginalSender,
-			RestrictPP:     sel.RestrictPP,
-		}
+		serverSelect[i] = convertDNSServerSelectToParser(sel)
 	}
 
 	hosts := make([]parsers.DNSHost, len(config.Hosts))
@@ -400,15 +376,7 @@ func (s *DNSService) toParserConfig(config DNSConfig) parsers.DNSConfig {
 func (s *DNSService) fromParserConfig(parserConfig *parsers.DNSConfig) DNSConfig {
 	serverSelect := make([]DNSServerSelect, len(parserConfig.ServerSelect))
 	for i, sel := range parserConfig.ServerSelect {
-		serverSelect[i] = DNSServerSelect{
-			ID:             sel.ID,
-			Servers:        sel.Servers,
-			EDNS:           sel.EDNS,
-			RecordType:     sel.RecordType,
-			QueryPattern:   sel.QueryPattern,
-			OriginalSender: sel.OriginalSender,
-			RestrictPP:     sel.RestrictPP,
-		}
+		serverSelect[i] = convertDNSServerSelectFromParser(sel)
 	}
 
 	hosts := make([]DNSHost, len(parserConfig.Hosts))
@@ -427,6 +395,46 @@ func (s *DNSService) fromParserConfig(parserConfig *parsers.DNSConfig) DNSConfig
 		Hosts:        hosts,
 		ServiceOn:    parserConfig.ServiceOn,
 		PrivateSpoof: parserConfig.PrivateSpoof,
+	}
+}
+
+// convertDNSServerSelectToParser converts client DNSServerSelect to parser DNSServerSelect
+func convertDNSServerSelectToParser(sel DNSServerSelect) parsers.DNSServerSelect {
+	servers := make([]parsers.DNSServer, len(sel.Servers))
+	for i, addr := range sel.Servers {
+		servers[i] = parsers.DNSServer{
+			Address: addr,
+			EDNS:    sel.EDNS, // Apply EDNS setting to all servers
+		}
+	}
+	return parsers.DNSServerSelect{
+		ID:             sel.ID,
+		Servers:        servers,
+		RecordType:     sel.RecordType,
+		QueryPattern:   sel.QueryPattern,
+		OriginalSender: sel.OriginalSender,
+		RestrictPP:     sel.RestrictPP,
+	}
+}
+
+// convertDNSServerSelectFromParser converts parser DNSServerSelect to client DNSServerSelect
+func convertDNSServerSelectFromParser(sel parsers.DNSServerSelect) DNSServerSelect {
+	servers := make([]string, len(sel.Servers))
+	edns := false
+	for i, srv := range sel.Servers {
+		servers[i] = srv.Address
+		if srv.EDNS {
+			edns = true // If any server has EDNS, set the flag
+		}
+	}
+	return DNSServerSelect{
+		ID:             sel.ID,
+		Servers:        servers,
+		EDNS:           edns,
+		RecordType:     sel.RecordType,
+		QueryPattern:   sel.QueryPattern,
+		OriginalSender: sel.OriginalSender,
+		RestrictPP:     sel.RestrictPP,
 	}
 }
 

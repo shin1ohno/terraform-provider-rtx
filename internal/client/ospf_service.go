@@ -116,20 +116,20 @@ func (s *OSPFService) Create(ctx context.Context, config OSPFConfig) error {
 	// 5. Enable OSPF
 	commands = append(commands, parsers.BuildOSPFEnableCommand())
 
-	// Execute all commands
-	for _, cmd := range commands {
-		output, err := s.executor.Run(ctx, cmd)
-		if err != nil {
-			return fmt.Errorf("failed to execute OSPF command '%s': %w", cmd, err)
-		}
-		if containsError(string(output)) {
-			return fmt.Errorf("OSPF command '%s' failed: %s", cmd, string(output))
-		}
+	// Execute all commands in batch
+	output, err := s.executor.RunBatch(ctx, commands)
+	if err != nil {
+		return fmt.Errorf("failed to execute OSPF batch commands: %w", err)
+	}
+	if containsError(string(output)) {
+		return fmt.Errorf("OSPF batch commands failed: %s", string(output))
 	}
 
 	// Save configuration
-	if err := s.client.SaveConfig(ctx); err != nil {
-		return fmt.Errorf("failed to save OSPF config: %w", err)
+	if s.client != nil {
+		if err := s.client.SaveConfig(ctx); err != nil {
+			return fmt.Errorf("failed to save OSPF config: %w", err)
+		}
 	}
 
 	return nil
@@ -200,20 +200,22 @@ func (s *OSPFService) Update(ctx context.Context, config OSPFConfig) error {
 		commands = append(commands, parsers.BuildDeleteOSPFImportCommand("connected"))
 	}
 
-	// Execute all commands
-	for _, cmd := range commands {
-		output, err := s.executor.Run(ctx, cmd)
+	// Execute all commands in batch
+	if len(commands) > 0 {
+		output, err := s.executor.RunBatch(ctx, commands)
 		if err != nil {
-			return fmt.Errorf("failed to execute OSPF command '%s': %w", cmd, err)
+			return fmt.Errorf("failed to execute OSPF batch commands: %w", err)
 		}
 		if containsError(string(output)) {
-			return fmt.Errorf("OSPF command '%s' failed: %s", cmd, string(output))
+			return fmt.Errorf("OSPF batch commands failed: %s", string(output))
 		}
 	}
 
 	// Save configuration
-	if err := s.client.SaveConfig(ctx); err != nil {
-		return fmt.Errorf("failed to save OSPF config: %w", err)
+	if s.client != nil {
+		if err := s.client.SaveConfig(ctx); err != nil {
+			return fmt.Errorf("failed to save OSPF config: %w", err)
+		}
 	}
 
 	return nil
@@ -222,7 +224,8 @@ func (s *OSPFService) Update(ctx context.Context, config OSPFConfig) error {
 // Delete disables OSPF and removes configuration
 func (s *OSPFService) Delete(ctx context.Context) error {
 	// Disable OSPF
-	output, err := s.executor.Run(ctx, parsers.BuildOSPFDisableCommand())
+	commands := []string{parsers.BuildOSPFDisableCommand()}
+	output, err := s.executor.RunBatch(ctx, commands)
 	if err != nil {
 		return fmt.Errorf("failed to disable OSPF: %w", err)
 	}
@@ -231,8 +234,10 @@ func (s *OSPFService) Delete(ctx context.Context) error {
 	}
 
 	// Save configuration
-	if err := s.client.SaveConfig(ctx); err != nil {
-		return fmt.Errorf("failed to save config after OSPF delete: %w", err)
+	if s.client != nil {
+		if err := s.client.SaveConfig(ctx); err != nil {
+			return fmt.Errorf("failed to save config after OSPF delete: %w", err)
+		}
 	}
 
 	return nil

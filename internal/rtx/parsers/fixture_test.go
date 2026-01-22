@@ -33,7 +33,7 @@ func TestFixture_DNSServerSelectMultiServer(t *testing.T) {
 			if len(sel.Servers) != 2 {
 				t.Errorf("Entry 500000: expected 2 servers, got %d", len(sel.Servers))
 			}
-			if sel.Servers[0] != "1.1.1.1" || sel.Servers[1] != "1.0.0.1" {
+			if sel.Servers[0].Address != "1.1.1.1" || sel.Servers[1].Address != "1.0.0.1" {
 				t.Errorf("Entry 500000: unexpected servers %v", sel.Servers)
 			}
 			if sel.QueryPattern != "." {
@@ -50,8 +50,16 @@ func TestFixture_DNSServerSelectMultiServer(t *testing.T) {
 	for _, sel := range config.ServerSelect {
 		if sel.ID == 500100 {
 			found500100 = true
-			if !sel.EDNS {
-				t.Error("Entry 500100: EDNS should be enabled")
+			// EDNS is now per-server, check if any server has EDNS enabled
+			hasEDNS := false
+			for _, srv := range sel.Servers {
+				if srv.EDNS {
+					hasEDNS = true
+					break
+				}
+			}
+			if !hasEDNS {
+				t.Error("Entry 500100: at least one server should have EDNS enabled")
 			}
 			if sel.RecordType != "aaaa" {
 				t.Errorf("Entry 500100: expected record type 'aaaa', got %q", sel.RecordType)
@@ -70,8 +78,16 @@ func TestFixture_DNSServerSelectMultiServer(t *testing.T) {
 			if len(sel.Servers) != 2 {
 				t.Errorf("Entry 500200: expected 2 servers, got %d", len(sel.Servers))
 			}
-			if !sel.EDNS {
-				t.Error("Entry 500200: EDNS should be enabled")
+			// EDNS is now per-server, check if any server has EDNS enabled
+			hasEDNS := false
+			for _, srv := range sel.Servers {
+				if srv.EDNS {
+					hasEDNS = true
+					break
+				}
+			}
+			if !hasEDNS {
+				t.Error("Entry 500200: at least one server should have EDNS enabled")
 			}
 			if sel.RecordType != "a" {
 				t.Errorf("Entry 500200: expected record type 'a', got %q", sel.RecordType)

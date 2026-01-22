@@ -21,6 +21,18 @@ func (m *mockIPv6InterfaceExecutor) Run(ctx context.Context, cmd string) ([]byte
 	return m.output, m.err
 }
 
+func (m *mockIPv6InterfaceExecutor) RunBatch(ctx context.Context, cmds []string) ([]byte, error) {
+	var allOutput []byte
+	for _, cmd := range cmds {
+		output, err := m.Run(ctx, cmd)
+		if err != nil {
+			return allOutput, err
+		}
+		allOutput = append(allOutput, output...)
+	}
+	return allOutput, nil
+}
+
 func TestIPv6InterfaceService_Configure(t *testing.T) {
 	tests := []struct {
 		name       string

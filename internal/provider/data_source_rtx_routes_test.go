@@ -35,6 +35,11 @@ func (m *MockClientForRoutes) Close() error {
 	return args.Error(0)
 }
 
+func (m *MockClientForRoutes) RunBatch(ctx context.Context, cmds []string) ([]byte, error) {
+	args := m.Called(ctx, cmds)
+	return args.Get(0).([]byte), args.Error(1)
+}
+
 func (m *MockClientForRoutes) GetRoutes(ctx context.Context) ([]client.Route, error) {
 	args := m.Called(ctx)
 	return args.Get(0).([]client.Route), args.Error(1)

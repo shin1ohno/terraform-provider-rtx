@@ -23,6 +23,18 @@ func (m *mockExecutor) Run(ctx context.Context, cmd string) ([]byte, error) {
 	return []byte{}, nil
 }
 
+func (m *mockExecutor) RunBatch(ctx context.Context, cmds []string) ([]byte, error) {
+	var allOutput []byte
+	for _, cmd := range cmds {
+		output, err := m.Run(ctx, cmd)
+		if err != nil {
+			return allOutput, err
+		}
+		allOutput = append(allOutput, output...)
+	}
+	return allOutput, nil
+}
+
 func TestAdminService_GetAdminConfig(t *testing.T) {
 	executor := &mockExecutor{
 		responses: map[string]string{},

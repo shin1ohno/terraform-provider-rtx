@@ -135,20 +135,20 @@ func (s *BGPService) Configure(ctx context.Context, config BGPConfig) error {
 	// 6. Enable BGP
 	commands = append(commands, parsers.BuildBGPUseCommand(true))
 
-	// Execute all commands
-	for _, cmd := range commands {
-		output, err := s.executor.Run(ctx, cmd)
-		if err != nil {
-			return fmt.Errorf("failed to execute BGP command '%s': %w", cmd, err)
-		}
-		if containsError(string(output)) {
-			return fmt.Errorf("BGP command '%s' failed: %s", cmd, string(output))
-		}
+	// Execute all commands in batch
+	output, err := s.executor.RunBatch(ctx, commands)
+	if err != nil {
+		return fmt.Errorf("failed to execute BGP batch commands: %w", err)
+	}
+	if containsError(string(output)) {
+		return fmt.Errorf("BGP batch commands failed: %s", string(output))
 	}
 
 	// Save configuration
-	if err := s.client.SaveConfig(ctx); err != nil {
-		return fmt.Errorf("failed to save BGP config: %w", err)
+	if s.client != nil {
+		if err := s.client.SaveConfig(ctx); err != nil {
+			return fmt.Errorf("failed to save BGP config: %w", err)
+		}
 	}
 
 	return nil
@@ -233,20 +233,22 @@ func (s *BGPService) Update(ctx context.Context, config BGPConfig) error {
 		commands = append(commands, parsers.BuildDeleteBGPRedistributeCommand("connected"))
 	}
 
-	// Execute all commands
-	for _, cmd := range commands {
-		output, err := s.executor.Run(ctx, cmd)
+	// Execute all commands in batch
+	if len(commands) > 0 {
+		output, err := s.executor.RunBatch(ctx, commands)
 		if err != nil {
-			return fmt.Errorf("failed to execute BGP command '%s': %w", cmd, err)
+			return fmt.Errorf("failed to execute BGP batch commands: %w", err)
 		}
 		if containsError(string(output)) {
-			return fmt.Errorf("BGP command '%s' failed: %s", cmd, string(output))
+			return fmt.Errorf("BGP batch commands failed: %s", string(output))
 		}
 	}
 
 	// Save configuration
-	if err := s.client.SaveConfig(ctx); err != nil {
-		return fmt.Errorf("failed to save BGP config: %w", err)
+	if s.client != nil {
+		if err := s.client.SaveConfig(ctx); err != nil {
+			return fmt.Errorf("failed to save BGP config: %w", err)
+		}
 	}
 
 	return nil
@@ -255,7 +257,8 @@ func (s *BGPService) Update(ctx context.Context, config BGPConfig) error {
 // Reset disables BGP and removes configuration
 func (s *BGPService) Reset(ctx context.Context) error {
 	// Disable BGP
-	output, err := s.executor.Run(ctx, parsers.BuildBGPUseCommand(false))
+	commands := []string{parsers.BuildBGPUseCommand(false)}
+	output, err := s.executor.RunBatch(ctx, commands)
 	if err != nil {
 		return fmt.Errorf("failed to disable BGP: %w", err)
 	}
@@ -264,8 +267,10 @@ func (s *BGPService) Reset(ctx context.Context) error {
 	}
 
 	// Save configuration
-	if err := s.client.SaveConfig(ctx); err != nil {
-		return fmt.Errorf("failed to save config after BGP reset: %w", err)
+	if s.client != nil {
+		if err := s.client.SaveConfig(ctx); err != nil {
+			return fmt.Errorf("failed to save config after BGP reset: %w", err)
+		}
 	}
 
 	return nil

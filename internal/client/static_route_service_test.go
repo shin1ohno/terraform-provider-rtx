@@ -17,6 +17,18 @@ func (m *mockStaticRouteExecutor) Run(ctx context.Context, cmd string) ([]byte, 
 	return []byte{}, nil
 }
 
+func (m *mockStaticRouteExecutor) RunBatch(ctx context.Context, cmds []string) ([]byte, error) {
+	var allOutput []byte
+	for _, cmd := range cmds {
+		output, err := m.Run(ctx, cmd)
+		if err != nil {
+			return allOutput, err
+		}
+		allOutput = append(allOutput, output...)
+	}
+	return allOutput, nil
+}
+
 func TestStaticRouteService_GetRoute_MultiGateway(t *testing.T) {
 	// This test verifies that GetRoute correctly captures multiple gateways
 	// for the same prefix/mask when the grep command returns multiple lines.

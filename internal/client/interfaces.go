@@ -124,6 +124,10 @@ type Client interface {
 	// SaveConfig saves the current configuration to persistent memory
 	SaveConfig(ctx context.Context) error
 
+	// RunBatch executes multiple raw commands in sequence and returns combined output
+	// This is useful for VPN-safe updates where commands must be sent quickly
+	RunBatch(ctx context.Context, cmds []string) ([]byte, error)
+
 	// GetNATMasquerade retrieves a NAT masquerade configuration
 	GetNATMasquerade(ctx context.Context, descriptorID int) (*NATMasquerade, error)
 

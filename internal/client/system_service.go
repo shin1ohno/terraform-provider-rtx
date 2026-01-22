@@ -39,19 +39,14 @@ func (s *SystemService) Configure(ctx context.Context, config SystemConfig) erro
 	default:
 	}
 
+	// Collect all commands
+	commands := []string{}
+
 	// Apply timezone
 	if config.Timezone != "" {
 		cmd := parsers.BuildTimezoneCommand(config.Timezone)
 		logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Setting timezone with command: %s", cmd)
-
-		output, err := s.executor.Run(ctx, cmd)
-		if err != nil {
-			return fmt.Errorf("failed to set timezone: %w", err)
-		}
-
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("timezone command failed: %s", string(output))
-		}
+		commands = append(commands, cmd)
 	}
 
 	// Apply console settings
@@ -59,43 +54,19 @@ func (s *SystemService) Configure(ctx context.Context, config SystemConfig) erro
 		if config.Console.Character != "" {
 			cmd := parsers.BuildConsoleCharacterCommand(config.Console.Character)
 			logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Setting console character with command: %s", cmd)
-
-			output, err := s.executor.Run(ctx, cmd)
-			if err != nil {
-				return fmt.Errorf("failed to set console character: %w", err)
-			}
-
-			if len(output) > 0 && containsError(string(output)) {
-				return fmt.Errorf("console character command failed: %s", string(output))
-			}
+			commands = append(commands, cmd)
 		}
 
 		if config.Console.Lines != "" {
 			cmd := parsers.BuildConsoleLinesCommand(config.Console.Lines)
 			logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Setting console lines with command: %s", cmd)
-
-			output, err := s.executor.Run(ctx, cmd)
-			if err != nil {
-				return fmt.Errorf("failed to set console lines: %w", err)
-			}
-
-			if len(output) > 0 && containsError(string(output)) {
-				return fmt.Errorf("console lines command failed: %s", string(output))
-			}
+			commands = append(commands, cmd)
 		}
 
 		if config.Console.Prompt != "" {
 			cmd := parsers.BuildConsolePromptCommand(config.Console.Prompt)
 			logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Setting console prompt with command: %s", cmd)
-
-			output, err := s.executor.Run(ctx, cmd)
-			if err != nil {
-				return fmt.Errorf("failed to set console prompt: %w", err)
-			}
-
-			if len(output) > 0 && containsError(string(output)) {
-				return fmt.Errorf("console prompt command failed: %s", string(output))
-			}
+			commands = append(commands, cmd)
 		}
 	}
 
@@ -108,41 +79,29 @@ func (s *SystemService) Configure(ctx context.Context, config SystemConfig) erro
 		}
 		cmd := parsers.BuildPacketBufferCommand(parserPB)
 		logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Setting packet buffer with command: %s", cmd)
-
-		output, err := s.executor.Run(ctx, cmd)
-		if err != nil {
-			return fmt.Errorf("failed to set packet buffer %s: %w", pb.Size, err)
-		}
-
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("packet buffer command failed: %s", string(output))
-		}
+		commands = append(commands, cmd)
 	}
 
 	// Apply statistics settings
 	if config.Statistics != nil {
 		cmd := parsers.BuildStatisticsTrafficCommand(config.Statistics.Traffic)
 		logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Setting statistics traffic with command: %s", cmd)
-
-		output, err := s.executor.Run(ctx, cmd)
-		if err != nil {
-			return fmt.Errorf("failed to set statistics traffic: %w", err)
-		}
-
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("statistics traffic command failed: %s", string(output))
-		}
+		commands = append(commands, cmd)
 
 		cmd = parsers.BuildStatisticsNATCommand(config.Statistics.NAT)
 		logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Setting statistics NAT with command: %s", cmd)
+		commands = append(commands, cmd)
+	}
 
-		output, err = s.executor.Run(ctx, cmd)
+	// Execute all commands in batch
+	if len(commands) > 0 {
+		output, err := s.executor.RunBatch(ctx, commands)
 		if err != nil {
-			return fmt.Errorf("failed to set statistics NAT: %w", err)
+			return fmt.Errorf("failed to configure system: %w", err)
 		}
 
 		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("statistics NAT command failed: %s", string(output))
+			return fmt.Errorf("command failed: %s", string(output))
 		}
 	}
 
@@ -202,25 +161,20 @@ func (s *SystemService) Update(ctx context.Context, config SystemConfig) error {
 		return fmt.Errorf("failed to get current system config: %w", err)
 	}
 
+	// Collect all commands
+	commands := []string{}
+
 	// Update timezone if changed
 	if config.Timezone != current.Timezone {
 		if config.Timezone != "" {
 			cmd := parsers.BuildTimezoneCommand(config.Timezone)
 			logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Updating timezone with command: %s", cmd)
-
-			output, err := s.executor.Run(ctx, cmd)
-			if err != nil {
-				return fmt.Errorf("failed to update timezone: %w", err)
-			}
-
-			if len(output) > 0 && containsError(string(output)) {
-				return fmt.Errorf("timezone command failed: %s", string(output))
-			}
+			commands = append(commands, cmd)
 		} else if current.Timezone != "" {
 			// Remove timezone setting
 			cmd := parsers.BuildDeleteTimezoneCommand()
 			logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Removing timezone with command: %s", cmd)
-			_, _ = s.executor.Run(ctx, cmd)
+			commands = append(commands, cmd)
 		}
 	}
 
@@ -235,18 +189,10 @@ func (s *SystemService) Update(ctx context.Context, config SystemConfig) error {
 			if config.Console.Character != "" {
 				cmd := parsers.BuildConsoleCharacterCommand(config.Console.Character)
 				logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Updating console character with command: %s", cmd)
-
-				output, err := s.executor.Run(ctx, cmd)
-				if err != nil {
-					return fmt.Errorf("failed to update console character: %w", err)
-				}
-
-				if len(output) > 0 && containsError(string(output)) {
-					return fmt.Errorf("console character command failed: %s", string(output))
-				}
+				commands = append(commands, cmd)
 			} else if currentConsole.Character != "" {
 				cmd := parsers.BuildDeleteConsoleCharacterCommand()
-				_, _ = s.executor.Run(ctx, cmd)
+				commands = append(commands, cmd)
 			}
 		}
 
@@ -254,18 +200,10 @@ func (s *SystemService) Update(ctx context.Context, config SystemConfig) error {
 			if config.Console.Lines != "" {
 				cmd := parsers.BuildConsoleLinesCommand(config.Console.Lines)
 				logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Updating console lines with command: %s", cmd)
-
-				output, err := s.executor.Run(ctx, cmd)
-				if err != nil {
-					return fmt.Errorf("failed to update console lines: %w", err)
-				}
-
-				if len(output) > 0 && containsError(string(output)) {
-					return fmt.Errorf("console lines command failed: %s", string(output))
-				}
+				commands = append(commands, cmd)
 			} else if currentConsole.Lines != "" {
 				cmd := parsers.BuildDeleteConsoleLinesCommand()
-				_, _ = s.executor.Run(ctx, cmd)
+				commands = append(commands, cmd)
 			}
 		}
 
@@ -273,33 +211,25 @@ func (s *SystemService) Update(ctx context.Context, config SystemConfig) error {
 			if config.Console.Prompt != "" {
 				cmd := parsers.BuildConsolePromptCommand(config.Console.Prompt)
 				logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Updating console prompt with command: %s", cmd)
-
-				output, err := s.executor.Run(ctx, cmd)
-				if err != nil {
-					return fmt.Errorf("failed to update console prompt: %w", err)
-				}
-
-				if len(output) > 0 && containsError(string(output)) {
-					return fmt.Errorf("console prompt command failed: %s", string(output))
-				}
+				commands = append(commands, cmd)
 			} else if currentConsole.Prompt != "" {
 				cmd := parsers.BuildDeleteConsolePromptCommand()
-				_, _ = s.executor.Run(ctx, cmd)
+				commands = append(commands, cmd)
 			}
 		}
 	} else if current.Console != nil {
 		// Remove all console settings
 		if current.Console.Character != "" {
 			cmd := parsers.BuildDeleteConsoleCharacterCommand()
-			_, _ = s.executor.Run(ctx, cmd)
+			commands = append(commands, cmd)
 		}
 		if current.Console.Lines != "" {
 			cmd := parsers.BuildDeleteConsoleLinesCommand()
-			_, _ = s.executor.Run(ctx, cmd)
+			commands = append(commands, cmd)
 		}
 		if current.Console.Prompt != "" {
 			cmd := parsers.BuildDeleteConsolePromptCommand()
-			_, _ = s.executor.Run(ctx, cmd)
+			commands = append(commands, cmd)
 		}
 	}
 
@@ -320,7 +250,7 @@ func (s *SystemService) Update(ctx context.Context, config SystemConfig) error {
 		if _, exists := newPBMap[size]; !exists {
 			cmd := parsers.BuildDeletePacketBufferCommand(size)
 			logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Removing packet buffer with command: %s", cmd)
-			_, _ = s.executor.Run(ctx, cmd)
+			commands = append(commands, cmd)
 		}
 	}
 
@@ -335,15 +265,7 @@ func (s *SystemService) Update(ctx context.Context, config SystemConfig) error {
 			}
 			cmd := parsers.BuildPacketBufferCommand(parserPB)
 			logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Updating packet buffer with command: %s", cmd)
-
-			output, err := s.executor.Run(ctx, cmd)
-			if err != nil {
-				return fmt.Errorf("failed to update packet buffer %s: %w", pb.Size, err)
-			}
-
-			if len(output) > 0 && containsError(string(output)) {
-				return fmt.Errorf("packet buffer command failed: %s", string(output))
-			}
+			commands = append(commands, cmd)
 		}
 	}
 
@@ -357,36 +279,32 @@ func (s *SystemService) Update(ctx context.Context, config SystemConfig) error {
 		if config.Statistics.Traffic != currentStats.Traffic {
 			cmd := parsers.BuildStatisticsTrafficCommand(config.Statistics.Traffic)
 			logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Updating statistics traffic with command: %s", cmd)
-
-			output, err := s.executor.Run(ctx, cmd)
-			if err != nil {
-				return fmt.Errorf("failed to update statistics traffic: %w", err)
-			}
-
-			if len(output) > 0 && containsError(string(output)) {
-				return fmt.Errorf("statistics traffic command failed: %s", string(output))
-			}
+			commands = append(commands, cmd)
 		}
 
 		if config.Statistics.NAT != currentStats.NAT {
 			cmd := parsers.BuildStatisticsNATCommand(config.Statistics.NAT)
 			logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Updating statistics NAT with command: %s", cmd)
-
-			output, err := s.executor.Run(ctx, cmd)
-			if err != nil {
-				return fmt.Errorf("failed to update statistics NAT: %w", err)
-			}
-
-			if len(output) > 0 && containsError(string(output)) {
-				return fmt.Errorf("statistics NAT command failed: %s", string(output))
-			}
+			commands = append(commands, cmd)
 		}
 	} else if current.Statistics != nil {
 		// Remove statistics settings
 		cmd := parsers.BuildDeleteStatisticsTrafficCommand()
-		_, _ = s.executor.Run(ctx, cmd)
+		commands = append(commands, cmd)
 		cmd = parsers.BuildDeleteStatisticsNATCommand()
-		_, _ = s.executor.Run(ctx, cmd)
+		commands = append(commands, cmd)
+	}
+
+	// Execute all commands in batch
+	if len(commands) > 0 {
+		output, err := s.executor.RunBatch(ctx, commands)
+		if err != nil {
+			return fmt.Errorf("failed to update system config: %w", err)
+		}
+
+		if len(output) > 0 && containsError(string(output)) {
+			return fmt.Errorf("command failed: %s", string(output))
+		}
 	}
 
 	// Save configuration
@@ -414,20 +332,21 @@ func (s *SystemService) Reset(ctx context.Context) error {
 		return fmt.Errorf("failed to get current system config: %w", err)
 	}
 
-	// Build and execute delete commands
+	// Build delete commands
 	parserConfig := s.toParserConfig(*current)
 	commands := parsers.BuildDeleteSystemCommands(&parserConfig)
 
 	for _, cmd := range commands {
 		logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Resetting system config with command: %s", cmd)
-		output, err := s.executor.Run(ctx, cmd)
+	}
+
+	// Execute all commands in batch
+	if len(commands) > 0 {
+		output, err := s.executor.RunBatch(ctx, commands)
 		if err != nil {
 			// Log but continue - some settings might not exist
-			logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Warning: command failed: %v", err)
-			continue
-		}
-
-		if len(output) > 0 && containsError(string(output)) {
+			logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Warning: batch command failed: %v", err)
+		} else if len(output) > 0 && containsError(string(output)) {
 			// Log but continue
 			logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Warning: command output indicates error: %s", string(output))
 		}

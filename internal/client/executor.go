@@ -10,6 +10,7 @@ import (
 // Executor interface defines how commands are executed
 type Executor interface {
 	Run(ctx context.Context, cmd string) ([]byte, error)
+	RunBatch(ctx context.Context, cmds []string) ([]byte, error)
 }
 
 // sshExecutor implements Executor using SSH session
@@ -86,4 +87,19 @@ func (e *sshExecutor) Run(ctx context.Context, cmd string) ([]byte, error) {
 	logging.FromContext(ctx).Debug().Str("component", "executor").Msgf("Prompt detected: %q", prompt)
 
 	return raw, nil
+}
+
+// RunBatch executes multiple commands via SSH and returns the combined output
+func (e *sshExecutor) RunBatch(ctx context.Context, cmds []string) ([]byte, error) {
+	var allOutput []byte
+
+	for _, cmd := range cmds {
+		output, err := e.Run(ctx, cmd)
+		if err != nil {
+			return allOutput, fmt.Errorf("batch command '%s' failed: %w", cmd, err)
+		}
+		allOutput = append(allOutput, output...)
+	}
+
+	return allOutput, nil
 }

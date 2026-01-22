@@ -30,12 +30,23 @@ func TestNATMasqueradeService_Create(t *testing.T) {
 				InnerNetwork: "192.168.1.0-192.168.1.255",
 			},
 			mockSetup: func(m *MockExecutor) {
-				m.On("Run", mock.Anything, "nat descriptor type 1 masquerade").
-					Return([]byte(""), nil)
-				m.On("Run", mock.Anything, "nat descriptor address outer 1 ipcp").
-					Return([]byte(""), nil)
-				m.On("Run", mock.Anything, "nat descriptor address inner 1 192.168.1.0-192.168.1.255").
-					Return([]byte(""), nil)
+				m.On("RunBatch", mock.Anything, mock.MatchedBy(func(cmds []string) bool {
+					hasType := false
+					hasOuter := false
+					hasInner := false
+					for _, cmd := range cmds {
+						if cmd == "nat descriptor type 1 masquerade" {
+							hasType = true
+						}
+						if cmd == "nat descriptor address outer 1 ipcp" {
+							hasOuter = true
+						}
+						if cmd == "nat descriptor address inner 1 192.168.1.0-192.168.1.255" {
+							hasInner = true
+						}
+					}
+					return hasType && hasOuter && hasInner
+				})).Return([]byte(""), nil)
 			},
 			expectedErr: false,
 		},
@@ -57,14 +68,19 @@ func TestNATMasqueradeService_Create(t *testing.T) {
 				},
 			},
 			mockSetup: func(m *MockExecutor) {
-				m.On("Run", mock.Anything, "nat descriptor type 1 masquerade").
-					Return([]byte(""), nil)
-				m.On("Run", mock.Anything, "nat descriptor address outer 1 ipcp").
-					Return([]byte(""), nil)
-				m.On("Run", mock.Anything, "nat descriptor address inner 1 192.168.1.0-192.168.1.255").
-					Return([]byte(""), nil)
-				m.On("Run", mock.Anything, "nat descriptor masquerade static 1 1 ipcp:80=192.168.1.100:8080 tcp").
-					Return([]byte(""), nil)
+				m.On("RunBatch", mock.Anything, mock.MatchedBy(func(cmds []string) bool {
+					hasType := false
+					hasStatic := false
+					for _, cmd := range cmds {
+						if cmd == "nat descriptor type 1 masquerade" {
+							hasType = true
+						}
+						if cmd == "nat descriptor masquerade static 1 1 ipcp:80=192.168.1.100:8080 tcp" {
+							hasStatic = true
+						}
+					}
+					return hasType && hasStatic
+				})).Return([]byte(""), nil)
 			},
 			expectedErr: false,
 		},
@@ -98,7 +114,7 @@ func TestNATMasqueradeService_Create(t *testing.T) {
 				InnerNetwork: "192.168.1.0-192.168.1.255",
 			},
 			mockSetup: func(m *MockExecutor) {
-				m.On("Run", mock.Anything, "nat descriptor type 1 masquerade").
+				m.On("RunBatch", mock.Anything, mock.Anything).
 					Return(nil, errors.New("connection failed"))
 			},
 			expectedErr: true,
@@ -112,7 +128,7 @@ func TestNATMasqueradeService_Create(t *testing.T) {
 				InnerNetwork: "192.168.1.0-192.168.1.255",
 			},
 			mockSetup: func(m *MockExecutor) {
-				m.On("Run", mock.Anything, "nat descriptor type 1 masquerade").
+				m.On("RunBatch", mock.Anything, mock.Anything).
 					Return([]byte("Error: invalid command"), nil)
 			},
 			expectedErr: true,
@@ -279,7 +295,7 @@ func TestNATMasqueradeService_Delete(t *testing.T) {
 			name:         "Successful deletion",
 			descriptorID: 1,
 			mockSetup: func(m *MockExecutor) {
-				m.On("Run", mock.Anything, "no nat descriptor type 1").
+				m.On("RunBatch", mock.Anything, []string{"no nat descriptor type 1"}).
 					Return([]byte(""), nil)
 			},
 			expectedErr: false,
@@ -288,7 +304,7 @@ func TestNATMasqueradeService_Delete(t *testing.T) {
 			name:         "Execution error",
 			descriptorID: 1,
 			mockSetup: func(m *MockExecutor) {
-				m.On("Run", mock.Anything, "no nat descriptor type 1").
+				m.On("RunBatch", mock.Anything, []string{"no nat descriptor type 1"}).
 					Return(nil, errors.New("connection failed"))
 			},
 			expectedErr: true,
@@ -298,7 +314,7 @@ func TestNATMasqueradeService_Delete(t *testing.T) {
 			name:         "Already deleted - not found",
 			descriptorID: 1,
 			mockSetup: func(m *MockExecutor) {
-				m.On("Run", mock.Anything, "no nat descriptor type 1").
+				m.On("RunBatch", mock.Anything, []string{"no nat descriptor type 1"}).
 					Return([]byte("Error: not found"), nil)
 			},
 			expectedErr: false, // Not found is not an error for delete
@@ -432,9 +448,15 @@ func TestNATMasqueradeService_Update(t *testing.T) {
 nat descriptor address outer 1 ipcp
 nat descriptor address inner 1 192.168.1.0-192.168.1.255
 `), nil)
-				// Update outer address
-				m.On("Run", mock.Anything, "nat descriptor address outer 1 pp1").
-					Return([]byte(""), nil)
+				// Update outer address using RunBatch
+				m.On("RunBatch", mock.Anything, mock.MatchedBy(func(cmds []string) bool {
+					for _, cmd := range cmds {
+						if cmd == "nat descriptor address outer 1 pp1" {
+							return true
+						}
+					}
+					return false
+				})).Return([]byte(""), nil)
 			},
 			expectedErr: false,
 		},
@@ -463,9 +485,15 @@ nat descriptor address inner 1 192.168.1.0-192.168.1.255
 nat descriptor address outer 1 ipcp
 nat descriptor address inner 1 192.168.1.0-192.168.1.255
 `), nil)
-				// Add static entry
-				m.On("Run", mock.Anything, "nat descriptor masquerade static 1 1 ipcp:80=192.168.1.100:8080 tcp").
-					Return([]byte(""), nil)
+				// Add static entry using RunBatch
+				m.On("RunBatch", mock.Anything, mock.MatchedBy(func(cmds []string) bool {
+					for _, cmd := range cmds {
+						if cmd == "nat descriptor masquerade static 1 1 ipcp:80=192.168.1.100:8080 tcp" {
+							return true
+						}
+					}
+					return false
+				})).Return([]byte(""), nil)
 			},
 			expectedErr: false,
 		},
@@ -563,6 +591,122 @@ func TestNATMasqueradeService_ContextCancellation(t *testing.T) {
 			err := tt.action(ctx, service)
 			assert.Error(t, err)
 			assert.Equal(t, context.Canceled, err)
+		})
+	}
+}
+
+func TestNATMasqueradeService_UsesRunBatch(t *testing.T) {
+	t.Run("Create uses RunBatch for all commands", func(t *testing.T) {
+		mockExecutor := new(MockExecutor)
+
+		var capturedCommands []string
+		mockExecutor.On("RunBatch", mock.Anything, mock.Anything).
+			Run(func(args mock.Arguments) {
+				capturedCommands = args.Get(1).([]string)
+			}).
+			Return([]byte(""), nil)
+
+		service := &NATMasqueradeService{executor: mockExecutor}
+		err := service.Create(context.Background(), NATMasquerade{
+			DescriptorID: 1,
+			OuterAddress: "ipcp",
+			InnerNetwork: "192.168.1.0-192.168.1.255",
+			StaticEntries: []MasqueradeStaticEntry{
+				{
+					EntryNumber:       1,
+					InsideLocal:       "192.168.1.100",
+					InsideLocalPort:   intPtr(8080),
+					OutsideGlobal:     "ipcp",
+					OutsideGlobalPort: intPtr(80),
+					Protocol:          "tcp",
+				},
+			},
+		})
+
+		assert.NoError(t, err)
+
+		// Verify essential commands are present
+		hasType := false
+		hasOuter := false
+		hasInner := false
+		hasStatic := false
+		for _, cmd := range capturedCommands {
+			if cmd == "nat descriptor type 1 masquerade" {
+				hasType = true
+			}
+			if cmd == "nat descriptor address outer 1 ipcp" {
+				hasOuter = true
+			}
+			if cmd == "nat descriptor address inner 1 192.168.1.0-192.168.1.255" {
+				hasInner = true
+			}
+			if cmd == "nat descriptor masquerade static 1 1 ipcp:80=192.168.1.100:8080 tcp" {
+				hasStatic = true
+			}
+		}
+		assert.True(t, hasType, "Expected type command to be included")
+		assert.True(t, hasOuter, "Expected outer address command to be included")
+		assert.True(t, hasInner, "Expected inner network command to be included")
+		assert.True(t, hasStatic, "Expected static entry command to be included")
+	})
+
+	t.Run("Delete uses RunBatch", func(t *testing.T) {
+		mockExecutor := new(MockExecutor)
+
+		mockExecutor.On("RunBatch", mock.Anything, []string{"no nat descriptor type 1"}).
+			Return([]byte(""), nil)
+
+		service := &NATMasqueradeService{executor: mockExecutor}
+		err := service.Delete(context.Background(), 1)
+
+		assert.NoError(t, err)
+		mockExecutor.AssertExpectations(t)
+	})
+}
+
+func TestNATMasqueradeService_ProtocolOnlyEntries(t *testing.T) {
+	testCases := []struct {
+		name     string
+		protocol string
+	}{
+		{"ESP protocol", "esp"},
+		{"AH protocol", "ah"},
+		{"GRE protocol", "gre"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockExecutor := new(MockExecutor)
+
+			var capturedCommands []string
+			mockExecutor.On("RunBatch", mock.Anything, mock.Anything).
+				Run(func(args mock.Arguments) {
+					capturedCommands = args.Get(1).([]string)
+				}).
+				Return([]byte(""), nil)
+
+			service := &NATMasqueradeService{executor: mockExecutor}
+			err := service.Create(context.Background(), NATMasquerade{
+				DescriptorID: 1,
+				OuterAddress: "ipcp",
+				InnerNetwork: "192.168.1.0-192.168.1.255",
+				StaticEntries: []MasqueradeStaticEntry{
+					{EntryNumber: 1, InsideLocal: "192.168.1.10", Protocol: tc.protocol},
+				},
+			})
+
+			assert.NoError(t, err)
+
+			// Verify protocol-only entry has no port
+			hasProtocolEntry := false
+			expectedCmd := "nat descriptor masquerade static 1 1 192.168.1.10 " + tc.protocol
+			for _, cmd := range capturedCommands {
+				if cmd == expectedCmd {
+					hasProtocolEntry = true
+					break
+				}
+			}
+			assert.True(t, hasProtocolEntry, "Expected protocol-only entry command: %s", expectedCmd)
 		})
 	}
 }

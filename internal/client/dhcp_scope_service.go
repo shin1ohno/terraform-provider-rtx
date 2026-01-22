@@ -40,32 +40,19 @@ func (s *DHCPScopeService) CreateScope(ctx context.Context, scope DHCPScope) err
 	default:
 	}
 
-	// Build and execute scope creation command
+	// Collect all commands
+	commands := []string{}
+
+	// Build scope creation command
 	cmd := parsers.BuildDHCPScopeCommand(parserScope)
 	logging.FromContext(ctx).Debug().Str("service", "dhcp_scope").Msgf("Creating DHCP scope with command: %s", cmd)
-
-	output, err := s.executor.Run(ctx, cmd)
-	if err != nil {
-		return fmt.Errorf("failed to create DHCP scope: %w", err)
-	}
-
-	if len(output) > 0 && containsError(string(output)) {
-		return fmt.Errorf("command failed: %s", string(output))
-	}
+	commands = append(commands, cmd)
 
 	// Configure DHCP options (DNS, routers, domain) if any are specified
 	if len(scope.Options.DNSServers) > 0 || len(scope.Options.Routers) > 0 || scope.Options.DomainName != "" {
 		optsCmd := parsers.BuildDHCPScopeOptionsCommand(scope.ScopeID, parserScope.Options)
 		logging.FromContext(ctx).Debug().Str("service", "dhcp_scope").Msgf("Setting DHCP options with command: %s", optsCmd)
-
-		output, err = s.executor.Run(ctx, optsCmd)
-		if err != nil {
-			return fmt.Errorf("failed to set DHCP options: %w", err)
-		}
-
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("options command failed: %s", string(output))
-		}
+		commands = append(commands, optsCmd)
 	}
 
 	// Configure exclusion ranges
@@ -76,15 +63,17 @@ func (s *DHCPScopeService) CreateScope(ctx context.Context, scope DHCPScope) err
 		}
 		exceptCmd := parsers.BuildDHCPScopeExceptCommand(scope.ScopeID, parserRange)
 		logging.FromContext(ctx).Debug().Str("service", "dhcp_scope").Msgf("Adding exclusion range with command: %s", exceptCmd)
+		commands = append(commands, exceptCmd)
+	}
 
-		output, err = s.executor.Run(ctx, exceptCmd)
-		if err != nil {
-			return fmt.Errorf("failed to add exclusion range: %w", err)
-		}
+	// Execute all commands in batch
+	output, err := s.executor.RunBatch(ctx, commands)
+	if err != nil {
+		return fmt.Errorf("failed to create DHCP scope: %w", err)
+	}
 
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("exclusion command failed: %s", string(output))
-		}
+	if len(output) > 0 && containsError(string(output)) {
+		return fmt.Errorf("command failed: %s", string(output))
 	}
 
 	// Save configuration
@@ -148,19 +137,14 @@ func (s *DHCPScopeService) UpdateScope(ctx context.Context, scope DHCPScope) err
 		return fmt.Errorf("network cannot be changed without recreating the scope")
 	}
 
+	// Collect all commands
+	commands := []string{}
+
 	// Update gateway and lease time by recreating the base scope command
 	// RTX routers allow re-running the scope command to update these values
 	cmd := parsers.BuildDHCPScopeCommand(parserScope)
 	logging.FromContext(ctx).Debug().Str("service", "dhcp_scope").Msgf("Updating DHCP scope with command: %s", cmd)
-
-	output, err := s.executor.Run(ctx, cmd)
-	if err != nil {
-		return fmt.Errorf("failed to update DHCP scope: %w", err)
-	}
-
-	if len(output) > 0 && containsError(string(output)) {
-		return fmt.Errorf("command failed: %s", string(output))
-	}
+	commands = append(commands, cmd)
 
 	// Update DHCP options (DNS, routers, domain)
 	// First, remove existing options configuration
@@ -168,7 +152,7 @@ func (s *DHCPScopeService) UpdateScope(ctx context.Context, scope DHCPScope) err
 	if hasCurrentOptions {
 		deleteCmd := parsers.BuildDeleteDHCPScopeOptionsCommand(scope.ScopeID)
 		logging.FromContext(ctx).Debug().Str("service", "dhcp_scope").Msgf("Removing existing options with command: %s", deleteCmd)
-		_, _ = s.executor.Run(ctx, deleteCmd) // Ignore errors for cleanup
+		commands = append(commands, deleteCmd)
 	}
 
 	// Set new options if specified
@@ -176,15 +160,7 @@ func (s *DHCPScopeService) UpdateScope(ctx context.Context, scope DHCPScope) err
 	if hasNewOptions {
 		optsCmd := parsers.BuildDHCPScopeOptionsCommand(scope.ScopeID, parserScope.Options)
 		logging.FromContext(ctx).Debug().Str("service", "dhcp_scope").Msgf("Setting DHCP options with command: %s", optsCmd)
-
-		output, err = s.executor.Run(ctx, optsCmd)
-		if err != nil {
-			return fmt.Errorf("failed to set DHCP options: %w", err)
-		}
-
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("options command failed: %s", string(output))
-		}
+		commands = append(commands, optsCmd)
 	}
 
 	// Update exclusion ranges
@@ -204,7 +180,7 @@ func (s *DHCPScopeService) UpdateScope(ctx context.Context, scope DHCPScope) err
 			}
 			deleteCmd := parsers.BuildDeleteDHCPScopeExceptCommand(scope.ScopeID, parserRange)
 			logging.FromContext(ctx).Debug().Str("service", "dhcp_scope").Msgf("Removing exclusion range with command: %s", deleteCmd)
-			_, _ = s.executor.Run(ctx, deleteCmd)
+			commands = append(commands, deleteCmd)
 		}
 	}
 
@@ -224,16 +200,18 @@ func (s *DHCPScopeService) UpdateScope(ctx context.Context, scope DHCPScope) err
 			}
 			exceptCmd := parsers.BuildDHCPScopeExceptCommand(scope.ScopeID, parserRange)
 			logging.FromContext(ctx).Debug().Str("service", "dhcp_scope").Msgf("Adding exclusion range with command: %s", exceptCmd)
-
-			output, err = s.executor.Run(ctx, exceptCmd)
-			if err != nil {
-				return fmt.Errorf("failed to add exclusion range: %w", err)
-			}
-
-			if len(output) > 0 && containsError(string(output)) {
-				return fmt.Errorf("exclusion command failed: %s", string(output))
-			}
+			commands = append(commands, exceptCmd)
 		}
+	}
+
+	// Execute all commands in batch
+	output, err := s.executor.RunBatch(ctx, commands)
+	if err != nil {
+		return fmt.Errorf("failed to update DHCP scope: %w", err)
+	}
+
+	if len(output) > 0 && containsError(string(output)) {
+		return fmt.Errorf("command failed: %s", string(output))
 	}
 
 	// Save configuration
@@ -258,7 +236,8 @@ func (s *DHCPScopeService) DeleteScope(ctx context.Context, scopeID int) error {
 	cmd := parsers.BuildDeleteDHCPScopeCommand(scopeID)
 	logging.FromContext(ctx).Debug().Str("service", "dhcp_scope").Msgf("Deleting DHCP scope with command: %s", cmd)
 
-	output, err := s.executor.Run(ctx, cmd)
+	// Execute command in batch
+	output, err := s.executor.RunBatch(ctx, []string{cmd})
 	if err != nil {
 		return fmt.Errorf("failed to delete DHCP scope: %w", err)
 	}

@@ -36,6 +36,11 @@ func (m *MockClientForInterfaces) Close() error {
 	return args.Error(0)
 }
 
+func (m *MockClientForInterfaces) RunBatch(ctx context.Context, cmds []string) ([]byte, error) {
+	args := m.Called(ctx, cmds)
+	return args.Get(0).([]byte), args.Error(1)
+}
+
 func (m *MockClientForInterfaces) GetInterfaces(ctx context.Context) ([]client.Interface, error) {
 	args := m.Called(ctx)
 	return args.Get(0).([]client.Interface), args.Error(1)

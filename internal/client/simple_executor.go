@@ -153,3 +153,18 @@ func (e *simpleExecutor) sendAdministratorCommand(ctx context.Context, ws *worki
 	logger.Debug().Msg("SimpleExecutor: Administrator authentication successful")
 	return nil
 }
+
+// RunBatch executes multiple commands and returns the combined output
+func (e *simpleExecutor) RunBatch(ctx context.Context, cmds []string) ([]byte, error) {
+	var allOutput []byte
+
+	for _, cmd := range cmds {
+		output, err := e.Run(ctx, cmd)
+		if err != nil {
+			return allOutput, fmt.Errorf("batch command '%s' failed: %w", cmd, err)
+		}
+		allOutput = append(allOutput, output...)
+	}
+
+	return allOutput, nil
+}

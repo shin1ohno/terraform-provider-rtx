@@ -87,20 +87,20 @@ func (s *PPTPService) Create(ctx context.Context, config PPTPConfig) error {
 	// Configure keepalive
 	commands = append(commands, parsers.BuildPPTPKeepaliveCommand(config.KeepaliveEnabled))
 
-	// Execute all commands
-	for _, cmd := range commands {
-		output, err := s.executor.Run(ctx, cmd)
-		if err != nil {
-			return fmt.Errorf("failed to execute PPTP command '%s': %w", cmd, err)
-		}
-		if containsError(string(output)) {
-			return fmt.Errorf("PPTP command '%s' failed: %s", cmd, string(output))
-		}
+	// Execute all commands in batch
+	output, err := s.executor.RunBatch(ctx, commands)
+	if err != nil {
+		return fmt.Errorf("failed to execute PPTP commands: %w", err)
+	}
+	if containsError(string(output)) {
+		return fmt.Errorf("PPTP commands failed: %s", string(output))
 	}
 
 	// Save configuration
-	if err := s.client.SaveConfig(ctx); err != nil {
-		return fmt.Errorf("failed to save PPTP config: %w", err)
+	if s.client != nil {
+		if err := s.client.SaveConfig(ctx); err != nil {
+			return fmt.Errorf("failed to save PPTP config: %w", err)
+		}
 	}
 
 	return nil
@@ -151,20 +151,20 @@ func (s *PPTPService) Update(ctx context.Context, config PPTPConfig) error {
 	// Update keepalive
 	commands = append(commands, parsers.BuildPPTPKeepaliveCommand(config.KeepaliveEnabled))
 
-	// Execute all commands
-	for _, cmd := range commands {
-		output, err := s.executor.Run(ctx, cmd)
-		if err != nil {
-			return fmt.Errorf("failed to execute PPTP command '%s': %w", cmd, err)
-		}
-		if containsError(string(output)) {
-			return fmt.Errorf("PPTP command '%s' failed: %s", cmd, string(output))
-		}
+	// Execute all commands in batch
+	output, err := s.executor.RunBatch(ctx, commands)
+	if err != nil {
+		return fmt.Errorf("failed to execute PPTP commands: %w", err)
+	}
+	if containsError(string(output)) {
+		return fmt.Errorf("PPTP commands failed: %s", string(output))
 	}
 
 	// Save configuration
-	if err := s.client.SaveConfig(ctx); err != nil {
-		return fmt.Errorf("failed to save PPTP config: %w", err)
+	if s.client != nil {
+		if err := s.client.SaveConfig(ctx); err != nil {
+			return fmt.Errorf("failed to save PPTP config: %w", err)
+		}
 	}
 
 	return nil
@@ -174,19 +174,20 @@ func (s *PPTPService) Update(ctx context.Context, config PPTPConfig) error {
 func (s *PPTPService) Delete(ctx context.Context) error {
 	commands := parsers.BuildDeletePPTPCommand()
 
-	for _, cmd := range commands {
-		output, err := s.executor.Run(ctx, cmd)
-		if err != nil {
-			return fmt.Errorf("failed to execute PPTP delete command '%s': %w", cmd, err)
-		}
-		if containsError(string(output)) {
-			return fmt.Errorf("PPTP delete command '%s' failed: %s", cmd, string(output))
-		}
+	// Execute all commands in batch
+	output, err := s.executor.RunBatch(ctx, commands)
+	if err != nil {
+		return fmt.Errorf("failed to execute PPTP delete commands: %w", err)
+	}
+	if containsError(string(output)) {
+		return fmt.Errorf("PPTP delete commands failed: %s", string(output))
 	}
 
 	// Save configuration
-	if err := s.client.SaveConfig(ctx); err != nil {
-		return fmt.Errorf("failed to save config after PPTP delete: %w", err)
+	if s.client != nil {
+		if err := s.client.SaveConfig(ctx); err != nil {
+			return fmt.Errorf("failed to save config after PPTP delete: %w", err)
+		}
 	}
 
 	return nil

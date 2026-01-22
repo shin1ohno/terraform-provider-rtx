@@ -40,18 +40,13 @@ func (s *NATStaticService) Create(ctx context.Context, nat NATStatic) error {
 	default:
 	}
 
-	// Build and execute the NAT descriptor type command
+	// Collect all commands
+	commands := []string{}
+
+	// Build the NAT descriptor type command
 	typeCmd := parsers.BuildNATDescriptorTypeStaticCommand(nat.DescriptorID)
 	logging.FromContext(ctx).Debug().Str("service", "nat_static").Msgf("Creating NAT static with command: %s", typeCmd)
-
-	output, err := s.executor.Run(ctx, typeCmd)
-	if err != nil {
-		return fmt.Errorf("failed to create NAT static: %w", err)
-	}
-
-	if len(output) > 0 && containsError(string(output)) {
-		return fmt.Errorf("command failed: %s", string(output))
-	}
+	commands = append(commands, typeCmd)
 
 	// Add each NAT mapping entry
 	for _, entry := range nat.Entries {
@@ -65,15 +60,17 @@ func (s *NATStaticService) Create(ctx context.Context, nat NATStatic) error {
 		}
 
 		logging.FromContext(ctx).Debug().Str("service", "nat_static").Msgf("Adding NAT static entry with command: %s", entryCmd)
+		commands = append(commands, entryCmd)
+	}
 
-		output, err = s.executor.Run(ctx, entryCmd)
-		if err != nil {
-			return fmt.Errorf("failed to add NAT static entry: %w", err)
-		}
+	// Execute all commands in batch
+	output, err := s.executor.RunBatch(ctx, commands)
+	if err != nil {
+		return fmt.Errorf("failed to create NAT static: %w", err)
+	}
 
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("entry command failed: %s", string(output))
-		}
+	if len(output) > 0 && containsError(string(output)) {
+		return fmt.Errorf("command failed: %s", string(output))
 	}
 
 	// Save configuration
@@ -138,6 +135,9 @@ func (s *NATStaticService) Update(ctx context.Context, nat NATStatic) error {
 		return fmt.Errorf("failed to get current NAT static: %w", err)
 	}
 
+	// Collect all commands
+	commands := []string{}
+
 	// Delete old entries that are not in the new configuration
 	for _, oldEntry := range currentNAT.Entries {
 		found := false
@@ -156,7 +156,7 @@ func (s *NATStaticService) Update(ctx context.Context, nat NATStatic) error {
 				deleteCmd = parsers.BuildDeleteNATStaticMappingCommand(nat.DescriptorID, parserOldEntry)
 			}
 			logging.FromContext(ctx).Debug().Str("service", "nat_static").Msgf("Removing NAT static entry with command: %s", deleteCmd)
-			_, _ = s.executor.Run(ctx, deleteCmd) // Ignore errors for cleanup
+			commands = append(commands, deleteCmd)
 		}
 	}
 
@@ -178,15 +178,19 @@ func (s *NATStaticService) Update(ctx context.Context, nat NATStatic) error {
 				entryCmd = parsers.BuildNATStaticMappingCommand(nat.DescriptorID, parserNewEntry)
 			}
 			logging.FromContext(ctx).Debug().Str("service", "nat_static").Msgf("Adding NAT static entry with command: %s", entryCmd)
+			commands = append(commands, entryCmd)
+		}
+	}
 
-			output, err := s.executor.Run(ctx, entryCmd)
-			if err != nil {
-				return fmt.Errorf("failed to add NAT static entry: %w", err)
-			}
+	// Execute all commands in batch
+	if len(commands) > 0 {
+		output, err := s.executor.RunBatch(ctx, commands)
+		if err != nil {
+			return fmt.Errorf("failed to update NAT static: %w", err)
+		}
 
-			if len(output) > 0 && containsError(string(output)) {
-				return fmt.Errorf("entry command failed: %s", string(output))
-			}
+		if len(output) > 0 && containsError(string(output)) {
+			return fmt.Errorf("command failed: %s", string(output))
 		}
 	}
 
@@ -212,7 +216,8 @@ func (s *NATStaticService) Delete(ctx context.Context, descriptorID int) error {
 	cmd := parsers.BuildDeleteNATStaticCommand(descriptorID)
 	logging.FromContext(ctx).Debug().Str("service", "nat_static").Msgf("Deleting NAT static with command: %s", cmd)
 
-	output, err := s.executor.Run(ctx, cmd)
+	// Execute command in batch
+	output, err := s.executor.RunBatch(ctx, []string{cmd})
 	if err != nil {
 		return fmt.Errorf("failed to delete NAT static: %w", err)
 	}

@@ -104,20 +104,20 @@ func (s *IPsecTunnelService) Create(ctx context.Context, tunnel IPsecTunnel) err
 		commands = append(commands, parsers.BuildIPsecIKEKeepaliveOffCommand(tunnel.ID))
 	}
 
-	// Execute all commands
-	for _, cmd := range commands {
-		output, err := s.executor.Run(ctx, cmd)
-		if err != nil {
-			return fmt.Errorf("failed to execute IPsec command '%s': %w", cmd, err)
-		}
-		if containsError(string(output)) {
-			return fmt.Errorf("IPsec command '%s' failed: %s", cmd, string(output))
-		}
+	// Execute all commands in batch
+	output, err := s.executor.RunBatch(ctx, commands)
+	if err != nil {
+		return fmt.Errorf("failed to execute IPsec batch commands: %w", err)
+	}
+	if containsError(string(output)) {
+		return fmt.Errorf("IPsec batch commands failed: %s", string(output))
 	}
 
 	// Save configuration
-	if err := s.client.SaveConfig(ctx); err != nil {
-		return fmt.Errorf("failed to save IPsec config: %w", err)
+	if s.client != nil {
+		if err := s.client.SaveConfig(ctx); err != nil {
+			return fmt.Errorf("failed to save IPsec config: %w", err)
+		}
 	}
 
 	return nil
@@ -163,20 +163,20 @@ func (s *IPsecTunnelService) Update(ctx context.Context, tunnel IPsecTunnel) err
 		commands = append(commands, parsers.BuildIPsecIKEKeepaliveOffCommand(tunnel.ID))
 	}
 
-	// Execute all commands
-	for _, cmd := range commands {
-		output, err := s.executor.Run(ctx, cmd)
-		if err != nil {
-			return fmt.Errorf("failed to execute IPsec command '%s': %w", cmd, err)
-		}
-		if containsError(string(output)) {
-			return fmt.Errorf("IPsec command '%s' failed: %s", cmd, string(output))
-		}
+	// Execute all commands in batch
+	output, err := s.executor.RunBatch(ctx, commands)
+	if err != nil {
+		return fmt.Errorf("failed to execute IPsec batch commands: %w", err)
+	}
+	if containsError(string(output)) {
+		return fmt.Errorf("IPsec batch commands failed: %s", string(output))
 	}
 
 	// Save configuration
-	if err := s.client.SaveConfig(ctx); err != nil {
-		return fmt.Errorf("failed to save IPsec config: %w", err)
+	if s.client != nil {
+		if err := s.client.SaveConfig(ctx); err != nil {
+			return fmt.Errorf("failed to save IPsec config: %w", err)
+		}
 	}
 
 	return nil
@@ -189,19 +189,20 @@ func (s *IPsecTunnelService) Delete(ctx context.Context, tunnelID int) error {
 		parsers.BuildDeleteTunnelSelectCommand(tunnelID),
 	}
 
-	for _, cmd := range commands {
-		output, err := s.executor.Run(ctx, cmd)
-		if err != nil {
-			return fmt.Errorf("failed to execute IPsec delete command '%s': %w", cmd, err)
-		}
-		if containsError(string(output)) {
-			return fmt.Errorf("IPsec delete command '%s' failed: %s", cmd, string(output))
-		}
+	// Execute all commands in batch
+	output, err := s.executor.RunBatch(ctx, commands)
+	if err != nil {
+		return fmt.Errorf("failed to execute IPsec delete batch commands: %w", err)
+	}
+	if containsError(string(output)) {
+		return fmt.Errorf("IPsec delete batch commands failed: %s", string(output))
 	}
 
 	// Save configuration
-	if err := s.client.SaveConfig(ctx); err != nil {
-		return fmt.Errorf("failed to save config after IPsec delete: %w", err)
+	if s.client != nil {
+		if err := s.client.SaveConfig(ctx); err != nil {
+			return fmt.Errorf("failed to save config after IPsec delete: %w", err)
+		}
 	}
 
 	return nil

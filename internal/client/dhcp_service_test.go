@@ -22,6 +22,14 @@ func (m *MockExecutor) Run(ctx context.Context, cmd string) ([]byte, error) {
 	return args.Get(0).([]byte), args.Error(1)
 }
 
+func (m *MockExecutor) RunBatch(ctx context.Context, cmds []string) ([]byte, error) {
+	args := m.Called(ctx, cmds)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]byte), args.Error(1)
+}
+
 func TestDHCPService_CreateBinding(t *testing.T) {
 	tests := []struct {
 		name        string

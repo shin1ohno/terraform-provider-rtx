@@ -34,10 +34,19 @@ func TestNATStaticService_Create(t *testing.T) {
 				},
 			},
 			mockSetup: func(m *MockExecutor) {
-				m.On("Run", mock.Anything, "nat descriptor type 1 static").
-					Return([]byte(""), nil)
-				m.On("Run", mock.Anything, "nat descriptor static 1 203.0.113.100=192.168.1.100").
-					Return([]byte(""), nil)
+				m.On("RunBatch", mock.Anything, mock.MatchedBy(func(cmds []string) bool {
+					hasType := false
+					hasEntry := false
+					for _, cmd := range cmds {
+						if cmd == "nat descriptor type 1 static" {
+							hasType = true
+						}
+						if cmd == "nat descriptor static 1 203.0.113.100=192.168.1.100" {
+							hasEntry = true
+						}
+					}
+					return hasType && hasEntry
+				})).Return([]byte(""), nil)
 			},
 			expectedErr: false,
 		},
@@ -56,10 +65,19 @@ func TestNATStaticService_Create(t *testing.T) {
 				},
 			},
 			mockSetup: func(m *MockExecutor) {
-				m.On("Run", mock.Anything, "nat descriptor type 2 static").
-					Return([]byte(""), nil)
-				m.On("Run", mock.Anything, "nat descriptor static 2 203.0.113.100:80=192.168.1.100:8080 tcp").
-					Return([]byte(""), nil)
+				m.On("RunBatch", mock.Anything, mock.MatchedBy(func(cmds []string) bool {
+					hasType := false
+					hasEntry := false
+					for _, cmd := range cmds {
+						if cmd == "nat descriptor type 2 static" {
+							hasType = true
+						}
+						if cmd == "nat descriptor static 2 203.0.113.100:80=192.168.1.100:8080 tcp" {
+							hasEntry = true
+						}
+					}
+					return hasType && hasEntry
+				})).Return([]byte(""), nil)
 			},
 			expectedErr: false,
 		},
@@ -79,12 +97,23 @@ func TestNATStaticService_Create(t *testing.T) {
 				},
 			},
 			mockSetup: func(m *MockExecutor) {
-				m.On("Run", mock.Anything, "nat descriptor type 3 static").
-					Return([]byte(""), nil)
-				m.On("Run", mock.Anything, "nat descriptor static 3 203.0.113.100=192.168.1.100").
-					Return([]byte(""), nil)
-				m.On("Run", mock.Anything, "nat descriptor static 3 203.0.113.101=192.168.1.101").
-					Return([]byte(""), nil)
+				m.On("RunBatch", mock.Anything, mock.MatchedBy(func(cmds []string) bool {
+					hasType := false
+					hasEntry1 := false
+					hasEntry2 := false
+					for _, cmd := range cmds {
+						if cmd == "nat descriptor type 3 static" {
+							hasType = true
+						}
+						if cmd == "nat descriptor static 3 203.0.113.100=192.168.1.100" {
+							hasEntry1 = true
+						}
+						if cmd == "nat descriptor static 3 203.0.113.101=192.168.1.101" {
+							hasEntry2 = true
+						}
+					}
+					return hasType && hasEntry1 && hasEntry2
+				})).Return([]byte(""), nil)
 			},
 			expectedErr: false,
 		},
@@ -144,7 +173,7 @@ func TestNATStaticService_Create(t *testing.T) {
 				},
 			},
 			mockSetup: func(m *MockExecutor) {
-				m.On("Run", mock.Anything, "nat descriptor type 1 static").
+				m.On("RunBatch", mock.Anything, mock.Anything).
 					Return(nil, errors.New("connection failed"))
 			},
 			expectedErr: true,
@@ -162,31 +191,11 @@ func TestNATStaticService_Create(t *testing.T) {
 				},
 			},
 			mockSetup: func(m *MockExecutor) {
-				m.On("Run", mock.Anything, "nat descriptor type 1 static").
+				m.On("RunBatch", mock.Anything, mock.Anything).
 					Return([]byte("Error: descriptor already exists"), nil)
 			},
 			expectedErr: true,
 			errMessage:  "command failed",
-		},
-		{
-			name: "Entry command error",
-			nat: NATStatic{
-				DescriptorID: 1,
-				Entries: []NATStaticEntry{
-					{
-						InsideLocal:   "192.168.1.100",
-						OutsideGlobal: "203.0.113.100",
-					},
-				},
-			},
-			mockSetup: func(m *MockExecutor) {
-				m.On("Run", mock.Anything, "nat descriptor type 1 static").
-					Return([]byte(""), nil)
-				m.On("Run", mock.Anything, "nat descriptor static 1 203.0.113.100=192.168.1.100").
-					Return(nil, errors.New("connection failed"))
-			},
-			expectedErr: true,
-			errMessage:  "failed to add NAT static entry",
 		},
 	}
 
@@ -351,7 +360,7 @@ func TestNATStaticService_Delete(t *testing.T) {
 			name:         "Successful deletion",
 			descriptorID: 1,
 			mockSetup: func(m *MockExecutor) {
-				m.On("Run", mock.Anything, "no nat descriptor type 1").
+				m.On("RunBatch", mock.Anything, []string{"no nat descriptor type 1"}).
 					Return([]byte(""), nil)
 			},
 			expectedErr: false,
@@ -360,7 +369,7 @@ func TestNATStaticService_Delete(t *testing.T) {
 			name:         "Execution error",
 			descriptorID: 1,
 			mockSetup: func(m *MockExecutor) {
-				m.On("Run", mock.Anything, "no nat descriptor type 1").
+				m.On("RunBatch", mock.Anything, []string{"no nat descriptor type 1"}).
 					Return(nil, errors.New("connection failed"))
 			},
 			expectedErr: true,
@@ -370,7 +379,7 @@ func TestNATStaticService_Delete(t *testing.T) {
 			name:         "Already deleted (not found)",
 			descriptorID: 99,
 			mockSetup: func(m *MockExecutor) {
-				m.On("Run", mock.Anything, "no nat descriptor type 99").
+				m.On("RunBatch", mock.Anything, []string{"no nat descriptor type 99"}).
 					Return([]byte("Error: not found"), nil)
 			},
 			expectedErr: false, // Should not error if already gone
@@ -379,7 +388,7 @@ func TestNATStaticService_Delete(t *testing.T) {
 			name:         "Command error with error output",
 			descriptorID: 1,
 			mockSetup: func(m *MockExecutor) {
-				m.On("Run", mock.Anything, "no nat descriptor type 1").
+				m.On("RunBatch", mock.Anything, []string{"no nat descriptor type 1"}).
 					Return([]byte("Error: descriptor in use"), nil)
 			},
 			expectedErr: true,
@@ -540,9 +549,15 @@ nat descriptor static 1 203.0.113.100=192.168.1.100
 				m.On("Run", mock.Anything, `show config | grep "nat descriptor.*1"`).
 					Return([]byte(currentOutput), nil)
 
-				// Add new entry
-				m.On("Run", mock.Anything, "nat descriptor static 1 203.0.113.101=192.168.1.101").
-					Return([]byte(""), nil)
+				// Add new entry using RunBatch
+				m.On("RunBatch", mock.Anything, mock.MatchedBy(func(cmds []string) bool {
+					for _, cmd := range cmds {
+						if cmd == "nat descriptor static 1 203.0.113.101=192.168.1.101" {
+							return true
+						}
+					}
+					return false
+				})).Return([]byte(""), nil)
 			},
 			expectedErr: false,
 		},
@@ -566,9 +581,15 @@ nat descriptor static 1 203.0.113.101=192.168.1.101
 				m.On("Run", mock.Anything, `show config | grep "nat descriptor.*1"`).
 					Return([]byte(currentOutput), nil)
 
-				// Delete old entry
-				m.On("Run", mock.Anything, "no nat descriptor static 1 203.0.113.101=192.168.1.101").
-					Return([]byte(""), nil)
+				// Delete old entry using RunBatch
+				m.On("RunBatch", mock.Anything, mock.MatchedBy(func(cmds []string) bool {
+					for _, cmd := range cmds {
+						if cmd == "no nat descriptor static 1 203.0.113.101=192.168.1.101" {
+							return true
+						}
+					}
+					return false
+				})).Return([]byte(""), nil)
 			},
 			expectedErr: false,
 		},
@@ -693,6 +714,62 @@ func TestNATStaticService_ContextCancellation(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Equal(t, context.Canceled, err)
+	})
+}
+
+func TestNATStaticService_UsesRunBatch(t *testing.T) {
+	t.Run("Create uses RunBatch for all commands", func(t *testing.T) {
+		mockExecutor := new(MockExecutor)
+
+		var capturedCommands []string
+		mockExecutor.On("RunBatch", mock.Anything, mock.Anything).
+			Run(func(args mock.Arguments) {
+				capturedCommands = args.Get(1).([]string)
+			}).
+			Return([]byte(""), nil)
+
+		service := &NATStaticService{executor: mockExecutor}
+		err := service.Create(context.Background(), NATStatic{
+			DescriptorID: 1,
+			Entries: []NATStaticEntry{
+				{InsideLocal: "192.168.1.100", OutsideGlobal: "203.0.113.100"},
+				{InsideLocal: "192.168.1.101", OutsideGlobal: "203.0.113.101"},
+			},
+		})
+
+		assert.NoError(t, err)
+
+		// Verify essential commands are present
+		hasType := false
+		hasEntry1 := false
+		hasEntry2 := false
+		for _, cmd := range capturedCommands {
+			if cmd == "nat descriptor type 1 static" {
+				hasType = true
+			}
+			if cmd == "nat descriptor static 1 203.0.113.100=192.168.1.100" {
+				hasEntry1 = true
+			}
+			if cmd == "nat descriptor static 1 203.0.113.101=192.168.1.101" {
+				hasEntry2 = true
+			}
+		}
+		assert.True(t, hasType, "Expected type command to be included")
+		assert.True(t, hasEntry1, "Expected first entry command to be included")
+		assert.True(t, hasEntry2, "Expected second entry command to be included")
+	})
+
+	t.Run("Delete uses RunBatch", func(t *testing.T) {
+		mockExecutor := new(MockExecutor)
+
+		mockExecutor.On("RunBatch", mock.Anything, []string{"no nat descriptor type 1"}).
+			Return([]byte(""), nil)
+
+		service := &NATStaticService{executor: mockExecutor}
+		err := service.Delete(context.Background(), 1)
+
+		assert.NoError(t, err)
+		mockExecutor.AssertExpectations(t)
 	})
 }
 

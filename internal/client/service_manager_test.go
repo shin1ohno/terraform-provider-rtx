@@ -41,6 +41,18 @@ func (m *mockServiceExecutor) Run(ctx context.Context, cmd string) ([]byte, erro
 	return []byte{}, nil
 }
 
+func (m *mockServiceExecutor) RunBatch(ctx context.Context, cmds []string) ([]byte, error) {
+	var allOutput []byte
+	for _, cmd := range cmds {
+		output, err := m.Run(ctx, cmd)
+		if err != nil {
+			return allOutput, err
+		}
+		allOutput = append(allOutput, output...)
+	}
+	return allOutput, nil
+}
+
 func (m *mockServiceExecutor) setOutput(pattern, output string) {
 	m.outputs[pattern] = output
 }

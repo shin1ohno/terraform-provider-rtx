@@ -569,6 +569,19 @@ func (c *rtxClient) SaveConfig(ctx context.Context) error {
 	return nil
 }
 
+// RunBatch executes multiple raw commands in sequence and returns combined output
+func (c *rtxClient) RunBatch(ctx context.Context, cmds []string) ([]byte, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	executor := c.executor
+	c.mu.Unlock()
+
+	return executor.RunBatch(ctx, cmds)
+}
+
 // GetIPv6Prefix retrieves an IPv6 prefix configuration
 func (c *rtxClient) GetIPv6Prefix(ctx context.Context, prefixID int) (*IPv6Prefix, error) {
 	c.mu.Lock()
