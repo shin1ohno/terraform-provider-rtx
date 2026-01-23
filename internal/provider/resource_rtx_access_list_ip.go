@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 func resourceRTXAccessListIP() *schema.Resource {
@@ -99,22 +100,48 @@ func resourceRTXAccessListIPCreate(ctx context.Context, d *schema.ResourceData, 
 
 func resourceRTXAccessListIPRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
 
 	filterID, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid filter ID: %v", err)
 	}
 
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ip").Msgf("Reading IP filter %d", filterID)
+	logger.Debug().Str("resource", "rtx_access_list_ip").Msgf("Reading IP filter %d", filterID)
 
-	filter, err := apiClient.client.GetIPFilter(ctx, filterID)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ip").Msgf("IP filter %d not found, removing from state", filterID)
-			d.SetId("")
-			return nil
+	var filter *client.IPFilter
+
+	// Try to use SFTP cache if enabled
+	if apiClient.client.SFTPEnabled() {
+		parsedConfig, err := apiClient.client.GetCachedConfig(ctx)
+		if err == nil && parsedConfig != nil {
+			// Extract IP filters from parsed config
+			filters := parsedConfig.ExtractIPFilters()
+			for i := range filters {
+				if filters[i].Number == filterID {
+					filter = convertParsedIPFilter(&filters[i])
+					logger.Debug().Str("resource", "rtx_access_list_ip").Msg("Found filter in SFTP cache")
+					break
+				}
+			}
 		}
-		return diag.Errorf("Failed to read IP filter: %v", err)
+		if filter == nil {
+			// Filter not found in cache or cache error, fallback to SSH
+			logger.Debug().Str("resource", "rtx_access_list_ip").Msg("Filter not in cache, falling back to SSH")
+		}
+	}
+
+	// Fallback to SSH if SFTP disabled or filter not found in cache
+	if filter == nil {
+		filter, err = apiClient.client.GetIPFilter(ctx, filterID)
+		if err != nil {
+			if strings.Contains(err.Error(), "not found") {
+				logger.Debug().Str("resource", "rtx_access_list_ip").Msgf("IP filter %d not found, removing from state", filterID)
+				d.SetId("")
+				return nil
+			}
+			return diag.Errorf("Failed to read IP filter: %v", err)
+		}
 	}
 
 	// Set the state from the retrieved filter
@@ -123,6 +150,22 @@ func resourceRTXAccessListIPRead(ctx context.Context, d *schema.ResourceData, me
 	}
 
 	return nil
+}
+
+// convertParsedIPFilter converts a parser IPFilter to a client IPFilter
+func convertParsedIPFilter(parsed *parsers.IPFilter) *client.IPFilter {
+	return &client.IPFilter{
+		Number:        parsed.Number,
+		Action:        parsed.Action,
+		SourceAddress: parsed.SourceAddress,
+		SourceMask:    parsed.SourceMask,
+		DestAddress:   parsed.DestAddress,
+		DestMask:      parsed.DestMask,
+		Protocol:      parsed.Protocol,
+		SourcePort:    parsed.SourcePort,
+		DestPort:      parsed.DestPort,
+		Established:   parsed.Established,
+	}
 }
 
 func resourceRTXAccessListIPUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {

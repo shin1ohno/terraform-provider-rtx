@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 func resourceRTXDNSServer() *schema.Resource {
@@ -165,12 +166,34 @@ func resourceRTXDNSServerCreate(ctx context.Context, d *schema.ResourceData, met
 
 func resourceRTXDNSServerRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
 
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_dns_server").Msg("Reading DNS server configuration")
+	logger.Debug().Str("resource", "rtx_dns_server").Msg("Reading DNS server configuration")
 
-	config, err := apiClient.client.GetDNS(ctx)
-	if err != nil {
-		return diag.Errorf("Failed to read DNS server configuration: %v", err)
+	var config *client.DNSConfig
+
+	// Try to use SFTP cache if enabled
+	if apiClient.client.SFTPEnabled() {
+		parsedConfig, err := apiClient.client.GetCachedConfig(ctx)
+		if err == nil && parsedConfig != nil {
+			parsed := parsedConfig.ExtractDNSServer()
+			if parsed != nil {
+				config = convertParsedDNSConfig(parsed)
+				logger.Debug().Str("resource", "rtx_dns_server").Msg("Found DNS config in SFTP cache")
+			}
+		}
+		if config == nil {
+			logger.Debug().Str("resource", "rtx_dns_server").Msg("DNS config not in cache, falling back to SSH")
+		}
+	}
+
+	// Fallback to SSH if SFTP disabled or config not found in cache
+	if config == nil {
+		var err error
+		config, err = apiClient.client.GetDNS(ctx)
+		if err != nil {
+			return diag.Errorf("Failed to read DNS server configuration: %v", err)
+		}
 	}
 
 	// Update the state
@@ -401,6 +424,51 @@ func buildDNSConfigFromResourceData(d *schema.ResourceData) client.DNSConfig {
 				Name:    hostMap["name"].(string),
 				Address: hostMap["address"].(string),
 			})
+		}
+	}
+
+	return config
+}
+
+// convertParsedDNSConfig converts a parser DNSConfig to a client DNSConfig
+func convertParsedDNSConfig(parsed *parsers.DNSConfig) *client.DNSConfig {
+	config := &client.DNSConfig{
+		DomainLookup: parsed.DomainLookup,
+		DomainName:   parsed.DomainName,
+		ServiceOn:    parsed.ServiceOn,
+		PrivateSpoof: parsed.PrivateSpoof,
+		NameServers:  make([]string, len(parsed.NameServers)),
+		ServerSelect: make([]client.DNSServerSelect, len(parsed.ServerSelect)),
+		Hosts:        make([]client.DNSHost, len(parsed.Hosts)),
+	}
+
+	// Copy name servers
+	copy(config.NameServers, parsed.NameServers)
+
+	// Convert server select entries
+	for i, sel := range parsed.ServerSelect {
+		servers := make([]client.DNSServer, len(sel.Servers))
+		for j, srv := range sel.Servers {
+			servers[j] = client.DNSServer{
+				Address: srv.Address,
+				EDNS:    srv.EDNS,
+			}
+		}
+		config.ServerSelect[i] = client.DNSServerSelect{
+			ID:             sel.ID,
+			Servers:        servers,
+			RecordType:     sel.RecordType,
+			QueryPattern:   sel.QueryPattern,
+			OriginalSender: sel.OriginalSender,
+			RestrictPP:     sel.RestrictPP,
+		}
+	}
+
+	// Convert hosts
+	for i, host := range parsed.Hosts {
+		config.Hosts[i] = client.DNSHost{
+			Name:    host.Name,
+			Address: host.Address,
 		}
 	}
 

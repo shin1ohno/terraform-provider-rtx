@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 func resourceRTXSFTPD() *schema.Resource {
@@ -66,23 +67,45 @@ func resourceRTXSFTPDCreate(ctx context.Context, d *schema.ResourceData, meta in
 
 func resourceRTXSFTPDRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
 
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_sftpd").Msg("Reading SFTPD configuration")
+	logger.Debug().Str("resource", "rtx_sftpd").Msg("Reading SFTPD configuration")
 
-	config, err := apiClient.client.GetSFTPD(ctx)
-	if err != nil {
-		// Check if not configured
-		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "not configured") {
-			logging.FromContext(ctx).Debug().Str("resource", "rtx_sftpd").Msg("SFTPD not configured, removing from state")
-			d.SetId("")
-			return nil
+	var config *client.SFTPDConfig
+
+	// Try to use SFTP cache if enabled
+	if apiClient.client.SFTPEnabled() {
+		parsedConfig, err := apiClient.client.GetCachedConfig(ctx)
+		if err == nil && parsedConfig != nil {
+			parsed := parsedConfig.ExtractSFTPD()
+			if parsed != nil {
+				config = convertParsedSFTPDConfig(parsed)
+				logger.Debug().Str("resource", "rtx_sftpd").Msg("Found SFTPD config in SFTP cache")
+			}
 		}
-		return diag.Errorf("Failed to read SFTPD configuration: %v", err)
+		if config == nil {
+			logger.Debug().Str("resource", "rtx_sftpd").Msg("SFTPD config not in cache, falling back to SSH")
+		}
+	}
+
+	// Fallback to SSH if SFTP disabled or config not found in cache
+	if config == nil {
+		var err error
+		config, err = apiClient.client.GetSFTPD(ctx)
+		if err != nil {
+			// Check if not configured
+			if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "not configured") {
+				logger.Debug().Str("resource", "rtx_sftpd").Msg("SFTPD not configured, removing from state")
+				d.SetId("")
+				return nil
+			}
+			return diag.Errorf("Failed to read SFTPD configuration: %v", err)
+		}
 	}
 
 	// If no hosts are configured, the resource doesn't exist
 	if len(config.Hosts) == 0 {
-		logging.FromContext(ctx).Debug().Str("resource", "rtx_sftpd").Msg("SFTPD hosts not configured, removing from state")
+		logger.Debug().Str("resource", "rtx_sftpd").Msg("SFTPD hosts not configured, removing from state")
 		d.SetId("")
 		return nil
 	}
@@ -93,6 +116,13 @@ func resourceRTXSFTPDRead(ctx context.Context, d *schema.ResourceData, meta inte
 	}
 
 	return nil
+}
+
+// convertParsedSFTPDConfig converts a parser SFTPDConfig to a client SFTPDConfig
+func convertParsedSFTPDConfig(parsed *parsers.SFTPDConfig) *client.SFTPDConfig {
+	return &client.SFTPDConfig{
+		Hosts: parsed.Hosts,
+	}
 }
 
 func resourceRTXSFTPDUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {

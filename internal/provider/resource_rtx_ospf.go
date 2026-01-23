@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 func resourceRTXOSPF() *schema.Resource {
@@ -169,21 +170,43 @@ func resourceRTXOSPFCreate(ctx context.Context, d *schema.ResourceData, meta int
 
 func resourceRTXOSPFRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
 
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_ospf").Msg("Reading OSPF configuration")
+	logger.Debug().Str("resource", "rtx_ospf").Msg("Reading OSPF configuration")
 
-	config, err := apiClient.client.GetOSPF(ctx)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "not configured") {
-			logging.FromContext(ctx).Debug().Str("resource", "rtx_ospf").Msg("OSPF configuration not found, removing from state")
-			d.SetId("")
-			return nil
+	var config *client.OSPFConfig
+
+	// Try to use SFTP cache if enabled
+	if apiClient.client.SFTPEnabled() {
+		parsedConfig, err := apiClient.client.GetCachedConfig(ctx)
+		if err == nil && parsedConfig != nil {
+			parsed := parsedConfig.ExtractOSPF()
+			if parsed != nil {
+				config = convertParsedOSPFConfig(parsed)
+				logger.Debug().Str("resource", "rtx_ospf").Msg("Found OSPF config in SFTP cache")
+			}
 		}
-		return diag.Errorf("Failed to read OSPF configuration: %v", err)
+		if config == nil {
+			logger.Debug().Str("resource", "rtx_ospf").Msg("OSPF config not in cache, falling back to SSH")
+		}
+	}
+
+	// Fallback to SSH if SFTP disabled or config not found in cache
+	if config == nil {
+		var err error
+		config, err = apiClient.client.GetOSPF(ctx)
+		if err != nil {
+			if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "not configured") {
+				logger.Debug().Str("resource", "rtx_ospf").Msg("OSPF configuration not found, removing from state")
+				d.SetId("")
+				return nil
+			}
+			return diag.Errorf("Failed to read OSPF configuration: %v", err)
+		}
 	}
 
 	if !config.Enabled {
-		logging.FromContext(ctx).Debug().Str("resource", "rtx_ospf").Msg("OSPF is disabled, removing from state")
+		logger.Debug().Str("resource", "rtx_ospf").Msg("OSPF is disabled, removing from state")
 		d.SetId("")
 		return nil
 	}
@@ -391,6 +414,51 @@ func buildOSPFConfigFromResourceData(d *schema.ResourceData) client.OSPFConfig {
 				Priority: nMap["priority"].(int),
 				Cost:     nMap["cost"].(int),
 			}
+		}
+	}
+
+	return config
+}
+
+// convertParsedOSPFConfig converts a parser OSPFConfig to a client OSPFConfig
+func convertParsedOSPFConfig(parsed *parsers.OSPFConfig) *client.OSPFConfig {
+	config := &client.OSPFConfig{
+		Enabled:               parsed.Enabled,
+		ProcessID:             parsed.ProcessID,
+		RouterID:              parsed.RouterID,
+		Distance:              parsed.Distance,
+		DefaultOriginate:      parsed.DefaultOriginate,
+		RedistributeStatic:    parsed.RedistributeStatic,
+		RedistributeConnected: parsed.RedistributeConnected,
+		Networks:              make([]client.OSPFNetwork, len(parsed.Networks)),
+		Areas:                 make([]client.OSPFArea, len(parsed.Areas)),
+		Neighbors:             make([]client.OSPFNeighbor, len(parsed.Neighbors)),
+	}
+
+	// Convert networks
+	for i, n := range parsed.Networks {
+		config.Networks[i] = client.OSPFNetwork{
+			IP:       n.IP,
+			Wildcard: n.Wildcard,
+			Area:     n.Area,
+		}
+	}
+
+	// Convert areas
+	for i, a := range parsed.Areas {
+		config.Areas[i] = client.OSPFArea{
+			ID:        a.ID,
+			Type:      a.Type,
+			NoSummary: a.NoSummary,
+		}
+	}
+
+	// Convert neighbors
+	for i, n := range parsed.Neighbors {
+		config.Neighbors[i] = client.OSPFNeighbor{
+			IP:       n.IP,
+			Priority: n.Priority,
+			Cost:     n.Cost,
 		}
 	}
 

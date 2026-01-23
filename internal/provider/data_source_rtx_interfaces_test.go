@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 // MockClientForInterfaces extends MockClient for interfaces testing
@@ -1035,6 +1036,28 @@ func (m *MockClientForInterfaces) DeletePPPoE(ctx context.Context, ppNum int) er
 
 func (m *MockClientForInterfaces) GetPPConnectionStatus(ctx context.Context, ppNum int) (*client.PPConnectionStatus, error) {
 	return nil, fmt.Errorf("not implemented")
+}
+
+// SFTP Configuration Cache methods
+func (m *MockClientForInterfaces) GetCachedConfig(ctx context.Context) (*parsers.ParsedConfig, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*parsers.ParsedConfig), args.Error(1)
+}
+
+func (m *MockClientForInterfaces) SFTPEnabled() bool {
+	args := m.Called()
+	return args.Bool(0)
+}
+
+func (m *MockClientForInterfaces) InvalidateCache() {
+	m.Called()
+}
+
+func (m *MockClientForInterfaces) MarkCacheDirty() {
+	m.Called()
 }
 
 func TestRTXInterfacesDataSourceSchema(t *testing.T) {

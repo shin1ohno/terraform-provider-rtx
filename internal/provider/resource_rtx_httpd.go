@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 func resourceRTXHTTPD() *schema.Resource {
@@ -68,23 +69,45 @@ func resourceRTXHTTPDCreate(ctx context.Context, d *schema.ResourceData, meta in
 
 func resourceRTXHTTPDRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
 
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_httpd").Msg("Reading HTTPD configuration")
+	logger.Debug().Str("resource", "rtx_httpd").Msg("Reading HTTPD configuration")
 
-	config, err := apiClient.client.GetHTTPD(ctx)
-	if err != nil {
-		// Check if not configured
-		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "not configured") {
-			logging.FromContext(ctx).Debug().Str("resource", "rtx_httpd").Msg("HTTPD not configured, removing from state")
-			d.SetId("")
-			return nil
+	var config *client.HTTPDConfig
+
+	// Try to use SFTP cache if enabled
+	if apiClient.client.SFTPEnabled() {
+		parsedConfig, err := apiClient.client.GetCachedConfig(ctx)
+		if err == nil && parsedConfig != nil {
+			parsed := parsedConfig.ExtractHTTPD()
+			if parsed != nil {
+				config = convertParsedHTTPDConfig(parsed)
+				logger.Debug().Str("resource", "rtx_httpd").Msg("Found HTTPD config in SFTP cache")
+			}
 		}
-		return diag.Errorf("Failed to read HTTPD configuration: %v", err)
+		if config == nil {
+			logger.Debug().Str("resource", "rtx_httpd").Msg("HTTPD config not in cache, falling back to SSH")
+		}
+	}
+
+	// Fallback to SSH if SFTP disabled or config not found in cache
+	if config == nil {
+		var err error
+		config, err = apiClient.client.GetHTTPD(ctx)
+		if err != nil {
+			// Check if not configured
+			if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "not configured") {
+				logger.Debug().Str("resource", "rtx_httpd").Msg("HTTPD not configured, removing from state")
+				d.SetId("")
+				return nil
+			}
+			return diag.Errorf("Failed to read HTTPD configuration: %v", err)
+		}
 	}
 
 	// If no host is configured, the resource doesn't exist
 	if config.Host == "" {
-		logging.FromContext(ctx).Debug().Str("resource", "rtx_httpd").Msg("HTTPD host not configured, removing from state")
+		logger.Debug().Str("resource", "rtx_httpd").Msg("HTTPD host not configured, removing from state")
 		d.SetId("")
 		return nil
 	}
@@ -98,6 +121,14 @@ func resourceRTXHTTPDRead(ctx context.Context, d *schema.ResourceData, meta inte
 	}
 
 	return nil
+}
+
+// convertParsedHTTPDConfig converts a parser HTTPDConfig to a client HTTPDConfig
+func convertParsedHTTPDConfig(parsed *parsers.HTTPDConfig) *client.HTTPDConfig {
+	return &client.HTTPDConfig{
+		Host:        parsed.Host,
+		ProxyAccess: parsed.ProxyAccess,
+	}
 }
 
 func resourceRTXHTTPDUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {

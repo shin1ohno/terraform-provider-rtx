@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 func resourceRTXPPTP() *schema.Resource {
@@ -163,21 +164,43 @@ func resourceRTXPPTPCreate(ctx context.Context, d *schema.ResourceData, meta int
 
 func resourceRTXPPTPRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
 
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_pptp").Msg("Reading PPTP configuration")
+	logger.Debug().Str("resource", "rtx_pptp").Msg("Reading PPTP configuration")
 
-	config, err := apiClient.client.GetPPTP(ctx)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "not configured") {
-			logging.FromContext(ctx).Debug().Str("resource", "rtx_pptp").Msg("PPTP configuration not found, removing from state")
-			d.SetId("")
-			return nil
+	var config *client.PPTPConfig
+
+	// Try to use SFTP cache if enabled
+	if apiClient.client.SFTPEnabled() {
+		parsedConfig, err := apiClient.client.GetCachedConfig(ctx)
+		if err == nil && parsedConfig != nil {
+			parsed := parsedConfig.ExtractPPTP()
+			if parsed != nil {
+				config = convertParsedPPTPConfig(parsed)
+				logger.Debug().Str("resource", "rtx_pptp").Msg("Found PPTP config in SFTP cache")
+			}
 		}
-		return diag.Errorf("Failed to read PPTP configuration: %v", err)
+		if config == nil {
+			logger.Debug().Str("resource", "rtx_pptp").Msg("PPTP config not in cache, falling back to SSH")
+		}
+	}
+
+	// Fallback to SSH if SFTP disabled or config not found in cache
+	if config == nil {
+		var err error
+		config, err = apiClient.client.GetPPTP(ctx)
+		if err != nil {
+			if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "not configured") {
+				logger.Debug().Str("resource", "rtx_pptp").Msg("PPTP configuration not found, removing from state")
+				d.SetId("")
+				return nil
+			}
+			return diag.Errorf("Failed to read PPTP configuration: %v", err)
+		}
 	}
 
 	if !config.Enabled {
-		logging.FromContext(ctx).Debug().Str("resource", "rtx_pptp").Msg("PPTP is disabled, removing from state")
+		logger.Debug().Str("resource", "rtx_pptp").Msg("PPTP is disabled, removing from state")
 		d.SetId("")
 		return nil
 	}
@@ -381,6 +404,45 @@ func buildPPTPConfigFromResourceData(d *schema.ResourceData) client.PPTPConfig {
 				Start: pMap["start"].(string),
 				End:   pMap["end"].(string),
 			}
+		}
+	}
+
+	return config
+}
+
+// convertParsedPPTPConfig converts a parser PPTPConfig to a client PPTPConfig
+func convertParsedPPTPConfig(parsed *parsers.PPTPConfig) *client.PPTPConfig {
+	config := &client.PPTPConfig{
+		Shutdown:         parsed.Shutdown,
+		ListenAddress:    parsed.ListenAddress,
+		MaxConnections:   parsed.MaxConnections,
+		DisconnectTime:   parsed.DisconnectTime,
+		KeepaliveEnabled: parsed.KeepaliveEnabled,
+		Enabled:          parsed.Enabled,
+	}
+
+	// Convert authentication
+	if parsed.Authentication != nil {
+		config.Authentication = &client.PPTPAuth{
+			Method:   parsed.Authentication.Method,
+			Username: parsed.Authentication.Username,
+			Password: parsed.Authentication.Password,
+		}
+	}
+
+	// Convert encryption
+	if parsed.Encryption != nil {
+		config.Encryption = &client.PPTPEncryption{
+			MPPEBits: parsed.Encryption.MPPEBits,
+			Required: parsed.Encryption.Required,
+		}
+	}
+
+	// Convert IP pool
+	if parsed.IPPool != nil {
+		config.IPPool = &client.PPTPIPPool{
+			Start: parsed.IPPool.Start,
+			End:   parsed.IPPool.End,
 		}
 	}
 

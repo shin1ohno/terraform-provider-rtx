@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 func resourceRTXSyslog() *schema.Resource {
@@ -104,18 +105,40 @@ func resourceRTXSyslogCreate(ctx context.Context, d *schema.ResourceData, meta i
 
 func resourceRTXSyslogRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
 
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_syslog").Msg("Reading syslog configuration")
+	logger.Debug().Str("resource", "rtx_syslog").Msg("Reading syslog configuration")
 
-	config, err := apiClient.client.GetSyslogConfig(ctx)
-	if err != nil {
-		// Check if resource doesn't exist (no configuration)
-		if strings.Contains(err.Error(), "not found") {
-			logging.FromContext(ctx).Debug().Str("resource", "rtx_syslog").Msg("Syslog configuration not found, removing from state")
-			d.SetId("")
-			return nil
+	var config *client.SyslogConfig
+
+	// Try to use SFTP cache if enabled
+	if apiClient.client.SFTPEnabled() {
+		parsedConfig, err := apiClient.client.GetCachedConfig(ctx)
+		if err == nil && parsedConfig != nil {
+			parsed := parsedConfig.ExtractSyslog()
+			if parsed != nil {
+				config = convertParsedSyslogConfig(parsed)
+				logger.Debug().Str("resource", "rtx_syslog").Msg("Found syslog config in SFTP cache")
+			}
 		}
-		return diag.Errorf("Failed to read syslog configuration: %v", err)
+		if config == nil {
+			logger.Debug().Str("resource", "rtx_syslog").Msg("Syslog config not in cache, falling back to SSH")
+		}
+	}
+
+	// Fallback to SSH if SFTP disabled or config not found in cache
+	if config == nil {
+		var err error
+		config, err = apiClient.client.GetSyslogConfig(ctx)
+		if err != nil {
+			// Check if resource doesn't exist (no configuration)
+			if strings.Contains(err.Error(), "not found") {
+				logger.Debug().Str("resource", "rtx_syslog").Msg("Syslog configuration not found, removing from state")
+				d.SetId("")
+				return nil
+			}
+			return diag.Errorf("Failed to read syslog configuration: %v", err)
+		}
 	}
 
 	// Update the state
@@ -147,6 +170,25 @@ func resourceRTXSyslogRead(ctx context.Context, d *schema.ResourceData, meta int
 	}
 
 	return nil
+}
+
+// convertParsedSyslogConfig converts a parser SyslogConfig to a client SyslogConfig
+func convertParsedSyslogConfig(parsed *parsers.SyslogConfig) *client.SyslogConfig {
+	config := &client.SyslogConfig{
+		LocalAddress: parsed.LocalAddress,
+		Facility:     parsed.Facility,
+		Notice:       parsed.Notice,
+		Info:         parsed.Info,
+		Debug:        parsed.Debug,
+		Hosts:        make([]client.SyslogHost, len(parsed.Hosts)),
+	}
+	for i, host := range parsed.Hosts {
+		config.Hosts[i] = client.SyslogHost{
+			Address: host.Address,
+			Port:    host.Port,
+		}
+	}
+	return config
 }
 
 func resourceRTXSyslogUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {

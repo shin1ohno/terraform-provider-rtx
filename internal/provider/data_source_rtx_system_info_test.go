@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 // Mock client for unit tests
@@ -1036,6 +1037,28 @@ func (m *MockClient) DeletePPPoE(ctx context.Context, ppNum int) error {
 
 func (m *MockClient) GetPPConnectionStatus(ctx context.Context, ppNum int) (*client.PPConnectionStatus, error) {
 	return nil, fmt.Errorf("not implemented")
+}
+
+// SFTP Configuration Cache methods
+func (m *MockClient) GetCachedConfig(ctx context.Context) (*parsers.ParsedConfig, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*parsers.ParsedConfig), args.Error(1)
+}
+
+func (m *MockClient) SFTPEnabled() bool {
+	args := m.Called()
+	return args.Bool(0)
+}
+
+func (m *MockClient) InvalidateCache() {
+	m.Called()
+}
+
+func (m *MockClient) MarkCacheDirty() {
+	m.Called()
 }
 
 func TestRTXSystemInfoDataSourceSchema(t *testing.T) {

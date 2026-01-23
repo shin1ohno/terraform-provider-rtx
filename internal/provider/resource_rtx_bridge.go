@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 func resourceRTXBridge() *schema.Resource {
@@ -67,20 +68,47 @@ func resourceRTXBridgeCreate(ctx context.Context, d *schema.ResourceData, meta i
 
 func resourceRTXBridgeRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
 
 	name := d.Id()
 
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_bridge").Msgf("Reading bridge: %s", name)
+	logger.Debug().Str("resource", "rtx_bridge").Msgf("Reading bridge: %s", name)
 
-	bridge, err := apiClient.client.GetBridge(ctx, name)
-	if err != nil {
-		// Check if bridge doesn't exist
-		if strings.Contains(err.Error(), "not found") {
-			logging.FromContext(ctx).Debug().Str("resource", "rtx_bridge").Msgf("Bridge %s not found, removing from state", name)
-			d.SetId("")
-			return nil
+	var bridge *client.BridgeConfig
+	var err error
+
+	// Try to use SFTP cache if enabled
+	if apiClient.client.SFTPEnabled() {
+		parsedConfig, cacheErr := apiClient.client.GetCachedConfig(ctx)
+		if cacheErr == nil && parsedConfig != nil {
+			// Extract bridges from parsed config
+			bridges := parsedConfig.ExtractBridges()
+			for i := range bridges {
+				if bridges[i].Name == name {
+					bridge = convertParsedBridgeConfig(&bridges[i])
+					logger.Debug().Str("resource", "rtx_bridge").Msg("Found bridge in SFTP cache")
+					break
+				}
+			}
 		}
-		return diag.Errorf("Failed to read bridge: %v", err)
+		if bridge == nil {
+			// Bridge not found in cache or cache error, fallback to SSH
+			logger.Debug().Str("resource", "rtx_bridge").Msg("Bridge not in cache, falling back to SSH")
+		}
+	}
+
+	// Fallback to SSH if SFTP disabled or bridge not found in cache
+	if bridge == nil {
+		bridge, err = apiClient.client.GetBridge(ctx, name)
+		if err != nil {
+			// Check if bridge doesn't exist
+			if strings.Contains(err.Error(), "not found") {
+				logger.Debug().Str("resource", "rtx_bridge").Msgf("Bridge %s not found, removing from state", name)
+				d.SetId("")
+				return nil
+			}
+			return diag.Errorf("Failed to read bridge: %v", err)
+		}
 	}
 
 	// Update the state
@@ -222,5 +250,13 @@ func validateBridgeMember(v interface{}, k string) ([]string, []error) {
 
 	return nil, []error{
 		fmt.Errorf("%q must be a valid interface name (lan*, lan*/*, tunnel*, pp*, loopback*, bridge*), got %q", k, value),
+	}
+}
+
+// convertParsedBridgeConfig converts a parser BridgeConfig to a client BridgeConfig
+func convertParsedBridgeConfig(parsed *parsers.BridgeConfig) *client.BridgeConfig {
+	return &client.BridgeConfig{
+		Name:    parsed.Name,
+		Members: parsed.Members,
 	}
 }

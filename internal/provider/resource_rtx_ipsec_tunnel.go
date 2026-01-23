@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 func resourceRTXIPsecTunnel() *schema.Resource {
@@ -266,22 +267,48 @@ func resourceRTXIPsecTunnelCreate(ctx context.Context, d *schema.ResourceData, m
 
 func resourceRTXIPsecTunnelRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
 
 	tunnelID, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid tunnel ID: %v", err)
 	}
 
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipsec_tunnel").Msgf("Reading IPsec tunnel: %d", tunnelID)
+	logger.Debug().Str("resource", "rtx_ipsec_tunnel").Msgf("Reading IPsec tunnel: %d", tunnelID)
 
-	tunnel, err := apiClient.client.GetIPsecTunnel(ctx, tunnelID)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			logging.FromContext(ctx).Debug().Str("resource", "rtx_ipsec_tunnel").Msgf("IPsec tunnel %d not found, removing from state", tunnelID)
-			d.SetId("")
-			return nil
+	var tunnel *client.IPsecTunnel
+
+	// Try to use SFTP cache if enabled
+	if apiClient.client.SFTPEnabled() {
+		parsedConfig, err := apiClient.client.GetCachedConfig(ctx)
+		if err == nil && parsedConfig != nil {
+			// Extract IPsec tunnels from parsed config
+			tunnels := parsedConfig.ExtractIPsecTunnels()
+			for i := range tunnels {
+				if tunnels[i].ID == tunnelID {
+					tunnel = convertParsedIPsecTunnel(&tunnels[i])
+					logger.Debug().Str("resource", "rtx_ipsec_tunnel").Msg("Found IPsec tunnel in SFTP cache")
+					break
+				}
+			}
 		}
-		return diag.Errorf("Failed to read IPsec tunnel: %v", err)
+		if tunnel == nil {
+			// Tunnel not found in cache or cache error, fallback to SSH
+			logger.Debug().Str("resource", "rtx_ipsec_tunnel").Msg("IPsec tunnel not in cache, falling back to SSH")
+		}
+	}
+
+	// Fallback to SSH if SFTP disabled or tunnel not found in cache
+	if tunnel == nil {
+		tunnel, err = apiClient.client.GetIPsecTunnel(ctx, tunnelID)
+		if err != nil {
+			if strings.Contains(err.Error(), "not found") {
+				logger.Debug().Str("resource", "rtx_ipsec_tunnel").Msgf("IPsec tunnel %d not found, removing from state", tunnelID)
+				d.SetId("")
+				return nil
+			}
+			return diag.Errorf("Failed to read IPsec tunnel: %v", err)
+		}
 	}
 
 	// Update the state
@@ -516,4 +543,46 @@ func buildIPsecTunnelFromResourceData(d *schema.ResourceData) client.IPsecTunnel
 	}
 
 	return tunnel
+}
+
+// convertParsedIPsecTunnel converts a parser IPsecTunnel to a client IPsecTunnel
+func convertParsedIPsecTunnel(parsed *parsers.IPsecTunnel) *client.IPsecTunnel {
+	return &client.IPsecTunnel{
+		ID:            parsed.ID,
+		Name:          parsed.Name,
+		LocalAddress:  parsed.LocalAddress,
+		RemoteAddress: parsed.RemoteAddress,
+		PreSharedKey:  parsed.PreSharedKey,
+		LocalNetwork:  parsed.LocalNetwork,
+		RemoteNetwork: parsed.RemoteNetwork,
+		DPDEnabled:    parsed.DPDEnabled,
+		DPDInterval:   parsed.DPDInterval,
+		DPDRetry:      parsed.DPDRetry,
+		Enabled:       parsed.Enabled,
+		IKEv2Proposal: client.IKEv2Proposal{
+			EncryptionAES256: parsed.IKEv2Proposal.EncryptionAES256,
+			EncryptionAES128: parsed.IKEv2Proposal.EncryptionAES128,
+			Encryption3DES:   parsed.IKEv2Proposal.Encryption3DES,
+			IntegritySHA256:  parsed.IKEv2Proposal.IntegritySHA256,
+			IntegritySHA1:    parsed.IKEv2Proposal.IntegritySHA1,
+			IntegrityMD5:     parsed.IKEv2Proposal.IntegrityMD5,
+			GroupFourteen:    parsed.IKEv2Proposal.GroupFourteen,
+			GroupFive:        parsed.IKEv2Proposal.GroupFive,
+			GroupTwo:         parsed.IKEv2Proposal.GroupTwo,
+			LifetimeSeconds:  parsed.IKEv2Proposal.LifetimeSeconds,
+		},
+		IPsecTransform: client.IPsecTransform{
+			Protocol:         parsed.IPsecTransform.Protocol,
+			EncryptionAES256: parsed.IPsecTransform.EncryptionAES256,
+			EncryptionAES128: parsed.IPsecTransform.EncryptionAES128,
+			Encryption3DES:   parsed.IPsecTransform.Encryption3DES,
+			IntegritySHA256:  parsed.IPsecTransform.IntegritySHA256,
+			IntegritySHA1:    parsed.IPsecTransform.IntegritySHA1,
+			IntegrityMD5:     parsed.IPsecTransform.IntegrityMD5,
+			PFSGroupFourteen: parsed.IPsecTransform.PFSGroupFourteen,
+			PFSGroupFive:     parsed.IPsecTransform.PFSGroupFive,
+			PFSGroupTwo:      parsed.IPsecTransform.PFSGroupTwo,
+			LifetimeSeconds:  parsed.IPsecTransform.LifetimeSeconds,
+		},
+	}
 }

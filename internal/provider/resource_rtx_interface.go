@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 func resourceRTXInterface() *schema.Resource {
@@ -152,20 +153,44 @@ func resourceRTXInterfaceCreate(ctx context.Context, d *schema.ResourceData, met
 
 func resourceRTXInterfaceRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
 
 	interfaceName := d.Id()
 
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_interface").Msgf("Reading interface configuration: %s", interfaceName)
+	logger.Debug().Str("resource", "rtx_interface").Msgf("Reading interface configuration: %s", interfaceName)
 
-	config, err := apiClient.client.GetInterfaceConfig(ctx, interfaceName)
-	if err != nil {
-		// Check if interface doesn't have any configuration
-		if strings.Contains(err.Error(), "not found") {
-			logging.FromContext(ctx).Debug().Str("resource", "rtx_interface").Msgf("Interface %s configuration not found, removing from state", interfaceName)
-			d.SetId("")
-			return nil
+	var config *client.InterfaceConfig
+	var err error
+
+	// Try to use SFTP cache if enabled
+	if apiClient.client.SFTPEnabled() {
+		parsedConfig, cacheErr := apiClient.client.GetCachedConfig(ctx)
+		if cacheErr == nil && parsedConfig != nil {
+			// Extract interfaces from parsed config
+			interfaces := parsedConfig.ExtractInterfaces()
+			if parsed, ok := interfaces[interfaceName]; ok {
+				config = convertParsedInterfaceConfig(parsed)
+				logger.Debug().Str("resource", "rtx_interface").Msg("Found interface in SFTP cache")
+			}
 		}
-		return diag.Errorf("Failed to read interface configuration: %v", err)
+		if config == nil {
+			// Interface not found in cache or cache error, fallback to SSH
+			logger.Debug().Str("resource", "rtx_interface").Msg("Interface not in cache, falling back to SSH")
+		}
+	}
+
+	// Fallback to SSH if SFTP disabled or interface not found in cache
+	if config == nil {
+		config, err = apiClient.client.GetInterfaceConfig(ctx, interfaceName)
+		if err != nil {
+			// Check if interface doesn't have any configuration
+			if strings.Contains(err.Error(), "not found") {
+				logger.Debug().Str("resource", "rtx_interface").Msgf("Interface %s configuration not found, removing from state", interfaceName)
+				d.SetId("")
+				return nil
+			}
+			return diag.Errorf("Failed to read interface configuration: %v", err)
+		}
 	}
 
 	// Update the state
@@ -413,4 +438,29 @@ func validateCIDROptional(v interface{}, k string) ([]string, []error) {
 
 	// Reuse the validateCIDR function for non-empty values
 	return validateCIDR(v, k)
+}
+
+// convertParsedInterfaceConfig converts a parser InterfaceConfig to a client InterfaceConfig
+func convertParsedInterfaceConfig(parsed *parsers.InterfaceConfig) *client.InterfaceConfig {
+	config := &client.InterfaceConfig{
+		Name:              parsed.Name,
+		Description:       parsed.Description,
+		SecureFilterIn:    parsed.SecureFilterIn,
+		SecureFilterOut:   parsed.SecureFilterOut,
+		DynamicFilterOut:  parsed.DynamicFilterOut,
+		EthernetFilterIn:  parsed.EthernetFilterIn,
+		EthernetFilterOut: parsed.EthernetFilterOut,
+		NATDescriptor:     parsed.NATDescriptor,
+		ProxyARP:          parsed.ProxyARP,
+		MTU:               parsed.MTU,
+	}
+
+	if parsed.IPAddress != nil {
+		config.IPAddress = &client.InterfaceIP{
+			Address: parsed.IPAddress.Address,
+			DHCP:    parsed.IPAddress.DHCP,
+		}
+	}
+
+	return config
 }

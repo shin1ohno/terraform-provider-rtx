@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 func resourceRTXNATStatic() *schema.Resource {
@@ -126,23 +127,49 @@ func resourceRTXNATStaticCreate(ctx context.Context, d *schema.ResourceData, met
 
 func resourceRTXNATStaticRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
 
 	descriptorID, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid resource ID: %v", err)
 	}
 
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_nat_static").Msgf("Reading NAT static: %d", descriptorID)
+	logger.Debug().Str("resource", "rtx_nat_static").Msgf("Reading NAT static: %d", descriptorID)
 
-	natStatic, err := apiClient.client.GetNATStatic(ctx, descriptorID)
-	if err != nil {
-		// Check if NAT static doesn't exist
-		if strings.Contains(err.Error(), "not found") {
-			logging.FromContext(ctx).Debug().Str("resource", "rtx_nat_static").Msgf("NAT static %d not found, removing from state", descriptorID)
-			d.SetId("")
-			return nil
+	var natStatic *client.NATStatic
+
+	// Try to use SFTP cache if enabled
+	if apiClient.client.SFTPEnabled() {
+		parsedConfig, err := apiClient.client.GetCachedConfig(ctx)
+		if err == nil && parsedConfig != nil {
+			// Extract NAT static configs from parsed config
+			nats := parsedConfig.ExtractNATStatic()
+			for i := range nats {
+				if nats[i].DescriptorID == descriptorID {
+					natStatic = convertParsedNATStatic(&nats[i])
+					logger.Debug().Str("resource", "rtx_nat_static").Msg("Found NAT static in SFTP cache")
+					break
+				}
+			}
 		}
-		return diag.Errorf("Failed to read NAT static: %v", err)
+		if natStatic == nil {
+			// NAT static not found in cache or cache error, fallback to SSH
+			logger.Debug().Str("resource", "rtx_nat_static").Msg("NAT static not in cache, falling back to SSH")
+		}
+	}
+
+	// Fallback to SSH if SFTP disabled or NAT static not found in cache
+	if natStatic == nil {
+		natStatic, err = apiClient.client.GetNATStatic(ctx, descriptorID)
+		if err != nil {
+			// Check if NAT static doesn't exist
+			if strings.Contains(err.Error(), "not found") {
+				logger.Debug().Str("resource", "rtx_nat_static").Msgf("NAT static %d not found, removing from state", descriptorID)
+				d.SetId("")
+				return nil
+			}
+			return diag.Errorf("Failed to read NAT static: %v", err)
+		}
 	}
 
 	// Update the state
@@ -312,4 +339,28 @@ func validateNATIPAddress(v interface{}, k string) ([]string, []error) {
 	}
 
 	return nil, nil
+}
+
+// convertParsedNATStatic converts a parser NATStatic to a client NATStatic
+func convertParsedNATStatic(parsed *parsers.NATStatic) *client.NATStatic {
+	nat := &client.NATStatic{
+		DescriptorID: parsed.DescriptorID,
+		Entries:      make([]client.NATStaticEntry, len(parsed.Entries)),
+	}
+	for i, entry := range parsed.Entries {
+		nat.Entries[i] = client.NATStaticEntry{
+			InsideLocal:   entry.InsideLocal,
+			OutsideGlobal: entry.OutsideGlobal,
+			Protocol:      entry.Protocol,
+		}
+		if entry.InsideLocalPort > 0 {
+			port := entry.InsideLocalPort
+			nat.Entries[i].InsideLocalPort = &port
+		}
+		if entry.OutsideGlobalPort > 0 {
+			port := entry.OutsideGlobalPort
+			nat.Entries[i].OutsideGlobalPort = &port
+		}
+	}
+	return nat
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 func resourceRTXIPFilterDynamic() *schema.Resource {
@@ -157,22 +158,48 @@ func resourceRTXIPFilterDynamicCreate(ctx context.Context, d *schema.ResourceDat
 
 func resourceRTXIPFilterDynamicRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
 
 	filterID, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid filter ID: %v", err)
 	}
 
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_ip_filter_dynamic").Msgf("Reading dynamic IP filter %d", filterID)
+	logger.Debug().Str("resource", "rtx_ip_filter_dynamic").Msgf("Reading dynamic IP filter %d", filterID)
 
-	filter, err := apiClient.client.GetIPFilterDynamic(ctx, filterID)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			logging.FromContext(ctx).Debug().Str("resource", "rtx_ip_filter_dynamic").Msgf("Dynamic IP filter %d not found, removing from state", filterID)
-			d.SetId("")
-			return nil
+	var filter *client.IPFilterDynamic
+
+	// Try to use SFTP cache if enabled
+	if apiClient.client.SFTPEnabled() {
+		parsedConfig, err := apiClient.client.GetCachedConfig(ctx)
+		if err == nil && parsedConfig != nil {
+			// Extract dynamic IP filters from parsed config
+			filters := parsedConfig.ExtractIPFiltersDynamic()
+			for i := range filters {
+				if filters[i].Number == filterID {
+					filter = convertParsedIPFilterDynamic(&filters[i])
+					logger.Debug().Str("resource", "rtx_ip_filter_dynamic").Msg("Found filter in SFTP cache")
+					break
+				}
+			}
 		}
-		return diag.Errorf("Failed to read dynamic IP filter: %v", err)
+		if filter == nil {
+			// Filter not found in cache or cache error, fallback to SSH
+			logger.Debug().Str("resource", "rtx_ip_filter_dynamic").Msg("Filter not in cache, falling back to SSH")
+		}
+	}
+
+	// Fallback to SSH if SFTP disabled or filter not found in cache
+	if filter == nil {
+		filter, err = apiClient.client.GetIPFilterDynamic(ctx, filterID)
+		if err != nil {
+			if strings.Contains(err.Error(), "not found") {
+				logger.Debug().Str("resource", "rtx_ip_filter_dynamic").Msgf("Dynamic IP filter %d not found, removing from state", filterID)
+				d.SetId("")
+				return nil
+			}
+			return diag.Errorf("Failed to read dynamic IP filter: %v", err)
+		}
 	}
 
 	// Set the state from the retrieved filter
@@ -181,6 +208,21 @@ func resourceRTXIPFilterDynamicRead(ctx context.Context, d *schema.ResourceData,
 	}
 
 	return nil
+}
+
+// convertParsedIPFilterDynamic converts a parser IPFilterDynamic to a client IPFilterDynamic
+func convertParsedIPFilterDynamic(parsed *parsers.IPFilterDynamic) *client.IPFilterDynamic {
+	return &client.IPFilterDynamic{
+		Number:        parsed.Number,
+		Source:        parsed.Source,
+		Dest:          parsed.Dest,
+		Protocol:      parsed.Protocol,
+		SyslogOn:      parsed.SyslogOn,
+		FilterList:    parsed.FilterList,
+		InFilterList:  parsed.InFilterList,
+		OutFilterList: parsed.OutFilterList,
+		Timeout:       parsed.Timeout,
+	}
 }
 
 func resourceRTXIPFilterDynamicUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {

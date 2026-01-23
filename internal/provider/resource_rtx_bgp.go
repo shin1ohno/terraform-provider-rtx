@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 func resourceRTXBGP() *schema.Resource {
@@ -166,21 +167,43 @@ func resourceRTXBGPCreate(ctx context.Context, d *schema.ResourceData, meta inte
 
 func resourceRTXBGPRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
 
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_bgp").Msg("Reading BGP configuration")
+	logger.Debug().Str("resource", "rtx_bgp").Msg("Reading BGP configuration")
 
-	config, err := apiClient.client.GetBGPConfig(ctx)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "not configured") {
-			logging.FromContext(ctx).Debug().Str("resource", "rtx_bgp").Msg("BGP configuration not found, removing from state")
-			d.SetId("")
-			return nil
+	var config *client.BGPConfig
+
+	// Try to use SFTP cache if enabled
+	if apiClient.client.SFTPEnabled() {
+		parsedConfig, err := apiClient.client.GetCachedConfig(ctx)
+		if err == nil && parsedConfig != nil {
+			parsed := parsedConfig.ExtractBGP()
+			if parsed != nil {
+				config = convertParsedBGPConfig(parsed)
+				logger.Debug().Str("resource", "rtx_bgp").Msg("Found BGP config in SFTP cache")
+			}
 		}
-		return diag.Errorf("Failed to read BGP configuration: %v", err)
+		if config == nil {
+			logger.Debug().Str("resource", "rtx_bgp").Msg("BGP config not in cache, falling back to SSH")
+		}
+	}
+
+	// Fallback to SSH if SFTP disabled or config not found in cache
+	if config == nil {
+		var err error
+		config, err = apiClient.client.GetBGPConfig(ctx)
+		if err != nil {
+			if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "not configured") {
+				logger.Debug().Str("resource", "rtx_bgp").Msg("BGP configuration not found, removing from state")
+				d.SetId("")
+				return nil
+			}
+			return diag.Errorf("Failed to read BGP configuration: %v", err)
+		}
 	}
 
 	if !config.Enabled {
-		logging.FromContext(ctx).Debug().Str("resource", "rtx_bgp").Msg("BGP is disabled, removing from state")
+		logger.Debug().Str("resource", "rtx_bgp").Msg("BGP is disabled, removing from state")
 		d.SetId("")
 		return nil
 	}
@@ -407,4 +430,43 @@ func validateIPv4Address(v interface{}, k string) ([]string, []error) {
 	}
 
 	return nil, nil
+}
+
+// convertParsedBGPConfig converts a parser BGPConfig to a client BGPConfig
+func convertParsedBGPConfig(parsed *parsers.BGPConfig) *client.BGPConfig {
+	config := &client.BGPConfig{
+		Enabled:               parsed.Enabled,
+		ASN:                   parsed.ASN,
+		RouterID:              parsed.RouterID,
+		DefaultIPv4Unicast:    parsed.DefaultIPv4Unicast,
+		LogNeighborChanges:    parsed.LogNeighborChanges,
+		RedistributeStatic:    parsed.RedistributeStatic,
+		RedistributeConnected: parsed.RedistributeConnected,
+		Neighbors:             make([]client.BGPNeighbor, len(parsed.Neighbors)),
+		Networks:              make([]client.BGPNetwork, len(parsed.Networks)),
+	}
+
+	// Convert neighbors
+	for i, n := range parsed.Neighbors {
+		config.Neighbors[i] = client.BGPNeighbor{
+			ID:           n.ID,
+			IP:           n.IP,
+			RemoteAS:     n.RemoteAS,
+			HoldTime:     n.HoldTime,
+			Keepalive:    n.Keepalive,
+			Multihop:     n.Multihop,
+			Password:     n.Password,
+			LocalAddress: n.LocalAddress,
+		}
+	}
+
+	// Convert networks
+	for i, n := range parsed.Networks {
+		config.Networks[i] = client.BGPNetwork{
+			Prefix: n.Prefix,
+			Mask:   n.Mask,
+		}
+	}
+
+	return config
 }

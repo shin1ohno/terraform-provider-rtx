@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 func resourceRTXSSHD() *schema.Resource {
@@ -77,18 +78,40 @@ func resourceRTXSSHDCreate(ctx context.Context, d *schema.ResourceData, meta int
 
 func resourceRTXSSHDRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
 
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_sshd").Msg("Reading SSHD configuration")
+	logger.Debug().Str("resource", "rtx_sshd").Msg("Reading SSHD configuration")
 
-	config, err := apiClient.client.GetSSHD(ctx)
-	if err != nil {
-		// Check if not configured
-		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "not configured") {
-			logging.FromContext(ctx).Debug().Str("resource", "rtx_sshd").Msg("SSHD not configured, removing from state")
-			d.SetId("")
-			return nil
+	var config *client.SSHDConfig
+
+	// Try to use SFTP cache if enabled
+	if apiClient.client.SFTPEnabled() {
+		parsedConfig, err := apiClient.client.GetCachedConfig(ctx)
+		if err == nil && parsedConfig != nil {
+			parsed := parsedConfig.ExtractSSHD()
+			if parsed != nil {
+				config = convertParsedSSHDConfig(parsed)
+				logger.Debug().Str("resource", "rtx_sshd").Msg("Found SSHD config in SFTP cache")
+			}
 		}
-		return diag.Errorf("Failed to read SSHD configuration: %v", err)
+		if config == nil {
+			logger.Debug().Str("resource", "rtx_sshd").Msg("SSHD config not in cache, falling back to SSH")
+		}
+	}
+
+	// Fallback to SSH if SFTP disabled or config not found in cache
+	if config == nil {
+		var err error
+		config, err = apiClient.client.GetSSHD(ctx)
+		if err != nil {
+			// Check if not configured
+			if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "not configured") {
+				logger.Debug().Str("resource", "rtx_sshd").Msg("SSHD not configured, removing from state")
+				d.SetId("")
+				return nil
+			}
+			return diag.Errorf("Failed to read SSHD configuration: %v", err)
+		}
 	}
 
 	// Update the state
@@ -103,6 +126,15 @@ func resourceRTXSSHDRead(ctx context.Context, d *schema.ResourceData, meta inter
 	}
 
 	return nil
+}
+
+// convertParsedSSHDConfig converts a parser SSHDConfig to a client SSHDConfig
+func convertParsedSSHDConfig(parsed *parsers.SSHDConfig) *client.SSHDConfig {
+	return &client.SSHDConfig{
+		Enabled: parsed.Enabled,
+		Hosts:   parsed.Hosts,
+		HostKey: parsed.HostKey,
+	}
 }
 
 func resourceRTXSSHDUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {

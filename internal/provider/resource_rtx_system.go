@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 func resourceRTXSystem() *schema.Resource {
@@ -136,12 +137,36 @@ func resourceRTXSystemCreate(ctx context.Context, d *schema.ResourceData, meta i
 
 func resourceRTXSystemRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
 
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_system").Msg("Reading system configuration")
+	logger.Debug().Str("resource", "rtx_system").Msg("Reading system configuration")
 
-	config, err := apiClient.client.GetSystemConfig(ctx)
-	if err != nil {
-		return diag.Errorf("Failed to read system configuration: %v", err)
+	var config *client.SystemConfig
+
+	// Try to use SFTP cache if enabled
+	if apiClient.client.SFTPEnabled() {
+		parsedConfig, err := apiClient.client.GetCachedConfig(ctx)
+		if err == nil && parsedConfig != nil {
+			// Extract system config from parsed config
+			parsedSystem := parsedConfig.ExtractSystem()
+			if parsedSystem != nil {
+				config = convertParsedSystemConfig(parsedSystem)
+				logger.Debug().Str("resource", "rtx_system").Msg("Found system config in SFTP cache")
+			}
+		}
+		if config == nil {
+			// Config not found in cache or cache error, fallback to SSH
+			logger.Debug().Str("resource", "rtx_system").Msg("System config not in cache, falling back to SSH")
+		}
+	}
+
+	// Fallback to SSH if SFTP disabled or config not found in cache
+	if config == nil {
+		var err error
+		config, err = apiClient.client.GetSystemConfig(ctx)
+		if err != nil {
+			return diag.Errorf("Failed to read system configuration: %v", err)
+		}
 	}
 
 	// Update the state
@@ -376,4 +401,40 @@ func validateConsoleLines(v interface{}, k string) ([]string, []error) {
 	}
 
 	return nil, nil
+}
+
+// convertParsedSystemConfig converts a parser SystemConfig to a client SystemConfig
+func convertParsedSystemConfig(parsed *parsers.SystemConfig) *client.SystemConfig {
+	config := &client.SystemConfig{
+		Timezone:      parsed.Timezone,
+		PacketBuffers: make([]client.PacketBufferConfig, len(parsed.PacketBuffers)),
+	}
+
+	// Convert console config
+	if parsed.Console != nil {
+		config.Console = &client.ConsoleConfig{
+			Character: parsed.Console.Character,
+			Lines:     parsed.Console.Lines,
+			Prompt:    parsed.Console.Prompt,
+		}
+	}
+
+	// Convert packet buffers
+	for i, pb := range parsed.PacketBuffers {
+		config.PacketBuffers[i] = client.PacketBufferConfig{
+			Size:      pb.Size,
+			MaxBuffer: pb.MaxBuffer,
+			MaxFree:   pb.MaxFree,
+		}
+	}
+
+	// Convert statistics config
+	if parsed.Statistics != nil {
+		config.Statistics = &client.StatisticsConfig{
+			Traffic: parsed.Statistics.Traffic,
+			NAT:     parsed.Statistics.NAT,
+		}
+	}
+
+	return config
 }

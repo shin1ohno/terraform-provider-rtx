@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 // resourceRTXEthernetFilter returns the schema for the rtx_ethernet_filter resource
@@ -127,22 +128,48 @@ func resourceRTXEthernetFilterCreate(ctx context.Context, d *schema.ResourceData
 
 func resourceRTXEthernetFilterRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
 
 	number, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid filter number: %v", err)
 	}
 
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_ethernet_filter").Msgf("Reading Ethernet filter: %d", number)
+	logger.Debug().Str("resource", "rtx_ethernet_filter").Msgf("Reading Ethernet filter: %d", number)
 
-	filter, err := apiClient.client.GetEthernetFilter(ctx, number)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "not configured") {
-			logging.FromContext(ctx).Warn().Str("resource", "rtx_ethernet_filter").Msgf("Ethernet filter %d not found, removing from state", number)
-			d.SetId("")
-			return nil
+	var filter *client.EthernetFilter
+
+	// Try to use SFTP cache if enabled
+	if apiClient.client.SFTPEnabled() {
+		parsedConfig, err := apiClient.client.GetCachedConfig(ctx)
+		if err == nil && parsedConfig != nil {
+			// Extract Ethernet filters from parsed config
+			filters := parsedConfig.ExtractEthernetFilters()
+			for i := range filters {
+				if filters[i].Number == number {
+					filter = convertParsedEthernetFilter(&filters[i])
+					logger.Debug().Str("resource", "rtx_ethernet_filter").Msg("Found filter in SFTP cache")
+					break
+				}
+			}
 		}
-		return diag.Errorf("Failed to read Ethernet filter: %v", err)
+		if filter == nil {
+			// Filter not found in cache or cache error, fallback to SSH
+			logger.Debug().Str("resource", "rtx_ethernet_filter").Msg("Filter not in cache, falling back to SSH")
+		}
+	}
+
+	// Fallback to SSH if SFTP disabled or filter not found in cache
+	if filter == nil {
+		filter, err = apiClient.client.GetEthernetFilter(ctx, number)
+		if err != nil {
+			if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "not configured") {
+				logger.Warn().Str("resource", "rtx_ethernet_filter").Msgf("Ethernet filter %d not found, removing from state", number)
+				d.SetId("")
+				return nil
+			}
+			return diag.Errorf("Failed to read Ethernet filter: %v", err)
+		}
 	}
 
 	if err := flattenEthernetFilterToResourceData(filter, d); err != nil {
@@ -150,6 +177,23 @@ func resourceRTXEthernetFilterRead(ctx context.Context, d *schema.ResourceData, 
 	}
 
 	return nil
+}
+
+// convertParsedEthernetFilter converts a parser EthernetFilter to a client EthernetFilter
+func convertParsedEthernetFilter(parsed *parsers.EthernetFilter) *client.EthernetFilter {
+	// Use DestinationMAC if available, otherwise fallback to DestMAC (deprecated field)
+	destMAC := parsed.DestinationMAC
+	if destMAC == "" {
+		destMAC = parsed.DestMAC
+	}
+	return &client.EthernetFilter{
+		Number:    parsed.Number,
+		Action:    parsed.Action,
+		SourceMAC: parsed.SourceMAC,
+		DestMAC:   destMAC,
+		EtherType: parsed.EtherType,
+		VlanID:    parsed.VlanID,
+	}
 }
 
 func resourceRTXEthernetFilterUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {

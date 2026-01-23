@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 func resourceRTXSNMPServer() *schema.Resource {
@@ -124,12 +125,34 @@ func resourceRTXSNMPServerCreate(ctx context.Context, d *schema.ResourceData, me
 
 func resourceRTXSNMPServerRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
 
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_snmp_server").Msg("Reading SNMP configuration")
+	logger.Debug().Str("resource", "rtx_snmp_server").Msg("Reading SNMP configuration")
 
-	config, err := apiClient.client.GetSNMP(ctx)
-	if err != nil {
-		return diag.Errorf("Failed to read SNMP configuration: %v", err)
+	var config *client.SNMPConfig
+
+	// Try to use SFTP cache if enabled
+	if apiClient.client.SFTPEnabled() {
+		parsedConfig, err := apiClient.client.GetCachedConfig(ctx)
+		if err == nil && parsedConfig != nil {
+			parsed := parsedConfig.ExtractSNMPServer()
+			if parsed != nil {
+				config = convertParsedSNMPConfig(parsed)
+				logger.Debug().Str("resource", "rtx_snmp_server").Msg("Found SNMP config in SFTP cache")
+			}
+		}
+		if config == nil {
+			logger.Debug().Str("resource", "rtx_snmp_server").Msg("SNMP config not in cache, falling back to SSH")
+		}
+	}
+
+	// Fallback to SSH if SFTP disabled or config not found in cache
+	if config == nil {
+		var err error
+		config, err = apiClient.client.GetSNMP(ctx)
+		if err != nil {
+			return diag.Errorf("Failed to read SNMP configuration: %v", err)
+		}
 	}
 
 	// Update the state
@@ -175,6 +198,38 @@ func resourceRTXSNMPServerRead(ctx context.Context, d *schema.ResourceData, meta
 	}
 
 	return nil
+}
+
+// convertParsedSNMPConfig converts a parser SNMPConfig to a client SNMPConfig
+func convertParsedSNMPConfig(parsed *parsers.SNMPConfig) *client.SNMPConfig {
+	config := &client.SNMPConfig{
+		SysName:     parsed.SysName,
+		SysLocation: parsed.SysLocation,
+		SysContact:  parsed.SysContact,
+		TrapEnable:  parsed.TrapEnable,
+	}
+
+	// Convert Communities
+	config.Communities = make([]client.SNMPCommunity, len(parsed.Communities))
+	for i, c := range parsed.Communities {
+		config.Communities[i] = client.SNMPCommunity{
+			Name:       c.Name,
+			Permission: c.Permission,
+			ACL:        c.ACL,
+		}
+	}
+
+	// Convert Hosts
+	config.Hosts = make([]client.SNMPHost, len(parsed.Hosts))
+	for i, h := range parsed.Hosts {
+		config.Hosts[i] = client.SNMPHost{
+			Address:   h.Address,
+			Community: h.Community,
+			Version:   h.Version,
+		}
+	}
+
+	return config
 }
 
 func resourceRTXSNMPServerUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {

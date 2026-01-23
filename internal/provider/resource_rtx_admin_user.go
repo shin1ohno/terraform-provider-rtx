@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 func resourceRTXAdminUser() *schema.Resource {
@@ -127,20 +128,47 @@ func resourceRTXAdminUserCreate(ctx context.Context, d *schema.ResourceData, met
 
 func resourceRTXAdminUserRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
 
 	username := d.Id()
 
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_admin_user").Msgf("Reading admin user: %s", username)
+	logger.Debug().Str("resource", "rtx_admin_user").Msgf("Reading admin user: %s", username)
 
-	user, err := apiClient.client.GetAdminUser(ctx, username)
-	if err != nil {
-		// Check if user doesn't exist
-		if strings.Contains(err.Error(), "not found") {
-			logging.FromContext(ctx).Debug().Str("resource", "rtx_admin_user").Msgf("Admin user %s not found, removing from state", username)
-			d.SetId("")
-			return nil
+	var user *client.AdminUser
+
+	// Try to use SFTP cache if enabled
+	if apiClient.client.SFTPEnabled() {
+		parsedConfig, err := apiClient.client.GetCachedConfig(ctx)
+		if err == nil && parsedConfig != nil {
+			// Extract admin users from parsed config
+			users := parsedConfig.ExtractAdminUsers()
+			for i := range users {
+				if users[i].Username == username {
+					user = convertParsedAdminUser(&users[i])
+					logger.Debug().Str("resource", "rtx_admin_user").Msg("Found admin user in SFTP cache")
+					break
+				}
+			}
 		}
-		return diag.Errorf("Failed to read admin user: %v", err)
+		if user == nil {
+			// User not found in cache or cache error, fallback to SSH
+			logger.Debug().Str("resource", "rtx_admin_user").Msg("Admin user not in cache, falling back to SSH")
+		}
+	}
+
+	// Fallback to SSH if SFTP disabled or user not found in cache
+	if user == nil {
+		var err error
+		user, err = apiClient.client.GetAdminUser(ctx, username)
+		if err != nil {
+			// Check if user doesn't exist
+			if strings.Contains(err.Error(), "not found") {
+				logger.Debug().Str("resource", "rtx_admin_user").Msgf("Admin user %s not found, removing from state", username)
+				d.SetId("")
+				return nil
+			}
+			return diag.Errorf("Failed to read admin user: %v", err)
+		}
 	}
 
 	// Update the state with values from the router
@@ -264,6 +292,31 @@ func buildAdminUserFromResourceData(d *schema.ResourceData) client.AdminUser {
 		}
 		user.Attributes.GUIPages = guiPages
 	} else {
+		user.Attributes.GUIPages = []string{}
+	}
+
+	return user
+}
+
+// convertParsedAdminUser converts a parser UserConfig to a client AdminUser
+func convertParsedAdminUser(parsed *parsers.UserConfig) *client.AdminUser {
+	user := &client.AdminUser{
+		Username:  parsed.Username,
+		Password:  parsed.Password,
+		Encrypted: parsed.Encrypted,
+		Attributes: client.AdminUserAttributes{
+			Administrator: parsed.Attributes.Administrator,
+			Connection:    parsed.Attributes.Connection,
+			GUIPages:      parsed.Attributes.GUIPages,
+			LoginTimer:    parsed.Attributes.LoginTimer,
+		},
+	}
+
+	// Ensure slices are not nil
+	if user.Attributes.Connection == nil {
+		user.Attributes.Connection = []string{}
+	}
+	if user.Attributes.GUIPages == nil {
 		user.Attributes.GUIPages = []string{}
 	}
 

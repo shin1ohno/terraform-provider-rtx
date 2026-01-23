@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 // ValidIPv6FilterProtocols defines valid protocols for IPv6 filters (includes icmp6)
@@ -95,22 +96,48 @@ func resourceRTXAccessListIPv6Create(ctx context.Context, d *schema.ResourceData
 
 func resourceRTXAccessListIPv6Read(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
 
 	filterID, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid filter ID: %v", err)
 	}
 
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ipv6").Msgf("Reading IPv6 filter: %d", filterID)
+	logger.Debug().Str("resource", "rtx_access_list_ipv6").Msgf("Reading IPv6 filter: %d", filterID)
 
-	filter, err := apiClient.client.GetIPv6Filter(ctx, filterID)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ipv6").Msgf("IPv6 filter %d not found, removing from state", filterID)
-			d.SetId("")
-			return nil
+	var filter *client.IPFilter
+
+	// Try to use SFTP cache if enabled
+	if apiClient.client.SFTPEnabled() {
+		parsedConfig, err := apiClient.client.GetCachedConfig(ctx)
+		if err == nil && parsedConfig != nil {
+			// Extract IPv6 filters from parsed config
+			filters := parsedConfig.ExtractAccessListIPv6()
+			for i := range filters {
+				if filters[i].Number == filterID {
+					filter = convertParsedIPv6Filter(&filters[i])
+					logger.Debug().Str("resource", "rtx_access_list_ipv6").Msg("Found filter in SFTP cache")
+					break
+				}
+			}
 		}
-		return diag.Errorf("Failed to read IPv6 filter: %v", err)
+		if filter == nil {
+			// Filter not found in cache or cache error, fallback to SSH
+			logger.Debug().Str("resource", "rtx_access_list_ipv6").Msg("Filter not in cache, falling back to SSH")
+		}
+	}
+
+	// Fallback to SSH if SFTP disabled or filter not found in cache
+	if filter == nil {
+		filter, err = apiClient.client.GetIPv6Filter(ctx, filterID)
+		if err != nil {
+			if strings.Contains(err.Error(), "not found") {
+				logger.Debug().Str("resource", "rtx_access_list_ipv6").Msgf("IPv6 filter %d not found, removing from state", filterID)
+				d.SetId("")
+				return nil
+			}
+			return diag.Errorf("Failed to read IPv6 filter: %v", err)
+		}
 	}
 
 	// Set state from retrieved filter
@@ -141,6 +168,22 @@ func resourceRTXAccessListIPv6Read(ctx context.Context, d *schema.ResourceData, 
 	}
 
 	return nil
+}
+
+// convertParsedIPv6Filter converts a parser IPFilter to a client IPFilter for IPv6
+func convertParsedIPv6Filter(parsed *parsers.IPFilter) *client.IPFilter {
+	return &client.IPFilter{
+		Number:        parsed.Number,
+		Action:        parsed.Action,
+		SourceAddress: parsed.SourceAddress,
+		SourceMask:    parsed.SourceMask,
+		DestAddress:   parsed.DestAddress,
+		DestMask:      parsed.DestMask,
+		Protocol:      parsed.Protocol,
+		SourcePort:    parsed.SourcePort,
+		DestPort:      parsed.DestPort,
+		Established:   parsed.Established,
+	}
 }
 
 func resourceRTXAccessListIPv6Update(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {

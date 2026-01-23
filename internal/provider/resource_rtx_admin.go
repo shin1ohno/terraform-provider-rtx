@@ -60,6 +60,9 @@ func resourceRTXAdminCreate(ctx context.Context, d *schema.ResourceData, meta in
 }
 
 func resourceRTXAdminRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
+
 	// Passwords cannot be read back from the router for security reasons
 	// The resource exists if it was created, and passwords remain in state
 	// We simply verify the ID is still set
@@ -67,8 +70,22 @@ func resourceRTXAdminRead(ctx context.Context, d *schema.ResourceData, meta inte
 		return nil
 	}
 
+	logger.Debug().Str("resource", "rtx_admin").Msg("Reading admin configuration (passwords cannot be read from router)")
+
+	// Try to use SFTP cache if enabled to verify admin config exists
+	if apiClient.client.SFTPEnabled() {
+		parsedConfig, err := apiClient.client.GetCachedConfig(ctx)
+		if err == nil && parsedConfig != nil {
+			// Extract admin config from parsed config
+			parsedAdmin := parsedConfig.ExtractAdmin()
+			if parsedAdmin != nil {
+				// Admin config exists in cache - passwords cannot be read for security
+				logger.Debug().Str("resource", "rtx_admin").Msg("Found admin config in SFTP cache (passwords not readable)")
+			}
+		}
+	}
+
 	// Resource still exists - passwords remain as stored in state
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_admin").Msg("Reading admin configuration (passwords cannot be read from router)")
 	return nil
 }
 

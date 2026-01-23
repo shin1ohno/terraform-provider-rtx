@@ -10,6 +10,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+
+	"github.com/sh1/terraform-provider-rtx/internal/client"
 )
 
 func resourceRTXL2TPService() *schema.Resource {
@@ -69,18 +71,45 @@ func resourceRTXL2TPServiceCreate(ctx context.Context, d *schema.ResourceData, m
 
 func resourceRTXL2TPServiceRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
 
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_l2tp_service").Msg("Reading L2TP service configuration")
+	logger.Debug().Str("resource", "rtx_l2tp_service").Msg("Reading L2TP service configuration")
 
-	state, err := apiClient.client.GetL2TPServiceState(ctx)
-	if err != nil {
-		// Check if service is not configured
-		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "not configured") {
-			logging.FromContext(ctx).Debug().Str("resource", "rtx_l2tp_service").Msg("L2TP service not configured, removing from state")
-			d.SetId("")
-			return nil
+	var state *client.L2TPServiceState
+
+	// Try to use SFTP cache if enabled
+	if apiClient.client.SFTPEnabled() {
+		parsedConfig, err := apiClient.client.GetCachedConfig(ctx)
+		if err == nil && parsedConfig != nil {
+			// Extract L2TP service from parsed config
+			service := parsedConfig.ExtractL2TPService()
+			if service != nil {
+				state = &client.L2TPServiceState{
+					Enabled:   service.Enabled,
+					Protocols: service.Protocols,
+				}
+				logger.Debug().Str("resource", "rtx_l2tp_service").Msg("Found L2TP service in SFTP cache")
+			}
 		}
-		return diag.Errorf("Failed to read L2TP service configuration: %v", err)
+		if state == nil {
+			// Service not found in cache or cache error, fallback to SSH
+			logger.Debug().Str("resource", "rtx_l2tp_service").Msg("L2TP service not in cache, falling back to SSH")
+		}
+	}
+
+	// Fallback to SSH if SFTP disabled or service not found in cache
+	if state == nil {
+		var err error
+		state, err = apiClient.client.GetL2TPServiceState(ctx)
+		if err != nil {
+			// Check if service is not configured
+			if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "not configured") {
+				logger.Debug().Str("resource", "rtx_l2tp_service").Msg("L2TP service not configured, removing from state")
+				d.SetId("")
+				return nil
+			}
+			return diag.Errorf("Failed to read L2TP service configuration: %v", err)
+		}
 	}
 
 	// Update the state

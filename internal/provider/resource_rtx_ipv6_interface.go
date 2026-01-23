@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 func resourceRTXIPv6Interface() *schema.Resource {
@@ -167,20 +168,44 @@ func resourceRTXIPv6InterfaceCreate(ctx context.Context, d *schema.ResourceData,
 
 func resourceRTXIPv6InterfaceRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
 
 	interfaceName := d.Id()
 
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_interface").Msgf("Reading IPv6 interface configuration: %s", interfaceName)
+	logger.Debug().Str("resource", "rtx_ipv6_interface").Msgf("Reading IPv6 interface configuration: %s", interfaceName)
 
-	config, err := apiClient.client.GetIPv6InterfaceConfig(ctx, interfaceName)
-	if err != nil {
-		// Check if interface doesn't have any configuration
-		if strings.Contains(err.Error(), "not found") {
-			logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_interface").Msgf("IPv6 interface %s configuration not found, removing from state", interfaceName)
-			d.SetId("")
-			return nil
+	var config *client.IPv6InterfaceConfig
+	var err error
+
+	// Try to use SFTP cache if enabled
+	if apiClient.client.SFTPEnabled() {
+		parsedConfig, cacheErr := apiClient.client.GetCachedConfig(ctx)
+		if cacheErr == nil && parsedConfig != nil {
+			// Extract IPv6 interfaces from parsed config
+			interfaces := parsedConfig.ExtractIPv6Interfaces()
+			if parsed, ok := interfaces[interfaceName]; ok {
+				config = convertParsedIPv6InterfaceConfig(parsed)
+				logger.Debug().Str("resource", "rtx_ipv6_interface").Msg("Found IPv6 interface in SFTP cache")
+			}
 		}
-		return diag.Errorf("Failed to read IPv6 interface configuration: %v", err)
+		if config == nil {
+			// Interface not found in cache or cache error, fallback to SSH
+			logger.Debug().Str("resource", "rtx_ipv6_interface").Msg("IPv6 interface not in cache, falling back to SSH")
+		}
+	}
+
+	// Fallback to SSH if SFTP disabled or interface not found in cache
+	if config == nil {
+		config, err = apiClient.client.GetIPv6InterfaceConfig(ctx, interfaceName)
+		if err != nil {
+			// Check if interface doesn't have any configuration
+			if strings.Contains(err.Error(), "not found") {
+				logger.Debug().Str("resource", "rtx_ipv6_interface").Msgf("IPv6 interface %s configuration not found, removing from state", interfaceName)
+				d.SetId("")
+				return nil
+			}
+			return diag.Errorf("Failed to read IPv6 interface configuration: %v", err)
+		}
 	}
 
 	// Update the state
@@ -463,4 +488,38 @@ func validateDHCPv6Service(v interface{}, k string) ([]string, []error) {
 	}
 
 	return nil, []error{fmt.Errorf("%q must be one of 'server', 'client', or empty (disabled)", k)}
+}
+
+// convertParsedIPv6InterfaceConfig converts a parser IPv6InterfaceConfig to a client IPv6InterfaceConfig
+func convertParsedIPv6InterfaceConfig(parsed *parsers.IPv6InterfaceConfig) *client.IPv6InterfaceConfig {
+	config := &client.IPv6InterfaceConfig{
+		Interface:        parsed.Interface,
+		DHCPv6Service:    parsed.DHCPv6Service,
+		MTU:              parsed.MTU,
+		SecureFilterIn:   parsed.SecureFilterIn,
+		SecureFilterOut:  parsed.SecureFilterOut,
+		DynamicFilterOut: parsed.DynamicFilterOut,
+	}
+
+	// Convert addresses
+	for _, addr := range parsed.Addresses {
+		config.Addresses = append(config.Addresses, client.IPv6Address{
+			Address:     addr.Address,
+			PrefixRef:   addr.PrefixRef,
+			InterfaceID: addr.InterfaceID,
+		})
+	}
+
+	// Convert RTADV config
+	if parsed.RTADV != nil {
+		config.RTADV = &client.RTADVConfig{
+			Enabled:  parsed.RTADV.Enabled,
+			PrefixID: parsed.RTADV.PrefixID,
+			OFlag:    parsed.RTADV.OFlag,
+			MFlag:    parsed.RTADV.MFlag,
+			Lifetime: parsed.RTADV.Lifetime,
+		}
+	}
+
+	return config
 }

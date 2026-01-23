@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 func resourceRTXIPv6Prefix() *schema.Resource {
@@ -135,23 +136,49 @@ func resourceRTXIPv6PrefixCreate(ctx context.Context, d *schema.ResourceData, me
 
 func resourceRTXIPv6PrefixRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
 
 	prefixID, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid resource ID: %v", err)
 	}
 
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_prefix").Msgf("Reading IPv6 prefix: %d", prefixID)
+	logger.Debug().Str("resource", "rtx_ipv6_prefix").Msgf("Reading IPv6 prefix: %d", prefixID)
 
-	prefix, err := apiClient.client.GetIPv6Prefix(ctx, prefixID)
-	if err != nil {
-		// Check if prefix doesn't exist
-		if strings.Contains(err.Error(), "not found") {
-			logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_prefix").Msgf("IPv6 prefix %d not found, removing from state", prefixID)
-			d.SetId("")
-			return nil
+	var prefix *client.IPv6Prefix
+
+	// Try to use SFTP cache if enabled
+	if apiClient.client.SFTPEnabled() {
+		parsedConfig, cacheErr := apiClient.client.GetCachedConfig(ctx)
+		if cacheErr == nil && parsedConfig != nil {
+			// Extract IPv6 prefixes from parsed config
+			prefixes := parsedConfig.ExtractIPv6Prefixes()
+			for i := range prefixes {
+				if prefixes[i].ID == prefixID {
+					prefix = convertParsedIPv6Prefix(&prefixes[i])
+					logger.Debug().Str("resource", "rtx_ipv6_prefix").Msg("Found IPv6 prefix in SFTP cache")
+					break
+				}
+			}
 		}
-		return diag.Errorf("Failed to read IPv6 prefix: %v", err)
+		if prefix == nil {
+			// Prefix not found in cache or cache error, fallback to SSH
+			logger.Debug().Str("resource", "rtx_ipv6_prefix").Msg("IPv6 prefix not in cache, falling back to SSH")
+		}
+	}
+
+	// Fallback to SSH if SFTP disabled or prefix not found in cache
+	if prefix == nil {
+		prefix, err = apiClient.client.GetIPv6Prefix(ctx, prefixID)
+		if err != nil {
+			// Check if prefix doesn't exist
+			if strings.Contains(err.Error(), "not found") {
+				logger.Debug().Str("resource", "rtx_ipv6_prefix").Msgf("IPv6 prefix %d not found, removing from state", prefixID)
+				d.SetId("")
+				return nil
+			}
+			return diag.Errorf("Failed to read IPv6 prefix: %v", err)
+		}
 	}
 
 	// Update the state
@@ -248,5 +275,16 @@ func buildIPv6PrefixFromResourceData(d *schema.ResourceData) client.IPv6Prefix {
 		PrefixLength: d.Get("prefix_length").(int),
 		Source:       d.Get("source").(string),
 		Interface:    d.Get("interface").(string),
+	}
+}
+
+// convertParsedIPv6Prefix converts a parser IPv6Prefix to a client IPv6Prefix
+func convertParsedIPv6Prefix(parsed *parsers.IPv6Prefix) *client.IPv6Prefix {
+	return &client.IPv6Prefix{
+		ID:           parsed.ID,
+		Prefix:       parsed.Prefix,
+		PrefixLength: parsed.PrefixLength,
+		Source:       parsed.Source,
+		Interface:    parsed.Interface,
 	}
 }

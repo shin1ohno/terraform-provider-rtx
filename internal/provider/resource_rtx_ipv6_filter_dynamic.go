@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 func resourceRTXIPv6FilterDynamic() *schema.Resource {
@@ -86,17 +87,39 @@ func resourceRTXIPv6FilterDynamicCreate(ctx context.Context, d *schema.ResourceD
 
 func resourceRTXIPv6FilterDynamicRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
 
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_filter_dynamic").Msg("Reading IPv6 filter dynamic")
+	logger.Debug().Str("resource", "rtx_ipv6_filter_dynamic").Msg("Reading IPv6 filter dynamic")
 
-	config, err := apiClient.client.GetIPv6FilterDynamicConfig(ctx)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_filter_dynamic").Msg("IPv6 filter dynamic not found, removing from state")
-			d.SetId("")
-			return nil
+	var config *client.IPv6FilterDynamicConfig
+
+	// Try to use SFTP cache if enabled
+	if apiClient.client.SFTPEnabled() {
+		parsedConfig, err := apiClient.client.GetCachedConfig(ctx)
+		if err == nil && parsedConfig != nil {
+			parsedFilters := parsedConfig.ExtractIPv6FiltersDynamic()
+			if parsedFilters != nil {
+				config = convertParsedIPv6FiltersDynamic(parsedFilters)
+				logger.Debug().Str("resource", "rtx_ipv6_filter_dynamic").Msgf("Found %d IPv6 dynamic filters in SFTP cache", len(config.Entries))
+			}
 		}
-		return diag.Errorf("Failed to read IPv6 filter dynamic: %v", err)
+		if config == nil {
+			logger.Debug().Str("resource", "rtx_ipv6_filter_dynamic").Msg("IPv6 dynamic filters not in cache, falling back to SSH")
+		}
+	}
+
+	// Fallback to SSH if SFTP disabled or config not found in cache
+	if config == nil {
+		var err error
+		config, err = apiClient.client.GetIPv6FilterDynamicConfig(ctx)
+		if err != nil {
+			if strings.Contains(err.Error(), "not found") {
+				logger.Debug().Str("resource", "rtx_ipv6_filter_dynamic").Msg("IPv6 filter dynamic not found, removing from state")
+				d.SetId("")
+				return nil
+			}
+			return diag.Errorf("Failed to read IPv6 filter dynamic: %v", err)
+		}
 	}
 
 	entries := flattenIPv6FilterDynamicEntries(config.Entries)
@@ -105,6 +128,23 @@ func resourceRTXIPv6FilterDynamicRead(ctx context.Context, d *schema.ResourceDat
 	}
 
 	return nil
+}
+
+// convertParsedIPv6FiltersDynamic converts parser IPFilterDynamic slice to client IPv6FilterDynamicConfig
+func convertParsedIPv6FiltersDynamic(parsed []parsers.IPFilterDynamic) *client.IPv6FilterDynamicConfig {
+	config := &client.IPv6FilterDynamicConfig{
+		Entries: make([]client.IPv6FilterDynamicEntry, len(parsed)),
+	}
+	for i, p := range parsed {
+		config.Entries[i] = client.IPv6FilterDynamicEntry{
+			Number:   p.Number,
+			Source:   p.Source,
+			Dest:     p.Dest,
+			Protocol: p.Protocol,
+			Syslog:   p.SyslogOn,
+		}
+	}
+	return config
 }
 
 func resourceRTXIPv6FilterDynamicUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {

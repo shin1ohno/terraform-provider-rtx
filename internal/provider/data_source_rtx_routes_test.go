@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 // MockClientForRoutes extends MockClient for routes testing
@@ -1034,6 +1035,28 @@ func (m *MockClientForRoutes) DeletePPPoE(ctx context.Context, ppNum int) error 
 
 func (m *MockClientForRoutes) GetPPConnectionStatus(ctx context.Context, ppNum int) (*client.PPConnectionStatus, error) {
 	return nil, fmt.Errorf("not implemented")
+}
+
+// SFTP Configuration Cache methods
+func (m *MockClientForRoutes) GetCachedConfig(ctx context.Context) (*parsers.ParsedConfig, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*parsers.ParsedConfig), args.Error(1)
+}
+
+func (m *MockClientForRoutes) SFTPEnabled() bool {
+	args := m.Called()
+	return args.Bool(0)
+}
+
+func (m *MockClientForRoutes) InvalidateCache() {
+	m.Called()
+}
+
+func (m *MockClientForRoutes) MarkCacheDirty() {
+	m.Called()
 }
 
 func TestRTXRoutesDataSourceSchema(t *testing.T) {

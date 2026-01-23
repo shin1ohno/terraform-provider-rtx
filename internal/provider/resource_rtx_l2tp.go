@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 func resourceRTXL2TP() *schema.Resource {
@@ -273,22 +274,48 @@ func resourceRTXL2TPCreate(ctx context.Context, d *schema.ResourceData, meta int
 
 func resourceRTXL2TPRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
 
 	tunnelID, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid tunnel ID: %v", err)
 	}
 
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_l2tp").Msgf("Reading L2TP tunnel: %d", tunnelID)
+	logger.Debug().Str("resource", "rtx_l2tp").Msgf("Reading L2TP tunnel: %d", tunnelID)
 
-	config, err := apiClient.client.GetL2TP(ctx, tunnelID)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			logging.FromContext(ctx).Debug().Str("resource", "rtx_l2tp").Msgf("L2TP tunnel %d not found, removing from state", tunnelID)
-			d.SetId("")
-			return nil
+	var config *client.L2TPConfig
+
+	// Try to use SFTP cache if enabled
+	if apiClient.client.SFTPEnabled() {
+		parsedConfig, err := apiClient.client.GetCachedConfig(ctx)
+		if err == nil && parsedConfig != nil {
+			// Extract L2TP tunnels from parsed config
+			tunnels := parsedConfig.ExtractL2TPTunnels()
+			for i := range tunnels {
+				if tunnels[i].ID == tunnelID {
+					config = convertParsedL2TPConfig(&tunnels[i])
+					logger.Debug().Str("resource", "rtx_l2tp").Msg("Found L2TP tunnel in SFTP cache")
+					break
+				}
+			}
 		}
-		return diag.Errorf("Failed to read L2TP tunnel: %v", err)
+		if config == nil {
+			// Tunnel not found in cache or cache error, fallback to SSH
+			logger.Debug().Str("resource", "rtx_l2tp").Msg("L2TP tunnel not in cache, falling back to SSH")
+		}
+	}
+
+	// Fallback to SSH if SFTP disabled or tunnel not found in cache
+	if config == nil {
+		config, err = apiClient.client.GetL2TP(ctx, tunnelID)
+		if err != nil {
+			if strings.Contains(err.Error(), "not found") {
+				logger.Debug().Str("resource", "rtx_l2tp").Msgf("L2TP tunnel %d not found, removing from state", tunnelID)
+				d.SetId("")
+				return nil
+			}
+			return diag.Errorf("Failed to read L2TP tunnel: %v", err)
+		}
 	}
 
 	// Update the state
@@ -615,6 +642,73 @@ func buildL2TPConfigFromResourceData(d *schema.ResourceData) client.L2TPConfig {
 		config.KeepaliveConfig = &client.L2TPKeepalive{
 			Interval: d.Get("keepalive_interval").(int),
 			Retry:    d.Get("keepalive_retry").(int),
+		}
+	}
+
+	return config
+}
+
+// convertParsedL2TPConfig converts a parser L2TPConfig to a client L2TPConfig
+func convertParsedL2TPConfig(parsed *parsers.L2TPConfig) *client.L2TPConfig {
+	config := &client.L2TPConfig{
+		ID:               parsed.ID,
+		Name:             parsed.Name,
+		Version:          parsed.Version,
+		Mode:             parsed.Mode,
+		Shutdown:         parsed.Shutdown,
+		TunnelSource:     parsed.TunnelSource,
+		TunnelDest:       parsed.TunnelDest,
+		TunnelDestType:   parsed.TunnelDestType,
+		KeepaliveEnabled: parsed.KeepaliveEnabled,
+		DisconnectTime:   parsed.DisconnectTime,
+		AlwaysOn:         parsed.AlwaysOn,
+		Enabled:          parsed.Enabled,
+	}
+
+	if parsed.Authentication != nil {
+		config.Authentication = &client.L2TPAuth{
+			Method:   parsed.Authentication.Method,
+			Username: parsed.Authentication.Username,
+			Password: parsed.Authentication.Password,
+		}
+	}
+
+	if parsed.IPPool != nil {
+		config.IPPool = &client.L2TPIPPool{
+			Start: parsed.IPPool.Start,
+			End:   parsed.IPPool.End,
+		}
+	}
+
+	if parsed.IPsecProfile != nil {
+		config.IPsecProfile = &client.L2TPIPsec{
+			Enabled:      parsed.IPsecProfile.Enabled,
+			PreSharedKey: parsed.IPsecProfile.PreSharedKey,
+			TunnelID:     parsed.IPsecProfile.TunnelID,
+		}
+	}
+
+	if parsed.L2TPv3Config != nil {
+		config.L2TPv3Config = &client.L2TPv3Config{
+			LocalRouterID:   parsed.L2TPv3Config.LocalRouterID,
+			RemoteRouterID:  parsed.L2TPv3Config.RemoteRouterID,
+			RemoteEndID:     parsed.L2TPv3Config.RemoteEndID,
+			SessionID:       parsed.L2TPv3Config.SessionID,
+			CookieSize:      parsed.L2TPv3Config.CookieSize,
+			BridgeInterface: parsed.L2TPv3Config.BridgeInterface,
+		}
+		if parsed.L2TPv3Config.TunnelAuth != nil {
+			config.L2TPv3Config.TunnelAuth = &client.L2TPTunnelAuth{
+				Enabled:  parsed.L2TPv3Config.TunnelAuth.Enabled,
+				Password: parsed.L2TPv3Config.TunnelAuth.Password,
+			}
+		}
+	}
+
+	if parsed.KeepaliveConfig != nil {
+		config.KeepaliveConfig = &client.L2TPKeepalive{
+			Interval: parsed.KeepaliveConfig.Interval,
+			Retry:    parsed.KeepaliveConfig.Retry,
 		}
 	}
 
