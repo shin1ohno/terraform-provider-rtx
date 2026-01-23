@@ -44,6 +44,20 @@ make install
 - Provider should handle RTX router configuration management
 - Resources might include network interfaces, routing tables, firewall rules, and VPN configurations
 
+## Logging
+
+This project uses **Zerolog** (`github.com/rs/zerolog`) for all logging. Do NOT use the standard `log` package.
+
+```go
+// Use structured logging
+log.Error().Err(err).Str("file", path).Msg("Failed to read file")
+log.Info().Str("resource", name).Msg("Resource created")
+log.Debug().Interface("config", cfg).Msg("Configuration loaded")
+```
+
+- Main logging infrastructure: `internal/logging/logger.go`
+- Environment variables: `TF_LOG` (level), `TF_LOG_JSON` (format)
+
 ## Yamaha RTX Router Integration
 
 Yamaha RTX routers are enterprise-grade networking devices that support:
