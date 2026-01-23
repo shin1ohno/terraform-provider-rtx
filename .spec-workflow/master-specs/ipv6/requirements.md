@@ -251,3 +251,4 @@ resource "rtx_ipv6_prefix" "documentation" {
 | Date | Source Spec | Changes |
 |------|-------------|---------|
 | 2026-01-23 | Implementation analysis | Initial master spec creation from implementation code |
+| 2026-01-23 | terraform-plan-differences-fix | IPv6 filter dynamic service now fully implemented (stub methods replaced with proper IPFilterService delegation) |

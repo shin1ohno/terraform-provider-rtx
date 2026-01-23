@@ -477,9 +477,10 @@ no nat descriptor masquerade static <id> <entry_num>  # Delete specific masquera
 ### Show Commands
 
 ```
+# Note: RTX routers do not support grep -E (extended regex)
+# Use simple wildcard patterns instead
 show config | grep "nat descriptor.*<id>"                          # Show specific descriptor
 show config | grep "nat descriptor"                                 # Show all descriptors
-show config | grep "nat descriptor" | grep -E "( <id> | <id>$)"    # Exact ID match
 ```
 
 ---
@@ -612,6 +613,10 @@ internal/
 
 10. **CustomizeDiff**: Static NAT uses CustomizeDiff for complex port/protocol validation that can't be expressed in schema alone.
 
+11. **RTX Grep Compatibility**: RTX routers do not support `grep -E` (extended regex) or the `\|` OR operator in grep patterns. All grep commands must use simple wildcard patterns (e.g., `grep "nat descriptor.*<id>"` instead of `grep -E "nat descriptor( <id>| <id>$)"`).
+
+12. **OutsideGlobal Default**: For NAT masquerade static entries, when `OutsideGlobal` is not specified, it defaults to "ipcp" to indicate using the PPPoE-assigned address.
+
 ---
 
 ## State Handling
@@ -629,3 +634,4 @@ internal/
 | Date | Source Spec | Changes |
 |------|-------------|---------|
 | 2026-01-23 | Implementation Analysis | Initial master design created from implementation code |
+| 2026-01-23 | terraform-plan-differences-fix | Updated grep patterns for RTX compatibility; documented OutsideGlobal default to "ipcp" |

@@ -423,3 +423,4 @@ resource "rtx_dhcp_binding" "workstation" {
 | Date | Source Spec | Changes |
 |------|-------------|---------|
 | 2026-01-23 | Implementation analysis | Initial master spec creation from implementation code |
+| 2026-01-23 | terraform-plan-differences-fix | Network address is calculated from IP range start and prefix length; range_start/range_end fields added to support IP range format parsing |

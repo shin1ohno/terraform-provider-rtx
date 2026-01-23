@@ -456,3 +456,4 @@ resource "rtx_ipv6_filter_dynamic" "main" {
 |------|--------|---------|
 | 2025-01-23 | Implementation Code | Initial master spec created from implementation analysis |
 | 2026-01-23 | filter-number-parsing-fix | Added parsing reliability requirements for line wrapping handling |
+| 2026-01-23 | terraform-plan-differences-fix | Ethernet filter parser accepts `*:*:*:*:*:*` MAC wildcard format; regex patterns use `.*$` for line wrapping |

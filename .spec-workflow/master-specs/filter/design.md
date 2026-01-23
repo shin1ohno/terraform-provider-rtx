@@ -592,3 +592,4 @@ internal/
 |------|-------------|---------|
 | 2025-01-23 | Implementation Code | Initial master design created from implementation analysis |
 | 2026-01-23 | filter-number-parsing-fix | Documented smart line joining for RTX output line wrapping in preprocessWrappedLines |
+| 2026-01-23 | terraform-plan-differences-fix | Ethernet filter parser accepts `*:*:*:*:*:*` MAC wildcard format; regex patterns use `.*$` for line wrapping |

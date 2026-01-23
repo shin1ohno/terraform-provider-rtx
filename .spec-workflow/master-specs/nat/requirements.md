@@ -269,6 +269,8 @@ no nat descriptor static <id> <outside_ip>=<inside_ip>
 no nat descriptor static <id> <outside_ip>:<port>=<inside_ip>:<port> <protocol>
 
 # Show NAT descriptor configuration
+# Note: RTX routers do not support grep -E (extended regex)
+# Use simple wildcard pattern instead
 show config | grep "nat descriptor.*<id>"
 show config | grep "nat descriptor"
 ```
@@ -451,3 +453,4 @@ resource "rtx_nat_masquerade" "vpn_nat" {
 | Date | Source Spec | Changes |
 |------|-------------|---------|
 | 2026-01-23 | Implementation Analysis | Initial master spec created from implementation code |
+| 2026-01-23 | terraform-plan-differences-fix | Updated grep pattern for RTX compatibility (no grep -E support); OutsideGlobal defaults to "ipcp" for masquerade static entries |

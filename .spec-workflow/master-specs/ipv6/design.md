@@ -244,3 +244,14 @@ internal/
    - DHCPv6-PD: `ipv6\s+prefix\s+(\d+)\s+dhcp-prefix@([^:]+)::/(\d+)`
 
 7. **Interface Format**: Interface names can include spaces (e.g., "pp 1"), handled correctly by parser.
+
+8. **RTX Terminal Line Wrapping**: RTX router terminal output wraps at approximately 80 characters. Regex patterns use `.*$` instead of `\s*$` at the end to handle trailing characters from line wrapping.
+
+9. **IPv6 Filter Dynamic Service**: The `rtx_ipv6_filter_dynamic` resource operations delegate to `IPFilterService`. The client layer methods (`CreateIPv6FilterDynamic`, `GetIPv6FilterDynamic`, `DeleteIPv6FilterDynamic`, etc.) in `client.go` properly delegate to `IPFilterService` instead of returning "not implemented" errors.
+
+## Change History
+
+| Date | Source Spec | Changes |
+|------|-------------|---------|
+| 2026-01-23 | Implementation analysis | Initial master design creation from implementation code |
+| 2026-01-23 | terraform-plan-differences-fix | Documented IPv6 filter dynamic service delegation; added line wrapping handling notes |

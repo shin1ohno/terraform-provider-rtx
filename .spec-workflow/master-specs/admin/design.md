@@ -392,13 +392,18 @@ Example: `no user attribute guest`
 ### Show User Configuration
 
 ```
-show config | grep "login user <username>\|user attribute <username>"
+# Note: RTX routers do not support grep \| OR operator
+# Use separate grep commands instead
+show config | grep "login user <username>"
+show config | grep "user attribute <username>"
 ```
 
 ### Show All Users
 
 ```
-show config | grep "login user\|user attribute"
+# Note: RTX routers do not support grep \| OR operator
+show config | grep "login user"
+show config | grep "user attribute"
 ```
 
 ---
@@ -599,6 +604,10 @@ internal/
 
 10. **Validation Levels**: Username validation occurs both at schema level (ValidateFunc) and parser level (ValidateUserConfig)
 
+11. **RTX Grep Compatibility**: RTX routers do not support the `\|` OR operator in grep patterns. Commands use separate grep calls instead of combined patterns.
+
+12. **Attribute-Only Updates**: For imported users where password may not be known, `ValidateUserConfigForAttributeUpdate()` allows updating only attributes without requiring a password. This enables managing attributes of imported users that have encrypted passwords.
+
 ---
 
 ## State Handling
@@ -701,3 +710,4 @@ sequenceDiagram
 | Date | Source Spec | Changes |
 |------|-------------|---------|
 | 2026-01-23 | Implementation Analysis | Initial master design created from implementation code |
+| 2026-01-23 | terraform-plan-differences-fix | RTX grep compatibility (no OR operator); documented attribute-only updates for imported users |

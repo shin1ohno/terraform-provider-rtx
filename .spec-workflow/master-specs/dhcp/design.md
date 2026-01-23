@@ -715,6 +715,12 @@ internal/
 
 8. **Lease Time Format Conversion**: Go duration format ("72h", "30m") is converted to RTX format ("72:00", "0:30") for commands and back for state.
 
+9. **Network Address Calculation**: When parsing RTX output with IP range format (e.g., `192.168.1.20-192.168.1.99/16`), the network address is calculated from the range start IP and prefix length using bitwise AND operation. For example, `192.168.1.20/16` becomes network `192.168.0.0/16`.
+
+10. **RTX Terminal Line Wrapping**: RTX router terminal output wraps at approximately 80 characters. Regex patterns use `.*$` instead of `\s*$` to handle trailing characters from line wrapping in multi-line output.
+
+11. **Range Format Support**: The parser supports both CIDR notation (`192.168.1.0/24`) and IP range format (`192.168.1.20-192.168.1.99/16 gateway 192.168.1.253`). When range format is detected, `range_start` and `range_end` fields are populated.
+
 ---
 
 # State Handling
@@ -733,3 +739,4 @@ internal/
 | Date | Source Spec | Changes |
 |------|-------------|---------|
 | 2026-01-23 | Implementation analysis | Initial master design creation from implementation code |
+| 2026-01-23 | terraform-plan-differences-fix | Added network address calculation from IP range; documented line wrapping handling; added range_start/range_end to data model |

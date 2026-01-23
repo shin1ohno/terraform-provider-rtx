@@ -299,10 +299,14 @@ user attribute <username> administrator=on|off [connection=<types>] [gui-page=<p
 no user attribute <username>
 
 # Show user configuration (used for read)
-show config | grep "login user <username>\|user attribute <username>"
+# Note: RTX routers do not support grep \| OR operator
+# Use separate grep commands instead
+show config | grep "login user <username>"
+show config | grep "user attribute <username>"
 
 # Show all users (used for list)
-show config | grep "login user\|user attribute"
+show config | grep "login user"
+show config | grep "user attribute"
 ```
 
 ---
@@ -414,3 +418,4 @@ resource "rtx_admin_user" "imported" {
 | Date | Source | Changes |
 |------|--------|---------|
 | 2026-01-23 | Implementation Analysis | Initial master spec created from implementation code |
+| 2026-01-23 | terraform-plan-differences-fix | RTX grep compatibility (no OR operator); attribute-only updates for imported users without passwords |
