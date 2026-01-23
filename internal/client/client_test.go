@@ -687,6 +687,7 @@ func TestClientTimeoutHandling(t *testing.T) {
 // MockSFTPClientForTest implements SFTPClient for testing
 type MockSFTPClientForTest struct {
 	DownloadFunc func(ctx context.Context, path string) ([]byte, error)
+	ListDirFunc  func(ctx context.Context, path string) ([]string, error)
 	CloseFunc    func() error
 }
 
@@ -695,6 +696,13 @@ func (m *MockSFTPClientForTest) Download(ctx context.Context, path string) ([]by
 		return m.DownloadFunc(ctx, path)
 	}
 	return []byte("# mock config"), nil
+}
+
+func (m *MockSFTPClientForTest) ListDir(ctx context.Context, path string) ([]string, error) {
+	if m.ListDirFunc != nil {
+		return m.ListDirFunc(ctx, path)
+	}
+	return []string{}, nil
 }
 
 func (m *MockSFTPClientForTest) Close() error {

@@ -3978,47 +3978,6 @@ func (c *rtxClient) GetCachedConfig(ctx context.Context) (*parsers.ParsedConfig,
 // downloadConfigViaSFTP downloads the router config via SFTP.
 // It creates a fresh SFTP connection, resolves the config path, downloads the file, and closes the connection.
 // Using a fresh connection avoids idle timeout issues with RTX routers.
-// preloadConfigViaSFTP downloads config via SFTP before SSH connection is established.
-// This is called from Dial() to avoid RTX's concurrent SSH connection limit.
-// Since executor doesn't exist yet, we use DefaultConfigPath or SFTPConfigPath.
-func (c *rtxClient) preloadConfigViaSFTP(ctx context.Context) error {
-	logger := logging.FromContext(ctx)
-
-	// Create SFTP client
-	sftpClient, err := NewSFTPClient(ctx, c.config)
-	if err != nil {
-		return fmt.Errorf("failed to create SFTP client: %w", err)
-	}
-	defer sftpClient.Close()
-
-	// Use configured path or default (no executor available for auto-detection)
-	configPath := c.config.SFTPConfigPath
-	if configPath == "" {
-		configPath = DefaultConfigPath
-	}
-
-	logger.Debug().Str("path", configPath).Msg("Preloading config via SFTP")
-
-	// Download the config file
-	content, err := sftpClient.Download(ctx, configPath)
-	if err != nil {
-		return fmt.Errorf("SFTP download failed for %s: %w", configPath, err)
-	}
-
-	logger.Debug().Int("bytes", len(content)).Msg("SFTP preload successful")
-
-	// Parse and cache the config
-	parser := parsers.NewConfigFileParser()
-	parsed, err := parser.Parse(string(content))
-	if err != nil {
-		return fmt.Errorf("failed to parse config: %w", err)
-	}
-
-	c.configCache.Set(string(content), parsed)
-	logger.Info().Msg("Config preloaded via SFTP and cached")
-	return nil
-}
-
 func (c *rtxClient) downloadConfigViaSFTP(ctx context.Context, executor Executor) ([]byte, error) {
 	logger := logging.FromContext(ctx)
 

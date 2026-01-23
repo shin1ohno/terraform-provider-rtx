@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,8 +13,9 @@ import (
 
 // mockSFTPClient is a mock implementation of sftpClientInterface for testing
 type mockSFTPClient struct {
-	openFunc  func(path string) (sftpFileInterface, error)
-	closeFunc func() error
+	openFunc    func(path string) (sftpFileInterface, error)
+	readDirFunc func(path string) ([]os.FileInfo, error)
+	closeFunc   func() error
 }
 
 func (m *mockSFTPClient) Open(path string) (sftpFileInterface, error) {
@@ -21,6 +23,13 @@ func (m *mockSFTPClient) Open(path string) (sftpFileInterface, error) {
 		return m.openFunc(path)
 	}
 	return nil, errors.New("Open not implemented")
+}
+
+func (m *mockSFTPClient) ReadDir(path string) ([]os.FileInfo, error) {
+	if m.readDirFunc != nil {
+		return m.readDirFunc(path)
+	}
+	return []os.FileInfo{}, nil
 }
 
 func (m *mockSFTPClient) Close() error {
