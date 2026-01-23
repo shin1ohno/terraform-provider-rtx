@@ -238,13 +238,21 @@ func (s *AdminService) CreateAdminUser(ctx context.Context, user AdminUser) erro
 }
 
 // UpdateAdminUser updates an existing admin user
+// If password is empty, only attributes will be updated (useful for imported resources)
 func (s *AdminService) UpdateAdminUser(ctx context.Context, user AdminUser) error {
 	// Convert client.AdminUser to parsers.UserConfig
 	parserUser := s.toParserUser(user)
 
-	// Validate input
-	if err := parsers.ValidateUserConfig(parserUser); err != nil {
-		return fmt.Errorf("invalid user config: %w", err)
+	// Validate input - use different validation depending on whether password is set
+	if user.Password != "" {
+		if err := parsers.ValidateUserConfig(parserUser); err != nil {
+			return fmt.Errorf("invalid user config: %w", err)
+		}
+	} else {
+		// For attribute-only updates, only validate username
+		if err := parsers.ValidateUserConfigForAttributeUpdate(parserUser); err != nil {
+			return fmt.Errorf("invalid user config: %w", err)
+		}
 	}
 
 	// Check context
@@ -254,17 +262,19 @@ func (s *AdminService) UpdateAdminUser(ctx context.Context, user AdminUser) erro
 	default:
 	}
 
-	// Update user password (this will overwrite existing user)
-	cmd := parsers.BuildUserCommand(parserUser)
-	logging.FromContext(ctx).Debug().Str("service", "admin").Str("command", SanitizeCommandForLog(cmd)).Msg("Updating admin user")
+	// Only update user password if provided (otherwise just update attributes)
+	if user.Password != "" {
+		cmd := parsers.BuildUserCommand(parserUser)
+		logging.FromContext(ctx).Debug().Str("service", "admin").Str("command", SanitizeCommandForLog(cmd)).Msg("Updating admin user")
 
-	output, err := s.executor.Run(ctx, cmd)
-	if err != nil {
-		return fmt.Errorf("failed to update admin user: %w", err)
-	}
+		output, err := s.executor.Run(ctx, cmd)
+		if err != nil {
+			return fmt.Errorf("failed to update admin user: %w", err)
+		}
 
-	if len(output) > 0 && containsError(string(output)) {
-		return fmt.Errorf("command failed: %s", string(output))
+		if len(output) > 0 && containsError(string(output)) {
+			return fmt.Errorf("command failed: %s", string(output))
+		}
 	}
 
 	// Update user attributes
@@ -272,7 +282,7 @@ func (s *AdminService) UpdateAdminUser(ctx context.Context, user AdminUser) erro
 	if attrCmd != "" {
 		logging.FromContext(ctx).Debug().Str("service", "admin").Str("command", SanitizeCommandForLog(attrCmd)).Msg("Updating user attributes")
 
-		output, err = s.executor.Run(ctx, attrCmd)
+		output, err := s.executor.Run(ctx, attrCmd)
 		if err != nil {
 			return fmt.Errorf("failed to update user attributes: %w", err)
 		}

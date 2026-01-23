@@ -246,16 +246,18 @@ func BuildDeleteUserAttributeCommand(username string) string {
 }
 
 // BuildShowLoginUserCommand builds the command to show login user configuration
+// Note: RTX grep doesn't support \| (OR) operator, so we use a simpler pattern
 func BuildShowLoginUserCommand(username string) string {
-	return fmt.Sprintf("show config | grep \"login user %s\\|user attribute %s\"", username, username)
+	return fmt.Sprintf("show config | grep \"%s\"", username)
 }
 
 // BuildShowAllUsersCommand builds the command to show all user configurations
+// Note: RTX grep doesn't support \| (OR) operator, so we use "user" which matches both
 func BuildShowAllUsersCommand() string {
-	return "show config | grep \"login user\\|user attribute\""
+	return "show config | grep \"user\""
 }
 
-// ValidateUserConfig validates the user configuration
+// ValidateUserConfig validates the user configuration (requires password)
 func ValidateUserConfig(user UserConfig) error {
 	if user.Username == "" {
 		return fmt.Errorf("username is required")
@@ -263,6 +265,54 @@ func ValidateUserConfig(user UserConfig) error {
 
 	if user.Password == "" {
 		return fmt.Errorf("password is required")
+	}
+
+	// Validate username format (alphanumeric and underscore only)
+	validUsername := regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]*$`)
+	if !validUsername.MatchString(user.Username) {
+		return fmt.Errorf("username must start with a letter and contain only alphanumeric characters and underscores")
+	}
+
+	// Validate connection types
+	validConnections := map[string]bool{
+		"serial": true,
+		"telnet": true,
+		"remote": true,
+		"ssh":    true,
+		"sftp":   true,
+		"http":   true,
+	}
+	for _, conn := range user.Attributes.Connection {
+		if !validConnections[conn] {
+			return fmt.Errorf("invalid connection type: %s", conn)
+		}
+	}
+
+	// Validate GUI pages
+	validGUIPages := map[string]bool{
+		"dashboard": true,
+		"lan-map":   true,
+		"config":    true,
+	}
+	for _, page := range user.Attributes.GUIPages {
+		if !validGUIPages[page] {
+			return fmt.Errorf("invalid GUI page: %s", page)
+		}
+	}
+
+	// Validate login timer
+	if user.Attributes.LoginTimer < 0 {
+		return fmt.Errorf("login timer cannot be negative")
+	}
+
+	return nil
+}
+
+// ValidateUserConfigForAttributeUpdate validates user configuration for attribute-only updates
+// This is used when updating an imported user where the password is not known
+func ValidateUserConfigForAttributeUpdate(user UserConfig) error {
+	if user.Username == "" {
+		return fmt.Errorf("username is required")
 	}
 
 	// Validate username format (alphanumeric and underscore only)
