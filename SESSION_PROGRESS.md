@@ -407,6 +407,147 @@ Wave 2の4リソースを並列開発:
 - Provider: rtx_interface リソース
 - 機能: DHCP/静的IP、セキュリティフィルタ、動的フィルタ、NAT記述子、ProxyARP、MTU
 
+---
+
+## 現在のタスク: Terraform Plan 差分分析・修正 Spec作成
+
+### 要求（2026-01-23）
+
+terraform plan実行で検出された4つの差分について、修正Specを作成する。
+
+#### 検出された4つの差分
+
+1. **rtx_dhcp_scope.scope1** - `network`が`null` → `192.168.0.0/16`に強制置換
+2. **rtx_ipv6_filter_dynamic.main** - 新規作成が必要
+3. **rtx_l2tp.tunnel1** - `tunnel_auth_enabled`が`true` → `false`への更新
+4. **rtx_nat_masquerade.nat1000** - 新規作成が必要
+
+#### 要求仕様
+
+各差分について:
+- **1-a**: 元となるRTXコマンドをterraform planの実行ログから取得して明記
+- **1-b**: あるべきmain.tfの内容を転記
+
+#### 分析要件
+
+- main.tf（リソース管理側）に問題があるのか
+- Providerの実装に問題があるのか
+- その他の問題なのか
+
+多角的な問題分析を行う。
+
+### Step-by-Step タスク計画 ✅ 完了
+
+#### Phase 1: 情報収集（RTXコマンド取得）✅
+
+- [x] 1.1 terraform plan -refresh-only でstate更新し、読み取り専用プランを取得
+- [x] 1.2 TF_LOG=DEBUG でterraform plan実行し、RTXから取得した生データを記録
+- [x] 1.3 4リソースそれぞれのRTX設定コマンドを抽出
+  - rtx_dhcp_scope.scope1 - `dhcp scope 1 192.168.1.20-192.168.1.99/16 gateway 192.168.1.253`
+  - rtx_ipv6_filter_dynamic (未インポート) - `ipv6 filter dynamic 10108X * * ...`
+  - rtx_l2tp.tunnel1 - L2TPv3 tunnel with auth enabled
+  - rtx_nat_masquerade (未インポート) - referenced in `ip lan2 nat descriptor 1000`
+
+#### Phase 2: main.tf分析 ✅
+
+- [x] 2.1 examples/import/main.tfの4リソース定義を確認
+- [x] 2.2 各リソースの期待値を文書化
+
+#### Phase 3: 差分原因分析 ✅
+
+- [x] 3.1 rtx_dhcp_scope.scope1 - network nullの原因調査
+  - **結果:** Provider import実装問題 - networkフィールドがパースされていない
+- [x] 3.2 rtx_ipv6_filter_dynamic - 未インポートの原因調査
+  - **結果:** importコマンドが未実行
+- [x] 3.3 rtx_l2tp.tunnel1 - tunnel_auth_enabled不一致の原因調査
+  - **結果:** main.tf設定問題 - RTXは`true`だがmain.tfは`false`
+- [x] 3.4 rtx_nat_masquerade - 未インポートの原因調査
+  - **結果:** importコマンドが未実行
+
+#### Phase 4: Spec文書作成 ✅
+
+- [x] 4.1 requirements.md作成（4差分の明記、受け入れ条件）
+- [x] 4.2 design.md作成（根本原因分析、修正設計）
+- [x] 4.3 tasks.md作成（実装タスク）
+- [ ] 4.4 spec承認リクエスト
+
+**Spec Location:** `.spec-workflow/specs/terraform-plan-differences-fix/`
+
+### 差分原因サマリー（更新 2026-01-23）
+
+| リソース | 問題タイプ | 根本原因 | 状態 |
+|----------|------------|----------|------|
+| rtx_dhcp_scope.scope1 | Provider Bug | maxexpire行折り返し + ネットワーク計算バグ | ✅ 修正済み |
+| rtx_ipv6_filter_dynamic.main | Provider Bug | rtxClient stubが"not implemented"を返す | ✅ 修正済み |
+| rtx_l2tp.tunnel1 | Config Mismatch + Schema | main.tfとpassword schema | ✅ 修正済み |
+| rtx_nat_masquerade.nat1000 | Provider Bug | grep -E非対応 + OutsideGlobalデフォルト未設定 | ✅ 修正済み |
+
+### Design Enhancement & Bug Discovery（2026-01-23）
+
+#### 完了タスク
+
+1. **design.md詳細化** - 実際のRTXレスポンス、実装詳細、コードフローを追加
+2. **L2TP tunnel_auth_enabled修正** - main.tfで`false`→`true`に変更
+
+#### インポートテストで発見したバグ
+
+**Bug 1: IPv6 Filter Dynamic Stub**
+```
+$ terraform import rtx_ipv6_filter_dynamic.main main
+Error: Failed to read IPv6 filter dynamic: IPv6 filter dynamic config not implemented
+```
+- 場所: `internal/client/client.go:3369-3384`
+- 原因: rtxClientのstub実装が"not implemented"を返す
+- 対策: IPFilterServiceへの委譲を実装
+
+**Bug 2: NAT Masquerade Not Found**
+```
+$ terraform import rtx_nat_masquerade.nat1000 1000
+Error: failed to import NAT masquerade 1000: NAT masquerade with descriptor ID 1000 not found
+```
+- 場所: `internal/rtx/parsers/nat_masquerade.go:332`
+- 原因: grepパターン `grep -E "( 1000 | 1000$)"` がRTX出力にマッチしない可能性
+- 対策: TF_LOG=DEBUGで調査が必要
+
+**Bug 3: DHCP Scope Parser（既知）**
+- 行折り返し: `maxexpire` が `ma\nxexpire` に分割される
+- ネットワーク計算: `192.168.1.20/16` → `192.168.0.0/16` の変換未実装
+
+#### 残りタスク ✅ 全完了
+
+1. [x] IPv6 Filter Dynamic stub修正 (`client.go`) - IPFilterServiceへの委譲を実装
+2. [x] NAT Masquerade grepパターン調査・修正 - `grep -E`を`grep "nat descriptor.*1000"`に変更
+3. [x] DHCP Scope parser修正（regex + network計算）- `.*$`でline wrap対応、`calculateNetworkAddress()`追加
+4. [x] 各リソースのimport実行
+5. [x] terraform plan検証 → **"No changes. Your infrastructure matches the configuration."** 🎉
+
+### Terraform Plan Differences Fix 完了（2026-01-23）
+
+4つの差分をすべて解消しました。
+
+#### 修正内容まとめ
+
+| リソース | 問題 | 修正 |
+|----------|------|------|
+| rtx_dhcp_scope.scope1 | network=null、routers重複 | regexを`.*$`で行折り返し対応、calculateNetworkAddress追加、gateway→routersロジック削除 |
+| rtx_ipv6_filter_dynamic.main | "not implemented"エラー | client.goのstubをIPFilterService委譲に変更 |
+| rtx_l2tp.tunnel1 | tunnel_auth_enabled/password | main.tfでtrue、schemaにComputed:true追加 |
+| rtx_nat_masquerade.nat1000 | "descriptor not found"、outside_global=ipcp | grepパターン修正、パーサーでOutsideGlobal="ipcp"デフォルト、main.tfからoutside_global削除 |
+
+#### 修正ファイル
+
+- `internal/rtx/parsers/dhcp_scope.go` - regexパターン修正、calculateNetworkAddress追加、gateway処理削除
+- `internal/rtx/parsers/nat_masquerade.go` - grep -E削除、OutsideGlobal="ipcp"デフォルト追加
+- `internal/client/client.go` - IPv6 Filter Dynamic stub→IPFilterService委譲
+- `internal/provider/resource_rtx_l2tp.go` - tunnel_auth_passwordにComputed:true追加
+- `examples/import/main.tf` - tunnel_auth_enabled=true、outside_global削除
+
+### 補足: filter-number-parsing-fix 完了（2026-01-23）
+
+- `200100` → `20010`の数値途中分割問題を修正
+- `preprocessWrappedLines`にmid-number wrap検出ロジックを追加
+- 全テスト成功、terraform planでfilter差分解消を確認
+
 ### Wave 3 サービスファイルのコンパイルエラー修正
 修正対象ファイル:
 - `internal/client/bgp_service.go`
