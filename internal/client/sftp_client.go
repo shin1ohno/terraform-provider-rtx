@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"sync"
 	"time"
 
@@ -21,6 +22,9 @@ var ErrSFTPClosed = errors.New("sftp client is closed")
 type SFTPClient interface {
 	// Download downloads a file from the remote server and returns its content in memory
 	Download(ctx context.Context, path string) ([]byte, error)
+
+	// ListDir lists the contents of a directory
+	ListDir(ctx context.Context, path string) ([]string, error)
 
 	// Close closes the SFTP connection
 	Close() error
@@ -43,6 +47,7 @@ type sshSessionInterface interface {
 // sftpClientInterface abstracts the SFTP client for testing
 type sftpClientInterface interface {
 	Open(path string) (sftpFileInterface, error)
+	ReadDir(path string) ([]os.FileInfo, error)
 	Close() error
 }
 
@@ -107,6 +112,10 @@ func (w *sftpClientWrapper) Open(path string) (sftpFileInterface, error) {
 	return w.client.Open(path)
 }
 
+func (w *sftpClientWrapper) ReadDir(path string) ([]os.FileInfo, error) {
+	return w.client.ReadDir(path)
+}
+
 func (w *sftpClientWrapper) Close() error {
 	return w.client.Close()
 }
@@ -122,11 +131,11 @@ func NewSFTPClient(ctx context.Context, config *Config) (SFTPClient, error) {
 	sshConfig := &ssh.ClientConfig{
 		User: config.Username,
 		Auth: []ssh.AuthMethod{
-			ssh.Password(config.Password),
+			ssh.Password(config.AdminPassword),
 			ssh.KeyboardInteractive(func(user, instruction string, questions []string, echos []bool) ([]string, error) {
 				answers := make([]string, len(questions))
 				for i := range questions {
-					answers[i] = config.Password
+					answers[i] = config.AdminPassword
 				}
 				return answers, nil
 			}),
@@ -194,6 +203,33 @@ func (c *sftpClientImpl) Download(ctx context.Context, path string) ([]byte, err
 
 	logger.Debug().Int("bytes", len(content)).Msg("File downloaded successfully")
 	return content, nil
+}
+
+// ListDir lists the contents of a directory
+func (c *sftpClientImpl) ListDir(ctx context.Context, path string) ([]string, error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	c.mu.Lock()
+	if c.closed {
+		c.mu.Unlock()
+		return nil, ErrSFTPClosed
+	}
+	c.mu.Unlock()
+
+	files, err := c.sftpClient.ReadDir(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list directory %q: %w", path, err)
+	}
+
+	var names []string
+	for _, f := range files {
+		names = append(names, f.Name())
+	}
+	return names, nil
 }
 
 // Close closes the SFTP connection
