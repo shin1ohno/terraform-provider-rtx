@@ -5,6 +5,7 @@
 *.so
 *.dylib
 terraform-provider-rtx
+fetch_rtx_config
 
 # Test binary, built with `go test -c`
 *.test
