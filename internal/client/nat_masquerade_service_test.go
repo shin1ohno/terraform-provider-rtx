@@ -176,7 +176,7 @@ nat descriptor address outer 1 ipcp
 nat descriptor address inner 1 192.168.1.0-192.168.1.255
 `
 				m.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
-					return cmd == `show config | grep "nat descriptor" | grep -E "( 1 | 1$)"`
+					return cmd == `show config | grep "nat descriptor.*1"`
 				})).Return([]byte(output), nil)
 			},
 			expected: &NATMasquerade{
@@ -199,7 +199,7 @@ nat descriptor masquerade static 2 2 ipcp:443=192.168.2.10:8443 tcp
 nat descriptor masquerade static 2 3 ipcp:53=192.168.2.20:53 udp
 `
 				m.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
-					return cmd == `show config | grep "nat descriptor" | grep -E "( 2 | 2$)"`
+					return cmd == `show config | grep "nat descriptor.*2"`
 				})).Return([]byte(output), nil)
 			},
 			expected: &NATMasquerade{
@@ -240,7 +240,7 @@ nat descriptor masquerade static 2 3 ipcp:53=192.168.2.20:53 udp
 			descriptorID: 99,
 			mockSetup: func(m *MockExecutor) {
 				m.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
-					return cmd == `show config | grep "nat descriptor" | grep -E "( 99 | 99$)"`
+					return cmd == `show config | grep "nat descriptor.*99"`
 				})).Return([]byte(""), nil)
 			},
 			expected:    nil,
@@ -443,7 +443,7 @@ func TestNATMasqueradeService_Update(t *testing.T) {
 			mockSetup: func(m *MockExecutor) {
 				// Get current config
 				m.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
-					return cmd == `show config | grep "nat descriptor" | grep -E "( 1 | 1$)"`
+					return cmd == `show config | grep "nat descriptor.*1"`
 				})).Return([]byte(`nat descriptor type 1 masquerade
 nat descriptor address outer 1 ipcp
 nat descriptor address inner 1 192.168.1.0-192.168.1.255
@@ -480,7 +480,7 @@ nat descriptor address inner 1 192.168.1.0-192.168.1.255
 			mockSetup: func(m *MockExecutor) {
 				// Get current config
 				m.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
-					return cmd == `show config | grep "nat descriptor" | grep -E "( 1 | 1$)"`
+					return cmd == `show config | grep "nat descriptor.*1"`
 				})).Return([]byte(`nat descriptor type 1 masquerade
 nat descriptor address outer 1 ipcp
 nat descriptor address inner 1 192.168.1.0-192.168.1.255

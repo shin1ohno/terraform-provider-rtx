@@ -1385,22 +1385,22 @@ func TestBuildShowNATDescriptorCommand(t *testing.T) {
 		{
 			name:     "descriptor 1",
 			id:       1,
-			expected: `show config | grep "nat descriptor" | grep -E "( 1 | 1$)"`,
+			expected: `show config | grep "nat descriptor.*1"`,
 		},
 		{
 			name:     "descriptor 10",
 			id:       10,
-			expected: `show config | grep "nat descriptor" | grep -E "( 10 | 10$)"`,
+			expected: `show config | grep "nat descriptor.*10"`,
 		},
 		{
 			name:     "descriptor 100",
 			id:       100,
-			expected: `show config | grep "nat descriptor" | grep -E "( 100 | 100$)"`,
+			expected: `show config | grep "nat descriptor.*100"`,
 		},
 		{
-			name:     "descriptor 1000 - matches type line without trailing space",
+			name:     "descriptor 1000 - RTX compatible pattern without grep -E",
 			id:       1000,
-			expected: `show config | grep "nat descriptor" | grep -E "( 1000 | 1000$)"`,
+			expected: `show config | grep "nat descriptor.*1000"`,
 		},
 	}
 

@@ -182,7 +182,8 @@ func ParseNATMasqueradeConfig(raw string) ([]NATMasquerade, error) {
 				EntryNumber:       entryNum,
 				InsideLocal:       matches[3],
 				InsideLocalPort:   &port,
-				OutsideGlobalPort: &port, // Same port for outer
+				OutsideGlobal:     "ipcp", // Default to ipcp when not specified
+				OutsideGlobalPort: &port,  // Same port for outer
 				Protocol:          strings.ToLower(matches[4]),
 			}
 			desc.StaticEntries = append(desc.StaticEntries, entry)
@@ -222,6 +223,7 @@ func ParseNATMasqueradeConfig(raw string) ([]NATMasquerade, error) {
 				EntryNumber:       entryNum,
 				InsideLocal:       matches[3],
 				InsideLocalPort:   &innerPort,
+				OutsideGlobal:     "ipcp", // Default to ipcp when not specified
 				OutsideGlobalPort: &outerPort,
 				Protocol:          strings.ToLower(matches[4]),
 			}
@@ -251,9 +253,10 @@ func ParseNATMasqueradeConfig(raw string) ([]NATMasquerade, error) {
 			}
 
 			entry := MasqueradeStaticEntry{
-				EntryNumber: entryNum,
-				InsideLocal: matches[3],
-				Protocol:    strings.ToLower(matches[4]),
+				EntryNumber:   entryNum,
+				InsideLocal:   matches[3],
+				OutsideGlobal: "ipcp", // Default to ipcp when not specified
+				Protocol:      strings.ToLower(matches[4]),
 				// InsideLocalPort and OutsideGlobalPort are nil for protocol-only
 			}
 			desc.StaticEntries = append(desc.StaticEntries, entry)
@@ -330,15 +333,15 @@ func BuildDeleteNATMasqueradeStaticCommand(id int, entryNum int) string {
 
 // BuildShowNATDescriptorCommand builds command to show NAT descriptor configuration
 func BuildShowNATDescriptorCommand(id int) string {
-	// Use broader grep pattern and rely on parser to filter by ID
-	// This handles all NAT descriptor line formats:
-	// - nat descriptor type <id> masquerade (no trailing space after id)
+	// Use simple grep pattern with the descriptor ID
+	// RTX routers do not support grep -E (extended regex), so we use basic pattern matching
+	// This matches all NAT descriptor lines containing the ID:
+	// - nat descriptor type <id> masquerade
 	// - nat descriptor address outer <id> <address>
 	// - nat descriptor address inner <id> <range>
 	// - nat descriptor masquerade static <id> <entry> ...
-	// The previous pattern with trailing space failed to match "type <id> masquerade"
-	// Using word boundary patterns to correctly match the ID regardless of what follows
-	return fmt.Sprintf("show config | grep \"nat descriptor\" | grep -E \"( %d | %d$)\"", id, id)
+	// The parser will filter by exact ID match when needed
+	return fmt.Sprintf("show config | grep \"nat descriptor.*%d\"", id)
 }
 
 // BuildShowAllNATDescriptorsCommand builds command to show all NAT descriptors
