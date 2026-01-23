@@ -55,17 +55,18 @@ func ParseIPv6InterfaceConfig(raw string, interfaceName string) (*IPv6InterfaceC
 	// Patterns for parsing IPv6 interface configuration
 	// ipv6 <interface> address <address>/<prefix>
 	// ipv6 <interface> address <prefix-ref>::<interface-id>/<prefix>
-	ipv6AddrPattern := regexp.MustCompile(`^\s*ipv6\s+` + regexp.QuoteMeta(interfaceName) + `\s+address\s+(\S+)\s*$`)
+	// Note: Use .*$ instead of \s*$ to handle RTX terminal line wrapping
+	ipv6AddrPattern := regexp.MustCompile(`^\s*ipv6\s+` + regexp.QuoteMeta(interfaceName) + `\s+address\s+(\S+).*$`)
 	// ipv6 <interface> rtadv send <prefix_id> [o_flag=on|off] [m_flag=on|off] [lifetime=<seconds>]
-	rtadvPattern := regexp.MustCompile(`^\s*ipv6\s+` + regexp.QuoteMeta(interfaceName) + `\s+rtadv\s+send\s+(.+)\s*$`)
+	rtadvPattern := regexp.MustCompile(`^\s*ipv6\s+` + regexp.QuoteMeta(interfaceName) + `\s+rtadv\s+send\s+(.+)$`)
 	// ipv6 <interface> dhcp service server|client
-	dhcpPattern := regexp.MustCompile(`^\s*ipv6\s+` + regexp.QuoteMeta(interfaceName) + `\s+dhcp\s+service\s+(server|client)\s*$`)
+	dhcpPattern := regexp.MustCompile(`^\s*ipv6\s+` + regexp.QuoteMeta(interfaceName) + `\s+dhcp\s+service\s+(server|client).*$`)
 	// ipv6 <interface> mtu <size>
-	mtuPattern := regexp.MustCompile(`^\s*ipv6\s+` + regexp.QuoteMeta(interfaceName) + `\s+mtu\s+(\d+)\s*$`)
+	mtuPattern := regexp.MustCompile(`^\s*ipv6\s+` + regexp.QuoteMeta(interfaceName) + `\s+mtu\s+(\d+).*$`)
 	// ipv6 <interface> secure filter in <filter_list>
-	filterInPattern := regexp.MustCompile(`^\s*ipv6\s+` + regexp.QuoteMeta(interfaceName) + `\s+secure\s+filter\s+in\s+(.+)\s*$`)
+	filterInPattern := regexp.MustCompile(`^\s*ipv6\s+` + regexp.QuoteMeta(interfaceName) + `\s+secure\s+filter\s+in\s+(.+)$`)
 	// ipv6 <interface> secure filter out <filter_list> [dynamic <dynamic_filter_list>]
-	filterOutPattern := regexp.MustCompile(`^\s*ipv6\s+` + regexp.QuoteMeta(interfaceName) + `\s+secure\s+filter\s+out\s+(.+)\s*$`)
+	filterOutPattern := regexp.MustCompile(`^\s*ipv6\s+` + regexp.QuoteMeta(interfaceName) + `\s+secure\s+filter\s+out\s+(.+)$`)
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)

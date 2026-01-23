@@ -111,11 +111,12 @@ func ParseEthernetFilterConfig(raw string) ([]EthernetFilter, error) {
 
 	// Pattern for MAC-based filter:
 	// ethernet filter <n> <action> <src_mac> <dst_mac> [<eth_type>] [vlan <vlan_id>]
-	macFilterPattern := regexp.MustCompile(`^\s*ethernet\s+filter\s+(\d+)\s+(pass-log|pass-nolog|reject-log|reject-nolog|pass|reject)\s+(\S+)\s+(\S+)(?:\s+(0x[0-9a-fA-F]+|\*))?(?:\s+vlan\s+(\d+))?\s*$`)
+	// Note: Use .*$ instead of \s*$ to handle RTX terminal line wrapping
+	macFilterPattern := regexp.MustCompile(`^\s*ethernet\s+filter\s+(\d+)\s+(pass-log|pass-nolog|reject-log|reject-nolog|pass|reject)\s+(\S+)\s+(\S+)(?:\s+(0x[0-9a-fA-F]+|\*))?(?:\s+vlan\s+(\d+))?.*$`)
 
 	// Pattern for DHCP-based filter:
 	// ethernet filter <n> <action> dhcp-bind|dhcp-not-bind [<scope>]
-	dhcpFilterPattern := regexp.MustCompile(`^\s*ethernet\s+filter\s+(\d+)\s+(pass-log|pass-nolog|reject-log|reject-nolog|pass|reject)\s+(dhcp-bind|dhcp-not-bind)(?:\s+(\d+))?\s*$`)
+	dhcpFilterPattern := regexp.MustCompile(`^\s*ethernet\s+filter\s+(\d+)\s+(pass-log|pass-nolog|reject-log|reject-nolog|pass|reject)\s+(dhcp-bind|dhcp-not-bind)(?:\s+(\d+))?.*$`)
 
 	// Pattern for filter with offset and byte_list:
 	// ethernet filter <n> <action> <src_mac> [<dst_mac>] offset=<N> <byte1> <byte2> ...
@@ -364,11 +365,12 @@ func ValidateMACAddress(mac string) error {
 //   - 00-11-22-33-44-55 (hyphen-separated)
 //   - 001122334455 (no separator)
 //   - * (wildcard)
+//   - *:*:*:*:*:* (RTX wildcard format)
 func ValidateMAC(mac string) error {
 	mac = strings.TrimSpace(mac)
 
-	// Wildcard is valid
-	if mac == "*" {
+	// Wildcards are valid - both "*" and "*:*:*:*:*:*" formats
+	if mac == "*" || mac == "*:*:*:*:*:*" {
 		return nil
 	}
 
