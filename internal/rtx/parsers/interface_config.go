@@ -361,17 +361,50 @@ func ValidateInterfaceName(name string) error {
 	return nil
 }
 
+// endsWithDigit returns true if the string ends with a digit (0-9)
+// Note: This checks the ORIGINAL string without trimming, because trailing whitespace
+// indicates the number was complete (not a mid-number wrap scenario)
+func endsWithDigit(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	return s[len(s)-1] >= '0' && s[len(s)-1] <= '9'
+}
+
+// startsWithDigit returns true if the string starts with a digit (0-9)
+func startsWithDigit(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	return s[0] >= '0' && s[0] <= '9'
+}
+
 // preprocessWrappedLines handles RTX output where long filter lists wrap to multiple lines.
 // RTX wraps long filter lists by continuing on the next line with just numbers.
 // This function joins those continuation lines back together.
-// Example input:
 //
-//	ip lan2 secure filter in 100 101
-//	102 103 104
+// IMPORTANT: RTX terminal wrapping can split numbers at arbitrary positions.
+// When a line ends with a digit and the ORIGINAL continuation line starts
+// directly with a digit (no leading whitespace), this indicates a mid-number wrap,
+// and we join WITHOUT a space to preserve the number.
+//
+// Example input (mid-number wrap - no leading space on continuation):
+//
+//	ip lan2 secure filter in 200020 20010
+//	0 200102
 //
 // Example output:
 //
-//	ip lan2 secure filter in 100 101 102 103 104
+//	ip lan2 secure filter in 200020 200100 200102
+//
+// Example input (normal wrap - has leading space on continuation):
+//
+//	ip lan2 secure filter in 200020 200021
+//	 200022 200023
+//
+// Example output:
+//
+//	ip lan2 secure filter in 200020 200021 200022 200023
 func preprocessWrappedLines(input string) string {
 	if input == "" {
 		return ""
@@ -396,7 +429,21 @@ func preprocessWrappedLines(input string) string {
 		// Look ahead for continuation lines (lines starting with a digit)
 		for i+1 < len(lines) && continuationPattern.MatchString(strings.TrimSpace(lines[i+1])) {
 			i++
-			line = line + " " + strings.TrimSpace(lines[i])
+			rawNextLine := lines[i]
+			nextLine := strings.TrimSpace(rawNextLine)
+
+			// Check if we need to join without space (mid-number wrap)
+			// Mid-number wrap occurs when:
+			// 1. Current line ends with a digit
+			// 2. Original continuation line starts DIRECTLY with a digit (no leading whitespace)
+			// This distinguishes between:
+			// - "... 20010\n0 ..." -> mid-number wrap (join without space)
+			// - "... 200021\n 200022 ..." -> normal wrap (join with space)
+			if endsWithDigit(line) && startsWithDigit(rawNextLine) {
+				line = line + nextLine // Join without space to preserve the number
+			} else {
+				line = line + " " + nextLine // Join with space
+			}
 		}
 
 		result = append(result, line)

@@ -114,9 +114,9 @@ ip tunnel1 secure filter in 300 301`,
 			},
 		},
 		{
-			name: "wrapped line due to terminal width - filter IDs on continuation",
+			name: "wrapped line due to terminal width - filter IDs on continuation (with leading space)",
 			input: "ip lan2 secure filter in 200020 200021 200022 200023 200024\n" +
-				"200025 200103 200100 200102 200104 200101 200105 200099",
+				" 200025 200103 200100 200102 200104 200101 200105 200099",
 			interfaceName: "lan2",
 			expected: &InterfaceConfig{
 				Name:           "lan2",
@@ -133,9 +133,9 @@ ip tunnel1 secure filter in 300 301`,
 			},
 		},
 		{
-			name: "wrapped filter out with dynamic on separate line",
+			name: "wrapped filter out with dynamic on separate line (with leading space)",
 			input: "ip lan2 secure filter out 200020 200021 200022 200023 200024\n" +
-				"200025 200026 200027 200099 dynamic 200080 200081 200082",
+				" 200025 200026 200027 200099 dynamic 200080 200081 200082",
 			interfaceName: "lan2",
 			expected: &InterfaceConfig{
 				Name:             "lan2",
@@ -144,11 +144,11 @@ ip tunnel1 secure filter in 300 301`,
 			},
 		},
 		{
-			name: "multiple commands with wrapped lines and carriage returns",
+			name: "multiple commands with wrapped lines and carriage returns (with leading space)",
 			input: "description lan2 au\r\n" +
 				"ip lan2 address dhcp\r\n" +
 				"ip lan2 secure filter in 200020 200021 200022 200023 200024 200025\r\n" +
-				"200103 200100 200102 200104 200101 200105 200099\r\n" +
+				" 200103 200100 200102 200104 200101 200105 200099\r\n" +
 				"ip lan2 nat descriptor 1000",
 			interfaceName: "lan2",
 			expected: &InterfaceConfig{
@@ -232,6 +232,39 @@ ip tunnel1 secure filter in 300 301`,
 				Name:             "lan2",
 				SecureFilterOut:  []int{200020, 200021, 200022, 200023, 200024, 200025, 200026},
 				DynamicFilterOut: []int{200080, 200081, 200082},
+			},
+		},
+		// Mid-number wrap fix tests (REQ-1 and REQ-2)
+		{
+			name: "REQ-1: mid-number wrap 200100 split as 20010+0",
+			input: "ip lan2 secure filter in 200020 200021 200022 200023 200024 200025 200103 20010\n" +
+				"0 200102 200104 200101 200105 200099",
+			interfaceName: "lan2",
+			expected: &InterfaceConfig{
+				Name:           "lan2",
+				SecureFilterIn: []int{200020, 200021, 200022, 200023, 200024, 200025, 200103, 200100, 200102, 200104, 200101, 200105, 200099},
+			},
+		},
+		{
+			name: "REQ-1: mid-number wrap 200027 split as 2000+27",
+			input: "ip lan2 secure filter out 200020 200021 200022 200023 200024 200025 200026 2000\n" +
+				"27 200099 dynamic 200080 200081 200082 200083 200084 200085",
+			interfaceName: "lan2",
+			expected: &InterfaceConfig{
+				Name:             "lan2",
+				SecureFilterOut:  []int{200020, 200021, 200022, 200023, 200024, 200025, 200026, 200027, 200099},
+				DynamicFilterOut: []int{200080, 200081, 200082, 200083, 200084, 200085},
+			},
+		},
+		{
+			name: "REQ-1: mid-number wrap with multiple split numbers",
+			input: "ip lan2 secure filter in 20010\n" +
+				"0 20010\n" +
+				"2 200104",
+			interfaceName: "lan2",
+			expected: &InterfaceConfig{
+				Name:           "lan2",
+				SecureFilterIn: []int{200100, 200102, 200104},
 			},
 		},
 	}
@@ -812,18 +845,18 @@ func TestPreprocessWrappedLines(t *testing.T) {
 			expected: "ip lan2 address dhcp\nip lan2 nat descriptor 1000",
 		},
 		{
-			name:     "filter IDs wrapped to new line",
-			input:    "ip lan2 secure filter in 200020 200021\n200022 200023 200024",
+			name:     "filter IDs wrapped to new line (with leading space)",
+			input:    "ip lan2 secure filter in 200020 200021\n 200022 200023 200024",
 			expected: "ip lan2 secure filter in 200020 200021 200022 200023 200024",
 		},
 		{
-			name:     "multiple lines with one wrapped",
-			input:    "ip lan2 address dhcp\nip lan2 secure filter in 100 101\n102 103 104\nip lan2 nat descriptor 1",
+			name:     "multiple lines with one wrapped (with leading space)",
+			input:    "ip lan2 address dhcp\nip lan2 secure filter in 100 101\n 102 103 104\nip lan2 nat descriptor 1",
 			expected: "ip lan2 address dhcp\nip lan2 secure filter in 100 101 102 103 104\nip lan2 nat descriptor 1",
 		},
 		{
-			name:     "carriage returns in input",
-			input:    "ip lan2 address dhcp\r\nip lan2 secure filter in 100\r\n101 102\r\nip lan2 nat descriptor 1",
+			name:     "carriage returns in input (with leading space)",
+			input:    "ip lan2 address dhcp\r\nip lan2 secure filter in 100\r\n 101 102\r\nip lan2 nat descriptor 1",
 			expected: "ip lan2 address dhcp\nip lan2 secure filter in 100 101 102\nip lan2 nat descriptor 1",
 		},
 		{
@@ -842,8 +875,8 @@ func TestPreprocessWrappedLines(t *testing.T) {
 			expected: "description lan2 test\nip lan2 address dhcp",
 		},
 		{
-			name:     "multiple wrapped continuations",
-			input:    "ip lan2 secure filter in 1 2 3\n4 5 6\n7 8 9\nip lan2 nat descriptor 1",
+			name:     "multiple wrapped continuations (with leading space)",
+			input:    "ip lan2 secure filter in 1 2 3\n 4 5 6\n 7 8 9\nip lan2 nat descriptor 1",
 			expected: "ip lan2 secure filter in 1 2 3 4 5 6 7 8 9\nip lan2 nat descriptor 1",
 		},
 		{
@@ -861,6 +894,42 @@ func TestPreprocessWrappedLines(t *testing.T) {
 			input:    "ip lan2 secure filter out 200020 200021 200022 200023 200024\n 200025 200026 dynamic 200080 200081 200082",
 			expected: "ip lan2 secure filter out 200020 200021 200022 200023 200024 200025 200026 dynamic 200080 200081 200082",
 		},
+		// Mid-number wrap tests (REQ-1 and REQ-2)
+		{
+			name:     "mid-number wrap: 200100 split as 20010+0",
+			input:    "ip lan2 secure filter in 200020 20010\n0 200102",
+			expected: "ip lan2 secure filter in 200020 200100 200102",
+		},
+		{
+			name:     "mid-number wrap: 200027 split as 2000+27",
+			input:    "ip lan2 secure filter out 200020 2000\n27 200099",
+			expected: "ip lan2 secure filter out 200020 200027 200099",
+		},
+		{
+			name:     "mid-number wrap: multiple numbers split",
+			input:    "ip lan2 secure filter in 20010\n0 20010\n2",
+			expected: "ip lan2 secure filter in 200100 200102",
+		},
+		{
+			name:     "mid-number wrap: with dynamic keyword after",
+			input:    "ip lan2 secure filter out 200020 2000\n27 dynamic 200080",
+			expected: "ip lan2 secure filter out 200020 200027 dynamic 200080",
+		},
+		{
+			name:     "mid-number wrap: IPv6 dynamic filter 101085 split as 1+01085",
+			input:    "ipv6 lan2 secure filter out 100020 dynamic 1\n01085 101086",
+			expected: "ipv6 lan2 secure filter out 100020 dynamic 101085 101086",
+		},
+		{
+			name:     "no mid-number wrap: line ends with space before digit line",
+			input:    "ip lan2 secure filter in 200020 200021 \n200022 200023",
+			expected: "ip lan2 secure filter in 200020 200021  200022 200023",
+		},
+		{
+			name:     "mid-number wrap: realistic RTX output at 80 chars",
+			input:    "ip lan2 secure filter in 200020 200021 200022 200023 200024 200025 200103 20010\n0 200102 200104 200101 200105 200099",
+			expected: "ip lan2 secure filter in 200020 200021 200022 200023 200024 200025 200103 200100 200102 200104 200101 200105 200099",
+		},
 	}
 
 	for _, tt := range tests {
@@ -868,6 +937,59 @@ func TestPreprocessWrappedLines(t *testing.T) {
 			result := preprocessWrappedLines(tt.input)
 			if result != tt.expected {
 				t.Errorf("preprocessWrappedLines() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestEndsWithDigit(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected bool
+	}{
+		{"200020", true},
+		{"200020 ", false},  // trailing space means number is complete, not mid-wrap
+		{"200020\t", false}, // trailing tab means number is complete, not mid-wrap
+		{"dynamic", false},
+		{"dynamic ", false},
+		{"", false},
+		{"a", false},
+		{"1", true},
+		{"abc123", true},
+		{"123abc", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := endsWithDigit(tt.input)
+			if result != tt.expected {
+				t.Errorf("endsWithDigit(%q) = %v, want %v", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestStartsWithDigit(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected bool
+	}{
+		{"200020", true},
+		{"0 200102", true},
+		{"dynamic", false},
+		{" 200020", false}, // leading space means not starting with digit
+		{"", false},
+		{"a", false},
+		{"1", true},
+		{"123abc", true},
+		{"abc123", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := startsWithDigit(tt.input)
+			if result != tt.expected {
+				t.Errorf("startsWithDigit(%q) = %v, want %v", tt.input, result, tt.expected)
 			}
 		})
 	}
