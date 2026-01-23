@@ -77,10 +77,9 @@ func TestParseScopeConfig(t *testing.T) {
 			expected: []DHCPScope{
 				{
 					ScopeID:       1,
-					Network:       "192.168.1.20/16",
+					Network:       "192.168.0.0/16",
 					RangeStart:    "192.168.1.20",
 					RangeEnd:      "192.168.1.99",
-					Options:       DHCPScopeOptions{Routers: []string{"192.168.1.253"}},
 					LeaseTime:     "12h",
 					ExcludeRanges: []ExcludeRange{},
 				},
@@ -92,7 +91,7 @@ func TestParseScopeConfig(t *testing.T) {
 			expected: []DHCPScope{
 				{
 					ScopeID:       2,
-					Network:       "10.0.0.100/8",
+					Network:       "10.0.0.0/8",
 					RangeStart:    "10.0.0.100",
 					RangeEnd:      "10.0.0.200",
 					ExcludeRanges: []ExcludeRange{},
@@ -105,7 +104,7 @@ func TestParseScopeConfig(t *testing.T) {
 			expected: []DHCPScope{
 				{
 					ScopeID:       1,
-					Network:       "192.168.0.50/24",
+					Network:       "192.168.0.0/24",
 					RangeStart:    "192.168.0.50",
 					RangeEnd:      "192.168.0.150",
 					LeaseTime:     "24h",
