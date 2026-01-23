@@ -9,6 +9,8 @@ import (
 )
 
 // DefaultConfigPath is the fallback path when config number cannot be detected
+// RTX routers store config files in /system/configN format
+// Note: Absolute path with leading "/" is required for RTX SFTP access
 const DefaultConfigPath = "/system/config0"
 
 // ConfigPathResolver resolves the SFTP path for the router's startup configuration file.

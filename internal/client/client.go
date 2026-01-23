@@ -27,6 +27,7 @@ type rtxClient struct {
 	semaphore      chan struct{} // Limits concurrent operations
 
 	mu                    sync.Mutex
+	configDownloadMu      sync.Mutex // Ensures only one config download at a time
 	session               Session
 	executor              Executor
 	active                bool
@@ -193,6 +194,10 @@ func (c *rtxClient) Dial(ctx context.Context) error {
 	c.ipv6InterfaceService = NewIPv6InterfaceService(c.executor, c)
 	c.ddnsService = NewDDNSService(c.executor, c)
 	c.pppService = NewPPPService(c.executor, c)
+
+	// Note: SFTP client is created lazily on first use in downloadConfigViaSFTP()
+	// to avoid idle connection timeout issues with RTX routers
+
 	c.active = true
 	return nil
 }
@@ -210,6 +215,9 @@ func (c *rtxClient) Close() error {
 	if c.session != nil {
 		err = c.session.Close()
 	}
+
+	// Note: SFTP client is created and closed within downloadConfigViaSFTP, no cleanup needed here
+
 	c.active = false
 	c.session = nil
 	c.executor = nil
@@ -3899,6 +3907,7 @@ func (c *rtxClient) ResetPPInterfaceConfig(ctx context.Context, ppNum int) error
 // If SFTP is enabled and cache is empty/dirty, it downloads the config via SFTP.
 // On SFTP failure, it falls back to SSH "show config" command with a warning log.
 // This method is the primary entry point for resource reads that need config data.
+// Only one download happens at a time; other callers wait and use the cached result.
 func (c *rtxClient) GetCachedConfig(ctx context.Context) (*parsers.ParsedConfig, error) {
 	c.mu.Lock()
 	if !c.active {
@@ -3907,11 +3916,21 @@ func (c *rtxClient) GetCachedConfig(ctx context.Context) (*parsers.ParsedConfig,
 	}
 	cache := c.configCache
 	config := c.config
-	sftpClient := c.sftpClient
 	executor := c.executor
 	c.mu.Unlock()
 
-	// Check if cache is valid and not dirty
+	// Check if cache is valid and not dirty (fast path - no lock needed for read)
+	if cache != nil && cache.IsValid() && !cache.IsDirty() {
+		if parsed, ok := cache.Get(); ok {
+			return parsed, nil
+		}
+	}
+
+	// Acquire download lock to ensure only one download at a time
+	c.configDownloadMu.Lock()
+	defer c.configDownloadMu.Unlock()
+
+	// Re-check cache after acquiring lock - another goroutine may have populated it
 	if cache != nil && cache.IsValid() && !cache.IsDirty() {
 		if parsed, ok := cache.Get(); ok {
 			return parsed, nil
@@ -3922,9 +3941,9 @@ func (c *rtxClient) GetCachedConfig(ctx context.Context) (*parsers.ParsedConfig,
 	var rawContent []byte
 	var err error
 
-	// Try SFTP if enabled
-	if config.SFTPEnabled && sftpClient != nil {
-		rawContent, err = c.downloadConfigViaSFTP(ctx, sftpClient, executor)
+	// Try SFTP if enabled (creates fresh connection to avoid idle timeout)
+	if config.SFTPEnabled {
+		rawContent, err = c.downloadConfigViaSFTP(ctx, executor)
 		if err != nil {
 			// Log warning and fall back to SSH
 			logger.Warn().Err(err).Msg("SFTP config download failed, falling back to SSH")
@@ -3934,7 +3953,7 @@ func (c *rtxClient) GetCachedConfig(ctx context.Context) (*parsers.ParsedConfig,
 			}
 		}
 	} else {
-		// SFTP disabled or client not available, use SSH
+		// SFTP disabled, use SSH
 		rawContent, err = c.downloadConfigViaSSH(ctx, executor)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get config via SSH: %w", err)
@@ -3957,14 +3976,64 @@ func (c *rtxClient) GetCachedConfig(ctx context.Context) (*parsers.ParsedConfig,
 }
 
 // downloadConfigViaSFTP downloads the router config via SFTP.
-// It resolves the config path using ConfigPathResolver and downloads the file.
-func (c *rtxClient) downloadConfigViaSFTP(ctx context.Context, sftpClient SFTPClient, executor Executor) ([]byte, error) {
+// It creates a fresh SFTP connection, resolves the config path, downloads the file, and closes the connection.
+// Using a fresh connection avoids idle timeout issues with RTX routers.
+// preloadConfigViaSFTP downloads config via SFTP before SSH connection is established.
+// This is called from Dial() to avoid RTX's concurrent SSH connection limit.
+// Since executor doesn't exist yet, we use DefaultConfigPath or SFTPConfigPath.
+func (c *rtxClient) preloadConfigViaSFTP(ctx context.Context) error {
 	logger := logging.FromContext(ctx)
+
+	// Create SFTP client
+	sftpClient, err := NewSFTPClient(ctx, c.config)
+	if err != nil {
+		return fmt.Errorf("failed to create SFTP client: %w", err)
+	}
+	defer sftpClient.Close()
+
+	// Use configured path or default (no executor available for auto-detection)
+	configPath := c.config.SFTPConfigPath
+	if configPath == "" {
+		configPath = DefaultConfigPath
+	}
+
+	logger.Debug().Str("path", configPath).Msg("Preloading config via SFTP")
+
+	// Download the config file
+	content, err := sftpClient.Download(ctx, configPath)
+	if err != nil {
+		return fmt.Errorf("SFTP download failed for %s: %w", configPath, err)
+	}
+
+	logger.Debug().Int("bytes", len(content)).Msg("SFTP preload successful")
+
+	// Parse and cache the config
+	parser := parsers.NewConfigFileParser()
+	parsed, err := parser.Parse(string(content))
+	if err != nil {
+		return fmt.Errorf("failed to parse config: %w", err)
+	}
+
+	c.configCache.Set(string(content), parsed)
+	logger.Info().Msg("Config preloaded via SFTP and cached")
+	return nil
+}
+
+func (c *rtxClient) downloadConfigViaSFTP(ctx context.Context, executor Executor) ([]byte, error) {
+	logger := logging.FromContext(ctx)
+
+	// Create a fresh SFTP client for this download to avoid idle timeout issues
+	sftpClient, err := NewSFTPClient(ctx, c.config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create SFTP client: %w", err)
+	}
+	defer sftpClient.Close()
 
 	// Resolve the config path
 	var configPath string
 	if c.config.SFTPConfigPath != "" {
 		configPath = c.config.SFTPConfigPath
+		logger.Debug().Str("path", configPath).Msg("Using configured SFTPConfigPath")
 	} else {
 		// Auto-detect config path using show environment
 		resolver := NewConfigPathResolver(executor)
