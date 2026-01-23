@@ -546,7 +546,7 @@ func calculateNetworkAddress(ip string, prefixLen string) string {
 	var mask uint32 = 0xFFFFFFFF << (32 - prefix)
 
 	// Convert IP to 32-bit integer
-	var ipInt uint32 = uint32(octets[0])<<24 | uint32(octets[1])<<16 | uint32(octets[2])<<8 | uint32(octets[3])
+	ipInt := uint32(octets[0])<<24 | uint32(octets[1])<<16 | uint32(octets[2])<<8 | uint32(octets[3])
 
 	// Apply mask to get network address
 	networkInt := ipInt & mask
