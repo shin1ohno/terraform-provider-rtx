@@ -204,6 +204,7 @@ func resourceRTXL2TP() *schema.Resource {
 						"tunnel_auth_password": {
 							Type:        schema.TypeString,
 							Optional:    true,
+							Computed:    true, // Preserve imported value when not specified in config
 							Sensitive:   true,
 							Description: "Tunnel authentication password.",
 						},
