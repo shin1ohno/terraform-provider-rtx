@@ -9,7 +9,8 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
 
 jobs:
   build:
@@ -50,10 +51,46 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-  lint:
-    name: Lint
+  lint-and-generate:
+    name: Lint and Generate
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Run golangci-lint with auto-fix
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --fix
+
+      - name: Run go generate
+        run: go generate ./...
+
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        if: github.event_name == 'pull_request'
+        with:
+          commit_message: "ci: auto-fix lint and regenerate files"
+          file_pattern: "*.go docs/"
+
+  lint-check:
+    name: Lint Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
 
@@ -67,10 +104,11 @@ jobs:
         with:
           version: latest
 
-  generate:
-    name: Generate
+  generate-check:
+    name: Generate Check
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    if: github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
 
