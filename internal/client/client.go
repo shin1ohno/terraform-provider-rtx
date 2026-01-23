@@ -3366,21 +3366,84 @@ func (c *rtxClient) DeleteIPFilterDynamicConfig(ctx context.Context) error {
 	return fmt.Errorf("IP filter dynamic config not implemented")
 }
 
-// IPv6 Filter Dynamic Config stub implementations
+// GetIPv6FilterDynamicConfig retrieves the IPv6 filter dynamic configuration
 func (c *rtxClient) GetIPv6FilterDynamicConfig(ctx context.Context) (*IPv6FilterDynamicConfig, error) {
-	return nil, fmt.Errorf("IPv6 filter dynamic config not implemented")
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	ipFilterService := c.ipFilterService
+	c.mu.Unlock()
+
+	if ipFilterService == nil {
+		return nil, fmt.Errorf("IP filter service not initialized")
+	}
+
+	return ipFilterService.GetIPv6FilterDynamicConfig(ctx)
 }
 
+// CreateIPv6FilterDynamicConfig creates the IPv6 filter dynamic configuration
 func (c *rtxClient) CreateIPv6FilterDynamicConfig(ctx context.Context, config IPv6FilterDynamicConfig) error {
-	return fmt.Errorf("IPv6 filter dynamic config not implemented")
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	ipFilterService := c.ipFilterService
+	c.mu.Unlock()
+
+	if ipFilterService == nil {
+		return fmt.Errorf("IP filter service not initialized")
+	}
+
+	return ipFilterService.CreateIPv6FilterDynamicConfig(ctx, config)
 }
 
+// UpdateIPv6FilterDynamicConfig updates the IPv6 filter dynamic configuration
 func (c *rtxClient) UpdateIPv6FilterDynamicConfig(ctx context.Context, config IPv6FilterDynamicConfig) error {
-	return fmt.Errorf("IPv6 filter dynamic config not implemented")
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	ipFilterService := c.ipFilterService
+	c.mu.Unlock()
+
+	if ipFilterService == nil {
+		return fmt.Errorf("IP filter service not initialized")
+	}
+
+	return ipFilterService.UpdateIPv6FilterDynamicConfig(ctx, config)
 }
 
+// DeleteIPv6FilterDynamicConfig removes all IPv6 filter dynamic entries
 func (c *rtxClient) DeleteIPv6FilterDynamicConfig(ctx context.Context) error {
-	return fmt.Errorf("IPv6 filter dynamic config not implemented")
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	ipFilterService := c.ipFilterService
+	c.mu.Unlock()
+
+	if ipFilterService == nil {
+		return fmt.Errorf("IP filter service not initialized")
+	}
+
+	// Get current config to extract filter numbers
+	config, err := ipFilterService.GetIPv6FilterDynamicConfig(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get IPv6 filter dynamic config: %w", err)
+	}
+
+	// Extract filter numbers from entries
+	filterNums := make([]int, 0, len(config.Entries))
+	for _, entry := range config.Entries {
+		filterNums = append(filterNums, entry.Number)
+	}
+
+	return ipFilterService.DeleteIPv6FilterDynamicConfig(ctx, filterNums)
 }
 
 // Interface ACL stub implementations
