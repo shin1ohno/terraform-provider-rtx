@@ -3,6 +3,8 @@ package client
 import (
 	"context"
 	"time"
+
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 // Client is the main interface for interacting with RTX routers
@@ -719,6 +721,21 @@ type Client interface {
 
 	// ResetPPInterfaceConfig removes PP interface IP configuration
 	ResetPPInterfaceConfig(ctx context.Context, ppNum int) error
+
+	// SFTP Configuration Cache methods
+	// GetCachedConfig retrieves the router configuration, using cache when available.
+	// If SFTP is enabled and cache is empty/dirty, it downloads the config via SFTP.
+	// On SFTP failure, it falls back to SSH "show config" command.
+	GetCachedConfig(ctx context.Context) (*parsers.ParsedConfig, error)
+
+	// SFTPEnabled returns whether SFTP-based configuration reading is enabled
+	SFTPEnabled() bool
+
+	// InvalidateCache clears the cached configuration, forcing a fresh download on next access
+	InvalidateCache()
+
+	// MarkCacheDirty marks the cached configuration as potentially stale
+	MarkCacheDirty()
 }
 
 // Interface represents a network interface on an RTX router
@@ -876,6 +893,8 @@ type Config struct {
 	KnownHostsFile   string // Path to known_hosts file
 	SkipHostKeyCheck bool   // Skip host key verification (insecure)
 	MaxParallelism   int    // Maximum number of concurrent operations (default: 6)
+	SFTPEnabled      bool   // Enable SFTP-based configuration reading for faster bulk operations
+	SFTPConfigPath   string // SFTP path to config file (e.g., "/system/config0"); empty for auto-detect
 }
 
 // InterfaceConfig represents interface configuration on an RTX router

@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 func resourceRTXStaticRoute() *schema.Resource {
@@ -108,23 +109,49 @@ func resourceRTXStaticRouteCreate(ctx context.Context, d *schema.ResourceData, m
 
 func resourceRTXStaticRouteRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
 
 	prefix, mask, err := parseStaticRouteID(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid resource ID: %v", err)
 	}
 
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_static_route").Msgf("Reading static route: %s/%s", prefix, mask)
+	logger.Debug().Str("resource", "rtx_static_route").Msgf("Reading static route: %s/%s", prefix, mask)
 
-	route, err := apiClient.client.GetStaticRoute(ctx, prefix, mask)
-	if err != nil {
-		// Check if route doesn't exist
-		if strings.Contains(err.Error(), "not found") {
-			logging.FromContext(ctx).Debug().Str("resource", "rtx_static_route").Msgf("Static route %s/%s not found, removing from state", prefix, mask)
-			d.SetId("")
-			return nil
+	var route *client.StaticRoute
+
+	// Try to use SFTP cache if enabled
+	if apiClient.client.SFTPEnabled() {
+		parsedConfig, err := apiClient.client.GetCachedConfig(ctx)
+		if err == nil && parsedConfig != nil {
+			// Extract static routes from parsed config
+			routes := parsedConfig.ExtractStaticRoutes()
+			for i := range routes {
+				if routes[i].Prefix == prefix && routes[i].Mask == mask {
+					route = convertParsedStaticRoute(&routes[i])
+					logger.Debug().Str("resource", "rtx_static_route").Msg("Found route in SFTP cache")
+					break
+				}
+			}
 		}
-		return diag.Errorf("Failed to read static route: %v", err)
+		if route == nil {
+			// Route not found in cache or cache error, fallback to SSH
+			logger.Debug().Str("resource", "rtx_static_route").Msg("Route not in cache, falling back to SSH")
+		}
+	}
+
+	// Fallback to SSH if SFTP disabled or route not found in cache
+	if route == nil {
+		route, err = apiClient.client.GetStaticRoute(ctx, prefix, mask)
+		if err != nil {
+			// Check if route doesn't exist
+			if strings.Contains(err.Error(), "not found") {
+				logger.Debug().Str("resource", "rtx_static_route").Msgf("Static route %s/%s not found, removing from state", prefix, mask)
+				d.SetId("")
+				return nil
+			}
+			return diag.Errorf("Failed to read static route: %v", err)
+		}
 	}
 
 	// Update the state
@@ -151,6 +178,25 @@ func resourceRTXStaticRouteRead(ctx context.Context, d *schema.ResourceData, met
 	}
 
 	return nil
+}
+
+// convertParsedStaticRoute converts a parser StaticRoute to a client StaticRoute
+func convertParsedStaticRoute(parsed *parsers.StaticRoute) *client.StaticRoute {
+	route := &client.StaticRoute{
+		Prefix:   parsed.Prefix,
+		Mask:     parsed.Mask,
+		NextHops: make([]client.StaticRouteHop, len(parsed.NextHops)),
+	}
+	for i, hop := range parsed.NextHops {
+		route.NextHops[i] = client.StaticRouteHop{
+			NextHop:   hop.NextHop,
+			Interface: hop.Interface,
+			Distance:  hop.Distance,
+			Permanent: hop.Permanent,
+			Filter:    hop.Filter,
+		}
+	}
+	return route
 }
 
 func resourceRTXStaticRouteUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {

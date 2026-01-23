@@ -99,6 +99,18 @@ func New(version string) *schema.Provider {
 				DefaultFunc: schema.EnvDefaultFunc("RTX_MAX_PARALLELISM", 4),
 				Description: "Maximum number of concurrent operations. RTX routers support up to 8 simultaneous SSH connections, but lower values are more stable. Defaults to 4. Can be set with RTX_MAX_PARALLELISM environment variable.",
 			},
+			"sftp_enabled": {
+				Type:        schema.TypeBool,
+				Optional:    true,
+				DefaultFunc: schema.EnvDefaultFunc("RTX_SFTP_ENABLED", false),
+				Description: "Enable SFTP-based configuration reading for faster bulk operations. Defaults to false. Can be set with RTX_SFTP_ENABLED environment variable.",
+			},
+			"sftp_config_path": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				DefaultFunc: schema.EnvDefaultFunc("RTX_SFTP_CONFIG_PATH", ""),
+				Description: "SFTP path to the configuration file (e.g., /system/config0). If empty, the path will be auto-detected. Can be set with RTX_SFTP_CONFIG_PATH environment variable.",
+			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
 			"rtx_access_list_extended":      resourceRTXAccessListExtended(),
@@ -177,6 +189,8 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	knownHostsFile := d.Get("known_hosts_file").(string)
 	skipHostKeyCheck := d.Get("skip_host_key_check").(bool)
 	maxParallelism := d.Get("max_parallelism").(int)
+	sftpEnabled := d.Get("sftp_enabled").(bool)
+	sftpConfigPath := d.Get("sftp_config_path").(string)
 
 	// If admin_password is not set, use the same as password
 	if adminPassword == "" {
@@ -204,6 +218,8 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		KnownHostsFile:   knownHostsFile,
 		SkipHostKeyCheck: skipHostKeyCheck,
 		MaxParallelism:   maxParallelism,
+		SFTPEnabled:      sftpEnabled,
+		SFTPConfigPath:   sftpConfigPath,
 	}
 
 	// Create SSH client with default options

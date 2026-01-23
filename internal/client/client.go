@@ -8,6 +8,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
@@ -29,6 +30,8 @@ type rtxClient struct {
 	session               Session
 	executor              Executor
 	active                bool
+	configCache           *ConfigCache // Cache for SFTP-based config reading
+	sftpClient            SFTPClient   // Optional SFTP client for fast config download
 	dhcpService           *DHCPService
 	dhcpScopeService      *DHCPScopeService
 	ipv6PrefixService     *IPv6PrefixService
@@ -78,6 +81,7 @@ func NewClient(config *Config, opts ...Option) (Client, error) {
 		parsers:        make(map[string]Parser),
 		retryStrategy:  &noRetry{},
 		semaphore:      make(chan struct{}, maxParallelism),
+		configCache:    NewConfigCache(),
 	}
 
 	// Apply options
@@ -3889,4 +3893,143 @@ func (c *rtxClient) ResetPPInterfaceConfig(ctx context.Context, ppNum int) error
 	}
 
 	return pppService.ResetIPConfigForPP(ctx, ppNum)
+}
+
+// GetCachedConfig retrieves the router configuration, using cache when available.
+// If SFTP is enabled and cache is empty/dirty, it downloads the config via SFTP.
+// On SFTP failure, it falls back to SSH "show config" command with a warning log.
+// This method is the primary entry point for resource reads that need config data.
+func (c *rtxClient) GetCachedConfig(ctx context.Context) (*parsers.ParsedConfig, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	cache := c.configCache
+	config := c.config
+	sftpClient := c.sftpClient
+	executor := c.executor
+	c.mu.Unlock()
+
+	// Check if cache is valid and not dirty
+	if cache != nil && cache.IsValid() && !cache.IsDirty() {
+		if parsed, ok := cache.Get(); ok {
+			return parsed, nil
+		}
+	}
+
+	logger := logging.FromContext(ctx)
+	var rawContent []byte
+	var err error
+
+	// Try SFTP if enabled
+	if config.SFTPEnabled && sftpClient != nil {
+		rawContent, err = c.downloadConfigViaSFTP(ctx, sftpClient, executor)
+		if err != nil {
+			// Log warning and fall back to SSH
+			logger.Warn().Err(err).Msg("SFTP config download failed, falling back to SSH")
+			rawContent, err = c.downloadConfigViaSSH(ctx, executor)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get config via SSH fallback: %w", err)
+			}
+		}
+	} else {
+		// SFTP disabled or client not available, use SSH
+		rawContent, err = c.downloadConfigViaSSH(ctx, executor)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get config via SSH: %w", err)
+		}
+	}
+
+	// Parse the config
+	parser := parsers.NewConfigFileParser()
+	parsed, err := parser.Parse(string(rawContent))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse config: %w", err)
+	}
+
+	// Update cache
+	if cache != nil {
+		cache.Set(string(rawContent), parsed)
+	}
+
+	return parsed, nil
+}
+
+// downloadConfigViaSFTP downloads the router config via SFTP.
+// It resolves the config path using ConfigPathResolver and downloads the file.
+func (c *rtxClient) downloadConfigViaSFTP(ctx context.Context, sftpClient SFTPClient, executor Executor) ([]byte, error) {
+	logger := logging.FromContext(ctx)
+
+	// Resolve the config path
+	var configPath string
+	if c.config.SFTPConfigPath != "" {
+		configPath = c.config.SFTPConfigPath
+	} else {
+		// Auto-detect config path using show environment
+		resolver := NewConfigPathResolver(executor)
+		resolvedPath, err := resolver.Resolve(ctx)
+		if err != nil {
+			logger.Debug().Err(err).Msg("Config path resolution failed, using default")
+			configPath = DefaultConfigPath
+		} else {
+			configPath = resolvedPath
+		}
+	}
+
+	logger.Debug().Str("path", configPath).Msg("Downloading config via SFTP")
+
+	// Download the config file
+	content, err := sftpClient.Download(ctx, configPath)
+	if err != nil {
+		return nil, fmt.Errorf("SFTP download failed for %s: %w", configPath, err)
+	}
+
+	logger.Debug().Int("bytes", len(content)).Msg("SFTP download successful")
+	return content, nil
+}
+
+// downloadConfigViaSSH downloads the router config via SSH "show config" command.
+func (c *rtxClient) downloadConfigViaSSH(ctx context.Context, executor Executor) ([]byte, error) {
+	logger := logging.FromContext(ctx)
+	logger.Debug().Msg("Downloading config via SSH")
+
+	output, err := executor.Run(ctx, "show config")
+	if err != nil {
+		return nil, fmt.Errorf("show config command failed: %w", err)
+	}
+
+	logger.Debug().Int("bytes", len(output)).Msg("SSH config download successful")
+	return output, nil
+}
+
+// InvalidateCache clears the cached configuration, forcing a fresh download on next access.
+// Call this after operations that significantly change the router configuration.
+func (c *rtxClient) InvalidateCache() {
+	c.mu.Lock()
+	cache := c.configCache
+	c.mu.Unlock()
+
+	if cache != nil {
+		cache.Invalidate()
+	}
+}
+
+// MarkCacheDirty marks the cached configuration as potentially stale.
+// Call this after write operations. The cache will be refreshed on next GetCachedConfig call.
+func (c *rtxClient) MarkCacheDirty() {
+	c.mu.Lock()
+	cache := c.configCache
+	c.mu.Unlock()
+
+	if cache != nil {
+		cache.MarkDirty()
+	}
+}
+
+// SFTPEnabled returns whether SFTP-based configuration reading is enabled
+func (c *rtxClient) SFTPEnabled() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.config != nil && c.config.SFTPEnabled
 }

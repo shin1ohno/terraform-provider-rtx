@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 func resourceRTXDHCPScope() *schema.Resource {
@@ -144,23 +145,49 @@ func resourceRTXDHCPScopeCreate(ctx context.Context, d *schema.ResourceData, met
 
 func resourceRTXDHCPScopeRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
 
 	scopeID, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid resource ID: %v", err)
 	}
 
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_dhcp_scope").Msgf("Reading DHCP scope: %d", scopeID)
+	logger.Debug().Str("resource", "rtx_dhcp_scope").Msgf("Reading DHCP scope: %d", scopeID)
 
-	scope, err := apiClient.client.GetDHCPScope(ctx, scopeID)
-	if err != nil {
-		// Check if scope doesn't exist
-		if strings.Contains(err.Error(), "not found") {
-			logging.FromContext(ctx).Debug().Str("resource", "rtx_dhcp_scope").Msgf("DHCP scope %d not found, removing from state", scopeID)
-			d.SetId("")
-			return nil
+	var scope *client.DHCPScope
+
+	// Try to use SFTP cache if enabled
+	if apiClient.client.SFTPEnabled() {
+		parsedConfig, err := apiClient.client.GetCachedConfig(ctx)
+		if err == nil && parsedConfig != nil {
+			// Extract DHCP scopes from parsed config
+			scopes := parsedConfig.ExtractDHCPScopes()
+			for i := range scopes {
+				if scopes[i].ScopeID == scopeID {
+					scope = convertParsedDHCPScope(&scopes[i])
+					logger.Debug().Str("resource", "rtx_dhcp_scope").Msg("Found scope in SFTP cache")
+					break
+				}
+			}
 		}
-		return diag.Errorf("Failed to read DHCP scope: %v", err)
+		if scope == nil {
+			// Scope not found in cache or cache error, fallback to SSH
+			logger.Debug().Str("resource", "rtx_dhcp_scope").Msg("Scope not in cache, falling back to SSH")
+		}
+	}
+
+	// Fallback to SSH if SFTP disabled or scope not found in cache
+	if scope == nil {
+		scope, err = apiClient.client.GetDHCPScope(ctx, scopeID)
+		if err != nil {
+			// Check if scope doesn't exist
+			if strings.Contains(err.Error(), "not found") {
+				logger.Debug().Str("resource", "rtx_dhcp_scope").Msgf("DHCP scope %d not found, removing from state", scopeID)
+				d.SetId("")
+				return nil
+			}
+			return diag.Errorf("Failed to read DHCP scope: %v", err)
+		}
 	}
 
 	// Update the state
@@ -207,6 +234,30 @@ func resourceRTXDHCPScopeRead(ctx context.Context, d *schema.ResourceData, meta 
 	}
 
 	return nil
+}
+
+// convertParsedDHCPScope converts a parser DHCPScope to a client DHCPScope
+func convertParsedDHCPScope(parsed *parsers.DHCPScope) *client.DHCPScope {
+	scope := &client.DHCPScope{
+		ScopeID:    parsed.ScopeID,
+		Network:    parsed.Network,
+		RangeStart: parsed.RangeStart,
+		RangeEnd:   parsed.RangeEnd,
+		LeaseTime:  parsed.LeaseTime,
+		Options: client.DHCPScopeOptions{
+			Routers:    parsed.Options.Routers,
+			DNSServers: parsed.Options.DNSServers,
+			DomainName: parsed.Options.DomainName,
+		},
+		ExcludeRanges: make([]client.ExcludeRange, len(parsed.ExcludeRanges)),
+	}
+	for i, r := range parsed.ExcludeRanges {
+		scope.ExcludeRanges[i] = client.ExcludeRange{
+			Start: r.Start,
+			End:   r.End,
+		}
+	}
+	return scope
 }
 
 func resourceRTXDHCPScopeUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {

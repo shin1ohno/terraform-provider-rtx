@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 func resourceRTXNATMasquerade() *schema.Resource {
@@ -124,6 +125,7 @@ func resourceRTXNATMasqueradeCreate(ctx context.Context, d *schema.ResourceData,
 
 func resourceRTXNATMasqueradeRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
 
 	// Parse the ID
 	descriptorID, err := parseNATMasqueradeID(d.Id())
@@ -131,17 +133,42 @@ func resourceRTXNATMasqueradeRead(ctx context.Context, d *schema.ResourceData, m
 		return diag.Errorf("Invalid resource ID: %v", err)
 	}
 
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_nat_masquerade").Msgf("Reading NAT Masquerade: %d", descriptorID)
+	logger.Debug().Str("resource", "rtx_nat_masquerade").Msgf("Reading NAT Masquerade: %d", descriptorID)
 
-	nat, err := apiClient.client.GetNATMasquerade(ctx, descriptorID)
-	if err != nil {
-		// Check if NAT masquerade doesn't exist
-		if strings.Contains(err.Error(), "not found") {
-			logging.FromContext(ctx).Debug().Str("resource", "rtx_nat_masquerade").Msgf("NAT Masquerade %d not found, removing from state", descriptorID)
-			d.SetId("")
-			return nil
+	var nat *client.NATMasquerade
+
+	// Try to use SFTP cache if enabled
+	if apiClient.client.SFTPEnabled() {
+		parsedConfig, err := apiClient.client.GetCachedConfig(ctx)
+		if err == nil && parsedConfig != nil {
+			// Extract NAT masquerade from parsed config
+			nats := parsedConfig.ExtractNATMasquerade()
+			for i := range nats {
+				if nats[i].DescriptorID == descriptorID {
+					nat = convertParsedNATMasquerade(&nats[i])
+					logger.Debug().Str("resource", "rtx_nat_masquerade").Msg("Found NAT masquerade in SFTP cache")
+					break
+				}
+			}
 		}
-		return diag.Errorf("Failed to read NAT masquerade: %v", err)
+		if nat == nil {
+			// NAT not found in cache or cache error, fallback to SSH
+			logger.Debug().Str("resource", "rtx_nat_masquerade").Msg("NAT masquerade not in cache, falling back to SSH")
+		}
+	}
+
+	// Fallback to SSH if SFTP disabled or NAT not found in cache
+	if nat == nil {
+		nat, err = apiClient.client.GetNATMasquerade(ctx, descriptorID)
+		if err != nil {
+			// Check if NAT masquerade doesn't exist
+			if strings.Contains(err.Error(), "not found") {
+				logger.Debug().Str("resource", "rtx_nat_masquerade").Msgf("NAT Masquerade %d not found, removing from state", descriptorID)
+				d.SetId("")
+				return nil
+			}
+			return diag.Errorf("Failed to read NAT masquerade: %v", err)
+		}
 	}
 
 	// Update the state
@@ -162,6 +189,27 @@ func resourceRTXNATMasqueradeRead(ctx context.Context, d *schema.ResourceData, m
 	}
 
 	return nil
+}
+
+// convertParsedNATMasquerade converts a parser NATMasquerade to a client NATMasquerade
+func convertParsedNATMasquerade(parsed *parsers.NATMasquerade) *client.NATMasquerade {
+	nat := &client.NATMasquerade{
+		DescriptorID:  parsed.DescriptorID,
+		OuterAddress:  parsed.OuterAddress,
+		InnerNetwork:  parsed.InnerNetwork,
+		StaticEntries: make([]client.MasqueradeStaticEntry, len(parsed.StaticEntries)),
+	}
+	for i, entry := range parsed.StaticEntries {
+		nat.StaticEntries[i] = client.MasqueradeStaticEntry{
+			EntryNumber:       entry.EntryNumber,
+			InsideLocal:       entry.InsideLocal,
+			InsideLocalPort:   entry.InsideLocalPort,
+			OutsideGlobal:     entry.OutsideGlobal,
+			OutsideGlobalPort: entry.OutsideGlobalPort,
+			Protocol:          entry.Protocol,
+		}
+	}
+	return nat
 }
 
 func resourceRTXNATMasqueradeUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {

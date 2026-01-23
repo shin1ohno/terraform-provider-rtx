@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 // MockSession implements the Session interface for testing
@@ -680,4 +682,400 @@ func TestClientTimeoutHandling(t *testing.T) {
 			t.Error("Expected timeout error, got nil")
 		}
 	})
+}
+
+// MockSFTPClientForTest implements SFTPClient for testing
+type MockSFTPClientForTest struct {
+	DownloadFunc func(ctx context.Context, path string) ([]byte, error)
+	CloseFunc    func() error
+}
+
+func (m *MockSFTPClientForTest) Download(ctx context.Context, path string) ([]byte, error) {
+	if m.DownloadFunc != nil {
+		return m.DownloadFunc(ctx, path)
+	}
+	return []byte("# mock config"), nil
+}
+
+func (m *MockSFTPClientForTest) Close() error {
+	if m.CloseFunc != nil {
+		return m.CloseFunc()
+	}
+	return nil
+}
+
+// MockExecutorForCache implements Executor for testing
+type MockExecutorForCache struct {
+	RunFunc      func(ctx context.Context, cmd string) ([]byte, error)
+	RunBatchFunc func(ctx context.Context, cmds []string) ([]byte, error)
+}
+
+func (m *MockExecutorForCache) Run(ctx context.Context, cmd string) ([]byte, error) {
+	if m.RunFunc != nil {
+		return m.RunFunc(ctx, cmd)
+	}
+	return []byte("mock response"), nil
+}
+
+func (m *MockExecutorForCache) RunBatch(ctx context.Context, cmds []string) ([]byte, error) {
+	if m.RunBatchFunc != nil {
+		return m.RunBatchFunc(ctx, cmds)
+	}
+	return []byte("mock batch response"), nil
+}
+
+func TestClient_GetCachedConfig_CacheHit(t *testing.T) {
+	// Setup client with valid cache
+	config := &Config{
+		Host:        "192.168.1.1",
+		Port:        22,
+		Username:    "admin",
+		Password:    "password",
+		Timeout:     30,
+		SFTPEnabled: true,
+	}
+
+	cache := NewConfigCache()
+	// Pre-populate the cache with valid data
+	rawContent := "ip route default gateway 192.168.1.1\n"
+	parser := parsers.NewConfigFileParser()
+	parsed, _ := parser.Parse(rawContent)
+	cache.Set(rawContent, parsed)
+
+	client := &rtxClient{
+		config:      config,
+		configCache: cache,
+		active:      true,
+		semaphore:   make(chan struct{}, 1),
+	}
+
+	ctx := context.Background()
+	result, err := client.GetCachedConfig(ctx)
+
+	if err != nil {
+		t.Errorf("GetCachedConfig() unexpected error: %v", err)
+	}
+	if result == nil {
+		t.Error("GetCachedConfig() returned nil on cache hit")
+	}
+	if result != nil && result.Raw != rawContent {
+		t.Errorf("GetCachedConfig() raw = %q, want %q", result.Raw, rawContent)
+	}
+}
+
+func TestClient_GetCachedConfig_CacheMiss_SFTPSuccess(t *testing.T) {
+	// Setup client with empty cache and mock SFTP
+	config := &Config{
+		Host:        "192.168.1.1",
+		Port:        22,
+		Username:    "admin",
+		Password:    "password",
+		Timeout:     30,
+		SFTPEnabled: true,
+	}
+
+	mockSFTP := &MockSFTPClientForTest{
+		DownloadFunc: func(ctx context.Context, path string) ([]byte, error) {
+			return []byte("ip route default gateway 192.168.1.1\n"), nil
+		},
+	}
+
+	mockExecutor := &MockExecutorForCache{
+		RunFunc: func(ctx context.Context, cmd string) ([]byte, error) {
+			if cmd == "show environment" {
+				return []byte("デフォルト設定ファイル: config0\n"), nil
+			}
+			return []byte("OK"), nil
+		},
+	}
+
+	cache := NewConfigCache()
+
+	client := &rtxClient{
+		config:      config,
+		configCache: cache,
+		sftpClient:  mockSFTP,
+		executor:    mockExecutor,
+		active:      true,
+		semaphore:   make(chan struct{}, 1),
+	}
+
+	ctx := context.Background()
+	result, err := client.GetCachedConfig(ctx)
+
+	if err != nil {
+		t.Errorf("GetCachedConfig() unexpected error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("GetCachedConfig() returned nil after SFTP download")
+	}
+
+	// Verify cache is now populated
+	cached, ok := cache.Get()
+	if !ok {
+		t.Error("Cache should be populated after GetCachedConfig()")
+	}
+	if cached == nil {
+		t.Error("Cached value should not be nil")
+	}
+}
+
+func TestClient_GetCachedConfig_SFTPError_SSHFallback(t *testing.T) {
+	// Setup client with SFTP that fails
+	config := &Config{
+		Host:        "192.168.1.1",
+		Port:        22,
+		Username:    "admin",
+		Password:    "password",
+		Timeout:     30,
+		SFTPEnabled: true,
+	}
+
+	sftpError := errors.New("SFTP connection failed")
+
+	mockSFTP := &MockSFTPClientForTest{
+		DownloadFunc: func(ctx context.Context, path string) ([]byte, error) {
+			return nil, sftpError
+		},
+	}
+
+	sshConfigOutput := "ip route default gateway 192.168.1.1\n"
+	mockExecutor := &MockExecutorForCache{
+		RunFunc: func(ctx context.Context, cmd string) ([]byte, error) {
+			if cmd == "show environment" {
+				return []byte("デフォルト設定ファイル: config0\n"), nil
+			}
+			if cmd == "show config" {
+				return []byte(sshConfigOutput), nil
+			}
+			return []byte("OK"), nil
+		},
+	}
+
+	cache := NewConfigCache()
+
+	client := &rtxClient{
+		config:      config,
+		configCache: cache,
+		sftpClient:  mockSFTP,
+		executor:    mockExecutor,
+		active:      true,
+		semaphore:   make(chan struct{}, 1),
+	}
+
+	ctx := context.Background()
+	result, err := client.GetCachedConfig(ctx)
+
+	if err != nil {
+		t.Errorf("GetCachedConfig() should not return error on SSH fallback, got: %v", err)
+	}
+	if result == nil {
+		t.Fatal("GetCachedConfig() should return config from SSH fallback")
+	}
+}
+
+func TestClient_GetCachedConfig_CacheDirty_RefetchesConfig(t *testing.T) {
+	// Setup client with dirty cache
+	config := &Config{
+		Host:        "192.168.1.1",
+		Port:        22,
+		Username:    "admin",
+		Password:    "password",
+		Timeout:     30,
+		SFTPEnabled: true,
+	}
+
+	downloadCount := 0
+	mockSFTP := &MockSFTPClientForTest{
+		DownloadFunc: func(ctx context.Context, path string) ([]byte, error) {
+			downloadCount++
+			return []byte("ip route default gateway 192.168.1.1\n"), nil
+		},
+	}
+
+	mockExecutor := &MockExecutorForCache{
+		RunFunc: func(ctx context.Context, cmd string) ([]byte, error) {
+			if cmd == "show environment" {
+				return []byte("デフォルト設定ファイル: config0\n"), nil
+			}
+			return []byte("OK"), nil
+		},
+	}
+
+	cache := NewConfigCache()
+	// Pre-populate cache
+	rawContent := "old config\n"
+	parser := parsers.NewConfigFileParser()
+	parsed, _ := parser.Parse(rawContent)
+	cache.Set(rawContent, parsed)
+	// Mark as dirty (simulating a write operation)
+	cache.MarkDirty()
+
+	client := &rtxClient{
+		config:      config,
+		configCache: cache,
+		sftpClient:  mockSFTP,
+		executor:    mockExecutor,
+		active:      true,
+		semaphore:   make(chan struct{}, 1),
+	}
+
+	ctx := context.Background()
+	_, err := client.GetCachedConfig(ctx)
+
+	if err != nil {
+		t.Errorf("GetCachedConfig() unexpected error: %v", err)
+	}
+
+	// Should have downloaded fresh config since cache was dirty
+	if downloadCount == 0 {
+		t.Error("GetCachedConfig() should have fetched fresh config when cache is dirty")
+	}
+
+	// Dirty flag should be cleared
+	if cache.IsDirty() {
+		t.Error("Cache dirty flag should be cleared after refetch")
+	}
+}
+
+func TestClient_InvalidateCache(t *testing.T) {
+	config := &Config{
+		Host:        "192.168.1.1",
+		Port:        22,
+		Username:    "admin",
+		Password:    "password",
+		Timeout:     30,
+		SFTPEnabled: true,
+	}
+
+	cache := NewConfigCache()
+	// Pre-populate the cache
+	rawContent := "test config\n"
+	parser := parsers.NewConfigFileParser()
+	parsed, _ := parser.Parse(rawContent)
+	cache.Set(rawContent, parsed)
+
+	client := &rtxClient{
+		config:      config,
+		configCache: cache,
+		active:      true,
+		semaphore:   make(chan struct{}, 1),
+	}
+
+	// Verify cache is populated
+	_, ok := cache.Get()
+	if !ok {
+		t.Fatal("Cache should be populated before test")
+	}
+
+	// Call InvalidateCache
+	client.InvalidateCache()
+
+	// Verify cache is now empty
+	_, ok = cache.Get()
+	if ok {
+		t.Error("Cache should be empty after InvalidateCache()")
+	}
+}
+
+func TestClient_MarkCacheDirty(t *testing.T) {
+	config := &Config{
+		Host:        "192.168.1.1",
+		Port:        22,
+		Username:    "admin",
+		Password:    "password",
+		Timeout:     30,
+		SFTPEnabled: true,
+	}
+
+	cache := NewConfigCache()
+
+	client := &rtxClient{
+		config:      config,
+		configCache: cache,
+		active:      true,
+		semaphore:   make(chan struct{}, 1),
+	}
+
+	// Initially not dirty
+	if cache.IsDirty() {
+		t.Error("Cache should not be dirty initially")
+	}
+
+	// Mark dirty
+	client.MarkCacheDirty()
+
+	// Should be dirty now
+	if !cache.IsDirty() {
+		t.Error("Cache should be dirty after MarkCacheDirty()")
+	}
+}
+
+func TestClient_GetCachedConfig_SFTPDisabled_UsesSSH(t *testing.T) {
+	// Setup client with SFTP disabled
+	config := &Config{
+		Host:        "192.168.1.1",
+		Port:        22,
+		Username:    "admin",
+		Password:    "password",
+		Timeout:     30,
+		SFTPEnabled: false, // SFTP disabled
+	}
+
+	sshConfigOutput := "ip route default gateway 192.168.1.1\n"
+	mockExecutor := &MockExecutorForCache{
+		RunFunc: func(ctx context.Context, cmd string) ([]byte, error) {
+			if cmd == "show config" {
+				return []byte(sshConfigOutput), nil
+			}
+			return []byte("OK"), nil
+		},
+	}
+
+	cache := NewConfigCache()
+
+	client := &rtxClient{
+		config:      config,
+		configCache: cache,
+		executor:    mockExecutor,
+		active:      true,
+		semaphore:   make(chan struct{}, 1),
+	}
+
+	ctx := context.Background()
+	result, err := client.GetCachedConfig(ctx)
+
+	if err != nil {
+		t.Errorf("GetCachedConfig() unexpected error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("GetCachedConfig() should return config from SSH")
+	}
+}
+
+func TestClient_GetCachedConfig_NotConnected(t *testing.T) {
+	config := &Config{
+		Host:        "192.168.1.1",
+		Port:        22,
+		Username:    "admin",
+		Password:    "password",
+		Timeout:     30,
+		SFTPEnabled: true,
+	}
+
+	cache := NewConfigCache()
+
+	client := &rtxClient{
+		config:      config,
+		configCache: cache,
+		active:      false, // Not connected
+		semaphore:   make(chan struct{}, 1),
+	}
+
+	ctx := context.Background()
+	_, err := client.GetCachedConfig(ctx)
+
+	if err == nil {
+		t.Error("GetCachedConfig() should return error when not connected")
+	}
 }

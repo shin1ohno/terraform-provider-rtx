@@ -1,12 +1,16 @@
 package provider
 
 import (
+	"context"
+	"errors"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 func TestBuildStaticRouteFromResourceData(t *testing.T) {
@@ -432,4 +436,195 @@ func TestResourceRTXStaticRouteCRUDFunctions(t *testing.T) {
 		assert.NotNil(t, resource.UpdateContext)
 		assert.NotNil(t, resource.DeleteContext)
 	})
+}
+
+// Tests for SFTP cache-based Read function
+
+func TestResourceRTXStaticRouteRead_SFTPEnabled_UsesCache(t *testing.T) {
+	mockClient := &MockClient{}
+
+	// Create a ParsedConfig with a static route
+	rawConfig := `ip route default gateway 192.168.1.1`
+	parser := parsers.NewConfigFileParser()
+	parsedConfig, _ := parser.Parse(rawConfig)
+
+	// Configure mock: SFTP enabled, returns cached config
+	mockClient.On("SFTPEnabled").Return(true)
+	mockClient.On("GetCachedConfig", mock.Anything).Return(parsedConfig, nil)
+
+	// Create resource data
+	d := schema.TestResourceDataRaw(t, resourceRTXStaticRoute().Schema, map[string]interface{}{
+		"prefix": "0.0.0.0",
+		"mask":   "0.0.0.0",
+		"next_hop": []interface{}{
+			map[string]interface{}{
+				"gateway":   "192.168.1.1",
+				"interface": "",
+				"distance":  1,
+				"permanent": false,
+				"filter":    0,
+			},
+		},
+	})
+	d.SetId("0.0.0.0/0.0.0.0")
+
+	// Create api client
+	apiClient := &apiClient{client: mockClient}
+
+	// Call Read
+	ctx := context.Background()
+	diags := resourceRTXStaticRouteRead(ctx, d, apiClient)
+
+	// Assert no errors
+	assert.Empty(t, diags)
+
+	// Verify mock expectations
+	mockClient.AssertExpectations(t)
+	mockClient.AssertCalled(t, "SFTPEnabled")
+	mockClient.AssertCalled(t, "GetCachedConfig", mock.Anything)
+	// GetStaticRoute should NOT be called when SFTP is enabled and cache works
+	mockClient.AssertNotCalled(t, "GetStaticRoute", mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestResourceRTXStaticRouteRead_SFTPDisabled_UsesSSH(t *testing.T) {
+	mockClient := &MockClient{}
+
+	// Configure mock: SFTP disabled, returns route via SSH
+	mockClient.On("SFTPEnabled").Return(false)
+	mockClient.On("GetStaticRoute", mock.Anything, "10.0.0.0", "255.0.0.0").Return(&client.StaticRoute{
+		Prefix: "10.0.0.0",
+		Mask:   "255.0.0.0",
+		NextHops: []client.StaticRouteHop{
+			{NextHop: "192.168.1.1", Distance: 1},
+		},
+	}, nil)
+
+	// Create resource data
+	d := schema.TestResourceDataRaw(t, resourceRTXStaticRoute().Schema, map[string]interface{}{
+		"prefix": "10.0.0.0",
+		"mask":   "255.0.0.0",
+		"next_hop": []interface{}{
+			map[string]interface{}{
+				"gateway":   "192.168.1.1",
+				"interface": "",
+				"distance":  1,
+				"permanent": false,
+				"filter":    0,
+			},
+		},
+	})
+	d.SetId("10.0.0.0/255.0.0.0")
+
+	// Create api client
+	apiClient := &apiClient{client: mockClient}
+
+	// Call Read
+	ctx := context.Background()
+	diags := resourceRTXStaticRouteRead(ctx, d, apiClient)
+
+	// Assert no errors
+	assert.Empty(t, diags)
+
+	// Verify mock expectations
+	mockClient.AssertExpectations(t)
+	mockClient.AssertCalled(t, "SFTPEnabled")
+	mockClient.AssertCalled(t, "GetStaticRoute", mock.Anything, "10.0.0.0", "255.0.0.0")
+	// GetCachedConfig should NOT be called when SFTP is disabled
+	mockClient.AssertNotCalled(t, "GetCachedConfig", mock.Anything)
+}
+
+func TestResourceRTXStaticRouteRead_SFTPEnabled_CacheError_FallbackToSSH(t *testing.T) {
+	mockClient := &MockClient{}
+
+	// Configure mock: SFTP enabled but cache fails, fallback to SSH
+	mockClient.On("SFTPEnabled").Return(true)
+	mockClient.On("GetCachedConfig", mock.Anything).Return((*parsers.ParsedConfig)(nil), errors.New("cache error"))
+	mockClient.On("GetStaticRoute", mock.Anything, "10.0.0.0", "255.0.0.0").Return(&client.StaticRoute{
+		Prefix: "10.0.0.0",
+		Mask:   "255.0.0.0",
+		NextHops: []client.StaticRouteHop{
+			{NextHop: "192.168.1.1", Distance: 1},
+		},
+	}, nil)
+
+	// Create resource data
+	d := schema.TestResourceDataRaw(t, resourceRTXStaticRoute().Schema, map[string]interface{}{
+		"prefix": "10.0.0.0",
+		"mask":   "255.0.0.0",
+		"next_hop": []interface{}{
+			map[string]interface{}{
+				"gateway":   "192.168.1.1",
+				"interface": "",
+				"distance":  1,
+				"permanent": false,
+				"filter":    0,
+			},
+		},
+	})
+	d.SetId("10.0.0.0/255.0.0.0")
+
+	// Create api client
+	apiClient := &apiClient{client: mockClient}
+
+	// Call Read
+	ctx := context.Background()
+	diags := resourceRTXStaticRouteRead(ctx, d, apiClient)
+
+	// Assert no errors (fallback succeeded)
+	assert.Empty(t, diags)
+
+	// Verify mock expectations - both methods should be called
+	mockClient.AssertExpectations(t)
+	mockClient.AssertCalled(t, "SFTPEnabled")
+	mockClient.AssertCalled(t, "GetCachedConfig", mock.Anything)
+	mockClient.AssertCalled(t, "GetStaticRoute", mock.Anything, "10.0.0.0", "255.0.0.0")
+}
+
+func TestResourceRTXStaticRouteRead_SFTPEnabled_RouteNotInCache_FallbackToSSH(t *testing.T) {
+	mockClient := &MockClient{}
+
+	// Create a ParsedConfig without the requested route
+	rawConfig := `ip route 172.16.0.0/255.255.0.0 gateway 10.0.0.1`
+	parser := parsers.NewConfigFileParser()
+	parsedConfig, _ := parser.Parse(rawConfig)
+
+	// Configure mock: SFTP enabled, cache works but route not found, fallback to SSH
+	mockClient.On("SFTPEnabled").Return(true)
+	mockClient.On("GetCachedConfig", mock.Anything).Return(parsedConfig, nil)
+	mockClient.On("GetStaticRoute", mock.Anything, "10.0.0.0", "255.0.0.0").Return(&client.StaticRoute{
+		Prefix: "10.0.0.0",
+		Mask:   "255.0.0.0",
+		NextHops: []client.StaticRouteHop{
+			{NextHop: "192.168.1.1", Distance: 1},
+		},
+	}, nil)
+
+	// Create resource data
+	d := schema.TestResourceDataRaw(t, resourceRTXStaticRoute().Schema, map[string]interface{}{
+		"prefix": "10.0.0.0",
+		"mask":   "255.0.0.0",
+		"next_hop": []interface{}{
+			map[string]interface{}{
+				"gateway":   "192.168.1.1",
+				"interface": "",
+				"distance":  1,
+				"permanent": false,
+				"filter":    0,
+			},
+		},
+	})
+	d.SetId("10.0.0.0/255.0.0.0")
+
+	// Create api client
+	apiClient := &apiClient{client: mockClient}
+
+	// Call Read
+	ctx := context.Background()
+	diags := resourceRTXStaticRouteRead(ctx, d, apiClient)
+
+	// Assert no errors (fallback succeeded)
+	assert.Empty(t, diags)
+
+	// Verify mock expectations
+	mockClient.AssertExpectations(t)
 }
