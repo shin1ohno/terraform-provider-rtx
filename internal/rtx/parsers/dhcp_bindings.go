@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -44,7 +45,7 @@ func (p *dhcpBindingsParser) ParseBindings(raw string, scopeID int) ([]DHCPBindi
 	// Example: dhcp scope bind 1 192.168.1.20 01 00 30 93 11 0e 33
 	// Example: dhcp scope bind 1 192.168.1.28 24:59:e5:54:5e:5a
 	// Example: dhcp scope bind 1 192.168.1.23 ethernet b6:1a:27:ea:28:29
-	configPattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+bind\s+\d+\s+([0-9.]+)\s+(?:(01\s+)|ethernet\s+)?([0-9a-fA-F:\s]+)\s*$`)
+	configPattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+bind\s+(\d+)\s+([0-9.]+)\s+(?:(01\s+)|ethernet\s+)?([0-9a-fA-F:\s]+)\s*$`)
 
 	// For multi-line parsing
 	var currentIP string
@@ -114,12 +115,15 @@ func (p *dhcpBindingsParser) ParseBindings(raw string, scopeID int) ([]DHCPBindi
 		}
 
 		// Try show config format first
-		if matches := configPattern.FindStringSubmatch(line); len(matches) >= 4 {
+		if matches := configPattern.FindStringSubmatch(line); len(matches) >= 5 {
+			// Extract scope ID from the line itself
+			extractedScopeID, _ := strconv.Atoi(matches[1])
+
 			// Extract MAC address, handling both space-separated and colon-separated formats
-			macStr := strings.TrimSpace(matches[3])
+			macStr := strings.TrimSpace(matches[4])
 
 			// Check if it's prefixed with "01" or "ethernet" (client identifier types)
-			useClientID := matches[2] != "" || strings.Contains(line, " ethernet ")
+			useClientID := matches[3] != "" || strings.Contains(line, " ethernet ")
 
 			// If MAC is space-separated, convert to colon format
 			if strings.Contains(macStr, " ") {
@@ -128,8 +132,8 @@ func (p *dhcpBindingsParser) ParseBindings(raw string, scopeID int) ([]DHCPBindi
 			}
 
 			binding := DHCPBinding{
-				ScopeID:             scopeID,
-				IPAddress:           matches[1],
+				ScopeID:             extractedScopeID, // Use extracted scope ID from line
+				IPAddress:           matches[2],
 				MACAddress:          macStr,
 				UseClientIdentifier: useClientID,
 			}

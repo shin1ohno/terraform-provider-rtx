@@ -207,6 +207,7 @@ func (p *L2TPParser) ParseL2TPConfig(raw string) ([]L2TPConfig, error) {
 					tunnel.Mode = "l2vpn"
 				} else {
 					tunnel.Version = "l2tp"
+					tunnel.Mode = "lns" // L2TPv2 is always LNS mode
 				}
 			}
 			continue

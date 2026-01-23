@@ -954,3 +954,190 @@ nat descriptor masquerade static 1000 1 192.0.2.253 tcp 22`
 		t.Errorf("Expected 1 PP auth, got %d", len(passwords.PPAuth))
 	}
 }
+
+func TestConfigFileParser_ExtractIPsecTunnels(t *testing.T) {
+	input := `tunnel select 1
+ tunnel encapsulation ipsec
+ ipsec tunnel 1
+  ipsec sa policy 1 1 esp aes-cbc sha-hmac
+ description test-ipsec-tunnel
+ tunnel enable 1
+
+ipsec ike local address 1 192.168.1.1
+ipsec ike remote address 1 203.0.113.1
+ipsec ike pre-shared-key 1 text test-psk-secret
+ipsec ike encryption 1 aes-cbc-256
+ipsec ike hash 1 sha256
+ipsec ike group 1 modp2048`
+
+	parser := NewConfigFileParser()
+	result, err := parser.Parse(input)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	tunnels := result.ExtractIPsecTunnels()
+
+	if len(tunnels) == 0 {
+		t.Fatal("Expected at least 1 IPsec tunnel, got 0")
+	}
+
+	// Check tunnel properties
+	tunnel := tunnels[0]
+	if tunnel.ID != 1 {
+		t.Errorf("Expected tunnel ID 1, got %d", tunnel.ID)
+	}
+	if tunnel.LocalAddress != "192.168.1.1" {
+		t.Errorf("Expected local address 192.168.1.1, got %s", tunnel.LocalAddress)
+	}
+	if tunnel.RemoteAddress != "203.0.113.1" {
+		t.Errorf("Expected remote address 203.0.113.1, got %s", tunnel.RemoteAddress)
+	}
+	if tunnel.PreSharedKey != "test-psk-secret" {
+		t.Errorf("Expected PSK 'test-psk-secret', got '%s'", tunnel.PreSharedKey)
+	}
+}
+
+func TestConfigFileParser_ExtractL2TPTunnels(t *testing.T) {
+	input := `tunnel select 1
+ tunnel encapsulation l2tpv3
+ tunnel endpoint address 192.168.1.1 203.0.113.1
+ l2tp local router-id 192.168.1.1
+ l2tp remote router-id 203.0.113.1
+ l2tp always-on on
+ description test-l2tp-tunnel
+ tunnel enable 1`
+
+	parser := NewConfigFileParser()
+	result, err := parser.Parse(input)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	tunnels := result.ExtractL2TPTunnels()
+
+	if len(tunnels) == 0 {
+		t.Fatal("Expected at least 1 L2TP tunnel, got 0")
+	}
+
+	// Check tunnel properties
+	tunnel := tunnels[0]
+	if tunnel.ID != 1 {
+		t.Errorf("Expected tunnel ID 1, got %d", tunnel.ID)
+	}
+	if tunnel.Version != "l2tpv3" {
+		t.Errorf("Expected version 'l2tpv3', got '%s'", tunnel.Version)
+	}
+	if tunnel.TunnelSource != "192.168.1.1" {
+		t.Errorf("Expected tunnel source 192.168.1.1, got %s", tunnel.TunnelSource)
+	}
+	if tunnel.TunnelDest != "203.0.113.1" {
+		t.Errorf("Expected tunnel dest 203.0.113.1, got %s", tunnel.TunnelDest)
+	}
+	if !tunnel.AlwaysOn {
+		t.Error("Expected always-on to be true")
+	}
+}
+
+func TestConfigFileParser_ExtractL2TPTunnels_WithAnonymousPP(t *testing.T) {
+	input := `l2tp service on
+
+pp select anonymous
+ pp bind tunnel1
+ pp auth accept mschap-v2
+ pp auth myname testuser testpass
+ ppp ipcp ipaddress on
+ pp enable anonymous
+
+tunnel select 1
+ tunnel encapsulation l2tpv3
+ tunnel endpoint address 192.168.1.1 203.0.113.1
+ tunnel enable 1`
+
+	parser := NewConfigFileParser()
+	result, err := parser.Parse(input)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	tunnels := result.ExtractL2TPTunnels()
+
+	// Should extract from both tunnel context and pp anonymous context
+	if len(tunnels) == 0 {
+		t.Fatal("Expected at least 1 L2TP tunnel, got 0")
+	}
+}
+
+func TestConfigFileParser_ExtractL2TPService(t *testing.T) {
+	tests := []struct {
+		name           string
+		input          string
+		expectEnabled  bool
+		expectNil      bool
+		expectProtocol []string
+	}{
+		{
+			name:          "l2tp service on",
+			input:         "l2tp service on",
+			expectEnabled: true,
+			expectNil:     false,
+		},
+		{
+			name:          "l2tp service off",
+			input:         "l2tp service off",
+			expectEnabled: false,
+			expectNil:     false,
+		},
+		{
+			name:           "l2tp service on with protocols",
+			input:          "l2tp service on l2tpv3 l2tp",
+			expectEnabled:  true,
+			expectNil:      false,
+			expectProtocol: []string{"l2tpv3", "l2tp"},
+		},
+		{
+			name:      "no l2tp service command",
+			input:     "ip route default gateway 192.168.1.1",
+			expectNil: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parser := NewConfigFileParser()
+			result, err := parser.Parse(tt.input)
+			if err != nil {
+				t.Fatalf("Parse() error = %v", err)
+			}
+
+			service := result.ExtractL2TPService()
+
+			if tt.expectNil {
+				if service != nil {
+					t.Errorf("Expected nil service, got %+v", service)
+				}
+				return
+			}
+
+			if service == nil {
+				t.Fatal("Expected non-nil service, got nil")
+			}
+
+			if service.Enabled != tt.expectEnabled {
+				t.Errorf("Expected Enabled=%v, got %v", tt.expectEnabled, service.Enabled)
+			}
+
+			if tt.expectProtocol != nil {
+				if len(service.Protocols) != len(tt.expectProtocol) {
+					t.Errorf("Expected %d protocols, got %d", len(tt.expectProtocol), len(service.Protocols))
+				} else {
+					for i, proto := range tt.expectProtocol {
+						if service.Protocols[i] != proto {
+							t.Errorf("Expected protocol[%d]=%s, got %s", i, proto, service.Protocols[i])
+						}
+					}
+				}
+			}
+		})
+	}
+}
