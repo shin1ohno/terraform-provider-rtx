@@ -50,12 +50,15 @@ func (p *DHCPScopeParser) ParseScopeConfig(raw string) ([]DHCPScope, error) {
 	// Note: gateway is now handled via "dhcp scope option <id> router=..."
 	// Both "dhcp scope 1 192.168.0.0/16 expire 24:00" (no gateway) and
 	// "dhcp scope 1 192.168.0.0/16 gateway 192.168.0.1 expire 24:00" must be supported
-	scopePattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+(\d+)\s+([0-9.]+/\d+)(?:\s+gateway\s+([0-9.]+))?(?:\s+expire\s+(\S+))?\s*$`)
+	// Note: Terminal line wrapping may split "maxexpire" as "ma\nxexpire", so we handle both "maxexpire" and "xexpire"
+	scopePattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+(\d+)\s+([0-9.]+/\d+)(?:\s+gateway\s+([0-9.]+))?(?:\s+expire\s+(\S+))?(?:\s+(?:max)?x?expire\s+(\S+))?.*$`)
 	// Pattern for scope with expire but no gateway (expire comes right after network)
-	scopeExpireOnlyPattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+(\d+)\s+([0-9.]+/\d+)\s+expire\s+(\S+)\s*$`)
-	// Pattern for IP range format: dhcp scope <id> <start_ip>-<end_ip>/<mask> [gateway <ip>] [expire <time>]
+	// Note: Terminal line wrapping may split "maxexpire" as "ma\nxexpire", so we handle both "maxexpire" and "xexpire"
+	scopeExpireOnlyPattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+(\d+)\s+([0-9.]+/\d+)\s+expire\s+(\S+)(?:\s+(?:max)?x?expire\s+(\S+))?.*$`)
+	// Pattern for IP range format: dhcp scope <id> <start_ip>-<end_ip>/<mask> [gateway <ip>] [expire <time>] [maxexpire <time>]
 	// e.g., "dhcp scope 1 192.168.1.20-192.168.1.99/16 gateway 192.168.1.253 expire 12:00"
-	scopeRangePattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+(\d+)\s+([0-9.]+)-([0-9.]+)/(\d+)(?:\s+gateway\s+([0-9.]+))?(?:\s+expire\s+(\S+))?\s*$`)
+	// Note: Terminal line wrapping may split "maxexpire" as "ma\nxexpire", so we handle both "maxexpire" and "xexpire"
+	scopeRangePattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+(\d+)\s+([0-9.]+)-([0-9.]+)/(\d+)(?:\s+gateway\s+([0-9.]+))?(?:\s+expire\s+(\S+))?(?:\s+(?:max)?x?expire\s+(\S+))?.*$`)
 	// dhcp scope option <id> dns=<dns1>[,<dns2>[,<dns3>]] [router=<gw1>[,<gw2>]] [domain=<domain>]
 	optionPattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+option\s+(\d+)\s+(.+)\s*$`)
 	// dhcp scope <id> except <start>-<end>
@@ -86,11 +89,9 @@ func (p *DHCPScopeParser) ParseScopeConfig(raw string) ([]DHCPScope, error) {
 
 			scope.RangeStart = matches[2]
 			scope.RangeEnd = matches[3]
-			scope.Network = matches[2] + "/" + matches[4] // Store as start_ip/mask for compatibility
-			// Gateway support
-			if len(matches) > 5 && matches[5] != "" {
-				scope.Options.Routers = []string{matches[5]}
-			}
+			scope.Network = calculateNetworkAddress(matches[2], matches[4]) // Calculate proper network address from start IP and prefix
+			// Note: gateway from scope line is legacy format; modern RTX uses "dhcp scope option <id> router=..." instead
+			// We don't set Routers from gateway here to avoid duplicates with options
 			// Expire time
 			if len(matches) > 6 && matches[6] != "" {
 				scope.LeaseTime = convertRTXLeaseTimeToGo(matches[6])
@@ -329,9 +330,24 @@ func convertGoLeaseTimeToRTX(goDuration string) string {
 
 // BuildDHCPScopeCommand builds the command to create a DHCP scope
 // Command format: dhcp scope <id> <network>/<prefix> [expire <time>]
+// Or range format: dhcp scope <id> <start_ip>-<end_ip>/<prefix> [expire <time>]
 // Note: Gateway/routers are now configured via options command
 func BuildDHCPScopeCommand(scope DHCPScope) string {
-	cmd := fmt.Sprintf("dhcp scope %d %s", scope.ScopeID, scope.Network)
+	var networkPart string
+	if scope.RangeStart != "" && scope.RangeEnd != "" {
+		// Use range format: start-end/prefix
+		// Extract prefix from Network (e.g., "192.168.0.0/16" -> "16")
+		prefix := ""
+		if idx := strings.Index(scope.Network, "/"); idx >= 0 {
+			prefix = scope.Network[idx+1:]
+		}
+		networkPart = fmt.Sprintf("%s-%s/%s", scope.RangeStart, scope.RangeEnd, prefix)
+	} else {
+		// Use CIDR format: network/prefix
+		networkPart = scope.Network
+	}
+
+	cmd := fmt.Sprintf("dhcp scope %d %s", scope.ScopeID, networkPart)
 
 	if scope.LeaseTime != "" {
 		rtxTime := convertGoLeaseTimeToRTX(scope.LeaseTime)
@@ -500,4 +516,48 @@ func isValidIP(ip string) bool {
 	}
 
 	return true
+}
+
+// calculateNetworkAddress calculates the network address from an IP and prefix length
+// For example: "192.168.1.20" with prefix "16" returns "192.168.0.0/16"
+func calculateNetworkAddress(ip string, prefixLen string) string {
+	prefix, err := strconv.Atoi(prefixLen)
+	if err != nil || prefix < 0 || prefix > 32 {
+		return ip + "/" + prefixLen // Return as-is if invalid
+	}
+
+	parts := strings.Split(ip, ".")
+	if len(parts) != 4 {
+		return ip + "/" + prefixLen // Return as-is if invalid
+	}
+
+	// Parse IP octets
+	octets := make([]int, 4)
+	for i, part := range parts {
+		octet, err := strconv.Atoi(part)
+		if err != nil || octet < 0 || octet > 255 {
+			return ip + "/" + prefixLen // Return as-is if invalid
+		}
+		octets[i] = octet
+	}
+
+	// Apply network mask
+	// Create a 32-bit mask with 'prefix' leading 1s
+	var mask uint32 = 0xFFFFFFFF << (32 - prefix)
+
+	// Convert IP to 32-bit integer
+	var ipInt uint32 = uint32(octets[0])<<24 | uint32(octets[1])<<16 | uint32(octets[2])<<8 | uint32(octets[3])
+
+	// Apply mask to get network address
+	networkInt := ipInt & mask
+
+	// Convert back to dotted notation
+	networkOctets := []int{
+		int((networkInt >> 24) & 0xFF),
+		int((networkInt >> 16) & 0xFF),
+		int((networkInt >> 8) & 0xFF),
+		int(networkInt & 0xFF),
+	}
+
+	return fmt.Sprintf("%d.%d.%d.%d/%s", networkOctets[0], networkOctets[1], networkOctets[2], networkOctets[3], prefixLen)
 }
