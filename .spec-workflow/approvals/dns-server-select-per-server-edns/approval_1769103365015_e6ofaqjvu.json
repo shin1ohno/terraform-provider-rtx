@@ -1,0 +1,12 @@
+{
+  "id": "approval_1769103365015_e6ofaqjvu",
+  "title": "Tasks: DNS Server Select Per-Server EDNS",
+  "filePath": ".spec-workflow/specs/dns-server-select-per-server-edns/tasks.md",
+  "type": "document",
+  "status": "approved",
+  "createdAt": "2026-01-22T17:36:05.015Z",
+  "category": "spec",
+  "categoryName": "dns-server-select-per-server-edns",
+  "response": "Approved via dashboard",
+  "respondedAt": "2026-01-22T17:36:07.584Z"
+}

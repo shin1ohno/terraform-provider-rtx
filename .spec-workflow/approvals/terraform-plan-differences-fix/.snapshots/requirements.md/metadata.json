@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/terraform-plan-differences-fix/requirements.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-23T02:37:38.247Z",
+      "trigger": "initial",
+      "approvalId": "approval_1769135858161_wkrzvw9md",
+      "approvalTitle": "Terraform Plan Differences Fix - 4 Differences Analysis and Fix Plan"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-23T02:47:43.972Z",
+      "trigger": "approved",
+      "approvalId": "approval_1769136401263_sn9a8hwso",
+      "approvalTitle": "Terraform Plan Differences Fix - Updated (ESP Support Confirmed)"
+    }
+  ]
+}

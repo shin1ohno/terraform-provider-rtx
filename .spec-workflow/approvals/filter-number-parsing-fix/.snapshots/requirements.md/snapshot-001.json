@@ -1,0 +1,16 @@
+{
+  "id": "snapshot_1769104834242_rov75e948",
+  "approvalId": "approval_1769104834221_4g8uyq249",
+  "approvalTitle": "Requirements: Filter Number Parsing Fix",
+  "version": 1,
+  "timestamp": "2026-01-22T18:00:34.242Z",
+  "trigger": "initial",
+  "status": "pending",
+  "content": "# Requirements Document: Filter Number Parsing Fix\n\n## Introduction\n\nDuring terraform plan reconciliation testing, several parsing issues were discovered where filter numbers are being incorrectly split or truncated. This causes false positives in terraform plan output, showing changes that don't actually exist.\n\n## Problem Statement\n\nThe parser incorrectly handles filter number lists in several contexts:\n\n1. **IPv4 secure filter parsing**: Numbers like `200100` are being read as `20010`, and `200027` is split into `2000` and `27`\n2. **IPv6 dynamic filter parsing**: Numbers like `101085` are split into `1` and `1085`\n\nThis appears to be a tokenization or regex issue in the interface configuration parser.\n\n## Requirements\n\n### REQ-1: Fix IPv4 Secure Filter Number Parsing\n- **Priority**: P0 (Critical)\n- **Description**: The parser must correctly read all filter numbers from `ip <interface> secure filter in/out` commands\n- **Acceptance Criteria**:\n  - Filter number `200100` is read as `200100`, not `20010`\n  - Filter number `200027` is read as `200027`, not split into `2000` and `27`\n  - All 6-digit filter numbers are preserved correctly\n  - Round-trip test: parse -> generate -> parse produces identical results\n\n### REQ-2: Fix IPv6 Dynamic Filter Number Parsing\n- **Priority**: P0 (Critical)\n- **Description**: The parser must correctly read all filter numbers from `ipv6 <interface> secure filter out ... dynamic` commands\n- **Acceptance Criteria**:\n  - Filter number `101085` is read as `101085`, not split into `1` and `1085`\n  - All filter numbers in dynamic filter lists are preserved correctly\n  - Round-trip test produces identical results\n\n### REQ-3: Add Regression Tests\n- **Priority**: P1 (High)\n- **Description**: Add unit tests specifically for parsing large filter numbers\n- **Acceptance Criteria**:\n  - Test case for 6-digit filter numbers in secure_filter_in\n  - Test case for 6-digit filter numbers in secure_filter_out\n  - Test case for 6-digit filter numbers in dynamic_filter_out\n  - Tests cover both IPv4 and IPv6 contexts\n\n## Non-Functional Requirements\n\n### NFR-1: No Breaking Changes\n- The fix must not change the behavior for correctly-parsed configurations\n- Existing tests must continue to pass\n\n## Out of Scope\n\n- L2TP tunnel_auth_enabled mismatch (main.tf configuration error, not parser issue)\n- NAT masquerade state import issues (separate import functionality)\n- DHCP scope network replacement (separate state management issue)\n",
+  "fileStats": {
+    "size": 2476,
+    "lines": 55,
+    "lastModified": "2026-01-22T17:57:45.568Z"
+  },
+  "comments": []
+}

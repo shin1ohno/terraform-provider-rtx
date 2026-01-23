@@ -1,0 +1,16 @@
+{
+  "id": "snapshot_1769104848063_6gvbmid06",
+  "approvalId": "approval_1769104846464_glsxo48je",
+  "approvalTitle": "Tasks: Filter Number Parsing Fix",
+  "version": 2,
+  "timestamp": "2026-01-22T18:00:48.063Z",
+  "trigger": "approved",
+  "status": "pending",
+  "content": "# Tasks: Filter Number Parsing Fix\n\n## Implementation Tasks\n\n### Task 1: Add Helper Functions for Digit Detection\n\n- [ ] 1.1 Add `endsWithDigit(s string) bool` function to `interface_config.go`\n- [ ] 1.2 Add `startsWithDigit(s string) bool` function to `interface_config.go`\n- [ ] 1.3 Ensure functions handle edge cases (empty strings, whitespace)\n\n### Task 2: Modify preprocessWrappedLines Function\n\n- [ ] 2.1 Update the line joining logic in `preprocessWrappedLines`\n- [ ] 2.2 When current line ends with digit AND next line starts with digit, join without space\n- [ ] 2.3 Otherwise, maintain existing behavior (join with space)\n- [ ] 2.4 Ensure `dynamic` keyword case is handled correctly\n\n### Task 3: Add Unit Tests for Mid-Number Wrap Scenarios\n\n- [ ] 3.1 Test 6-digit filter number split (200100 → 20010 + 0)\n- [ ] 3.2 Test filter number split into two valid numbers (200027 → 2000 + 27)\n- [ ] 3.3 Test with `dynamic` keyword after wrapped number\n- [ ] 3.4 Test IPv6 dynamic filter number wrap (101085 → 1 + 1085)\n- [ ] 3.5 Test normal continuation (no mid-number split) still works\n\n### Task 4: Add Round-Trip Tests\n\n- [ ] 4.1 Test that generated filter commands parse back to original values\n- [ ] 4.2 Include 6-digit filter numbers in round-trip tests\n- [ ] 4.3 Test both IPv4 and IPv6 filter commands\n\n### Task 5: Run Full Test Suite\n\n- [ ] 5.1 Run `go test ./...` to verify no regressions\n- [ ] 5.2 Run `go vet ./...` to check for issues\n- [ ] 5.3 Run linter if configured\n\n### Task 6: Verify Fix with Terraform Plan\n\n- [ ] 6.1 Rebuild provider with `go build -o terraform-provider-rtx`\n- [ ] 6.2 Install provider locally\n- [ ] 6.3 Run `terraform plan -parallelism=2` in examples/import directory\n- [ ] 6.4 Verify filter number differences are resolved\n\n## Dependencies\n\n- Task 2 depends on Task 1\n- Task 3 depends on Task 2\n- Task 4 depends on Task 2\n- Task 5 depends on Tasks 3 and 4\n- Task 6 depends on Task 5\n",
+  "fileStats": {
+    "size": 1930,
+    "lines": 52,
+    "lastModified": "2026-01-22T18:00:42.639Z"
+  },
+  "comments": []
+}

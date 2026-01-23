@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/filter-number-parsing-fix/tasks.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-22T18:00:46.479Z",
+      "trigger": "initial",
+      "approvalId": "approval_1769104846464_glsxo48je",
+      "approvalTitle": "Tasks: Filter Number Parsing Fix"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-22T18:00:48.063Z",
+      "trigger": "approved",
+      "approvalId": "approval_1769104846464_glsxo48je",
+      "approvalTitle": "Tasks: Filter Number Parsing Fix"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/dns-server-select-per-server-edns/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-22T17:34:01.990Z",
+      "trigger": "initial",
+      "approvalId": "approval_1769103241977_323v4w6tx",
+      "approvalTitle": "Design: DNS Server Select Per-Server EDNS"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-22T17:34:26.959Z",
+      "trigger": "approved",
+      "approvalId": "approval_1769103241977_323v4w6tx",
+      "approvalTitle": "Design: DNS Server Select Per-Server EDNS"
+    }
+  ]
+}
