@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/sftp-config-parsing-fixes/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-23T16:31:32.049Z",
+      "trigger": "initial",
+      "approvalId": "approval_1769185892044_qgt3zjrz2",
+      "approvalTitle": "Design for SFTP Config Parsing Fixes"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-23T16:31:47.934Z",
+      "trigger": "approved",
+      "approvalId": "approval_1769185892044_qgt3zjrz2",
+      "approvalTitle": "Design for SFTP Config Parsing Fixes"
+    }
+  ]
+}

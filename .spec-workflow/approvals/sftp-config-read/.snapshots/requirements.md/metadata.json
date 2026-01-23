@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/sftp-config-read/requirements.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-23T11:17:43.827Z",
+      "trigger": "initial",
+      "approvalId": "approval_1769167063818_2ch9u852w",
+      "approvalTitle": "SFTP-Based Configuration Reading - Requirements"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-23T11:30:19.012Z",
+      "trigger": "approved",
+      "approvalId": "approval_1769167063818_2ch9u852w",
+      "approvalTitle": "SFTP-Based Configuration Reading - Requirements"
+    }
+  ]
+}

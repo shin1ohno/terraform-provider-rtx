@@ -1,0 +1,236 @@
+#
+# Admin
+#
+
+login password gIvrug-pupcyv-7kogza
+administrator password 893kick!
+login user shin1ohno pino0108
+user attribute administrator=off connection=off gui-page=dashboard,lan-map,config login-timer=300
+user attribute shin1ohno connection=serial,telnet,remote,ssh,sftp,http gui-page=dashboard,lan-map,config login-timer=3600
+timezone +09:00
+console character ja.utf8
+console lines infinity
+console prompt "[RTX1210] "
+system packet-buffer small max-buffer=5000 max-free=1300
+system packet-buffer middle max-buffer=10000 max-free=4950
+system packet-buffer large max-buffer=20000 max-free=5600
+switch control use bridge1 on terminal=on
+lan-map snapshot use bridge1 on terminal=wired-only
+
+httpd host any
+httpd proxy-access l2ms permit on
+
+operation http revision-up permit on
+description yno RTX1210-Ebisu
+sshd service on
+sshd host lan2 bridge1
+sshd host key generate 2869 yJ2BJKbD++nTghZxrzP6+lq7UxtpsB66M9+3821pInOH7aOE3kReCqaZ5QN2ldz4rNi+eu65FE7BmykWVty9AYoEEWzf6T+g9sucGzEWvJaybpXgtwKGdP83BA/jsP6k8LVAyls91uMpcLvk/kI4VT+u3tmPB1K78LhtDCMEcdwBNL1vlBlFy7zhTHNEYyogMsrUgi9lcSxdQHYj+/brFHcBhgV66Ap2fYIlyGvnJMa2/FLhJHnsfs+2txk9NDt04N4f9UYkHIy8+Iqhp+jvpa/boD5QOdEEekOkjLPZiGEhJm6lsyuAtC6zKEZolJ16t3+vkEq3YS5ztTdj77/xCfcCYWS+pNgSGBodHynP7hXtdNb6VbNmqRFsLukPW9a9GbwrNKq9HO7vGgHt4Yln9KYvywj4BZrRBq39momAkys8NY44WDFFG9ouDOUzahKcFxF0l46N5Otaa3rw/r5CojBrtsWBXP0eWTZ5MEHiWNaDTg8kNuwBdlxVnYXyIXgEtmar8r1gdM63/9Ek9riiLKJ7drud7VoX/SqXrrk1xuZZOSKXBMX7QscfOCF63XC0Zd7um/fMQJukff34rjZC5M5CM/H+Z80C2aFzZ9FEYRWoKmjsUQIbX91ktxcM4w7vb+hjavrDw/y3sTd4RqmL0IfEIHLeIoyyYvRkma7NSjAYRbNErfgMFyoeaS6Q+Ld1+lW7xa5BwmJem6IZOUbvoGOlDaBl8e0qtgT6068eXrqge7Pl1nwZf6tWJ5krADWU0sKdCUxi01kpVv9LrLZ8RJfBUiwtFnNUUwXgC645KUGv0PKHqqhYM/WnBttC/w61 gxJ5VKpWmPmdllExWSMY8c1gFqwu1ep7YOrEWbP6IDfrApi1rwHhdLpwfJ0xYHhnYhiS0nTgqkqby6zR9SSzdAnhVM/qV93TTXMa5p3pSlWcVcsDJC4q20KeqnBalsJNGh9FmSztZJ2LuOnyx7dSV5j5l2QbZ6v4TH8pBqXseqxe5GRpRGqrn1PWVGGfdxVgllP8eHoiVsPjW/JbFSs/xhYS0+kxU4bUp7hzoEvVtgslL9FnGpEvVDwmkNzVn1uqJvjmxS8cdFkJsVGslh0X3n89xeihhYYoSstpMEEnGi2IVe9kv/1KcvWNa2CW09519L+kFD4oG/1c7BSwVPFKtyS72Ni+52r0xU9FeYepr6FSBXXqGZDCNfavLRzEcHn7W0tdzcRr0KorsDv+Ri6rghRd1x0MeM5f+7K+I2WVucL9D2GG781cQABUCpaPxjObPHIXbzeSx/3Z+1lCyvja8XN6FyXleHKtXg+nyIZOtCFqjNRbONEusYZfiPFdUpUvetAsypl0f7s2jqAFNyphz87gI173JU7+DohDaacLYoOi7XG/Ab1cFjOZvPsZ1zE7O7J81uKltBiBK5RYgTyVkYdSsxVyzCrLQ6+pgG3N8Og=
+sftpd host bridge1
+external-memory statistics filename prefix usb1:rtx1210
+statistics traffic on
+statistics nat on
+switch control watch interval 2 5
+lan-map terminal watch interval 1800 10
+lan-map sysname RTX1210_Ebisu
+
+syslog host 192.168.1.20
+syslog local address 192.168.1.253
+syslog facility local0
+syslog notice on
+syslog info on
+syslog debug on
+
+#
+# WAN connection
+#
+
+description lan2 au
+ip lan2 address dhcp
+ip lan2 nat descriptor 1000
+ip lan2 secure filter in  200020 200021 200022 200023 200024 200025 200103 200100 200102 200104 200101 200105 200099
+ip lan2 secure filter out 200020 200021 200022 200023 200024 200025 200026 200027 200099 dynamic 200080 200081 200082 200083 200084 200085
+
+ipv6 lan2 mtu 1500
+ipv6 lan2 dhcp service client ir=on
+ipv6 lan2 secure filter in 101000 101002 101099
+ipv6 lan2 secure filter out 101099 dynamic 101080 101081 101082 101083 101084 101085 101098 101099
+
+ngn type lan2 off
+sip use off
+
+#
+# IP configuration
+#
+
+ip routing process fast
+ip route change log on
+ip filter source-route on
+ip filter directed-broadcast on
+ip route default gateway dhcp lan2
+ip route 10.33.128.0/21 gateway 192.168.1.20 gateway 192.168.1.21
+ip route 100.64.0.0/10 gateway 192.168.1.20 gateway 192.168.1.21
+
+ipv6 routing process fast
+ipv6 prefix 1 ra-prefix@lan2::/64
+ipv6 bridge1 address ra-prefix@lan2::1/64
+ipv6 lan1 address ra-prefix@lan2::2/64
+ipv6 lan1 rtadv send 1 o_flag=on
+ipv6 lan1 dhcp service server
+
+bridge member bridge1 lan1 tunnel1
+ip bridge1 address 192.168.1.253/16
+ip lan1 proxyarp on
+
+#
+# Services
+#
+
+dhcp service server
+dhcp server rfc2131 compliant except remain-silent
+dhcp scope 1 192.168.1.20-192.168.1.99/16 gateway 192.168.1.253 expire 12:00 maxexpire 24:00
+dhcp scope bind 1 192.168.1.20 01 00 30 93 11 0e 33
+dhcp scope bind 1 192.168.1.21 01 00 3e e1 c3 54 b4
+dhcp scope bind 1 192.168.1.22 01 00 3e e1 c3 54 b5
+dhcp scope bind 1 192.168.1.28 24:59:e5:54:5e:5a
+dhcp scope bind 1 192.168.1.29 b8:0b:da:ef:77:33
+dhcp scope option 1 dns=1.1.1.1,1.0.0.1
+dhcp scope option 1 router=192.168.1.253
+
+dhcp client release linkdown on
+dns host bridge1
+dns service recursive
+dns cache use off
+dns server select 1 100.100.100.100 edns=on any home.local
+dns server select 500000 1.1.1.1 edns=on 1.0.0.1 edns=on a .
+dns server select 500100 2606:4700:4700::1111 edns=on 2606:4700:4700::1001 edns=on aaaa .
+dns private address spoof on
+
+#
+# Tunnels
+#
+
+pp disable all
+pp select anonymous
+ pp bind tunnel2
+ pp auth request mschap-v2
+ pp auth username shin1ohno pino0108
+ ppp ipcp ipaddress on
+ ppp ipcp msext on
+ ppp ccp type none
+ ip pp remote address pool dhcp
+ ip pp mtu 1258
+ pp enable anonymous
+no tunnel enable all
+tunnel select 1
+ tunnel encapsulation l2tpv3
+ tunnel endpoint name itm.ohno.be fqdn
+ ipsec tunnel 101
+  ipsec sa policy 101 1 esp aes-cbc sha-hmac
+  ipsec ike keepalive log 1 off
+  ipsec ike keepalive use 1 on heartbeat 10 6
+  ipsec ike local address 1 192.168.1.253
+  ipsec ike log 1 key-info message-info payload-info
+  ipsec ike nat-traversal 1 on
+  ipsec ike pre-shared-key 1 text 893kick!
+  ipsec ike remote address 1 itm.ohno.be
+  ipsec ike remote name 1 l2tpv3 key-id
+ l2tp always-on on
+ l2tp hostname ebisu-RTX1210
+ l2tp tunnel auth on 893kick!
+ l2tp tunnel disconnect time off
+ l2tp keepalive use on 60 3
+ l2tp keepalive log off
+ l2tp syslog on
+ l2tp local router-id 192.168.1.253
+ l2tp remote router-id 192.168.1.254
+ l2tp remote end-id shin1
+ ip tunnel secure filter in 200028 200099
+ ip tunnel tcp mss limit auto
+ tunnel enable 1
+
+ tunnel select 2
+ tunnel encapsulation l2tp
+ ipsec tunnel 1
+  ipsec sa policy 1 2 esp aes-cbc sha-hmac
+  ipsec ike keepalive use 2 off
+  ipsec ike nat-traversal 2 on
+  ipsec ike pre-shared-key 2 text 893kick!
+  ipsec ike remote address 2 any
+ l2tp tunnel disconnect time off
+ ip tunnel tcp mss limit auto
+ tunnel enable 2
+
+ip filter 200000 reject 10.0.0.0/8 * * * *
+ip filter 200001 reject 172.16.0.0/12 * * * *
+ip filter 200002 reject 192.168.0.0/16 * * * *
+ip filter 200010 reject * 10.0.0.0/8 * * *
+ip filter 200011 reject * 172.16.0.0/12 * * *
+ip filter 200012 reject * 192.168.0.0/16 * * *
+ip filter 200020 reject * * udp,tcp 135 *
+ip filter 200021 reject * * udp,tcp * 135
+ip filter 200022 reject * * udp,tcp netbios_ns-netbios_ssn *
+ip filter 200023 reject * * udp,tcp * netbios_ns-netbios_ssn
+ip filter 200024 reject * * udp,tcp 445 *
+ip filter 200025 reject * * udp,tcp * 445
+ip filter 200026 restrict * * tcpfin * www,21,nntp
+ip filter 200027 restrict * * tcprst * www,21,nntp
+ip filter 200028 reject * * udp dhcps,dhcpc dhcps,dhcpc
+ip filter 200099 pass * * * * *
+ip filter 200100 pass * * udp * 500
+ip filter 200101 pass * * udp * 1701
+ip filter 200102 pass * * udp * 4500
+ip filter 200103 reject * * udp dhcps,dhcpc dhcps,dhcpc
+ip filter 200104 pass * * tcp * www
+ip filter 200105 pass * * esp
+ip filter 500000 restrict * * * * *
+ip filter dynamic 200080 * * ftp syslog=off
+ip filter dynamic 200081 * * domain syslog=off
+ip filter dynamic 200082 * * www syslog=off
+ip filter dynamic 200083 * * smtp syslog=off
+ip filter dynamic 200084 * * pop3 syslog=off
+ip filter dynamic 200085 * * submission syslog=off
+ip filter dynamic 200098 * * tcp syslog=off
+ip filter dynamic 200099 * * udp syslog=off
+
+#
+# Ethernet filters
+#
+
+# default filter
+ethernet filter 100 pass *:*:*:*:*:* *:*:*:*:*:*
+
+# no internet access from living TV
+ethernet filter 1 reject-nolog bc:5c:17:05:59:3a *:*:*:*:*:*
+ethernet filter 2 reject-nolog *:*:*:*:*:* bc:5c:17:05:59:3a
+
+# apply the filters
+ethernet lan1 filter in 1 100
+ethernet lan1 filter out 2 100
+
+nat descriptor type 1000 masquerade
+nat descriptor address outer 1000 primary
+nat descriptor masquerade incoming 1000 reject
+nat descriptor masquerade static 1000 1 192.168.1.253 esp
+nat descriptor masquerade static 1000 2 192.168.1.253 udp 500
+nat descriptor masquerade static 1000 3 192.168.1.253 udp 4500
+nat descriptor masquerade static 1000 4 192.168.1.253 udp 1701
+nat descriptor masquerade static 1000 900 192.168.1.20 tcp 55000
+
+ipsec auto refresh on
+ipsec transport 1 101 udp 1701
+ipsec transport 3 3 udp 1701
+l2tp service on l2tpv3 l2tp
+
+ipv6 filter 101000 pass * * icmp6 * *
+ipv6 filter 101002 pass * * udp * 546
+ipv6 filter 101098 reject * * * * *
+ipv6 filter 101099 pass * * * * *
+ipv6 filter 402100 pass * * * * *
+ipv6 filter dynamic 101080 * * ftp syslog=off
+ipv6 filter dynamic 101081 * * domain syslog=off
+ipv6 filter dynamic 101082 * * www syslog=off
+ipv6 filter dynamic 101083 * * smtp syslog=off
+ipv6 filter dynamic 101084 * * pop3 syslog=off
+ipv6 filter dynamic 101085 * * submission syslog=off
+ipv6 filter dynamic 101098 * * tcp syslog=off
+ipv6 filter dynamic 101099 * * udp syslog=off

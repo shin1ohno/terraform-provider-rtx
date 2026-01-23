@@ -1,0 +1,129 @@
+# Tasks Document: SFTP-Based Configuration Reading
+
+- [x] 1. Extend Client Config with SFTP fields
+  - File: internal/client/interfaces.go
+  - Add `SFTPEnabled bool` and `SFTPConfigPath string` fields to Config struct
+  - Purpose: Enable SFTP configuration at client level
+  - _Leverage: existing Config struct in internal/client/interfaces.go_
+  - _Requirements: 1.1, 1.2_
+  - _Prompt: Implement the task for spec sftp-config-read, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Developer specializing in Terraform provider development | Task: Add SFTPEnabled (bool) and SFTPConfigPath (string) fields to the existing Config struct in internal/client/interfaces.go following requirements 1.1 and 1.2 | Restrictions: Do not modify existing fields, maintain backward compatibility, add appropriate comments | Success: Config struct has new SFTP fields, existing code compiles without changes | After completion: Mark task as in-progress in tasks.md before starting, use log-implementation tool to record implementation details, then mark as complete_
+
+- [x] 2. Add SFTP provider schema fields
+  - File: internal/provider/provider.go
+  - Add `sftp_enabled` and `sftp_config_path` schema fields to provider configuration
+  - Wire new fields to client Config in providerConfigure function
+  - Purpose: Allow users to enable SFTP via Terraform provider block
+  - _Leverage: existing provider schema in internal/provider/provider.go, admin_password field as reference_
+  - _Requirements: 1.1, 1.2, 1.3_
+  - _Prompt: Implement the task for spec sftp-config-read, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Terraform Provider Developer | Task: Add sftp_enabled (TypeBool, default false, env RTX_SFTP_ENABLED) and sftp_config_path (TypeString, default empty for auto-detect) schema fields to provider.go, wire to client Config in providerConfigure | Restrictions: Follow existing schema patterns, add proper descriptions, support environment variables | Success: Provider accepts new SFTP fields, fields are passed to client config | After completion: Mark task as in-progress in tasks.md before starting, use log-implementation tool to record implementation details, then mark as complete_
+
+- [x] 3. Implement SFTP Client
+  - File: internal/client/sftp_client.go (new file)
+  - Implement SFTPClient interface with Download and Close methods
+  - Use github.com/pkg/sftp library over existing SSH connection
+  - Handle connection errors gracefully for fallback
+  - Purpose: Download configuration file from RTX router via SFTP
+  - _Leverage: internal/client/ssh_dialer.go for SSH connection patterns, golang.org/x/crypto/ssh_
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
+  - _Prompt: Implement the task for spec sftp-config-read, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Developer with SSH/SFTP expertise | Task: Create sftp_client.go implementing SFTPClient interface (Download, Close methods) using github.com/pkg/sftp, reusing SSH connection parameters from Config, storing downloaded content in memory only (never disk) | Restrictions: Do not store config to disk, handle all errors for fallback support, close SFTP connection after download | Success: Can download /system/configN files from RTX router, errors return cleanly for fallback | After completion: Mark task as in-progress in tasks.md before starting, use log-implementation tool to record implementation details, then mark as complete_
+
+- [x] 4. Implement Config Path Resolver
+  - File: internal/client/config_path_resolver.go (new file)
+  - Parse `show environment` output to detect startup config number
+  - Return SFTP path in format `/system/config{N}`
+  - Fallback to `/system/config0` if detection fails
+  - Purpose: Automatically determine correct config file path
+  - _Leverage: internal/client/executor.go for command execution, existing parser patterns_
+  - _Requirements: 2.1_
+  - _Prompt: Implement the task for spec sftp-config-read, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Developer familiar with RTX router CLI | Task: Create config_path_resolver.go that executes "show environment" via Executor, parses output to find startup config (デフォルト設定ファイル or similar), returns /system/config{N} path | Restrictions: Handle Japanese and English output formats, fallback to /system/config0 on parse failure, do not fail on missing data | Success: Correctly identifies startup config from show environment output, returns valid SFTP path | After completion: Mark task as in-progress in tasks.md before starting, use log-implementation tool to record implementation details, then mark as complete_
+
+- [x] 5. Implement Config Cache
+  - File: internal/client/config_cache.go (new file)
+  - Thread-safe in-memory cache using sync.RWMutex
+  - Implement Get, Set, Invalidate, MarkDirty methods
+  - Store raw content and parsed config
+  - Purpose: Cache downloaded config for multiple resource reads
+  - _Leverage: sync package, existing mutex patterns in internal/client/client.go_
+  - _Requirements: 4.1, 4.2, 4.3, 4.4_
+  - _Prompt: Implement the task for spec sftp-config-read, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Developer with concurrency expertise | Task: Create config_cache.go with ConfigCache struct using sync.RWMutex, implement Get (returns cached ParsedConfig), Set (stores content and parsed data), Invalidate (clears cache), MarkDirty (flags for refresh after write) | Restrictions: Must be thread-safe for concurrent reads, never persist to disk, clear cache appropriately | Success: Multiple goroutines can safely read cached config, dirty flag triggers re-download | After completion: Mark task as in-progress in tasks.md before starting, use log-implementation tool to record implementation details, then mark as complete_
+
+- [x] 6. Implement Config File Parser - Core Structure
+  - File: internal/rtx/parsers/config_file.go (new file)
+  - Define ParsedConfig struct with fields for all resource types
+  - Implement basic parsing framework with context tracking (tunnel select, pp select)
+  - Split config into lines and handle comments
+  - Purpose: Foundation for parsing full config.txt
+  - _Leverage: existing parsers in internal/rtx/parsers/, sample config in requirements.md Appendix A_
+  - _Requirements: 3.1, 3.2_
+  - _Prompt: Implement the task for spec sftp-config-read, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Developer with parsing expertise | Task: Create config_file.go with ParsedConfig struct containing maps/slices for all resource types (StaticRoutes, DHCPScopes, VLANs, Tunnels, Filters, etc.), implement ConfigFileParser with Parse method that handles line splitting, comment removal, and context tracking for hierarchical commands (tunnel select N, pp select) | Restrictions: Follow existing parser patterns, handle indented context blocks correctly, ignore comment lines starting with # | Success: Can parse sample config structure, context stack correctly tracks tunnel/pp select blocks | After completion: Mark task as in-progress in tasks.md before starting, use log-implementation tool to record implementation details, then mark as complete_
+
+- [x] 7. Implement Config File Parser - Resource Extraction
+  - File: internal/rtx/parsers/config_file.go (continue)
+  - Add parsing for each resource type: static routes, DHCP, NAT, filters, tunnels, DNS, admin
+  - Extract passwords from plaintext config (login password, ipsec pre-shared-key, etc.)
+  - Reuse existing individual parsers where applicable
+  - Purpose: Extract all resource states from config.txt
+  - _Leverage: existing StaticRouteParser, DHCPScopeParser, VLANParser in internal/rtx/parsers/_
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 5.1, 5.2, 5.3, 5.4_
+  - _Prompt: Implement the task for spec sftp-config-read, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Developer with RTX config expertise | Task: Extend config_file.go to parse all resource types by delegating to existing parsers or implementing new extraction logic, specifically handle password extraction patterns (login password, administrator password, pp auth username, ipsec ike pre-shared-key text, l2tp tunnel auth on) | Restrictions: Reuse existing parsers where possible, handle encrypted passwords as unknown, maintain consistency with existing resource structures | Success: All resource types extractable from sample config, passwords correctly extracted from plaintext | After completion: Mark task as in-progress in tasks.md before starting, use log-implementation tool to record implementation details, then mark as complete_
+
+- [x] 8. Integrate SFTP Reading into Client
+  - File: internal/client/client.go (modify)
+  - Add ConfigCache field to rtxClient struct
+  - Create method to download and cache config via SFTP
+  - Implement fallback to SSH on SFTP failure with warning log
+  - Purpose: Orchestrate SFTP download, caching, and fallback
+  - _Leverage: internal/client/client.go, new sftp_client.go, config_cache.go, config_path_resolver.go_
+  - _Requirements: 1.4, 1.5, 1.6, 4.1, 4.2, 4.3, 4.4_
+  - _Prompt: Implement the task for spec sftp-config-read, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Terraform Provider Developer | Task: Add configCache *ConfigCache to rtxClient, implement GetCachedConfig method that checks cache validity, downloads via SFTP if needed (using ConfigPathResolver for path), parses config, caches result; implement fallback to SSH CLI with tflog.Warn on SFTP failure; invalidate cache after write operations | Restrictions: Never fail on SFTP error (always fallback), log specific failure reason, re-attempt SFTP on subsequent operations | Success: SFTP download works when enabled, graceful fallback with warning on failure, cache shared across reads | After completion: Mark task as in-progress in tasks.md before starting, use log-implementation tool to record implementation details, then mark as complete_
+
+- [x] 9. Update Resource Read Functions to Use Cache
+  - Files: internal/provider/resource_rtx_*.go (multiple files, start with 2-3 representative resources)
+  - Modify Read functions to check config cache before SSH commands
+  - Extract resource state from ParsedConfig when available
+  - Maintain SSH fallback path
+  - Purpose: Enable resources to benefit from SFTP bulk read
+  - _Leverage: existing resource Read functions, new config cache methods_
+  - _Requirements: 3.1, 4.2_
+  - _Prompt: Implement the task for spec sftp-config-read, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Terraform Provider Developer | Task: Update Read functions in 2-3 representative resources (e.g., rtx_static_route, rtx_dhcp_scope, rtx_nat_masquerade) to first check if SFTP is enabled and cache is valid, extract state from ParsedConfig if available, otherwise fall back to existing SSH method | Restrictions: Do not break existing SSH-only functionality, maintain backward compatibility, keep SSH path as fallback | Success: Resources use cached config when available, no behavior change when SFTP disabled | After completion: Mark task as in-progress in tasks.md before starting, use log-implementation tool to record implementation details, then mark as complete_
+
+- [x] 10. Unit Tests for SFTP Components
+  - Files: internal/client/sftp_client_test.go, internal/client/config_cache_test.go, internal/client/config_path_resolver_test.go
+  - Test SFTP client with mock SSH connection
+  - Test cache thread-safety and invalidation
+  - Test config path resolution from show environment output
+  - Purpose: Ensure component reliability
+  - _Leverage: existing test patterns in internal/client/*_test.go, testify/mock_
+  - _Requirements: All_
+  - _Prompt: Implement the task for spec sftp-config-read, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Test Engineer | Task: Create unit tests for SFTPClient (mock SSH, test download success/failure), ConfigCache (concurrent access, invalidation, dirty flag), ConfigPathResolver (parse various show environment outputs including Japanese text) | Restrictions: Mock external dependencies, test error paths, ensure tests are deterministic | Success: All components have >80% coverage, edge cases covered, tests pass reliably | After completion: Mark task as in-progress in tasks.md before starting, use log-implementation tool to record implementation details, then mark as complete_
+
+- [x] 11. Unit Tests for Config File Parser
+  - File: internal/rtx/parsers/config_file_test.go
+  - Test parsing of sample config from requirements.md
+  - Test context-aware parsing (tunnel select blocks)
+  - Test password extraction from various formats
+  - Test malformed input handling
+  - Purpose: Ensure parser correctness
+  - _Leverage: internal/rtx/testdata/, sample config in requirements.md Appendix A_
+  - _Requirements: 3.1, 3.2, 5.1, 5.2_
+  - _Prompt: Implement the task for spec sftp-config-read, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Test Engineer with parser testing expertise | Task: Create config_file_test.go with tests using sample config from requirements.md, verify all resource types extracted correctly, test tunnel/pp context handling, verify password extraction from all formats (login password, ipsec pre-shared-key text, etc.), test graceful handling of malformed/incomplete config | Restrictions: Use realistic test data, test both success and error cases, verify extracted values match expected | Success: Parser correctly handles all documented config patterns, password extraction works for all formats | After completion: Mark task as in-progress in tasks.md before starting, use log-implementation tool to record implementation details, then mark as complete_
+
+- [x] 12. Integration Test with Mock SFTP Server
+  - File: internal/client/sftp_integration_test.go
+  - Set up test SFTP server with sample config
+  - Test full flow: resolve path → download → parse → cache
+  - Test fallback behavior on SFTP failure
+  - Purpose: Validate end-to-end SFTP flow
+  - _Leverage: github.com/pkg/sftp test utilities, existing integration test patterns_
+  - _Requirements: All_
+  - _Prompt: Implement the task for spec sftp-config-read, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Integration Test Engineer | Task: Create sftp_integration_test.go with mock SFTP server serving sample config, test complete flow from config path resolution through parsing and caching, test fallback when SFTP fails, verify warning logs are emitted on fallback | Restrictions: Do not require real RTX router, mock server should simulate RTX SFTP behavior, test in isolation | Success: Full SFTP flow works with mock server, fallback triggers correctly, cache is populated | After completion: Mark task as in-progress in tasks.md before starting, use log-implementation tool to record implementation details, then mark as complete_
+
+- [x] 13. Documentation and Examples
+  - Files: docs/sftp-configuration.md (new), examples/sftp-enabled/main.tf (new)
+  - Document SFTP setup requirements on RTX router
+  - Document provider configuration options
+  - Provide example Terraform configuration
+  - Purpose: Enable users to adopt SFTP feature
+  - _Leverage: existing docs/ structure, RTX router documentation_
+  - _Requirements: Usability requirements_
+  - _Prompt: Implement the task for spec sftp-config-read, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Technical Writer | Task: Create docs/sftp-configuration.md explaining how to enable SFTP on RTX router (sftpd host command, user permissions), document provider sftp_enabled and sftp_config_path options, create example Terraform config in examples/sftp-enabled/ | Restrictions: Follow existing documentation style, include troubleshooting section, note security considerations | Success: Users can enable SFTP feature following documentation, examples work correctly | After completion: Mark task as in-progress in tasks.md before starting, use log-implementation tool to record implementation details, then mark as complete_
