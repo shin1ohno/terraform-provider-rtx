@@ -25,7 +25,7 @@ console character ascii
 console lines 24
 `
 				m.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
-					return cmd == `show config | grep -E "(timezone|console|packet-buffer|statistics)"`
+					return cmd == `show config | grep "(timezone|console|packet-buffer|statistics)"`
 				})).Return([]byte(output), nil)
 			},
 			expected: &SystemConfig{
@@ -45,7 +45,7 @@ system packet-buffer small max-buffer=2048 max-free=256
 system packet-buffer medium max-buffer=512 max-free=1024
 `
 				m.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
-					return cmd == `show config | grep -E "(timezone|console|packet-buffer|statistics)"`
+					return cmd == `show config | grep "(timezone|console|packet-buffer|statistics)"`
 				})).Return([]byte(output), nil)
 			},
 			expected: &SystemConfig{
@@ -240,7 +240,7 @@ func TestSystemService_Update(t *testing.T) {
 console character ascii
 `
 				m.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
-					return cmd == `show config | grep -E "(timezone|console|packet-buffer|statistics)"`
+					return cmd == `show config | grep "(timezone|console|packet-buffer|statistics)"`
 				})).Return([]byte(currentOutput), nil)
 
 				// Then: RunBatch with updated commands
@@ -299,7 +299,7 @@ func TestSystemService_Reset(t *testing.T) {
 console character ascii
 `
 				m.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
-					return cmd == `show config | grep -E "(timezone|console|packet-buffer|statistics)"`
+					return cmd == `show config | grep "(timezone|console|packet-buffer|statistics)"`
 				})).Return([]byte(currentOutput), nil)
 
 				// Then: RunBatch with delete commands

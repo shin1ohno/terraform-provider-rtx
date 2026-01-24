@@ -207,7 +207,9 @@ func customizeL2TPServiceDiff(ctx context.Context, d *schema.ResourceDiff, meta 
 
 	if oldIsAllProtocols && newIsAllProtocols {
 		// Both represent "all protocols enabled", suppress the diff
-		d.Clear("protocols")
+		if err := d.Clear("protocols"); err != nil {
+			return err
+		}
 	}
 
 	return nil
