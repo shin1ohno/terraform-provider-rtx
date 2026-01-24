@@ -57,7 +57,7 @@
 
 ## Phase 3: Unit Tests for Test Infrastructure
 
-- [-] 6. Add unit tests for acctest package
+- [x] 6. Add unit tests for acctest package
   - File: `internal/provider/acctest/acctest_test.go`
   - Test RandomName generates unique names
   - Test ConfigBuilder produces valid HCL
