@@ -57,7 +57,7 @@ func TestBuildDNSConfigFromResourceData_WithServerSelect(t *testing.T) {
 		"domain_lookup": true,
 		"server_select": []interface{}{
 			map[string]interface{}{
-				"id": 1,
+				"priority": 1,
 				"server": []interface{}{
 					map[string]interface{}{
 						"address": "192.168.1.1",
@@ -68,7 +68,7 @@ func TestBuildDNSConfigFromResourceData_WithServerSelect(t *testing.T) {
 				"query_pattern": "internal.example.com",
 			},
 			map[string]interface{}{
-				"id": 2,
+				"priority": 2,
 				"server": []interface{}{
 					map[string]interface{}{
 						"address": "10.0.0.1",
@@ -179,7 +179,7 @@ func TestBuildDNSConfigFromResourceData_FullConfig(t *testing.T) {
 		"name_servers":  []interface{}{"8.8.8.8", "1.1.1.1"},
 		"server_select": []interface{}{
 			map[string]interface{}{
-				"id": 1,
+				"priority": 1,
 				"server": []interface{}{
 					map[string]interface{}{
 						"address": "192.168.1.1",

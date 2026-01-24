@@ -10,16 +10,16 @@ func TestResourceRTXAccessListIPv6_Schema(t *testing.T) {
 	resource := resourceRTXAccessListIPv6()
 
 	// Test required fields
-	requiredFields := []string{"filter_id", "action", "source", "destination", "protocol"}
+	requiredFields := []string{"sequence", "action", "source", "destination", "protocol"}
 	for _, field := range requiredFields {
 		if resource.Schema[field].Required != true {
 			t.Errorf("%s should be required", field)
 		}
 	}
 
-	// Test filter_id is ForceNew
-	if resource.Schema["filter_id"].ForceNew != true {
-		t.Error("filter_id should force new")
+	// Test sequence is ForceNew
+	if resource.Schema["sequence"].ForceNew != true {
+		t.Error("sequence should force new")
 	}
 
 	// Test optional fields
@@ -71,7 +71,7 @@ func TestResourceRTXAccessListIPv6_ValidProtocols(t *testing.T) {
 func TestBuildIPv6FilterFromResourceData(t *testing.T) {
 	resource := resourceRTXAccessListIPv6()
 	d := schema.TestResourceDataRaw(t, resource.Schema, map[string]interface{}{
-		"filter_id":   101000,
+		"sequence":    101000,
 		"action":      "pass",
 		"source":      "*",
 		"destination": "*",
@@ -102,7 +102,7 @@ func TestBuildIPv6FilterFromResourceData(t *testing.T) {
 func TestBuildIPv6FilterFromResourceData_WithPorts(t *testing.T) {
 	resource := resourceRTXAccessListIPv6()
 	d := schema.TestResourceDataRaw(t, resource.Schema, map[string]interface{}{
-		"filter_id":   101001,
+		"sequence":    101001,
 		"action":      "reject",
 		"source":      "2001:db8::/32",
 		"destination": "*",
@@ -171,33 +171,33 @@ func TestResourceRTXAccessListIPv6_ProtocolValidation(t *testing.T) {
 
 func TestResourceRTXAccessListIPv6_FilterIDValidation(t *testing.T) {
 	resource := resourceRTXAccessListIPv6()
-	filterIDSchema := resource.Schema["filter_id"]
+	filterIDSchema := resource.Schema["sequence"]
 
 	if filterIDSchema.ValidateFunc == nil {
-		t.Error("filter_id should have validation function")
+		t.Error("sequence should have validation function")
 	}
 
 	// Test valid filter IDs
 	validIDs := []int{1, 100, 65535}
 	for _, id := range validIDs {
-		_, errs := filterIDSchema.ValidateFunc(id, "filter_id")
+		_, errs := filterIDSchema.ValidateFunc(id, "sequence")
 		if len(errs) > 0 {
-			t.Errorf("filter_id %d should be valid, got errors: %v", id, errs)
+			t.Errorf("sequence %d should be valid, got errors: %v", id, errs)
 		}
 	}
 
 	// Test invalid filter IDs (0 and -1 are invalid, 65536 is valid since range is 1-2147483647)
 	invalidIDs := []int{0, -1}
 	for _, id := range invalidIDs {
-		_, errs := filterIDSchema.ValidateFunc(id, "filter_id")
+		_, errs := filterIDSchema.ValidateFunc(id, "sequence")
 		if len(errs) == 0 {
-			t.Errorf("filter_id %d should be invalid", id)
+			t.Errorf("sequence %d should be invalid", id)
 		}
 	}
 
 	// 65536 is valid since range is 1-2147483647
-	_, errs := filterIDSchema.ValidateFunc(65536, "filter_id")
+	_, errs := filterIDSchema.ValidateFunc(65536, "sequence")
 	if len(errs) > 0 {
-		t.Errorf("filter_id 65536 should be valid, got errors: %v", errs)
+		t.Errorf("sequence 65536 should be valid, got errors: %v", errs)
 	}
 }

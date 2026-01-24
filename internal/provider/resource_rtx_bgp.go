@@ -59,10 +59,10 @@ func resourceRTXBGP() *schema.Resource {
 				Description: "BGP neighbor configurations.",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"id": {
+						"index": {
 							Type:         schema.TypeInt,
 							Required:     true,
-							Description:  "Neighbor ID (1-based index for RTX router).",
+							Description:  "Neighbor index (1-based) for RTX router configuration.",
 							ValidateFunc: validation.IntAtLeast(1),
 						},
 						"ip": {
@@ -237,7 +237,7 @@ func resourceRTXBGPRead(ctx context.Context, d *schema.ResourceData, meta interf
 	neighbors := make([]map[string]interface{}, len(config.Neighbors))
 	for i, n := range config.Neighbors {
 		neighbors[i] = map[string]interface{}{
-			"id":            n.ID,
+			"index":         n.ID,
 			"ip":            n.IP,
 			"remote_as":     n.RemoteAS,
 			"hold_time":     n.HoldTime,
@@ -331,7 +331,7 @@ func resourceRTXBGPImport(ctx context.Context, d *schema.ResourceData, meta inte
 	neighbors := make([]map[string]interface{}, len(config.Neighbors))
 	for i, n := range config.Neighbors {
 		neighbors[i] = map[string]interface{}{
-			"id":            n.ID,
+			"index":         n.ID,
 			"ip":            n.IP,
 			"remote_as":     n.RemoteAS,
 			"hold_time":     n.HoldTime,
@@ -373,7 +373,7 @@ func buildBGPConfigFromResourceData(d *schema.ResourceData) client.BGPConfig {
 		for i, n := range neighborList {
 			nMap := n.(map[string]interface{})
 			config.Neighbors[i] = client.BGPNeighbor{
-				ID:           nMap["id"].(int),
+				ID:           nMap["index"].(int),
 				IP:           nMap["ip"].(string),
 				RemoteAS:     nMap["remote_as"].(string),
 				HoldTime:     nMap["hold_time"].(int),

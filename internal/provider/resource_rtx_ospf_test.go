@@ -93,17 +93,17 @@ func TestBuildOSPFConfigFromResourceData(t *testing.T) {
 				},
 				"area": []interface{}{
 					map[string]interface{}{
-						"id":         "0",
+						"area_id":    "0",
 						"type":       "normal",
 						"no_summary": false,
 					},
 					map[string]interface{}{
-						"id":         "1",
+						"area_id":    "1",
 						"type":       "stub",
 						"no_summary": false,
 					},
 					map[string]interface{}{
-						"id":         "2",
+						"area_id":    "2",
 						"type":       "nssa",
 						"no_summary": true,
 					},
@@ -293,8 +293,8 @@ func TestResourceRTXOSPFAreaSchema(t *testing.T) {
 	resource := resourceRTXOSPF()
 	areaSchema := resource.Schema["area"].Elem.(*schema.Resource).Schema
 
-	t.Run("id is required", func(t *testing.T) {
-		assert.True(t, areaSchema["id"].Required)
+	t.Run("area_id is required", func(t *testing.T) {
+		assert.True(t, areaSchema["area_id"].Required)
 	})
 
 	t.Run("type is optional and computed", func(t *testing.T) {

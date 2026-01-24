@@ -39,7 +39,7 @@ Manages OSPF (Open Shortest Path First) configuration on RTX routers. OSPF is a 
 
 Required:
 
-- `id` (String) Area ID in decimal (e.g., '0') or dotted decimal (e.g., '0.0.0.0') format.
+- `area_id` (String) OSPF Area ID in decimal (e.g., '0') or dotted decimal (e.g., '0.0.0.0') format.
 
 Optional:
 

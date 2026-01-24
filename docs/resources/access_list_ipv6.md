@@ -19,8 +19,8 @@ Manages static IPv6 filters on RTX routers. Static IPv6 filters provide packet f
 
 - `action` (String) Filter action: pass, reject, restrict, or restrict-log
 - `destination` (String) Destination IPv6 address/prefix or '*' for any
-- `filter_id` (Number) Filter number (unique identifier, 1-65535)
 - `protocol` (String) Protocol: tcp, udp, icmp6, ip, *, gre, esp, ah
+- `sequence` (Number) Sequence number determining evaluation order. Lower numbers are evaluated first (1-2147483647).
 - `source` (String) Source IPv6 address/prefix or '*' for any
 
 ### Optional

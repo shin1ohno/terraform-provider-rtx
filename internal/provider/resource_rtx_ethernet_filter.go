@@ -32,11 +32,11 @@ func resourceRTXEthernetFilter() *schema.Resource {
 		},
 
 		Schema: map[string]*schema.Schema{
-			"number": {
+			"sequence": {
 				Type:         schema.TypeInt,
 				Required:     true,
 				ForceNew:     true,
-				Description:  "Filter number (1-512)",
+				Description:  "Sequence number determining evaluation order. Lower numbers are evaluated first (1-512).",
 				ValidateFunc: validation.IntBetween(1, 512),
 			},
 			"action": {
@@ -253,14 +253,14 @@ func resourceRTXEthernetFilterImport(ctx context.Context, d *schema.ResourceData
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_ethernet_filter").Msgf("Importing Ethernet filter: %d", number)
 
-	d.Set("number", number)
+	d.Set("sequence", number)
 
 	return []*schema.ResourceData{d}, nil
 }
 
 func buildEthernetFilterFromResourceData(d *schema.ResourceData) client.EthernetFilter {
 	filter := client.EthernetFilter{
-		Number:    d.Get("number").(int),
+		Number:    d.Get("sequence").(int),
 		Action:    d.Get("action").(string),
 		SourceMAC: d.Get("source_mac").(string),
 		DestMAC:   d.Get("destination_mac").(string),
@@ -278,7 +278,7 @@ func buildEthernetFilterFromResourceData(d *schema.ResourceData) client.Ethernet
 }
 
 func flattenEthernetFilterToResourceData(filter *client.EthernetFilter, d *schema.ResourceData) error {
-	d.Set("number", filter.Number)
+	d.Set("sequence", filter.Number)
 	d.Set("action", filter.Action)
 
 	if filter.SourceMAC != "" {

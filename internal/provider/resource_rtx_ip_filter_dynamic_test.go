@@ -19,7 +19,7 @@ func TestBuildIPFilterDynamicFromResourceData_Form1(t *testing.T) {
 		{
 			name: "basic Form 1 with protocol www",
 			input: map[string]interface{}{
-				"filter_id":       100,
+				"sequence":        100,
 				"source":          "*",
 				"destination":     "*",
 				"protocol":        "www",
@@ -40,7 +40,7 @@ func TestBuildIPFilterDynamicFromResourceData_Form1(t *testing.T) {
 		{
 			name: "Form 1 with syslog enabled",
 			input: map[string]interface{}{
-				"filter_id":       200,
+				"sequence":        200,
 				"source":          "192.168.1.0/24",
 				"destination":     "*",
 				"protocol":        "ftp",
@@ -61,7 +61,7 @@ func TestBuildIPFilterDynamicFromResourceData_Form1(t *testing.T) {
 		{
 			name: "Form 1 with smtp protocol",
 			input: map[string]interface{}{
-				"filter_id":       300,
+				"sequence":        300,
 				"source":          "*",
 				"destination":     "10.0.0.1",
 				"protocol":        "smtp",
@@ -82,7 +82,7 @@ func TestBuildIPFilterDynamicFromResourceData_Form1(t *testing.T) {
 		{
 			name: "Form 1 with dns protocol",
 			input: map[string]interface{}{
-				"filter_id":       400,
+				"sequence":        400,
 				"source":          "*",
 				"destination":     "*",
 				"protocol":        "dns",
@@ -103,7 +103,7 @@ func TestBuildIPFilterDynamicFromResourceData_Form1(t *testing.T) {
 		{
 			name: "Form 1 with https protocol",
 			input: map[string]interface{}{
-				"filter_id":       500,
+				"sequence":        500,
 				"source":          "*",
 				"destination":     "*",
 				"protocol":        "https",
@@ -151,7 +151,7 @@ func TestBuildIPFilterDynamicFromResourceData_Form2(t *testing.T) {
 		{
 			name: "basic Form 2 with filter_list only",
 			input: map[string]interface{}{
-				"filter_id":       100,
+				"sequence":        100,
 				"source":          "*",
 				"destination":     "*",
 				"protocol":        "",
@@ -173,7 +173,7 @@ func TestBuildIPFilterDynamicFromResourceData_Form2(t *testing.T) {
 		{
 			name: "Form 2 with filter_list and in_filter_list",
 			input: map[string]interface{}{
-				"filter_id":       200,
+				"sequence":        200,
 				"source":          "192.168.1.0/24",
 				"destination":     "*",
 				"protocol":        "",
@@ -196,7 +196,7 @@ func TestBuildIPFilterDynamicFromResourceData_Form2(t *testing.T) {
 		{
 			name: "Form 2 with all filter lists",
 			input: map[string]interface{}{
-				"filter_id":       300,
+				"sequence":        300,
 				"source":          "*",
 				"destination":     "10.0.0.0/8",
 				"protocol":        "",
@@ -241,7 +241,7 @@ func TestBuildIPFilterDynamicFromResourceData_Form2(t *testing.T) {
 
 func TestBuildIPFilterDynamicFromResourceData_WithTimeout(t *testing.T) {
 	input := map[string]interface{}{
-		"filter_id":       100,
+		"sequence":        100,
 		"source":          "*",
 		"destination":     "*",
 		"protocol":        "www",
@@ -263,7 +263,7 @@ func TestBuildIPFilterDynamicFromResourceData_WithTimeout(t *testing.T) {
 
 func TestBuildIPFilterDynamicFromResourceData_MissingProtocolAndFilterList(t *testing.T) {
 	input := map[string]interface{}{
-		"filter_id":       100,
+		"sequence":        100,
 		"source":          "*",
 		"destination":     "*",
 		"protocol":        "",
@@ -289,7 +289,7 @@ func TestFlattenIPFilterDynamicToResourceData_Form1(t *testing.T) {
 	}
 
 	input := map[string]interface{}{
-		"filter_id":       0,
+		"sequence":        0,
 		"source":          "",
 		"destination":     "",
 		"protocol":        "",
@@ -303,7 +303,7 @@ func TestFlattenIPFilterDynamicToResourceData_Form1(t *testing.T) {
 
 	err := flattenIPFilterDynamicToResourceData(filter, d)
 	assert.NoError(t, err)
-	assert.Equal(t, 100, d.Get("filter_id"))
+	assert.Equal(t, 100, d.Get("sequence"))
 	assert.Equal(t, "*", d.Get("source"))
 	assert.Equal(t, "*", d.Get("destination"))
 	assert.Equal(t, "www", d.Get("protocol"))
@@ -323,7 +323,7 @@ func TestFlattenIPFilterDynamicToResourceData_Form2(t *testing.T) {
 	}
 
 	input := map[string]interface{}{
-		"filter_id":       0,
+		"sequence":        0,
 		"source":          "",
 		"destination":     "",
 		"protocol":        "",
@@ -337,7 +337,7 @@ func TestFlattenIPFilterDynamicToResourceData_Form2(t *testing.T) {
 
 	err := flattenIPFilterDynamicToResourceData(filter, d)
 	assert.NoError(t, err)
-	assert.Equal(t, 200, d.Get("filter_id"))
+	assert.Equal(t, 200, d.Get("sequence"))
 	assert.Equal(t, "192.168.1.0/24", d.Get("source"))
 	assert.Equal(t, "*", d.Get("destination"))
 	assert.Equal(t, "", d.Get("protocol"))
@@ -369,7 +369,7 @@ func TestFlattenIPFilterDynamicToResourceData_WithTimeout(t *testing.T) {
 	}
 
 	input := map[string]interface{}{
-		"filter_id":       0,
+		"sequence":        0,
 		"source":          "",
 		"destination":     "",
 		"protocol":        "",
@@ -421,9 +421,9 @@ func TestResourceRTXIPFilterDynamicSchema(t *testing.T) {
 	resource := resourceRTXIPFilterDynamic()
 
 	// Verify required fields
-	assert.NotNil(t, resource.Schema["filter_id"])
-	assert.True(t, resource.Schema["filter_id"].Required)
-	assert.True(t, resource.Schema["filter_id"].ForceNew)
+	assert.NotNil(t, resource.Schema["sequence"])
+	assert.True(t, resource.Schema["sequence"].Required)
+	assert.True(t, resource.Schema["sequence"].ForceNew)
 
 	assert.NotNil(t, resource.Schema["source"])
 	assert.True(t, resource.Schema["source"].Required)

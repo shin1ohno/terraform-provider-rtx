@@ -38,7 +38,7 @@ Manages BGP (Border Gateway Protocol) configuration on RTX routers. BGP is a sin
 
 Required:
 
-- `id` (Number) Neighbor ID (1-based index for RTX router).
+- `index` (Number) Neighbor index (1-based) for RTX router configuration.
 - `ip` (String) Neighbor IP address.
 - `remote_as` (String) Remote AS number (1-4294967295).
 

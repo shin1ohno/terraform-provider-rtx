@@ -19,7 +19,7 @@ Manages a static IP filter (access list) on RTX routers. This creates an individ
 
 - `action` (String) Filter action: pass, reject, restrict, or restrict-log
 - `destination` (String) Destination IP address/network in CIDR notation (e.g., '192.168.1.0/24') or '*' for any
-- `filter_id` (Number) Filter number (1-2147483647). This uniquely identifies the filter on the router.
+- `sequence` (Number) Sequence number determining evaluation order. Lower numbers are evaluated first (1-2147483647).
 - `source` (String) Source IP address/network in CIDR notation (e.g., '10.0.0.0/8') or '*' for any
 
 ### Optional

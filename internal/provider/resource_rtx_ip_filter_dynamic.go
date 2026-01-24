@@ -25,7 +25,7 @@ Dynamic filters provide stateful packet inspection for various protocols. Two fo
 **Form 1 (Protocol-based):** Specify source, destination, and protocol for stateful inspection.
 ` + "```" + `hcl
 resource "rtx_ip_filter_dynamic" "http" {
-  filter_id   = 100
+  sequence    = 100
   source      = "*"
   destination = "*"
   protocol    = "www"
@@ -36,7 +36,7 @@ resource "rtx_ip_filter_dynamic" "http" {
 **Form 2 (Filter-reference):** Reference other static IP filters for complex rules.
 ` + "```" + `hcl
 resource "rtx_ip_filter_dynamic" "custom" {
-  filter_id       = 200
+  sequence        = 200
   source          = "*"
   destination     = "*"
   filter_list     = [1000, 1001]
@@ -54,11 +54,11 @@ resource "rtx_ip_filter_dynamic" "custom" {
 		},
 
 		Schema: map[string]*schema.Schema{
-			"filter_id": {
+			"sequence": {
 				Type:         schema.TypeInt,
 				Required:     true,
 				ForceNew:     true,
-				Description:  "Filter number. This uniquely identifies the dynamic filter on the router.",
+				Description:  "Sequence number determining evaluation order. Lower numbers are evaluated first.",
 				ValidateFunc: validation.IntAtLeast(1),
 			},
 			"source": {
@@ -297,8 +297,8 @@ func resourceRTXIPFilterDynamicImport(ctx context.Context, d *schema.ResourceDat
 	d.SetId(strconv.Itoa(filterID))
 
 	// Set the filter_id explicitly for import
-	if err := d.Set("filter_id", filterID); err != nil {
-		return nil, fmt.Errorf("failed to set filter_id: %v", err)
+	if err := d.Set("sequence", filterID); err != nil {
+		return nil, fmt.Errorf("failed to set sequence: %v", err)
 	}
 
 	// Flatten the filter data to resource
@@ -312,7 +312,7 @@ func resourceRTXIPFilterDynamicImport(ctx context.Context, d *schema.ResourceDat
 // buildIPFilterDynamicFromResourceData creates an IPFilterDynamic from Terraform resource data
 func buildIPFilterDynamicFromResourceData(d *schema.ResourceData) (client.IPFilterDynamic, error) {
 	filter := client.IPFilterDynamic{
-		Number:   d.Get("filter_id").(int),
+		Number:   d.Get("sequence").(int),
 		Source:   d.Get("source").(string),
 		Dest:     d.Get("destination").(string),
 		SyslogOn: d.Get("syslog").(bool),
@@ -345,8 +345,8 @@ func buildIPFilterDynamicFromResourceData(d *schema.ResourceData) (client.IPFilt
 
 // flattenIPFilterDynamicToResourceData sets Terraform resource data from an IPFilterDynamic
 func flattenIPFilterDynamicToResourceData(filter *client.IPFilterDynamic, d *schema.ResourceData) error {
-	if err := d.Set("filter_id", filter.Number); err != nil {
-		return fmt.Errorf("failed to set filter_id: %w", err)
+	if err := d.Set("sequence", filter.Number); err != nil {
+		return fmt.Errorf("failed to set sequence: %w", err)
 	}
 	if err := d.Set("source", filter.Source); err != nil {
 		return fmt.Errorf("failed to set source: %w", err)

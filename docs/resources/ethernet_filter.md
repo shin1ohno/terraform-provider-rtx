@@ -18,7 +18,7 @@ Manages Ethernet (Layer 2) filters on RTX routers. Ethernet filters can match tr
 ### Required
 
 - `action` (String) Action to take: pass-log, pass-nolog, reject-log, reject-nolog, pass, reject
-- `number` (Number) Filter number (1-512)
+- `sequence` (Number) Sequence number determining evaluation order. Lower numbers are evaluated first (1-512).
 
 ### Optional
 

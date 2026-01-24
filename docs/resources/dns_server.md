@@ -43,7 +43,7 @@ Required:
 
 Required:
 
-- `id` (Number) Selector ID (positive integer)
+- `priority` (Number) Priority for DNS server selection. Lower numbers have higher priority.
 - `query_pattern` (String) Domain pattern to match (e.g., '.', '*.example.com', 'internal.net')
 - `server` (Block List, Min: 1, Max: 2) DNS servers for this selector (1-2 servers with per-server EDNS settings) (see [below for nested schema](#nestedblock--server_select--server))
 

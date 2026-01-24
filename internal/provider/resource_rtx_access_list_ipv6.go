@@ -31,11 +31,11 @@ func resourceRTXAccessListIPv6() *schema.Resource {
 		},
 
 		Schema: map[string]*schema.Schema{
-			"filter_id": {
+			"sequence": {
 				Type:         schema.TypeInt,
 				Required:     true,
 				ForceNew:     true,
-				Description:  "Filter number (unique identifier, 1-65535)",
+				Description:  "Sequence number determining evaluation order. Lower numbers are evaluated first (1-2147483647).",
 				ValidateFunc: validation.IntBetween(1, 2147483647),
 			},
 			"action": {
@@ -148,7 +148,7 @@ func resourceRTXAccessListIPv6Read(ctx context.Context, d *schema.ResourceData, 
 	}
 
 	// Set state from retrieved filter
-	if err := d.Set("filter_id", filter.Number); err != nil {
+	if err := d.Set("sequence", filter.Number); err != nil {
 		return diag.FromErr(err)
 	}
 	if err := d.Set("action", filter.Action); err != nil {
@@ -250,7 +250,7 @@ func resourceRTXAccessListIPv6Import(ctx context.Context, d *schema.ResourceData
 	}
 
 	// Set all attributes
-	if err := d.Set("filter_id", filter.Number); err != nil {
+	if err := d.Set("sequence", filter.Number); err != nil {
 		return nil, err
 	}
 	if err := d.Set("action", filter.Action); err != nil {
@@ -281,7 +281,7 @@ func resourceRTXAccessListIPv6Import(ctx context.Context, d *schema.ResourceData
 
 func buildIPv6FilterFromResourceData(d *schema.ResourceData) client.IPFilter {
 	filter := client.IPFilter{
-		Number:        d.Get("filter_id").(int),
+		Number:        d.Get("sequence").(int),
 		Action:        d.Get("action").(string),
 		SourceAddress: d.Get("source").(string),
 		DestAddress:   d.Get("destination").(string),

@@ -65,7 +65,7 @@ func TestBuildBGPConfigFromResourceData(t *testing.T) {
 				"redistribute_connected": false,
 				"neighbor": []interface{}{
 					map[string]interface{}{
-						"id":            1,
+						"index":         1,
 						"ip":            "10.0.0.1",
 						"remote_as":     "65100",
 						"hold_time":     90,
@@ -103,7 +103,7 @@ func TestBuildBGPConfigFromResourceData(t *testing.T) {
 				"redistribute_connected": false,
 				"neighbor": []interface{}{
 					map[string]interface{}{
-						"id":            1,
+						"index":         1,
 						"ip":            "10.0.0.1",
 						"remote_as":     "65100",
 						"hold_time":     90,
@@ -113,7 +113,7 @@ func TestBuildBGPConfigFromResourceData(t *testing.T) {
 						"local_address": "",
 					},
 					map[string]interface{}{
-						"id":            2,
+						"index":         2,
 						"ip":            "10.0.0.2",
 						"remote_as":     "65200",
 						"hold_time":     180,
@@ -291,8 +291,8 @@ func TestResourceRTXBGPNeighborSchema(t *testing.T) {
 	resource := resourceRTXBGP()
 	neighborSchema := resource.Schema["neighbor"].Elem.(*schema.Resource).Schema
 
-	t.Run("neighbor id is required", func(t *testing.T) {
-		assert.True(t, neighborSchema["id"].Required)
+	t.Run("neighbor index is required", func(t *testing.T) {
+		assert.True(t, neighborSchema["index"].Required)
 	})
 
 	t.Run("neighbor ip is required", func(t *testing.T) {
@@ -374,12 +374,12 @@ func TestResourceRTXBGPSchemaValidation(t *testing.T) {
 		}
 	})
 
-	t.Run("neighbor id validation", func(t *testing.T) {
-		_, errs := neighborSchema["id"].ValidateFunc(1, "id")
-		assert.Empty(t, errs, "id 1 should be valid")
+	t.Run("neighbor index validation", func(t *testing.T) {
+		_, errs := neighborSchema["index"].ValidateFunc(1, "index")
+		assert.Empty(t, errs, "index 1 should be valid")
 
-		_, errs = neighborSchema["id"].ValidateFunc(0, "id")
-		assert.NotEmpty(t, errs, "id 0 should be invalid")
+		_, errs = neighborSchema["index"].ValidateFunc(0, "index")
+		assert.NotEmpty(t, errs, "index 0 should be invalid")
 	})
 
 	t.Run("neighbor hold_time validation", func(t *testing.T) {

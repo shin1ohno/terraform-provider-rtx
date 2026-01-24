@@ -8,7 +8,7 @@ description: |-
   Form 1 (Protocol-based): Specify source, destination, and protocol for stateful inspection.
   
   resource "rtx_ip_filter_dynamic" "http" {
-    filter_id   = 100
+    sequence    = 100
     source      = "*"
     destination = "*"
     protocol    = "www"
@@ -18,7 +18,7 @@ description: |-
   Form 2 (Filter-reference): Reference other static IP filters for complex rules.
   
   resource "rtx_ip_filter_dynamic" "custom" {
-    filter_id       = 200
+    sequence        = 200
     source          = "*"
     destination     = "*"
     filter_list     = [1000, 1001]
@@ -36,7 +36,7 @@ Dynamic filters provide stateful packet inspection for various protocols. Two fo
 **Form 1 (Protocol-based):** Specify source, destination, and protocol for stateful inspection.
 ```hcl
 resource "rtx_ip_filter_dynamic" "http" {
-  filter_id   = 100
+  sequence    = 100
   source      = "*"
   destination = "*"
   protocol    = "www"
@@ -47,7 +47,7 @@ resource "rtx_ip_filter_dynamic" "http" {
 **Form 2 (Filter-reference):** Reference other static IP filters for complex rules.
 ```hcl
 resource "rtx_ip_filter_dynamic" "custom" {
-  filter_id       = 200
+  sequence        = 200
   source          = "*"
   destination     = "*"
   filter_list     = [1000, 1001]
@@ -64,7 +64,7 @@ resource "rtx_ip_filter_dynamic" "custom" {
 ### Required
 
 - `destination` (String) Destination address or '*' for any. Can be an IP address, network in CIDR notation, or '*'.
-- `filter_id` (Number) Filter number. This uniquely identifies the dynamic filter on the router.
+- `sequence` (Number) Sequence number determining evaluation order. Lower numbers are evaluated first.
 - `source` (String) Source address or '*' for any. Can be an IP address, network in CIDR notation, or '*'.
 
 ### Optional

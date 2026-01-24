@@ -28,11 +28,11 @@ func resourceRTXAccessListIP() *schema.Resource {
 		},
 
 		Schema: map[string]*schema.Schema{
-			"filter_id": {
+			"sequence": {
 				Type:         schema.TypeInt,
 				Required:     true,
 				ForceNew:     true,
-				Description:  "Filter number (1-2147483647). This uniquely identifies the filter on the router.",
+				Description:  "Sequence number determining evaluation order. Lower numbers are evaluated first (1-2147483647).",
 				ValidateFunc: validation.IntBetween(1, 2147483647),
 			},
 			"action": {
@@ -237,9 +237,9 @@ func resourceRTXAccessListIPImport(ctx context.Context, d *schema.ResourceData, 
 	// Set the resource ID
 	d.SetId(strconv.Itoa(filterID))
 
-	// Set the filter_id explicitly for import
-	if err := d.Set("filter_id", filterID); err != nil {
-		return nil, fmt.Errorf("failed to set filter_id: %v", err)
+	// Set the sequence explicitly for import
+	if err := d.Set("sequence", filterID); err != nil {
+		return nil, fmt.Errorf("failed to set sequence: %v", err)
 	}
 
 	// Flatten the filter data to resource
@@ -253,7 +253,7 @@ func resourceRTXAccessListIPImport(ctx context.Context, d *schema.ResourceData, 
 // buildIPFilterFromResourceData creates an IPFilter from Terraform resource data
 func buildIPFilterFromResourceData(d *schema.ResourceData) client.IPFilter {
 	filter := client.IPFilter{
-		Number:        d.Get("filter_id").(int),
+		Number:        d.Get("sequence").(int),
 		Action:        d.Get("action").(string),
 		SourceAddress: d.Get("source").(string),
 		DestAddress:   d.Get("destination").(string),
@@ -268,8 +268,8 @@ func buildIPFilterFromResourceData(d *schema.ResourceData) client.IPFilter {
 
 // flattenIPFilterToResourceData sets Terraform resource data from an IPFilter
 func flattenIPFilterToResourceData(filter *client.IPFilter, d *schema.ResourceData) error {
-	if err := d.Set("filter_id", filter.Number); err != nil {
-		return fmt.Errorf("failed to set filter_id: %w", err)
+	if err := d.Set("sequence", filter.Number); err != nil {
+		return fmt.Errorf("failed to set sequence: %w", err)
 	}
 	if err := d.Set("action", filter.Action); err != nil {
 		return fmt.Errorf("failed to set action: %w", err)

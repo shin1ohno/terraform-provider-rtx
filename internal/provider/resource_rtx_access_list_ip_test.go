@@ -18,7 +18,7 @@ func TestBuildIPFilterFromResourceData(t *testing.T) {
 		{
 			name: "basic filter with all required fields",
 			input: map[string]interface{}{
-				"filter_id":   200000,
+				"sequence":    200000,
 				"action":      "reject",
 				"source":      "10.0.0.0/8",
 				"destination": "*",
@@ -41,7 +41,7 @@ func TestBuildIPFilterFromResourceData(t *testing.T) {
 		{
 			name: "filter with established TCP",
 			input: map[string]interface{}{
-				"filter_id":   100,
+				"sequence":    100,
 				"action":      "pass",
 				"source":      "*",
 				"destination": "192.168.1.0/24",
@@ -64,7 +64,7 @@ func TestBuildIPFilterFromResourceData(t *testing.T) {
 		{
 			name: "filter with UDP and port range",
 			input: map[string]interface{}{
-				"filter_id":   300,
+				"sequence":    300,
 				"action":      "restrict",
 				"source":      "172.16.0.0/12",
 				"destination": "*",
@@ -87,7 +87,7 @@ func TestBuildIPFilterFromResourceData(t *testing.T) {
 		{
 			name: "filter with ICMP protocol",
 			input: map[string]interface{}{
-				"filter_id":   400,
+				"sequence":    400,
 				"action":      "pass",
 				"source":      "*",
 				"destination": "*",
@@ -110,7 +110,7 @@ func TestBuildIPFilterFromResourceData(t *testing.T) {
 		{
 			name: "filter with any protocol",
 			input: map[string]interface{}{
-				"filter_id":   500,
+				"sequence":    500,
 				"action":      "reject",
 				"source":      "0.0.0.0/0",
 				"destination": "*",
@@ -171,7 +171,7 @@ func TestFlattenIPFilterToResourceData(t *testing.T) {
 				Established:   false,
 			},
 			expected: map[string]interface{}{
-				"filter_id":   200000,
+				"sequence":    200000,
 				"action":      "reject",
 				"source":      "10.0.0.0/8",
 				"destination": "*",
@@ -194,7 +194,7 @@ func TestFlattenIPFilterToResourceData(t *testing.T) {
 				Established:   true,
 			},
 			expected: map[string]interface{}{
-				"filter_id":   100,
+				"sequence":    100,
 				"action":      "pass",
 				"source":      "*",
 				"destination": "192.168.1.0/24",
@@ -217,7 +217,7 @@ func TestFlattenIPFilterToResourceData(t *testing.T) {
 				Established:   false,
 			},
 			expected: map[string]interface{}{
-				"filter_id":   300,
+				"sequence":    300,
 				"action":      "pass",
 				"source":      "*",
 				"destination": "*",
@@ -233,7 +233,7 @@ func TestFlattenIPFilterToResourceData(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			resourceSchema := resourceRTXAccessListIP().Schema
 			d := schema.TestResourceDataRaw(t, resourceSchema, map[string]interface{}{
-				"filter_id":   0,
+				"sequence":    0,
 				"action":      "pass",
 				"source":      "*",
 				"destination": "*",
@@ -246,7 +246,7 @@ func TestFlattenIPFilterToResourceData(t *testing.T) {
 			err := flattenIPFilterToResourceData(tt.filter, d)
 			assert.NoError(t, err)
 
-			assert.Equal(t, tt.expected["filter_id"], d.Get("filter_id"))
+			assert.Equal(t, tt.expected["sequence"], d.Get("sequence"))
 			assert.Equal(t, tt.expected["action"], d.Get("action"))
 			assert.Equal(t, tt.expected["source"], d.Get("source"))
 			assert.Equal(t, tt.expected["destination"], d.Get("destination"))
@@ -262,9 +262,9 @@ func TestResourceRTXAccessListIPSchema(t *testing.T) {
 	resource := resourceRTXAccessListIP()
 
 	// Test that required fields are marked as required
-	t.Run("filter_id is required", func(t *testing.T) {
-		assert.True(t, resource.Schema["filter_id"].Required)
-		assert.True(t, resource.Schema["filter_id"].ForceNew)
+	t.Run("sequence is required", func(t *testing.T) {
+		assert.True(t, resource.Schema["sequence"].Required)
+		assert.True(t, resource.Schema["sequence"].ForceNew)
 	})
 
 	t.Run("action is required", func(t *testing.T) {
@@ -325,20 +325,20 @@ func TestResourceRTXAccessListIPSchemaValidation(t *testing.T) {
 		assert.NotEmpty(t, errs, "protocol 'invalid' should be invalid")
 	})
 
-	t.Run("filter_id validation", func(t *testing.T) {
+	t.Run("sequence validation", func(t *testing.T) {
 		// Valid range: 1-2147483647
-		_, errs := resource.Schema["filter_id"].ValidateFunc(1, "filter_id")
-		assert.Empty(t, errs, "filter_id 1 should be valid")
+		_, errs := resource.Schema["sequence"].ValidateFunc(1, "sequence")
+		assert.Empty(t, errs, "sequence 1 should be valid")
 
-		_, errs = resource.Schema["filter_id"].ValidateFunc(65535, "filter_id")
-		assert.Empty(t, errs, "filter_id 65535 should be valid")
+		_, errs = resource.Schema["sequence"].ValidateFunc(65535, "sequence")
+		assert.Empty(t, errs, "sequence 65535 should be valid")
 
-		_, errs = resource.Schema["filter_id"].ValidateFunc(0, "filter_id")
-		assert.NotEmpty(t, errs, "filter_id 0 should be invalid")
+		_, errs = resource.Schema["sequence"].ValidateFunc(0, "sequence")
+		assert.NotEmpty(t, errs, "sequence 0 should be invalid")
 
 		// 65536 is valid since range is 1-2147483647
-		_, errs = resource.Schema["filter_id"].ValidateFunc(65536, "filter_id")
-		assert.Empty(t, errs, "filter_id 65536 should be valid")
+		_, errs = resource.Schema["sequence"].ValidateFunc(65536, "sequence")
+		assert.Empty(t, errs, "sequence 65536 should be valid")
 	})
 }
 

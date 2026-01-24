@@ -21,7 +21,7 @@ func TestBuildEthernetFilterFromResourceData_MACBasedFilter(t *testing.T) {
 		{
 			name: "basic MAC filter with pass-log",
 			input: map[string]interface{}{
-				"number":          100,
+				"sequence":        100,
 				"action":          "pass-log",
 				"source_mac":      "00:11:22:33:44:55",
 				"destination_mac": "*",
@@ -34,7 +34,7 @@ func TestBuildEthernetFilterFromResourceData_MACBasedFilter(t *testing.T) {
 		{
 			name: "MAC filter with reject-nolog",
 			input: map[string]interface{}{
-				"number":          200,
+				"sequence":        200,
 				"action":          "reject-nolog",
 				"source_mac":      "*",
 				"destination_mac": "aa:bb:cc:dd:ee:ff",
@@ -47,7 +47,7 @@ func TestBuildEthernetFilterFromResourceData_MACBasedFilter(t *testing.T) {
 		{
 			name: "MAC filter with both MACs specified",
 			input: map[string]interface{}{
-				"number":          300,
+				"sequence":        300,
 				"action":          "pass-nolog",
 				"source_mac":      "11:22:33:44:55:66",
 				"destination_mac": "66:55:44:33:22:11",
@@ -74,7 +74,7 @@ func TestBuildEthernetFilterFromResourceData_MACBasedFilter(t *testing.T) {
 
 func TestBuildEthernetFilterFromResourceData_WithEtherType(t *testing.T) {
 	input := map[string]interface{}{
-		"number":          100,
+		"sequence":        100,
 		"action":          "pass-log",
 		"source_mac":      "*",
 		"destination_mac": "*",
@@ -91,7 +91,7 @@ func TestBuildEthernetFilterFromResourceData_WithEtherType(t *testing.T) {
 
 func TestBuildEthernetFilterFromResourceData_WithVlanID(t *testing.T) {
 	input := map[string]interface{}{
-		"number":          100,
+		"sequence":        100,
 		"action":          "reject-log",
 		"source_mac":      "*",
 		"destination_mac": "*",
@@ -110,9 +110,9 @@ func TestResourceRTXEthernetFilterSchema(t *testing.T) {
 	resource := resourceRTXEthernetFilter()
 
 	// Verify required fields
-	assert.NotNil(t, resource.Schema["number"])
-	assert.True(t, resource.Schema["number"].Required)
-	assert.True(t, resource.Schema["number"].ForceNew)
+	assert.NotNil(t, resource.Schema["sequence"])
+	assert.True(t, resource.Schema["sequence"].Required)
+	assert.True(t, resource.Schema["sequence"].ForceNew)
 
 	assert.NotNil(t, resource.Schema["action"])
 	assert.True(t, resource.Schema["action"].Required)
@@ -144,7 +144,7 @@ func TestResourceRTXEthernetFilterSchema(t *testing.T) {
 func TestFlattenEthernetFilterToResourceData(t *testing.T) {
 	tests := []struct {
 		name      string
-		number    int
+		sequence  int
 		action    string
 		sourceMAC string
 		destMAC   string
@@ -153,14 +153,14 @@ func TestFlattenEthernetFilterToResourceData(t *testing.T) {
 	}{
 		{
 			name:      "basic MAC filter",
-			number:    100,
+			sequence:  100,
 			action:    "pass-log",
 			sourceMAC: "00:11:22:33:44:55",
 			destMAC:   "*",
 		},
 		{
 			name:      "filter with ether_type",
-			number:    200,
+			sequence:  200,
 			action:    "reject-nolog",
 			sourceMAC: "*",
 			destMAC:   "*",
@@ -168,7 +168,7 @@ func TestFlattenEthernetFilterToResourceData(t *testing.T) {
 		},
 		{
 			name:      "filter with vlan_id",
-			number:    300,
+			sequence:  300,
 			action:    "pass-nolog",
 			sourceMAC: "*",
 			destMAC:   "*",
@@ -180,7 +180,7 @@ func TestFlattenEthernetFilterToResourceData(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create filter
 			filter := &client.EthernetFilter{
-				Number:    tt.number,
+				Number:    tt.sequence,
 				Action:    tt.action,
 				SourceMAC: tt.sourceMAC,
 				DestMAC:   tt.destMAC,
@@ -190,8 +190,8 @@ func TestFlattenEthernetFilterToResourceData(t *testing.T) {
 
 			// Create empty resource data
 			input := map[string]interface{}{
-				"number": 0,
-				"action": "",
+				"sequence": 0,
+				"action":   "",
 			}
 			d := schema.TestResourceDataRaw(t, resourceRTXEthernetFilter().Schema, input)
 
@@ -200,7 +200,7 @@ func TestFlattenEthernetFilterToResourceData(t *testing.T) {
 			assert.NoError(t, err)
 
 			// Verify
-			assert.Equal(t, tt.number, d.Get("number"))
+			assert.Equal(t, tt.sequence, d.Get("sequence"))
 			assert.Equal(t, tt.action, d.Get("action"))
 			if tt.sourceMAC != "" {
 				assert.Equal(t, tt.sourceMAC, d.Get("source_mac"))

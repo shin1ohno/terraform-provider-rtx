@@ -84,10 +84,10 @@ func resourceRTXOSPF() *schema.Resource {
 				Description: "OSPF area configurations.",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"id": {
+						"area_id": {
 							Type:        schema.TypeString,
 							Required:    true,
-							Description: "Area ID in decimal (e.g., '0') or dotted decimal (e.g., '0.0.0.0') format.",
+							Description: "OSPF Area ID in decimal (e.g., '0') or dotted decimal (e.g., '0.0.0.0') format.",
 						},
 						"type": {
 							Type:         schema.TypeString,
@@ -253,7 +253,7 @@ func resourceRTXOSPFRead(ctx context.Context, d *schema.ResourceData, meta inter
 	areas := make([]map[string]interface{}, len(config.Areas))
 	for i, area := range config.Areas {
 		areas[i] = map[string]interface{}{
-			"id":         area.ID,
+			"area_id":    area.ID,
 			"type":       area.Type,
 			"no_summary": area.NoSummary,
 		}
@@ -353,7 +353,7 @@ func resourceRTXOSPFImport(ctx context.Context, d *schema.ResourceData, meta int
 	areas := make([]map[string]interface{}, len(config.Areas))
 	for i, area := range config.Areas {
 		areas[i] = map[string]interface{}{
-			"id":         area.ID,
+			"area_id":    area.ID,
 			"type":       area.Type,
 			"no_summary": area.NoSummary,
 		}
@@ -405,7 +405,7 @@ func buildOSPFConfigFromResourceData(d *schema.ResourceData) client.OSPFConfig {
 		for i, a := range areaList {
 			aMap := a.(map[string]interface{})
 			config.Areas[i] = client.OSPFArea{
-				ID:        aMap["id"].(string),
+				ID:        aMap["area_id"].(string),
 				Type:      aMap["type"].(string),
 				NoSummary: aMap["no_summary"].(bool),
 			}

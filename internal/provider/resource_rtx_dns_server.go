@@ -53,10 +53,10 @@ func resourceRTXDNSServer() *schema.Resource {
 				Description: "Domain-based DNS server selection entries",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"id": {
+						"priority": {
 							Type:         schema.TypeInt,
 							Required:     true,
-							Description:  "Selector ID (positive integer)",
+							Description:  "Priority for DNS server selection. Lower numbers have higher priority.",
 							ValidateFunc: validation.IntAtLeast(1),
 						},
 						"server": {
@@ -231,7 +231,7 @@ func resourceRTXDNSServerRead(ctx context.Context, d *schema.ResourceData, meta 
 			}
 		}
 		serverSelects[i] = map[string]interface{}{
-			"id":              sel.ID,
+			"priority":        sel.ID,
 			"server":          servers,
 			"record_type":     sel.RecordType,
 			"query_pattern":   sel.QueryPattern,
@@ -329,7 +329,7 @@ func resourceRTXDNSServerImport(ctx context.Context, d *schema.ResourceData, met
 			}
 		}
 		serverSelects[i] = map[string]interface{}{
-			"id":              sel.ID,
+			"priority":        sel.ID,
 			"server":          servers,
 			"record_type":     sel.RecordType,
 			"query_pattern":   sel.QueryPattern,
@@ -415,7 +415,7 @@ func buildDNSConfigFromResourceData(d *schema.ResourceData) client.DNSConfig {
 			}
 
 			config.ServerSelect = append(config.ServerSelect, client.DNSServerSelect{
-				ID:             selMap["id"].(int),
+				ID:             selMap["priority"].(int),
 				Servers:        servers,
 				RecordType:     recordType,
 				QueryPattern:   queryPattern,
