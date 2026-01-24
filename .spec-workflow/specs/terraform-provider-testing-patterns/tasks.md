@@ -45,7 +45,7 @@
 
 ## Phase 2: State Migration Test Support
 
-- [-] 5. Create state migration test helpers
+- [x] 5. Create state migration test helpers
   - File: `internal/provider/acctest/migration.go`
   - Implement StateMigrationTestCase struct
   - Implement RunStateMigrationTests function for unit testing upgraders
