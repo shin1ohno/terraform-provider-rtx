@@ -55,10 +55,11 @@ func resourceRTXAccessListMAC() *schema.Resource {
 							Description: "Interface to apply filters (e.g., lan1)",
 						},
 						"direction": {
-							Type:         schema.TypeString,
-							Required:     true,
-							Description:  "Direction to apply filters (in or out)",
-							ValidateFunc: validation.StringInSlice([]string{"in", "out"}, false),
+							Type:             schema.TypeString,
+							Required:         true,
+							Description:      "Direction to apply filters (in or out)",
+							ValidateFunc:     validation.StringInSlice([]string{"in", "out"}, true),
+							DiffSuppressFunc: SuppressCaseDiff, // Direction values are case-insensitive
 						},
 						"filter_ids": {
 							Type:        schema.TypeList,
@@ -85,10 +86,11 @@ func resourceRTXAccessListMAC() *schema.Resource {
 							ValidateFunc: validation.IntBetween(1, 99999),
 						},
 						"ace_action": {
-							Type:         schema.TypeString,
-							Required:     true,
-							Description:  "Action to take (permit/deny or RTX pass/reject with log/nolog)",
-							ValidateFunc: validation.StringInSlice([]string{"permit", "deny", "pass-log", "pass-nolog", "reject-log", "reject-nolog", "pass", "reject"}, false),
+							Type:             schema.TypeString,
+							Required:         true,
+							Description:      "Action to take (permit/deny or RTX pass/reject with log/nolog)",
+							ValidateFunc:     validation.StringInSlice([]string{"permit", "deny", "pass-log", "pass-nolog", "reject-log", "reject-nolog", "pass", "reject"}, true),
+							DiffSuppressFunc: SuppressCaseDiff, // ACL actions are case-insensitive
 						},
 						"source_any": {
 							Type:        schema.TypeBool,

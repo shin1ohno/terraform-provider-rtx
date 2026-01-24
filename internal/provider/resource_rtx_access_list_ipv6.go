@@ -39,10 +39,11 @@ func resourceRTXAccessListIPv6() *schema.Resource {
 				ValidateFunc: validation.IntBetween(1, 2147483647),
 			},
 			"action": {
-				Type:         schema.TypeString,
-				Required:     true,
-				Description:  "Filter action: pass, reject, restrict, or restrict-log",
-				ValidateFunc: validation.StringInSlice([]string{"pass", "reject", "restrict", "restrict-log"}, false),
+				Type:             schema.TypeString,
+				Required:         true,
+				Description:      "Filter action: pass, reject, restrict, or restrict-log",
+				ValidateFunc:     validation.StringInSlice([]string{"pass", "reject", "restrict", "restrict-log"}, true),
+				DiffSuppressFunc: SuppressCaseDiff, // Filter actions are case-insensitive
 			},
 			"source": {
 				Type:        schema.TypeString,
@@ -55,10 +56,11 @@ func resourceRTXAccessListIPv6() *schema.Resource {
 				Description: "Destination IPv6 address/prefix or '*' for any",
 			},
 			"protocol": {
-				Type:         schema.TypeString,
-				Required:     true,
-				Description:  "Protocol: tcp, udp, icmp6, ip, *, gre, esp, ah",
-				ValidateFunc: validation.StringInSlice(ValidIPv6FilterProtocols, false),
+				Type:             schema.TypeString,
+				Required:         true,
+				Description:      "Protocol: tcp, udp, icmp6, ip, *, gre, esp, ah",
+				ValidateFunc:     validation.StringInSlice(ValidIPv6FilterProtocols, true),
+				DiffSuppressFunc: SuppressCaseDiff, // Protocol names are case-insensitive
 			},
 			"source_port": {
 				Type:        schema.TypeString,

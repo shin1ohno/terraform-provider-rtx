@@ -45,16 +45,18 @@ func resourceRTXAccessListExtendedIPv6() *schema.Resource {
 							ValidateFunc: validation.IntBetween(1, 65535),
 						},
 						"ace_rule_action": {
-							Type:         schema.TypeString,
-							Required:     true,
-							Description:  "Action: 'permit' or 'deny'",
-							ValidateFunc: validation.StringInSlice([]string{"permit", "deny"}, false),
+							Type:             schema.TypeString,
+							Required:         true,
+							Description:      "Action: 'permit' or 'deny'",
+							ValidateFunc:     validation.StringInSlice([]string{"permit", "deny"}, true),
+							DiffSuppressFunc: SuppressCaseDiff, // ACL actions are case-insensitive
 						},
 						"ace_rule_protocol": {
-							Type:         schema.TypeString,
-							Required:     true,
-							Description:  "Protocol: tcp, udp, icmpv6, ipv6, or *",
-							ValidateFunc: validation.StringInSlice([]string{"tcp", "udp", "icmpv6", "ipv6", "ip", "*"}, false),
+							Type:             schema.TypeString,
+							Required:         true,
+							Description:      "Protocol: tcp, udp, icmpv6, ipv6, or *",
+							ValidateFunc:     validation.StringInSlice([]string{"tcp", "udp", "icmpv6", "ipv6", "ip", "*"}, true),
+							DiffSuppressFunc: SuppressCaseDiff, // Protocol names are case-insensitive
 						},
 						"source_any": {
 							Type:        schema.TypeBool,

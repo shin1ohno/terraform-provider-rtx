@@ -83,11 +83,12 @@ func resourceRTXDNSServer() *schema.Resource {
 							},
 						},
 						"record_type": {
-							Type:         schema.TypeString,
-							Optional:     true,
-							Computed:     true,
-							Description:  "DNS record type to match: a, aaaa, ptr, mx, ns, cname, any",
-							ValidateFunc: validation.StringInSlice([]string{"a", "aaaa", "ptr", "mx", "ns", "cname", "any"}, false),
+							Type:             schema.TypeString,
+							Optional:         true,
+							Computed:         true,
+							Description:      "DNS record type to match: a, aaaa, ptr, mx, ns, cname, any",
+							ValidateFunc:     validation.StringInSlice([]string{"a", "aaaa", "ptr", "mx", "ns", "cname", "any"}, true),
+							DiffSuppressFunc: SuppressCaseDiff, // DNS record types are case-insensitive
 						},
 						"query_pattern": {
 							Type:        schema.TypeString,

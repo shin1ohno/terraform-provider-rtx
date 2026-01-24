@@ -47,7 +47,7 @@
 
 ## Phase 3: Unit Tests
 
-- [-] 5. Add unit tests for DiffSuppressFunc library
+- [x] 5. Add unit tests for DiffSuppressFunc library
   - File: `internal/provider/diff_suppress_test.go`
   - Test each suppress function with equivalent and different values
   - Test edge cases: nil, empty, invalid format
@@ -89,7 +89,7 @@
   - _Requirements: 3_
   - _Prompt: Implement the task for spec terraform-schema-design-patterns, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Terraform Provider Developer | Task: Apply RequiresReplace pattern to username field | Restrictions: Only if username is truly immutable on RTX router, update description, verify with test | Success: Changing username triggers resource replacement in plan | Instructions: Mark task as [-] in tasks.md when starting, use log-implementation tool after completion with detailed artifacts, then mark as [x] when done_
 
-- [ ] 9. Apply DiffSuppressFunc to appropriate fields
+- [x] 9. Apply DiffSuppressFunc to appropriate fields
   - Files: Resource files with fields needing diff suppression
   - Identify fields that may have equivalent but different representations
   - Apply appropriate suppress function from library

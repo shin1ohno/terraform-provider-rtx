@@ -56,11 +56,12 @@ func resourceRTXSyslog() *schema.Resource {
 				ValidateFunc: validateIPAddress,
 			},
 			"facility": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				Computed:     true,
-				Description:  "Syslog facility (user, local0-local7)",
-				ValidateFunc: validateSyslogFacility,
+				Type:             schema.TypeString,
+				Optional:         true,
+				Computed:         true,
+				Description:      "Syslog facility (user, local0-local7)",
+				ValidateFunc:     validateSyslogFacility,
+				DiffSuppressFunc: SuppressCaseDiff, // Facility names are case-insensitive
 			},
 			"notice": {
 				Type:        schema.TypeBool,

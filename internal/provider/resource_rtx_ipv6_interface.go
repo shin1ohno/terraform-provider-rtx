@@ -103,11 +103,12 @@ func resourceRTXIPv6Interface() *schema.Resource {
 				},
 			},
 			"dhcpv6_service": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				Computed:     true,
-				Description:  "DHCPv6 service mode: 'server', 'client', or '' (disabled).",
-				ValidateFunc: validateDHCPv6Service,
+				Type:             schema.TypeString,
+				Optional:         true,
+				Computed:         true,
+				Description:      "DHCPv6 service mode: 'server', 'client', or '' (disabled).",
+				ValidateFunc:     validateDHCPv6Service,
+				DiffSuppressFunc: SuppressCaseDiff, // DHCPv6 service modes are case-insensitive
 			},
 			"mtu": {
 				Type:         schema.TypeInt,

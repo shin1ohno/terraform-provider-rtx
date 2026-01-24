@@ -36,10 +36,11 @@ func resourceRTXAccessListIP() *schema.Resource {
 				ValidateFunc: validation.IntBetween(1, 2147483647),
 			},
 			"action": {
-				Type:         schema.TypeString,
-				Required:     true,
-				Description:  "Filter action: pass, reject, restrict, or restrict-log",
-				ValidateFunc: validation.StringInSlice([]string{"pass", "reject", "restrict", "restrict-log"}, false),
+				Type:             schema.TypeString,
+				Required:         true,
+				Description:      "Filter action: pass, reject, restrict, or restrict-log",
+				ValidateFunc:     validation.StringInSlice([]string{"pass", "reject", "restrict", "restrict-log"}, true),
+				DiffSuppressFunc: SuppressCaseDiff, // Filter actions are case-insensitive
 			},
 			"source": {
 				Type:        schema.TypeString,
@@ -52,11 +53,12 @@ func resourceRTXAccessListIP() *schema.Resource {
 				Description: "Destination IP address/network in CIDR notation (e.g., '192.168.1.0/24') or '*' for any",
 			},
 			"protocol": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				Computed:     true,
-				Description:  "Protocol: tcp, udp, icmp, ip, gre, esp, ah, or * for any",
-				ValidateFunc: validation.StringInSlice([]string{"tcp", "udp", "udp,tcp", "tcp,udp", "icmp", "ip", "gre", "esp", "ah", "tcpfin", "tcprst", "*"}, false),
+				Type:             schema.TypeString,
+				Optional:         true,
+				Computed:         true,
+				Description:      "Protocol: tcp, udp, icmp, ip, gre, esp, ah, or * for any",
+				ValidateFunc:     validation.StringInSlice([]string{"tcp", "udp", "udp,tcp", "tcp,udp", "icmp", "ip", "gre", "esp", "ah", "tcpfin", "tcprst", "*"}, true),
+				DiffSuppressFunc: SuppressCaseDiff, // Protocol names are case-insensitive
 			},
 			"source_port": {
 				Type:        schema.TypeString,
