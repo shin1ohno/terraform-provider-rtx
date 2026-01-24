@@ -33,6 +33,9 @@ type rtxClient struct {
 	active                bool
 	configCache           *ConfigCache // Cache for SFTP-based config reading
 	sftpClient            SFTPClient   // Optional SFTP client for fast config download
+	sshClient             *ssh.Client  // Persistent SSH client for session pool
+	sshSessionPool        *SSHSessionPool
+	sshPoolEnabled        bool
 	dhcpService           *DHCPService
 	dhcpScopeService      *DHCPScopeService
 	ipv6PrefixService     *IPv6PrefixService
@@ -75,6 +78,10 @@ func NewClient(config *Config, opts ...Option) (Client, error) {
 		maxParallelism = DefaultMaxParallelism
 	}
 
+	// SSH session pool is enabled by default unless explicitly disabled
+	// If no explicit pool config is provided (all zero values), default to enabled
+	sshPoolEnabled := config.SSHPoolEnabled || (config.SSHPoolMaxSessions == 0 && config.SSHPoolIdleTimeout == "")
+
 	c := &rtxClient{
 		config:         config,
 		dialer:         &sshDialer{},
@@ -83,6 +90,7 @@ func NewClient(config *Config, opts ...Option) (Client, error) {
 		retryStrategy:  &noRetry{},
 		semaphore:      make(chan struct{}, maxParallelism),
 		configCache:    NewConfigCache(),
+		sshPoolEnabled: sshPoolEnabled,
 	}
 
 	// Apply options
@@ -124,6 +132,13 @@ func WithRetryStrategy(strategy RetryStrategy) Option {
 	}
 }
 
+// WithSSHSessionPool enables or disables the SSH session pool
+func WithSSHSessionPool(enabled bool) Option {
+	return func(c *rtxClient) {
+		c.sshPoolEnabled = enabled
+	}
+}
+
 // getHostKeyCallback returns the appropriate host key callback based on configuration
 func (c *rtxClient) getHostKeyCallback() ssh.HostKeyCallback {
 	if c.config.SkipHostKeyCheck {
@@ -137,6 +152,7 @@ func (c *rtxClient) getHostKeyCallback() ssh.HostKeyCallback {
 
 // Dial establishes a connection to the RTX router
 func (c *rtxClient) Dial(ctx context.Context) error {
+	logger := logging.FromContext(ctx)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -165,6 +181,43 @@ func (c *rtxClient) Dial(ctx context.Context) error {
 		}
 		c.session = session
 	}
+
+	// Initialize SSH session pool if enabled
+	if c.sshPoolEnabled {
+		logger.Debug().Msg("SSH session pool enabled, creating persistent SSH client")
+
+		// Create persistent SSH client for the pool
+		sshClient, err := ssh.Dial("tcp", addr, sshConfig)
+		if err != nil {
+			logger.Warn().Err(err).Msg("Failed to create SSH client for session pool, falling back to non-pooled mode")
+			c.sshPoolEnabled = false
+		} else {
+			c.sshClient = sshClient
+
+			// Build pool config from client config or use defaults
+			poolConfig := DefaultSSHPoolConfig()
+			if c.config.SSHPoolMaxSessions > 0 {
+				poolConfig.MaxSessions = c.config.SSHPoolMaxSessions
+			}
+			if c.config.SSHPoolIdleTimeout != "" {
+				if parsed, err := time.ParseDuration(c.config.SSHPoolIdleTimeout); err == nil {
+					poolConfig.IdleTimeout = parsed
+				} else {
+					logger.Warn().
+						Str("idle_timeout", c.config.SSHPoolIdleTimeout).
+						Err(err).
+						Msg("Invalid SSH pool idle_timeout, using default")
+				}
+			}
+
+			c.sshSessionPool = NewSSHSessionPool(sshClient, poolConfig)
+			logger.Info().
+				Int("max_sessions", poolConfig.MaxSessions).
+				Dur("idle_timeout", poolConfig.IdleTimeout).
+				Msg("SSH session pool initialized")
+		}
+	}
+
 	c.executor = NewSimpleExecutor(sshConfig, addr, c.promptDetector, c.config)
 	c.dhcpService = NewDHCPService(c.executor, c)
 	c.dhcpScopeService = NewDHCPScopeService(c.executor, c)
@@ -204,6 +257,7 @@ func (c *rtxClient) Dial(ctx context.Context) error {
 
 // Close terminates the connection
 func (c *rtxClient) Close() error {
+	logger := logging.Global()
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -212,6 +266,25 @@ func (c *rtxClient) Close() error {
 	}
 
 	var err error
+
+	// Close SSH session pool first (before SSH client)
+	if c.sshSessionPool != nil {
+		logger.Debug().Msg("Closing SSH session pool")
+		if poolErr := c.sshSessionPool.Close(); poolErr != nil {
+			logger.Warn().Err(poolErr).Msg("Failed to close SSH session pool")
+		}
+		c.sshSessionPool = nil
+	}
+
+	// Close persistent SSH client (used by session pool)
+	if c.sshClient != nil {
+		logger.Debug().Msg("Closing persistent SSH client")
+		if sshErr := c.sshClient.Close(); sshErr != nil {
+			logger.Warn().Err(sshErr).Msg("Failed to close SSH client")
+		}
+		c.sshClient = nil
+	}
+
 	if c.session != nil {
 		err = c.session.Close()
 	}
@@ -221,6 +294,7 @@ func (c *rtxClient) Close() error {
 	c.active = false
 	c.session = nil
 	c.executor = nil
+	c.sshPoolEnabled = false
 	c.dhcpService = nil
 	c.dhcpScopeService = nil
 	c.ipv6PrefixService = nil

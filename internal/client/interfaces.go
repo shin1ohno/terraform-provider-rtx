@@ -895,6 +895,11 @@ type Config struct {
 	MaxParallelism   int    // Maximum number of concurrent operations (default: 6)
 	SFTPEnabled      bool   // Enable SFTP-based configuration reading for faster bulk operations
 	SFTPConfigPath   string // SFTP path to config file (e.g., "/system/config0"); empty for auto-detect
+
+	// SSH Session Pool configuration
+	SSHPoolEnabled     bool   // Enable SSH session pooling (default: true)
+	SSHPoolMaxSessions int    // Maximum concurrent SSH sessions (default: 2)
+	SSHPoolIdleTimeout string // Idle session timeout duration string (default: "5m")
 }
 
 // InterfaceConfig represents interface configuration on an RTX router

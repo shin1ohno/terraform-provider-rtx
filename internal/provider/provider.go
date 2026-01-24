@@ -111,6 +111,34 @@ func New(version string) *schema.Provider {
 				DefaultFunc: schema.EnvDefaultFunc("RTX_SFTP_CONFIG_PATH", ""),
 				Description: "SFTP path to the configuration file (e.g., /system/config0). If empty, the path will be auto-detected. Can be set with RTX_SFTP_CONFIG_PATH environment variable.",
 			},
+			"ssh_session_pool": {
+				Type:        schema.TypeList,
+				Optional:    true,
+				MaxItems:    1,
+				Description: "SSH session pool configuration for improved performance and state consistency.",
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"enabled": {
+							Type:        schema.TypeBool,
+							Optional:    true,
+							Default:     true,
+							Description: "Enable SSH session pooling. When enabled, SSH sessions are reused across operations, improving performance and preventing state drift. Defaults to true.",
+						},
+						"max_sessions": {
+							Type:        schema.TypeInt,
+							Optional:    true,
+							Default:     2,
+							Description: "Maximum number of concurrent SSH sessions in the pool. RTX routers typically support up to 8 SSH connections. Defaults to 2.",
+						},
+						"idle_timeout": {
+							Type:        schema.TypeString,
+							Optional:    true,
+							Default:     "5m",
+							Description: "Duration after which idle sessions are closed. Uses Go duration format (e.g., '5m', '30s', '1h'). Defaults to '5m'.",
+						},
+					},
+				},
+			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
 			"rtx_access_list_extended":      resourceRTXAccessListExtended(),
@@ -192,6 +220,28 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	sftpEnabled := d.Get("sftp_enabled").(bool)
 	sftpConfigPath := d.Get("sftp_config_path").(string)
 
+	// SSH session pool configuration (defaults)
+	sshPoolEnabled := true
+	sshPoolMaxSessions := 2
+	sshPoolIdleTimeout := "5m"
+
+	// Read ssh_session_pool block if provided
+	if v, ok := d.GetOk("ssh_session_pool"); ok {
+		poolConfigs := v.([]interface{})
+		if len(poolConfigs) > 0 && poolConfigs[0] != nil {
+			poolConfig := poolConfigs[0].(map[string]interface{})
+			if enabled, ok := poolConfig["enabled"].(bool); ok {
+				sshPoolEnabled = enabled
+			}
+			if maxSessions, ok := poolConfig["max_sessions"].(int); ok && maxSessions > 0 {
+				sshPoolMaxSessions = maxSessions
+			}
+			if idleTimeout, ok := poolConfig["idle_timeout"].(string); ok && idleTimeout != "" {
+				sshPoolIdleTimeout = idleTimeout
+			}
+		}
+	}
+
 	// If admin_password is not set, use the same as password
 	if adminPassword == "" {
 		adminPassword = password
@@ -208,18 +258,21 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 
 	// Create client configuration
 	config := &client.Config{
-		Host:             host,
-		Port:             port,
-		Username:         username,
-		Password:         password,
-		AdminPassword:    adminPassword,
-		Timeout:          timeout,
-		HostKey:          sshHostKey,
-		KnownHostsFile:   knownHostsFile,
-		SkipHostKeyCheck: skipHostKeyCheck,
-		MaxParallelism:   maxParallelism,
-		SFTPEnabled:      sftpEnabled,
-		SFTPConfigPath:   sftpConfigPath,
+		Host:               host,
+		Port:               port,
+		Username:           username,
+		Password:           password,
+		AdminPassword:      adminPassword,
+		Timeout:            timeout,
+		HostKey:            sshHostKey,
+		KnownHostsFile:     knownHostsFile,
+		SkipHostKeyCheck:   skipHostKeyCheck,
+		MaxParallelism:     maxParallelism,
+		SFTPEnabled:        sftpEnabled,
+		SFTPConfigPath:     sftpConfigPath,
+		SSHPoolEnabled:     sshPoolEnabled,
+		SSHPoolMaxSessions: sshPoolMaxSessions,
+		SSHPoolIdleTimeout: sshPoolIdleTimeout,
 	}
 
 	// Create SSH client with default options

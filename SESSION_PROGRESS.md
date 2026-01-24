@@ -134,12 +134,49 @@ Yamaha RTXシリーズルーター用Terraformプロバイダーの開発プロ�
 
 ---
 
+## SSH Session Pool (State Drift Fix) ✅ 完了
+
+### 概要
+SSH接続時のセッション初期化により発生するstate drift問題を解決するためのSSHセッションプール機能を実装。
+
+### 問題の詳細
+RTXルーターへのSSH接続時、初期化コマンド`console character en.ascii`が毎回実行され、ユーザーが設定した`console.character`の値（例："ja.utf8"）が上書きされる。
+
+### 解決策
+SSHセッションプールを実装し、セッションを再利用することで初期化コマンドの実行回数を最小化。
+
+### 実装ファイル
+- `internal/client/ssh_session_pool.go` - プール本体
+- `internal/client/ssh_session_pool_test.go` - ユニットテスト（27テスト）
+- `internal/client/ssh_session_pool_integration_test.go` - 統合テスト（9テスト）
+- `internal/client/client.go` - クライアント統合（WithSSHSessionPool option）
+
+### 完了タスク (10/13)
+| タスク | ステータス | 説明 |
+|--------|----------|------|
+| 1. SSHSessionPool構造体 | ✅ | プール基盤データ構造 |
+| 2. セッション取得ロジック | ✅ | Acquireメソッド |
+| 3. セッション解放ロジック | ✅ | Releaseメソッド |
+| 4. プールクローズ/クリーンアップ | ✅ | Close, idleCleanup |
+| 5. クライアント統合 | ✅ | getExecutor統合 |
+| 6. クライアントClose更新 | ✅ | プールクリーンアップ |
+| 7. ユニットテスト | ✅ | 12テスト |
+| 8. 並行アクセステスト | ✅ | 7テスト |
+| 9. タイムアウト/エラーテスト | ✅ | 8テスト |
+| 10. State Drift回帰テスト | ✅ | 5テスト（+acceptance test） |
+| 11. 既存テストの動作確認 | ✅ | 全テストパス |
+| 12. 統計/可観測性 | 保留 | Stats()メソッド実装済み |
+| 13. プロバイダー設定 | 保留 | オプション機能 |
+
+---
+
 ## 次のステップ
 
 1. **PPPパーサー修正**: LCPReconnect round-trip テスト修正
 2. **受け入れテスト**: Docker RTXシミュレーター or 実RTXでの統合テスト
 3. **Dashboard**: http://localhost:5000 でステータス確認可能
 4. **ドキュメント整備**: 各リソースのREADME作成
+5. **SSH Pool設定**: プロバイダーレベルでのSSHプール設定オプション追加（オプション）
 
 ---
 
@@ -565,3 +602,330 @@ Error: failed to import NAT masquerade 1000: NAT masquerade with descriptor ID 1
 6. `client.go` に DNS メソッドを追加（GetDNS, ConfigureDNS, UpdateDNS, ResetDNS）→ 既存のため削除
 
 ビルド結果: ✅ 成功（`go build ./...`）
+
+---
+
+## セッション28: State Drift 修正
+
+### 背景
+
+`terraform apply` 後に `terraform plan` を実行すると、差分が残る問題を調査。
+
+### 修正した4つの問題
+
+| リソース | 問題 | 修正 |
+|----------|------|------|
+| rtx_ethernet_filter | `pass` vs `pass-nolog` の等価性 | DiffSuppressFunc追加 |
+| rtx_l2tp_service | `protocols=["l2tpv3", "l2tp"]` vs `[]` の等価性 | CustomizeDiff + Computed:true追加 |
+| rtx_system | `grep -E` がRTXで非対応 | `-E`オプション削除 |
+| SFTP cache | SaveConfig後にキャッシュが無効化されない | MarkCacheDirty()追加 |
+
+### 未解決: console.character ドリフト問題
+
+SSHセッション初期化時に`console character en.ascii`が実行され、ユーザーの設定（例: `ja.utf8`）が上書きされる。
+
+**解決策オプション**:
+1. 初期化コマンドを削除
+2. 設定を保存/復元
+3. 別チャネル使用
+4. メタデータ方式
+5. **セッションプール使用** ← Spec作成
+
+### 作成したSpec: session-pool-state-drift-fix
+
+**場所:** `.spec-workflow/specs/session-pool-state-drift-fix/`
+
+**ファイル:**
+- `requirements.md` - 要件定義（セッション再利用、初期化分離、同時実行安全性、後方互換性）
+- `design.md` - 設計（SessionPool構造、rtxClient統合、データフロー）
+- `tasks.md` - 実装タスク（13タスク、5フェーズ）
+
+**主要な設計ポイント:**
+- `SessionPool`: 有界プール（デフォルト2セッション）
+- `Acquire()/Release()`: セッションのチェックアウト/リターン
+- アイドルセッションの自動クリーンアップ
+- エラー時は非プールセッションへフォールバック
+
+### 修正したファイル（このセッション）
+
+- `internal/client/client.go` - SaveConfig後のMarkCacheDirty()追加
+- `internal/provider/resource_rtx_ethernet_filter.go` - DiffSuppressFunc追加
+- `internal/provider/resource_rtx_l2tp_service.go` - CustomizeDiff追加
+- `internal/rtx/parsers/system.go` - grep -E削除
+- `internal/rtx/parsers/system_test.go` - テスト更新
+- `internal/client/system_service_test.go` - テスト更新（4箇所）
+
+---
+
+## セッション29: SSH Session Pool Integration (Task 5-6)
+
+### 実装計画
+
+#### Task 5: Integrate SSH Session Pool with rtxClient
+
+**変更内容:**
+1. `rtxClient`構造体にフィールド追加:
+   - `sshSessionPool *SSHSessionPool`
+   - `sshPoolEnabled bool`
+   - `sshClient *ssh.Client` (プールで共有するSSHクライアント)
+
+2. `Dial()`メソッドの変更:
+   - SSHクライアントを作成して保持
+   - SSHSessionPoolを初期化
+
+3. `simpleExecutor`の変更:
+   - SSHセッションプールを使用するオプションを追加
+   - プール失敗時は非プールセッションにフォールバック
+
+#### Task 6: Update Client Close to Cleanup SSH Pool
+
+**変更内容:**
+1. `Close()`メソッドでSSHセッションプールを先にクローズ
+2. nilプールを安全に処理
+
+### 実装状況
+
+- [x] Task 5: rtxClientへのSSHセッションプール統合 ✅ 完了
+- [x] Task 6: Close()メソッドの更新 ✅ 完了
+- [x] Task 7: SSHSessionPool 基本ユニットテスト ✅ 完了
+- [x] Task 8: SSHSessionPool 並行アクセステスト ✅ 完了
+- [x] Task 9: SSHSessionPool タイムアウト/エラーハンドリングテスト ✅ 完了
+
+### Task 5-6: rtxClientへのSSHセッションプール統合（2026-01-24）
+
+#### 実装内容
+
+**ファイル変更: `internal/client/client.go`**
+
+1. **rtxClient構造体にフィールド追加:**
+   ```go
+   sshClient             *ssh.Client  // Persistent SSH client for session pool
+   sshSessionPool        *SSHSessionPool
+   sshPoolEnabled        bool
+   ```
+
+2. **WithSSHSessionPool() オプション追加:**
+   ```go
+   func WithSSHSessionPool(enabled bool) Option {
+       return func(c *rtxClient) {
+           c.sshPoolEnabled = enabled
+       }
+   }
+   ```
+
+3. **Dial()メソッドの変更:**
+   - SSHセッションプールが有効な場合、永続的なSSHクライアントを作成
+   - SSHSessionPoolを初期化
+   - SSHクライアント作成失敗時は非プールモードにフォールバック
+
+4. **Close()メソッドの変更:**
+   - SSHセッションプールを先にクローズ（SSHクライアントより前）
+   - nilプールを安全に処理
+   - 永続的なSSHクライアントをクローズ
+
+5. **getPooledSession()メソッド追加:**
+   - プールからセッションを取得
+   - リリース関数を返す
+   - プール失敗時はnilを返し、呼び出し側でフォールバック可能
+
+**ファイル変更: `internal/client/ssh_session_pool.go`**
+
+- workingSessionがnilの場合のClose呼び出しを防止（テスト安全性）
+  - `Release()`: nilチェック追加
+  - `Close()`: nilチェック追加
+  - `idleCleanup()`: nilチェック追加
+
+#### テスト結果
+
+```
+go build ./internal/client/...
+go test ./internal/client/... -count=1
+ok      github.com/sh1/terraform-provider-rtx/internal/client   5.765s
+```
+
+- ビルド成功
+- 全テスト成功
+
+### Task 7-9: SSHSessionPool 包括的ユニットテスト（2026-01-24）
+
+#### 実装内容
+
+**ファイル変更:**
+- `internal/client/ssh_session_pool.go` - テスト可能性向上のため以下を追加:
+  - `SessionFactory` 型: セッション作成の依存性注入
+  - `SSHSessionPoolOption` 型: オプションパターン
+  - `WithSessionFactory()`: テスト用セッションファクトリ設定
+  - `WithoutIdleCleanup()`: アイドルクリーンアップゴルーチン無効化（テスト用）
+  - `NewSSHSessionPoolWithOptions()`: オプション付きコンストラクタ
+  - `skipIdleCleanup` フィールド: テスト時にゴルーチンを停止
+
+- `internal/client/ssh_session_pool_test.go` - 包括的テストスイート:
+
+**Task 7: 基本ユニットテスト（12テスト）**
+- `TestDefaultSSHPoolConfig` - デフォルト設定値の確認
+- `TestNewSSHSessionPool_DefaultConfig` - デフォルト設定でのプール作成
+- `TestNewSSHSessionPool_CustomConfig` - カスタム設定（table-driven）
+- `TestSSHSessionPool_Acquire_EmptyPool` - 空プールからの取得
+- `TestSSHSessionPool_Acquire_ReusesAvailableSession` - セッション再利用
+- `TestSSHSessionPool_Release_ReturnsToPool` - プールへの返却
+- `TestSSHSessionPool_Close_ClosesAllSessions` - クローズ動作
+- `TestSSHSessionPool_Close_Idempotent` - 冪等性
+- `TestSSHSessionPool_Stats_ReturnsCorrectValues` - 統計値の正確性
+- `TestSSHSessionPool_DoubleRelease_HandledGracefully` - 二重解放
+- `TestSSHSessionPool_ReleaseUnknownSession_Ignored` - 不明セッション解放
+
+**Task 8: 並行アクセステスト（7テスト）**
+- `TestSSHSessionPool_ConcurrentAcquire` - 同時取得
+- `TestSSHSessionPool_ConcurrentRelease` - 同時解放
+- `TestSSHSessionPool_MixedAcquireRelease` - 混合操作
+- `TestSSHSessionPool_RaceDetector` - レースコンディション検出
+- `TestSSHSessionPool_ConcurrentStatsAccess` - 同時Stats()呼び出し
+- `TestSSHSessionPool_ConcurrentClose` - 操作中のクローズ
+- `TestSSHSessionPool_HighContention` - 高競合状態
+
+**Task 9: タイムアウト/エラーハンドリングテスト（8テスト）**
+- `TestSSHSessionPool_AcquireTimeout_PoolExhausted` - プール枯渇時タイムアウト
+- `TestSSHSessionPool_AcquireTimeout_WithContextDeadline` - コンテキストデッドライン
+- `TestSSHSessionPool_ContextCancellation` - コンテキストキャンセル
+- `TestSSHSessionPool_PoolClosedError` - クローズ済みプールエラー
+- `TestSSHSessionPool_SessionCreationFailure` - セッション作成失敗
+- `TestSSHSessionPool_SessionCreationFailure_CountedCorrectly` - 失敗時のカウント
+- `TestSSHSessionPool_ReleaseAfterClose` - クローズ後の解放
+- `TestSSHSessionPool_AcquireBlocksUntilReleased` - 解放までブロック
+
+**追加エッジケーステスト（5テスト）**
+- `TestSSHSessionPool_SessionFactoryCalledCorrectly` - ファクトリ呼び出し
+- `TestSSHSessionPool_UseCountIncrementsOnReuse` - 使用カウント
+- `TestSSHSessionPool_LastUsedUpdated` - 最終使用時刻更新
+- `TestSSHSessionPool_WithoutIdleCleanupOption` - オプション動作
+- `TestSSHSessionPool_WithSessionFactoryOption` - ファクトリオプション
+
+#### テスト結果
+
+```
+go test -race -v ./internal/client/... -run SSHSessionPool
+PASS
+ok      github.com/sh1/terraform-provider-rtx/internal/client   2.000s
+```
+
+- 32テスト全件パス
+- レースコンディション検出なし
+- ビルド成功
+
+### Task 12-13: SSH Pool Observability & Provider Configuration（2026-01-24）
+
+#### Task 12: SSH Pool Statistics and Observability
+
+**変更ファイル: `internal/client/ssh_session_pool.go`**
+
+1. **SSHPoolStats構造体の拡張:**
+   - `TotalAcquisitions int` - 成功した取得回数の合計
+   - `WaitCount int` - セッション待機回数
+
+2. **SSHSessionPool構造体の拡張:**
+   - `totalAcquisitions int` - 取得カウンター
+   - `waitCount int` - 待機カウンター
+
+3. **LogStats()メソッドの追加:**
+   ```go
+   func (p *SSHSessionPool) LogStats() {
+       stats := p.Stats()
+       logging.Global().Info().
+           Int("total_created", stats.TotalCreated).
+           Int("in_use", stats.InUse).
+           Int("available", stats.Available).
+           Int("max_sessions", stats.MaxSessions).
+           Int("total_acquisitions", stats.TotalAcquisitions).
+           Int("wait_count", stats.WaitCount).
+           Msg("SSH session pool statistics")
+   }
+   ```
+
+4. **ログレベルの変更:**
+   - プール作成時: Debug → Info
+   - プールクローズ時: 統計情報を追加
+
+5. **統計カウンターの更新:**
+   - `Acquire()`: セッション取得時に`totalAcquisitions++`
+   - `Acquire()`: 待機時に`waitCount++`
+
+**追加テスト（3件）:**
+- `TestSSHSessionPool_TotalAcquisitions`
+- `TestSSHSessionPool_WaitCount`
+- `TestSSHSessionPool_LogStats`
+
+#### Task 13: Provider-Level SSH Pool Configuration
+
+**変更ファイル: `internal/provider/provider.go`**
+
+1. **スキーマ追加:**
+   ```hcl
+   ssh_session_pool {
+     enabled      = true   # SSH session pooling enabled (default: true)
+     max_sessions = 2      # Maximum concurrent sessions (default: 2)
+     idle_timeout = "5m"   # Idle session timeout (default: "5m")
+   }
+   ```
+
+2. **設定読み取り:**
+   ```go
+   if v, ok := d.GetOk("ssh_session_pool"); ok {
+       poolConfigs := v.([]interface{})
+       if len(poolConfigs) > 0 && poolConfigs[0] != nil {
+           poolConfig := poolConfigs[0].(map[string]interface{})
+           // read enabled, max_sessions, idle_timeout
+       }
+   }
+   ```
+
+**変更ファイル: `internal/client/interfaces.go`**
+
+Config構造体に追加:
+```go
+SSHPoolEnabled     bool   // Enable SSH session pooling (default: true)
+SSHPoolMaxSessions int    // Maximum concurrent SSH sessions (default: 2)
+SSHPoolIdleTimeout string // Idle session timeout duration string (default: "5m")
+```
+
+**変更ファイル: `internal/client/client.go`**
+
+1. **NewClient()の変更:**
+   - Configから`sshPoolEnabled`を初期化
+
+2. **Dial()の変更:**
+   - Configから`SSHPoolMaxSessions`と`SSHPoolIdleTimeout`を読み取り
+   - `idle_timeout`文字列をパースして`time.Duration`に変換
+   - 無効な設定値の場合は警告ログを出力してデフォルト使用
+
+#### 使用例
+
+```hcl
+provider "rtx" {
+  host     = "192.168.1.1"
+  username = "admin"
+  password = "password"
+
+  # Optional: SSH session pool configuration
+  ssh_session_pool {
+    enabled      = true    # Enable pooling (default)
+    max_sessions = 4       # Increase for higher parallelism
+    idle_timeout = "10m"   # Longer timeout for persistent connections
+  }
+}
+```
+
+#### テスト結果
+
+```
+go build ./...
+go test ./internal/provider/... -count=1
+ok      github.com/sh1/terraform-provider-rtx/internal/provider   0.130s
+
+go test ./internal/client/... -run "TotalAcquisitions|WaitCount|LogStats" -v
+PASS
+ok      github.com/sh1/terraform-provider-rtx/internal/client   0.163s
+```
+
+- ビルド成功
+- プロバイダーテスト全件パス
+- SSHプール統計テスト3件パス
