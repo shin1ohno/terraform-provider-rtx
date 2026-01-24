@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/terraform-schema-design-patterns/requirements.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-24T12:11:27.580Z",
+      "trigger": "initial",
+      "approvalId": "approval_1769256687574_zcvwk1e53",
+      "approvalTitle": "Requirements: Terraform Schema Design Patterns"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-24T12:11:43.298Z",
+      "trigger": "approved",
+      "approvalId": "approval_1769256687574_zcvwk1e53",
+      "approvalTitle": "Requirements: Terraform Schema Design Patterns"
+    }
+  ]
+}

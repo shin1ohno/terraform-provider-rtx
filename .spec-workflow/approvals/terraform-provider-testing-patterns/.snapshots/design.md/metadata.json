@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/terraform-provider-testing-patterns/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-24T12:14:51.990Z",
+      "trigger": "initial",
+      "approvalId": "approval_1769256891986_9zbh3nrj3",
+      "approvalTitle": "Design: Terraform Provider Testing Patterns"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-24T12:15:19.522Z",
+      "trigger": "approved",
+      "approvalId": "approval_1769256891986_9zbh3nrj3",
+      "approvalTitle": "Design: Terraform Provider Testing Patterns"
+    }
+  ]
+}

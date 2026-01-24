@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/optional-field-preservation/tasks.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-24T11:32:15.000Z",
+      "trigger": "initial",
+      "approvalId": "approval_1769254334995_b10638kvi",
+      "approvalTitle": "Tasks: Optional Field Preservation"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-24T11:32:18.280Z",
+      "trigger": "approved",
+      "approvalId": "approval_1769254334995_b10638kvi",
+      "approvalTitle": "Tasks: Optional Field Preservation"
+    }
+  ]
+}

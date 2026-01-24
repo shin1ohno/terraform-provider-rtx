@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/terraform-provider-testing-patterns/tasks.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-24T12:17:25.124Z",
+      "trigger": "initial",
+      "approvalId": "approval_1769257045120_fvv9mtu54",
+      "approvalTitle": "Tasks: Terraform Provider Testing Patterns (13 tasks)"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-24T12:18:13.271Z",
+      "trigger": "approved",
+      "approvalId": "approval_1769257045120_fvv9mtu54",
+      "approvalTitle": "Tasks: Terraform Provider Testing Patterns (13 tasks)"
+    }
+  ]
+}

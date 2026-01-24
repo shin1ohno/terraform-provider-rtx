@@ -81,7 +81,13 @@ func (e *simpleExecutor) Run(ctx context.Context, cmd string) ([]byte, error) {
 // provide more complete information (e.g., show config) in administrator mode.
 func (e *simpleExecutor) requiresAdminPrivileges(cmd string) bool {
 	// If admin password is configured, always use administrator mode
-	if e.rtxConfig != nil && e.rtxConfig.AdminPassword != "" {
+	hasConfig := e.rtxConfig != nil
+	hasPassword := hasConfig && e.rtxConfig.AdminPassword != ""
+	logging.Global().Debug().
+		Bool("hasConfig", hasConfig).
+		Bool("hasPassword", hasPassword).
+		Msg("SimpleExecutor: requiresAdminPrivileges check")
+	if hasPassword {
 		return true
 	}
 	return false
@@ -144,11 +150,16 @@ func (e *simpleExecutor) sendAdministratorCommand(ctx context.Context, ws *worki
 	}
 
 	responseStr := string(response)
-	logger.Debug().Msg("SimpleExecutor: Password authentication response received")
+	logger.Debug().Str("response", responseStr).Msg("SimpleExecutor: Password authentication response received")
 
-	// Check for authentication success (look for # prompt or no error message)
+	// Check for authentication failure
 	if strings.Contains(responseStr, "incorrect") || strings.Contains(responseStr, "failed") || strings.Contains(responseStr, "Invalid") {
 		return fmt.Errorf("administrator authentication failed: %s", responseStr)
+	}
+
+	// Verify we actually got the admin prompt (#) not user prompt (>)
+	if !strings.Contains(responseStr, "#") {
+		return fmt.Errorf("administrator authentication failed: did not get admin prompt (#), got: %s", responseStr)
 	}
 
 	logger.Debug().Msg("SimpleExecutor: Administrator authentication successful")
@@ -170,73 +181,13 @@ func (e *simpleExecutor) RunBatch(ctx context.Context, cmds []string) ([]byte, e
 	return allOutput, nil
 }
 
-// SetLoginPassword sets the login password via interactive prompt
-func (e *simpleExecutor) SetLoginPassword(ctx context.Context, newPassword string) error {
-	logger := logging.FromContext(ctx)
-	logger.Debug().Msg("SimpleExecutor: Setting login password")
-
-	// Create a new SSH connection
-	client, err := ssh.Dial("tcp", e.addr, e.config)
-	if err != nil {
-		return fmt.Errorf("failed to dial: %w", err)
-	}
-	defer client.Close()
-
-	// Create a working session
-	session, err := newWorkingSession(client)
-	if err != nil {
-		return fmt.Errorf("failed to create session: %w", err)
-	}
-	defer session.Close()
-
-	// Authenticate as admin if needed
-	if e.rtxConfig != nil && e.rtxConfig.AdminPassword != "" {
-		if err := e.authenticateAsAdmin(ctx, session); err != nil {
-			return fmt.Errorf("failed to authenticate as administrator: %w", err)
-		}
-	}
-
-	ws := session
-
-	ws.mu.Lock()
-	defer ws.mu.Unlock()
-
-	if ws.closed {
-		return fmt.Errorf("session is closed")
-	}
-
-	// Send login password command
-	if _, err := fmt.Fprintf(ws.stdin, "login password\r"); err != nil {
-		return fmt.Errorf("failed to send login password command: %w", err)
-	}
-
-	// Read until we get password prompt
-	_, err = ws.readUntilString("Password:", 10*time.Second)
-	if err != nil {
-		return fmt.Errorf("failed to get password prompt: %w", err)
-	}
-
-	// Send new password
-	if _, err := fmt.Fprintf(ws.stdin, "%s\r", newPassword); err != nil {
-		return fmt.Errorf("failed to send new password: %w", err)
-	}
-
-	// Read response after password
-	_, err = ws.readUntilPrompt(10 * time.Second)
-	if err != nil {
-		return fmt.Errorf("failed to read password response: %w", err)
-	}
-
-	logger.Debug().Msg("SimpleExecutor: Login password set successfully")
-	return nil
-}
-
-// SetAdministratorPassword sets the administrator password via interactive prompt
+// SetAdministratorPassword sets the administrator password using interactive prompts
+// RTX prompts: Old_Password: -> New_Password: -> New_Password: -> Password Strength: ...
 func (e *simpleExecutor) SetAdministratorPassword(ctx context.Context, oldPassword, newPassword string) error {
 	logger := logging.FromContext(ctx)
 	logger.Debug().Msg("SimpleExecutor: Setting administrator password")
 
-	// Create a new SSH connection
+	// Create a new SSH connection for the interactive password command
 	client, err := ssh.Dial("tcp", e.addr, e.config)
 	if err != nil {
 		return fmt.Errorf("failed to dial: %w", err)
@@ -244,68 +195,200 @@ func (e *simpleExecutor) SetAdministratorPassword(ctx context.Context, oldPasswo
 	defer client.Close()
 
 	// Create a working session
-	session, err := newWorkingSession(client)
+	ws, err := newWorkingSession(client)
 	if err != nil {
 		return fmt.Errorf("failed to create session: %w", err)
 	}
-	defer session.Close()
+	defer ws.Close()
 
-	// Authenticate as admin if needed
+	// Authenticate as administrator first (required for password commands)
 	if e.rtxConfig != nil && e.rtxConfig.AdminPassword != "" {
-		if err := e.authenticateAsAdmin(ctx, session); err != nil {
+		if err := e.authenticateAsAdminWithSession(ctx, ws); err != nil {
 			return fmt.Errorf("failed to authenticate as administrator: %w", err)
 		}
 	}
 
-	ws := session
-
 	ws.mu.Lock()
 	defer ws.mu.Unlock()
-
-	if ws.closed {
-		return fmt.Errorf("session is closed")
-	}
 
 	// Send administrator password command
 	if _, err := fmt.Fprintf(ws.stdin, "administrator password\r"); err != nil {
 		return fmt.Errorf("failed to send administrator password command: %w", err)
 	}
 
-	// Read until we get old password prompt
+	// Wait for Old_Password: prompt
 	_, err = ws.readUntilString("Old_Password:", 10*time.Second)
 	if err != nil {
-		// Some versions may use different prompt text
-		_, err = ws.readUntilString("Password:", 10*time.Second)
-		if err != nil {
-			return fmt.Errorf("failed to get old password prompt: %w", err)
-		}
+		return fmt.Errorf("failed to get Old_Password prompt: %w", err)
 	}
+	logger.Debug().Msg("SimpleExecutor: Old_Password prompt received")
 
 	// Send old password
 	if _, err := fmt.Fprintf(ws.stdin, "%s\r", oldPassword); err != nil {
 		return fmt.Errorf("failed to send old password: %w", err)
 	}
 
-	// Read until we get new password prompt
+	// Wait for first New_Password: prompt
 	_, err = ws.readUntilString("New_Password:", 10*time.Second)
 	if err != nil {
-		_, err = ws.readUntilString("Password:", 10*time.Second)
-		if err != nil {
-			return fmt.Errorf("failed to get new password prompt: %w", err)
-		}
+		return fmt.Errorf("failed to get first New_Password prompt: %w", err)
 	}
+	logger.Debug().Msg("SimpleExecutor: First New_Password prompt received")
 
 	// Send new password
 	if _, err := fmt.Fprintf(ws.stdin, "%s\r", newPassword); err != nil {
 		return fmt.Errorf("failed to send new password: %w", err)
 	}
 
-	// Read response after password
-	_, err = ws.readUntilPrompt(10 * time.Second)
+	// Wait for second New_Password: prompt (confirmation)
+	_, err = ws.readUntilString("New_Password:", 10*time.Second)
+	if err != nil {
+		return fmt.Errorf("failed to get second New_Password prompt: %w", err)
+	}
+	logger.Debug().Msg("SimpleExecutor: Second New_Password prompt received")
+
+	// Send new password again for confirmation
+	if _, err := fmt.Fprintf(ws.stdin, "%s\r", newPassword); err != nil {
+		return fmt.Errorf("failed to send password confirmation: %w", err)
+	}
+
+	// Wait for completion (Password Strength or prompt)
+	response, err := ws.readUntilPrompt(10 * time.Second)
+	if err != nil {
+		return fmt.Errorf("failed to read password change response: %w", err)
+	}
+
+	responseStr := string(response)
+	logger.Debug().Str("response", responseStr).Msg("SimpleExecutor: Password change response received")
+
+	// Check for errors
+	if strings.Contains(responseStr, "incorrect") || strings.Contains(responseStr, "failed") || strings.Contains(responseStr, "Invalid") {
+		return fmt.Errorf("administrator password change failed: %s", responseStr)
+	}
+
+	logger.Debug().Msg("SimpleExecutor: Administrator password changed successfully")
+	return nil
+}
+
+// SetLoginPassword sets the login password using interactive prompts
+// RTX prompts: Old_Password: (if exists) -> New_Password: -> New_Password: -> Password Strength: ...
+func (e *simpleExecutor) SetLoginPassword(ctx context.Context, newPassword string) error {
+	logger := logging.FromContext(ctx)
+	logger.Debug().Msg("SimpleExecutor: Setting login password")
+
+	// Create a new SSH connection for the interactive password command
+	client, err := ssh.Dial("tcp", e.addr, e.config)
+	if err != nil {
+		return fmt.Errorf("failed to dial: %w", err)
+	}
+	defer client.Close()
+
+	// Create a working session
+	ws, err := newWorkingSession(client)
+	if err != nil {
+		return fmt.Errorf("failed to create session: %w", err)
+	}
+	defer ws.Close()
+
+	// Authenticate as administrator first (required for password commands)
+	if e.rtxConfig != nil && e.rtxConfig.AdminPassword != "" {
+		if err := e.authenticateAsAdminWithSession(ctx, ws); err != nil {
+			return fmt.Errorf("failed to authenticate as administrator: %w", err)
+		}
+	}
+
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+
+	// Send login password command
+	if _, err := fmt.Fprintf(ws.stdin, "login password\r"); err != nil {
+		return fmt.Errorf("failed to send login password command: %w", err)
+	}
+
+	// Wait for New_Password: prompt (login password may not have old password prompt if not set)
+	_, err = ws.readUntilString("New_Password:", 10*time.Second)
+	if err != nil {
+		return fmt.Errorf("failed to get first New_Password prompt: %w", err)
+	}
+	logger.Debug().Msg("SimpleExecutor: First New_Password prompt received")
+
+	// Send new password
+	if _, err := fmt.Fprintf(ws.stdin, "%s\r", newPassword); err != nil {
+		return fmt.Errorf("failed to send new password: %w", err)
+	}
+
+	// Wait for second New_Password: prompt (confirmation)
+	_, err = ws.readUntilString("New_Password:", 10*time.Second)
+	if err != nil {
+		return fmt.Errorf("failed to get second New_Password prompt: %w", err)
+	}
+	logger.Debug().Msg("SimpleExecutor: Second New_Password prompt received")
+
+	// Send new password again for confirmation
+	if _, err := fmt.Fprintf(ws.stdin, "%s\r", newPassword); err != nil {
+		return fmt.Errorf("failed to send password confirmation: %w", err)
+	}
+
+	// Wait for completion (Password Strength or prompt)
+	response, err := ws.readUntilPrompt(10 * time.Second)
+	if err != nil {
+		return fmt.Errorf("failed to read password change response: %w", err)
+	}
+
+	responseStr := string(response)
+	logger.Debug().Str("response", responseStr).Msg("SimpleExecutor: Password change response received")
+
+	// Check for errors
+	if strings.Contains(responseStr, "incorrect") || strings.Contains(responseStr, "failed") || strings.Contains(responseStr, "Invalid") {
+		return fmt.Errorf("login password change failed: %s", responseStr)
+	}
+
+	logger.Debug().Msg("SimpleExecutor: Login password changed successfully")
+	return nil
+}
+
+// authenticateAsAdminWithSession authenticates as administrator using the given session
+func (e *simpleExecutor) authenticateAsAdminWithSession(ctx context.Context, ws *workingSession) error {
+	logger := logging.FromContext(ctx)
+	logger.Debug().Msg("SimpleExecutor: Authenticating as administrator")
+
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+
+	if ws.closed {
+		return fmt.Errorf("session is closed")
+	}
+
+	// Send administrator command
+	if _, err := fmt.Fprintf(ws.stdin, "administrator\r"); err != nil {
+		return fmt.Errorf("failed to send administrator command: %w", err)
+	}
+
+	// Read until we get password prompt
+	_, err := ws.readUntilString("Password:", 10*time.Second)
+	if err != nil {
+		return fmt.Errorf("failed to get password prompt: %w", err)
+	}
+	logger.Debug().Msg("SimpleExecutor: Password prompt received")
+
+	// Send password
+	if _, err := fmt.Fprintf(ws.stdin, "%s\r", e.rtxConfig.AdminPassword); err != nil {
+		return fmt.Errorf("failed to send password: %w", err)
+	}
+
+	// Read response after password - look for administrator prompt (# instead of >)
+	response, err := ws.readUntilPrompt(10 * time.Second)
 	if err != nil {
 		return fmt.Errorf("failed to read password response: %w", err)
 	}
 
-	logger.Debug().Msg("SimpleExecutor: Administrator password set successfully")
+	responseStr := string(response)
+
+	// Check for authentication success
+	if strings.Contains(responseStr, "incorrect") || strings.Contains(responseStr, "failed") || strings.Contains(responseStr, "Invalid") {
+		return fmt.Errorf("administrator authentication failed: %s", responseStr)
+	}
+
+	logger.Debug().Msg("SimpleExecutor: Administrator authentication successful")
 	return nil
 }

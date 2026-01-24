@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/optional-field-preservation/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-24T11:20:45.361Z",
+      "trigger": "initial",
+      "approvalId": "approval_1769253645355_aab3ij4sg",
+      "approvalTitle": "Design: Optional Field Preservation"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-24T11:30:46.565Z",
+      "trigger": "approved",
+      "approvalId": "approval_1769254236464_jp0mwpz6t",
+      "approvalTitle": "Design: Optional Field Preservation (Recursive Merge)"
+    }
+  ]
+}

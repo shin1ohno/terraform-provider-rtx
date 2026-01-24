@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/terraform-schema-design-patterns/tasks.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-24T12:17:25.565Z",
+      "trigger": "initial",
+      "approvalId": "approval_1769257045561_u6148uqp1",
+      "approvalTitle": "Tasks: Terraform Schema Design Patterns (13 tasks)"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-24T12:18:11.921Z",
+      "trigger": "approved",
+      "approvalId": "approval_1769257045561_u6148uqp1",
+      "approvalTitle": "Tasks: Terraform Schema Design Patterns (13 tasks)"
+    }
+  ]
+}
