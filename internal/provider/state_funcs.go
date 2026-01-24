@@ -40,6 +40,9 @@ func normalizeIPAddress(val interface{}) string {
 		return ""
 	}
 
+	// Trim leading and trailing whitespace before processing
+	s = strings.TrimSpace(s)
+
 	// Empty string is returned as-is
 	if s == "" {
 		return s
