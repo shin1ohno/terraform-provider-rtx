@@ -517,7 +517,7 @@ func TestBuildDeleteSystemCommands(t *testing.T) {
 
 func TestBuildShowSystemConfigCommand(t *testing.T) {
 	result := BuildShowSystemConfigCommand()
-	expected := `show config | grep -E "(timezone|console|packet-buffer|statistics)"`
+	expected := `show config | grep "(timezone|console|packet-buffer|statistics)"`
 	if result != expected {
 		t.Errorf("BuildShowSystemConfigCommand() = %q, want %q", result, expected)
 	}

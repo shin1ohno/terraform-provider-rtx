@@ -228,9 +228,10 @@ func BuildDeleteStatisticsNATCommand() string {
 }
 
 // BuildShowSystemConfigCommand builds the command to show system configuration
-// Command format: show config | grep -E "(timezone|console|packet-buffer|statistics)"
+// Command format: show config | grep "(timezone|console|packet-buffer|statistics)"
+// Note: RTX routers support extended regex but not the -E option
 func BuildShowSystemConfigCommand() string {
-	return `show config | grep -E "(timezone|console|packet-buffer|statistics)"`
+	return `show config | grep "(timezone|console|packet-buffer|statistics)"`
 }
 
 // BuildDeleteSystemCommands builds all commands needed to reset system configuration

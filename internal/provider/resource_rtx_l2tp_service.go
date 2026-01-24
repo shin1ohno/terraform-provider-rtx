@@ -26,6 +26,7 @@ func resourceRTXL2TPService() *schema.Resource {
 		Importer: &schema.ResourceImporter{
 			StateContext: resourceRTXL2TPServiceImport,
 		},
+		CustomizeDiff: customizeL2TPServiceDiff,
 
 		Schema: map[string]*schema.Schema{
 			"enabled": {
@@ -36,6 +37,7 @@ func resourceRTXL2TPService() *schema.Resource {
 			"protocols": {
 				Type:        schema.TypeList,
 				Optional:    true,
+				Computed:    true,
 				Description: "List of L2TP protocols to enable. Valid values are 'l2tp' (L2TPv2) and 'l2tpv3'. If not specified, defaults to all protocols when enabled.",
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
@@ -187,6 +189,59 @@ func expandStringList(list []interface{}) []string {
 	result := make([]string, len(list))
 	for i, v := range list {
 		result[i] = v.(string)
+	}
+	return result
+}
+
+// customizeL2TPServiceDiff suppresses diff when protocols are functionally equivalent.
+// RTX routers treat ["l2tpv3", "l2tp"] (or ["l2tp", "l2tpv3"]) as equivalent to []
+// because both versions enabled is the default when no protocols are specified.
+func customizeL2TPServiceDiff(ctx context.Context, d *schema.ResourceDiff, meta interface{}) error {
+	oldVal, newVal := d.GetChange("protocols")
+	oldList := expandInterfaceList(oldVal.([]interface{}))
+	newList := expandInterfaceList(newVal.([]interface{}))
+
+	// Check if both are "all protocols" (either empty or both protocols specified)
+	oldIsAllProtocols := isAllProtocols(oldList)
+	newIsAllProtocols := isAllProtocols(newList)
+
+	if oldIsAllProtocols && newIsAllProtocols {
+		// Both represent "all protocols enabled", suppress the diff
+		d.Clear("protocols")
+	}
+
+	return nil
+}
+
+// isAllProtocols returns true if the protocol list means "all protocols enabled"
+// This is either an empty list or a list containing both "l2tp" and "l2tpv3"
+func isAllProtocols(protocols []string) bool {
+	if len(protocols) == 0 {
+		return true
+	}
+	if len(protocols) == 2 {
+		hasL2TP := false
+		hasL2TPv3 := false
+		for _, p := range protocols {
+			if p == "l2tp" {
+				hasL2TP = true
+			}
+			if p == "l2tpv3" {
+				hasL2TPv3 = true
+			}
+		}
+		return hasL2TP && hasL2TPv3
+	}
+	return false
+}
+
+// expandInterfaceList converts []interface{} to []string
+func expandInterfaceList(list []interface{}) []string {
+	result := make([]string, len(list))
+	for i, v := range list {
+		if s, ok := v.(string); ok {
+			result[i] = s
+		}
 	}
 	return result
 }

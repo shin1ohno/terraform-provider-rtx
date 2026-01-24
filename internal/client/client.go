@@ -579,6 +579,9 @@ func (c *rtxClient) SaveConfig(ctx context.Context) error {
 		return fmt.Errorf("failed to save configuration: %w", err)
 	}
 
+	// Mark cache as dirty so it will be refreshed on next read
+	c.MarkCacheDirty()
+
 	return nil
 }
 

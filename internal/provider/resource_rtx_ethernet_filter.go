@@ -46,6 +46,7 @@ func resourceRTXEthernetFilter() *schema.Resource {
 				ValidateFunc: validation.StringInSlice([]string{
 					"pass-log", "pass-nolog", "reject-log", "reject-nolog", "pass", "reject",
 				}, false),
+				DiffSuppressFunc: suppressEquivalentEthernetFilterAction,
 			},
 			// MAC-based filter fields
 			"source_mac": {
@@ -285,4 +286,27 @@ func flattenEthernetFilterToResourceData(filter *client.EthernetFilter, d *schem
 	}
 
 	return nil
+}
+
+// suppressEquivalentEthernetFilterAction suppresses diff when the action values
+// are functionally equivalent. RTX routers treat "pass" and "pass-nolog" as identical,
+// as well as "reject" and "reject-nolog".
+func suppressEquivalentEthernetFilterAction(k, old, new string, d *schema.ResourceData) bool {
+	// Normalize both values to canonical form
+	oldNorm := normalizeEthernetFilterAction(old)
+	newNorm := normalizeEthernetFilterAction(new)
+	return oldNorm == newNorm
+}
+
+// normalizeEthernetFilterAction normalizes action to canonical form.
+// "pass-nolog" -> "pass", "reject-nolog" -> "reject"
+func normalizeEthernetFilterAction(action string) string {
+	switch action {
+	case "pass-nolog":
+		return "pass"
+	case "reject-nolog":
+		return "reject"
+	default:
+		return action
+	}
 }
