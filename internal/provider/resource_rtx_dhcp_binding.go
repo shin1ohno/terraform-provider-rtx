@@ -417,15 +417,6 @@ func parseDHCPBindingID(id string) (int, string, error) {
 	return scopeID, identifier, nil
 }
 
-// normalizeIPAddress normalizes IP address format
-func normalizeIPAddress(val interface{}) string {
-	if val == nil {
-		return ""
-	}
-	// Simple normalization - in production, use net.ParseIP
-	return strings.TrimSpace(val.(string))
-}
-
 // normalizeMACAddress normalizes MAC address format using the parser package
 func normalizeMACAddress(val interface{}) string {
 	if val == nil {

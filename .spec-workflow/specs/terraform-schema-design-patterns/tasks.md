@@ -12,7 +12,7 @@
   - _Requirements: 2_
   - _Prompt: Implement the task for spec terraform-schema-design-patterns, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Terraform Provider Developer | Task: Create schema helper functions for sensitive and write-only fields as specified in design.md | Restrictions: Follow SDK v2 patterns, document limitations vs plugin-framework, return *schema.Schema | Success: Helper functions compile and produce valid schema definitions | Instructions: Mark task as [-] in tasks.md when starting, use log-implementation tool after completion with detailed artifacts, then mark as [x] when done_
 
-- [-] 2. Create DiffSuppressFunc library
+- [x] 2. Create DiffSuppressFunc library
   - File: `internal/provider/diff_suppress.go`
   - Implement SuppressCaseDiff for case-insensitive comparison
   - Implement SuppressWhitespaceDiff for whitespace normalization
@@ -23,7 +23,7 @@
   - _Requirements: 4_
   - _Prompt: Implement the task for spec terraform-schema-design-patterns, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Developer | Task: Create DiffSuppressFunc library with all functions specified in design.md | Restrictions: Handle edge cases (nil, empty, invalid input), return false on errors (safe fallback), add documentation | Success: All suppress functions compile and correctly identify equivalent values | Instructions: Mark task as [-] in tasks.md when starting, use log-implementation tool after completion with detailed artifacts, then mark as [x] when done_
 
-- [-] 3. Create StateFunc normalizers
+- [x] 3. Create StateFunc normalizers
   - File: `internal/provider/state_funcs.go`
   - Implement normalizeIPAddress for canonical IP format
   - Implement normalizeLowercase for case normalization
@@ -35,7 +35,7 @@
 
 ## Phase 2: State Migration Infrastructure
 
-- [-] 4. Create state upgraders directory structure
+- [x] 4. Create state upgraders directory structure
   - File: `internal/provider/state_upgraders/upgraders.go`
   - Create package with common types and utilities
   - Implement helper for creating StateUpgrader entries
@@ -69,7 +69,7 @@
 
 ## Phase 4: Reference Implementation
 
-- [ ] 7. Apply WriteOnly pattern to password fields
+- [-] 7. Apply WriteOnly pattern to password fields
   - File: `internal/provider/resource_rtx_admin_user.go`
   - Update password field to use WriteOnlyStringSchema helper
   - Ensure Read function does not attempt to read password from router
