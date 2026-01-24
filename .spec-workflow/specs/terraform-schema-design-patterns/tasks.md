@@ -57,7 +57,7 @@
   - _Requirements: 4_
   - _Prompt: Implement the task for spec terraform-schema-design-patterns, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Test Developer | Task: Create comprehensive unit tests for DiffSuppressFunc library | Restrictions: Use table-driven tests, cover edge cases, test both positive and negative cases | Success: All suppress functions have full test coverage, tests document expected behavior | Instructions: Mark task as [-] in tasks.md when starting, use log-implementation tool after completion with detailed artifacts, then mark as [x] when done_
 
-- [-] 6. Add unit tests for StateFunc normalizers
+- [x] 6. Add unit tests for StateFunc normalizers
   - File: `internal/provider/state_funcs_test.go`
   - Test each normalizer with various input formats
   - Test invalid input handling
@@ -123,7 +123,7 @@
 
 ## Phase 6: Audit and Expansion
 
-- [-] 12. Audit all resources for schema pattern compliance
+- [x] 12. Audit all resources for schema pattern compliance
   - Files: All `internal/provider/resource_*.go`
   - Check each resource against pattern decision tree
   - Identify fields needing pattern updates
@@ -133,7 +133,7 @@
   - _Requirements: All_
   - _Prompt: Implement the task for spec terraform-schema-design-patterns, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Code Auditor | Task: Audit all resources for schema pattern compliance | Restrictions: Read-only audit, document findings, prioritize by risk | Success: Complete list of resources and fields needing updates | Instructions: Mark task as [-] in tasks.md when starting, use log-implementation tool after completion with detailed artifacts, then mark as [x] when done_
 
-- [-] 13. Apply patterns to remaining resources
+- [x] 13. Apply patterns to remaining resources
   - Files: Resources identified in audit
   - Apply WriteOnly to all credential fields
   - Apply RequiresReplace to all immutable fields
