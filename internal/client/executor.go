@@ -12,6 +12,8 @@ import (
 type Executor interface {
 	Run(ctx context.Context, cmd string) ([]byte, error)
 	RunBatch(ctx context.Context, cmds []string) ([]byte, error)
+	SetLoginPassword(ctx context.Context, newPassword string) error
+	SetAdministratorPassword(ctx context.Context, oldPassword, newPassword string) error
 }
 
 // sshExecutor implements Executor using SSH session
@@ -103,4 +105,110 @@ func (e *sshExecutor) RunBatch(ctx context.Context, cmds []string) ([]byte, erro
 	}
 
 	return allOutput, nil
+}
+
+// SetLoginPassword sets the login password via interactive prompt
+func (e *sshExecutor) SetLoginPassword(ctx context.Context, newPassword string) error {
+	logger := logging.FromContext(ctx)
+	logger.Debug().Str("component", "executor").Msg("Setting login password")
+
+	// Cast session to workingSession to access low-level methods
+	ws, ok := e.session.(*workingSession)
+	if !ok {
+		return fmt.Errorf("session type not supported for login password setting")
+	}
+
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+
+	if ws.closed {
+		return fmt.Errorf("session is closed")
+	}
+
+	// Send login password command
+	if _, err := fmt.Fprintf(ws.stdin, "login password\r"); err != nil {
+		return fmt.Errorf("failed to send login password command: %w", err)
+	}
+
+	// Read until we get password prompt
+	_, err := ws.readUntilString("Password:", 10*time.Second)
+	if err != nil {
+		return fmt.Errorf("failed to get password prompt: %w", err)
+	}
+
+	// Send new password
+	if _, err := fmt.Fprintf(ws.stdin, "%s\r", newPassword); err != nil {
+		return fmt.Errorf("failed to send new password: %w", err)
+	}
+
+	// Read response after password
+	_, err = ws.readUntilPrompt(10 * time.Second)
+	if err != nil {
+		return fmt.Errorf("failed to read password response: %w", err)
+	}
+
+	logger.Debug().Str("component", "executor").Msg("Login password set successfully")
+	return nil
+}
+
+// SetAdministratorPassword sets the administrator password via interactive prompt
+func (e *sshExecutor) SetAdministratorPassword(ctx context.Context, oldPassword, newPassword string) error {
+	logger := logging.FromContext(ctx)
+	logger.Debug().Str("component", "executor").Msg("Setting administrator password")
+
+	// Cast session to workingSession to access low-level methods
+	ws, ok := e.session.(*workingSession)
+	if !ok {
+		return fmt.Errorf("session type not supported for administrator password setting")
+	}
+
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+
+	if ws.closed {
+		return fmt.Errorf("session is closed")
+	}
+
+	// Send administrator password command
+	if _, err := fmt.Fprintf(ws.stdin, "administrator password\r"); err != nil {
+		return fmt.Errorf("failed to send administrator password command: %w", err)
+	}
+
+	// Read until we get old password prompt
+	_, err := ws.readUntilString("Old_Password:", 10*time.Second)
+	if err != nil {
+		// Some versions may use different prompt text
+		_, err = ws.readUntilString("Password:", 10*time.Second)
+		if err != nil {
+			return fmt.Errorf("failed to get old password prompt: %w", err)
+		}
+	}
+
+	// Send old password
+	if _, err := fmt.Fprintf(ws.stdin, "%s\r", oldPassword); err != nil {
+		return fmt.Errorf("failed to send old password: %w", err)
+	}
+
+	// Read until we get new password prompt
+	_, err = ws.readUntilString("New_Password:", 10*time.Second)
+	if err != nil {
+		_, err = ws.readUntilString("Password:", 10*time.Second)
+		if err != nil {
+			return fmt.Errorf("failed to get new password prompt: %w", err)
+		}
+	}
+
+	// Send new password
+	if _, err := fmt.Fprintf(ws.stdin, "%s\r", newPassword); err != nil {
+		return fmt.Errorf("failed to send new password: %w", err)
+	}
+
+	// Read response after password
+	_, err = ws.readUntilPrompt(10 * time.Second)
+	if err != nil {
+		return fmt.Errorf("failed to read password response: %w", err)
+	}
+
+	logger.Debug().Str("component", "executor").Msg("Administrator password set successfully")
+	return nil
 }
