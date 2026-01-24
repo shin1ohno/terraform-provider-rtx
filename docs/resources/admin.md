@@ -3,12 +3,12 @@
 page_title: "rtx_admin Resource - terraform-provider-rtx"
 subcategory: ""
 description: |-
-  Manages admin password configuration on RTX routers. This is a singleton resource - only one instance can exist per router.
+  Manages admin password configuration on RTX routers. This is a singleton resource - only one instance can exist per router. Note: Changing passwords requires the provider's admin_password to be set to the current password.
 ---
 
 # rtx_admin (Resource)
 
-Manages admin password configuration on RTX routers. This is a singleton resource - only one instance can exist per router.
+Manages admin password configuration on RTX routers. This is a singleton resource - only one instance can exist per router. Note: Changing passwords requires the provider's admin_password to be set to the current password.
 
 
 
@@ -17,9 +17,10 @@ Manages admin password configuration on RTX routers. This is a singleton resourc
 
 ### Optional
 
-- `admin_password` (String, Sensitive) Administrator password for the RTX router. This password is required for entering administrator mode to make configuration changes.
-- `login_password` (String, Sensitive) Login password for the RTX router. This password is used for initial authentication when connecting to the router.
+- `admin_password` (String, Sensitive) Administrator password for the RTX router. This password is required for entering administrator mode to make configuration changes (write-only: value is sent to device but not read back)
+- `login_password` (String, Sensitive) Login password for the RTX router. This password is used for initial authentication when connecting to the router (write-only: value is sent to device but not read back)
 
 ### Read-Only
 
 - `id` (String) The ID of this resource.
+- `last_updated` (String) Timestamp of the last password update performed by Terraform (RFC3339 format).

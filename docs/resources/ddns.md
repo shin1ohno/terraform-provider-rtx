@@ -23,7 +23,7 @@ Manages custom DDNS provider configuration on RTX routers. Use this resource to 
 
 ### Optional
 
-- `password` (String, Sensitive) DDNS account password for authentication. This value is sensitive and will not be displayed in plan output.
+- `password` (String, Sensitive) DDNS account password for authentication (write-only: value is sent to device but not read back)
 - `username` (String) DDNS account username for authentication.
 
 ### Read-Only

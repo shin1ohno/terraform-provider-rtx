@@ -17,7 +17,7 @@ Manages admin user accounts on RTX routers. Each user can have different permiss
 
 ### Required
 
-- `username` (String) Username for the admin user. Must start with a letter and contain only alphanumeric characters and underscores.
+- `username` (String) Username for the admin user (cannot be changed after creation). Must start with a letter and contain only alphanumeric characters and underscores. Changing this value forces a new resource to be created.
 
 ### Optional
 
@@ -26,7 +26,7 @@ Manages admin user accounts on RTX routers. Each user can have different permiss
 - `encrypted` (Boolean) Whether the password is already encrypted. If true, the password value will be used as-is (for encrypted passwords).
 - `gui_pages` (Set of String) Allowed GUI pages for the user.
 - `login_timer` (Number) Login timeout in seconds. 0 means infinite (no timeout). If not specified, the router's default is used.
-- `password` (String, Sensitive) Password for the admin user. Required for create, optional for import.
+- `password` (String, Sensitive) Password for the admin user. Required for create, optional for import (write-only: value is sent to device but not read back)
 
 ### Read-Only
 

@@ -30,7 +30,7 @@ Manages IPsec VPN tunnel configuration on RTX routers. Supports IKEv2 with pre-s
 - `local_address` (String) Local endpoint IP address.
 - `local_network` (String) Local network in CIDR notation (e.g., '192.168.1.0/24').
 - `name` (String) Tunnel description/name.
-- `pre_shared_key` (String, Sensitive) Pre-shared key for IKE authentication.
+- `pre_shared_key` (String, Sensitive) Pre-shared key for IKE authentication (write-only: value is sent to device but not read back)
 - `remote_address` (String) Remote endpoint IP address or hostname (for dynamic DNS).
 - `remote_network` (String) Remote network in CIDR notation (e.g., '10.0.0.0/24').
 

@@ -18,7 +18,7 @@ Manages PPPoE connection configuration on RTX routers. This resource configures 
 ### Required
 
 - `bind_interface` (String) Physical interface to bind for PPPoE (e.g., 'lan2').
-- `password` (String, Sensitive) PPPoE authentication password. This value is sensitive and will not be displayed in logs.
+- `password` (String, Sensitive) PPPoE authentication password (write-only: value is sent to device but not read back)
 - `pp_number` (Number) PP interface number (1-based). This identifies the PPPoE connection.
 - `username` (String) PPPoE authentication username.
 
