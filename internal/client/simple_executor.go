@@ -87,10 +87,7 @@ func (e *simpleExecutor) requiresAdminPrivileges(cmd string) bool {
 		Bool("hasConfig", hasConfig).
 		Bool("hasPassword", hasPassword).
 		Msg("SimpleExecutor: requiresAdminPrivileges check")
-	if hasPassword {
-		return true
-	}
-	return false
+	return hasPassword
 }
 
 // authenticateAsAdmin authenticates as administrator using the administrator command

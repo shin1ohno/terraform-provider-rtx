@@ -132,7 +132,7 @@ func ImportStepWithID(resourceName, importID string) resource.TestStep {
 	}
 }
 
-// ImportStepWithOptions provides a fully configurable import test step.
+// ImportStepOptions provides a fully configurable import test step.
 // Use this when you need more control over the import test behavior.
 type ImportStepOptions struct {
 	// ResourceName is the resource address to import (required)
@@ -151,7 +151,7 @@ type ImportStepOptions struct {
 	Checks []resource.TestCheckFunc
 }
 
-// ImportStepWithOptions returns a TestStep configured with the given options.
+// ImportStepWithOpts returns a TestStep configured with the given options.
 //
 // Example:
 //
@@ -265,7 +265,7 @@ func DestroyStep() resource.TestStep {
 //   - checks: Check functions to verify the refreshed state
 func RefreshOnlyStep(config string, checks ...resource.TestCheckFunc) resource.TestStep {
 	step := resource.TestStep{
-		Config:      config,
+		Config:       config,
 		RefreshState: true,
 	}
 
