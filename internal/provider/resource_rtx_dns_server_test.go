@@ -3,6 +3,7 @@ package provider
 import (
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
@@ -244,4 +245,124 @@ func TestBuildDNSConfigFromResourceData_EmptyConfig(t *testing.T) {
 	if len(config.Hosts) != 0 {
 		t.Errorf("Expected 0 hosts, got %d", len(config.Hosts))
 	}
+}
+
+// Acceptance tests for rtx_dns_server
+
+func TestAccRTXDNSServer_basic(t *testing.T) {
+	resourceName := "rtx_dns_server.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccRTXDNSServerConfig_basic(),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "domain_lookup", "true"),
+					resource.TestCheckResourceAttr(resourceName, "service_on", "true"),
+					resource.TestCheckResourceAttr(resourceName, "name_servers.#", "2"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccRTXDNSServer_import(t *testing.T) {
+	resourceName := "rtx_dns_server.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccRTXDNSServerConfig_basic(),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "domain_lookup", "true"),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func TestAccRTXDNSServer_noDiff(t *testing.T) {
+	resourceName := "rtx_dns_server.test"
+	config := testAccRTXDNSServerConfig_withDomain()
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "domain_name", "example.local"),
+					resource.TestCheckResourceAttr(resourceName, "service_on", "true"),
+				),
+			},
+			{
+				Config:   config,
+				PlanOnly: true,
+			},
+		},
+	})
+}
+
+func TestAccRTXDNSServer_update(t *testing.T) {
+	resourceName := "rtx_dns_server.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccRTXDNSServerConfig_basic(),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "name_servers.#", "2"),
+				),
+			},
+			{
+				Config: testAccRTXDNSServerConfig_updated(),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "name_servers.#", "1"),
+				),
+			},
+		},
+	})
+}
+
+func testAccRTXDNSServerConfig_basic() string {
+	return `
+resource "rtx_dns_server" "test" {
+  domain_lookup = true
+  name_servers  = ["8.8.8.8", "8.8.4.4"]
+  service_on    = true
+}
+`
+}
+
+func testAccRTXDNSServerConfig_withDomain() string {
+	return `
+resource "rtx_dns_server" "test" {
+  domain_lookup = true
+  domain_name   = "example.local"
+  name_servers  = ["8.8.8.8"]
+  service_on    = true
+}
+`
+}
+
+func testAccRTXDNSServerConfig_updated() string {
+	return `
+resource "rtx_dns_server" "test" {
+  domain_lookup = true
+  name_servers  = ["1.1.1.1"]
+  service_on    = true
+}
+`
 }

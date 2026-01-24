@@ -2,6 +2,8 @@ package provider
 
 import (
 	"testing"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
 
 func TestBuildSyslogConfigFromResourceData(t *testing.T) {
@@ -261,4 +263,122 @@ func TestIsAlphanumeric(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Acceptance tests for rtx_syslog
+
+func TestAccRTXSyslog_basic(t *testing.T) {
+	resourceName := "rtx_syslog.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccRTXSyslogConfig_basic(),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "host.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "host.0.address", "192.168.1.100"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccRTXSyslog_import(t *testing.T) {
+	resourceName := "rtx_syslog.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccRTXSyslogConfig_basic(),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "host.#", "1"),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func TestAccRTXSyslog_noDiff(t *testing.T) {
+	resourceName := "rtx_syslog.test"
+	config := testAccRTXSyslogConfig_withFacility()
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "host.0.facility", "local0"),
+				),
+			},
+			{
+				Config:   config,
+				PlanOnly: true,
+			},
+		},
+	})
+}
+
+func TestAccRTXSyslog_update(t *testing.T) {
+	resourceName := "rtx_syslog.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccRTXSyslogConfig_basic(),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "host.0.address", "192.168.1.100"),
+				),
+			},
+			{
+				Config: testAccRTXSyslogConfig_updated(),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "host.0.address", "192.168.1.200"),
+				),
+			},
+		},
+	})
+}
+
+func testAccRTXSyslogConfig_basic() string {
+	return `
+resource "rtx_syslog" "test" {
+  host {
+    address = "192.168.1.100"
+  }
+}
+`
+}
+
+func testAccRTXSyslogConfig_withFacility() string {
+	return `
+resource "rtx_syslog" "test" {
+  host {
+    address  = "192.168.1.100"
+    facility = "local0"
+  }
+}
+`
+}
+
+func testAccRTXSyslogConfig_updated() string {
+	return `
+resource "rtx_syslog" "test" {
+  host {
+    address = "192.168.1.200"
+  }
+}
+`
 }

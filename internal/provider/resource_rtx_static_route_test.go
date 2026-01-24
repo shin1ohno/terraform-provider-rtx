@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -627,4 +628,136 @@ func TestResourceRTXStaticRouteRead_SFTPEnabled_RouteNotInCache_FallbackToSSH(t 
 
 	// Verify mock expectations
 	mockClient.AssertExpectations(t)
+}
+
+// Acceptance tests for rtx_static_route
+
+func TestAccRTXStaticRoute_basic(t *testing.T) {
+	resourceName := "rtx_static_route.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccRTXStaticRouteConfig_basic(),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "prefix", "10.0.0.0"),
+					resource.TestCheckResourceAttr(resourceName, "mask", "255.0.0.0"),
+					resource.TestCheckResourceAttr(resourceName, "next_hop.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "next_hop.0.gateway", "192.168.1.1"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccRTXStaticRoute_import(t *testing.T) {
+	resourceName := "rtx_static_route.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccRTXStaticRouteConfig_basic(),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "prefix", "10.0.0.0"),
+					resource.TestCheckResourceAttr(resourceName, "mask", "255.0.0.0"),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func TestAccRTXStaticRoute_noDiff(t *testing.T) {
+	resourceName := "rtx_static_route.test"
+	config := testAccRTXStaticRouteConfig_withDistance()
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "prefix", "172.16.0.0"),
+					resource.TestCheckResourceAttr(resourceName, "mask", "255.255.0.0"),
+					resource.TestCheckResourceAttr(resourceName, "next_hop.0.distance", "10"),
+				),
+			},
+			{
+				Config:   config,
+				PlanOnly: true,
+			},
+		},
+	})
+}
+
+func TestAccRTXStaticRoute_update(t *testing.T) {
+	resourceName := "rtx_static_route.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccRTXStaticRouteConfig_basic(),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "next_hop.0.gateway", "192.168.1.1"),
+				),
+			},
+			{
+				Config: testAccRTXStaticRouteConfig_updated(),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "next_hop.0.gateway", "192.168.2.1"),
+				),
+			},
+		},
+	})
+}
+
+func testAccRTXStaticRouteConfig_basic() string {
+	return `
+resource "rtx_static_route" "test" {
+  prefix = "10.0.0.0"
+  mask   = "255.0.0.0"
+
+  next_hop {
+    gateway = "192.168.1.1"
+  }
+}
+`
+}
+
+func testAccRTXStaticRouteConfig_updated() string {
+	return `
+resource "rtx_static_route" "test" {
+  prefix = "10.0.0.0"
+  mask   = "255.0.0.0"
+
+  next_hop {
+    gateway = "192.168.2.1"
+  }
+}
+`
+}
+
+func testAccRTXStaticRouteConfig_withDistance() string {
+	return `
+resource "rtx_static_route" "test" {
+  prefix = "172.16.0.0"
+  mask   = "255.255.0.0"
+
+  next_hop {
+    gateway  = "192.168.1.1"
+    distance = 10
+  }
+}
+`
 }

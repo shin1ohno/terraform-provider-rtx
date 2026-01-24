@@ -132,6 +132,51 @@ func TestAccResourceRTXSSHD_update(t *testing.T) {
 	})
 }
 
+func TestAccResourceRTXSSHD_import(t *testing.T) {
+	resourceName := "rtx_sshd.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccResourceRTXSSHDConfig_basic(),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "enabled", "true"),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func TestAccResourceRTXSSHD_noDiff(t *testing.T) {
+	resourceName := "rtx_sshd.test"
+	config := testAccResourceRTXSSHDConfig_withHosts()
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "enabled", "true"),
+					resource.TestCheckResourceAttr(resourceName, "hosts.#", "2"),
+				),
+			},
+			{
+				Config:   config,
+				PlanOnly: true,
+			},
+		},
+	})
+}
+
 func testAccResourceRTXSSHDConfig_basic() string {
 	return `
 resource "rtx_sshd" "test" {

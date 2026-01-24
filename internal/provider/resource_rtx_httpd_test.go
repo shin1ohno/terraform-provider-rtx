@@ -122,6 +122,51 @@ func TestAccResourceRTXHTTPD_update(t *testing.T) {
 	})
 }
 
+func TestAccResourceRTXHTTPD_import(t *testing.T) {
+	resourceName := "rtx_httpd.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccResourceRTXHTTPDConfig_basic(),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "host", "any"),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func TestAccResourceRTXHTTPD_noDiff(t *testing.T) {
+	resourceName := "rtx_httpd.test"
+	config := testAccResourceRTXHTTPDConfig_withProxyAccess()
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "host", "lan1"),
+					resource.TestCheckResourceAttr(resourceName, "proxy_access", "true"),
+				),
+			},
+			{
+				Config:   config,
+				PlanOnly: true,
+			},
+		},
+	})
+}
+
 func testAccResourceRTXHTTPDConfig_basic() string {
 	return `
 resource "rtx_httpd" "test" {

@@ -116,6 +116,53 @@ func TestAccResourceRTXSFTPD_update(t *testing.T) {
 	})
 }
 
+func TestAccResourceRTXSFTPD_import(t *testing.T) {
+	resourceName := "rtx_sftpd.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccResourceRTXSFTPDConfig_basic(),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "hosts.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "hosts.0", "lan1"),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func TestAccResourceRTXSFTPD_noDiff(t *testing.T) {
+	resourceName := "rtx_sftpd.test"
+	config := testAccResourceRTXSFTPDConfig_multipleHosts()
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "hosts.#", "2"),
+					resource.TestCheckResourceAttr(resourceName, "hosts.0", "lan1"),
+					resource.TestCheckResourceAttr(resourceName, "hosts.1", "lan2"),
+				),
+			},
+			{
+				Config:   config,
+				PlanOnly: true,
+			},
+		},
+	})
+}
+
 func testAccResourceRTXSFTPDConfig_basic() string {
 	return `
 resource "rtx_sftpd" "test" {

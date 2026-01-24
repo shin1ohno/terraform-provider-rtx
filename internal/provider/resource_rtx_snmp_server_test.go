@@ -3,6 +3,8 @@ package provider
 import (
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+
 	"github.com/sh1/terraform-provider-rtx/internal/client"
 )
 
@@ -210,4 +212,133 @@ func TestSNMPResourceID(t *testing.T) {
 			t.Errorf("Resource ID = %q, want %q", actualID, expectedID)
 		}
 	})
+}
+
+// Acceptance tests for rtx_snmp_server
+
+func TestAccRTXSNMPServer_basic(t *testing.T) {
+	resourceName := "rtx_snmp_server.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccRTXSNMPServerConfig_basic(),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "sys_name", "TestRouter"),
+					resource.TestCheckResourceAttr(resourceName, "community.#", "1"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccRTXSNMPServer_import(t *testing.T) {
+	resourceName := "rtx_snmp_server.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccRTXSNMPServerConfig_basic(),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "sys_name", "TestRouter"),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func TestAccRTXSNMPServer_noDiff(t *testing.T) {
+	resourceName := "rtx_snmp_server.test"
+	config := testAccRTXSNMPServerConfig_full()
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "sys_name", "TestRouter"),
+					resource.TestCheckResourceAttr(resourceName, "sys_location", "Test Location"),
+				),
+			},
+			{
+				Config:   config,
+				PlanOnly: true,
+			},
+		},
+	})
+}
+
+func TestAccRTXSNMPServer_update(t *testing.T) {
+	resourceName := "rtx_snmp_server.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccRTXSNMPServerConfig_basic(),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "sys_name", "TestRouter"),
+				),
+			},
+			{
+				Config: testAccRTXSNMPServerConfig_updated(),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "sys_name", "UpdatedRouter"),
+				),
+			},
+		},
+	})
+}
+
+func testAccRTXSNMPServerConfig_basic() string {
+	return `
+resource "rtx_snmp_server" "test" {
+  sys_name = "TestRouter"
+
+  community {
+    name       = "public"
+    permission = "ro"
+  }
+}
+`
+}
+
+func testAccRTXSNMPServerConfig_full() string {
+	return `
+resource "rtx_snmp_server" "test" {
+  sys_name     = "TestRouter"
+  sys_location = "Test Location"
+  sys_contact  = "admin@test.com"
+
+  community {
+    name       = "public"
+    permission = "ro"
+  }
+}
+`
+}
+
+func testAccRTXSNMPServerConfig_updated() string {
+	return `
+resource "rtx_snmp_server" "test" {
+  sys_name = "UpdatedRouter"
+
+  community {
+    name       = "public"
+    permission = "ro"
+  }
+}
+`
 }

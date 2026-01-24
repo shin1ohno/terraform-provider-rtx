@@ -3,6 +3,7 @@ package provider
 import (
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/stretchr/testify/assert"
 
@@ -372,4 +373,120 @@ func TestResourceRTXSystemCRUDFunctions(t *testing.T) {
 		assert.NotNil(t, resource.UpdateContext)
 		assert.NotNil(t, resource.DeleteContext)
 	})
+}
+
+// Acceptance tests for rtx_system
+
+func TestAccRTXSystem_basic(t *testing.T) {
+	resourceName := "rtx_system.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccRTXSystemConfig_basic(),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "timezone", "+09:00"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccRTXSystem_import(t *testing.T) {
+	resourceName := "rtx_system.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccRTXSystemConfig_basic(),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "timezone", "+09:00"),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func TestAccRTXSystem_noDiff(t *testing.T) {
+	resourceName := "rtx_system.test"
+	config := testAccRTXSystemConfig_withConsole()
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "timezone", "+09:00"),
+					resource.TestCheckResourceAttr(resourceName, "console.0.character", "ja.utf8"),
+				),
+			},
+			{
+				Config:   config,
+				PlanOnly: true,
+			},
+		},
+	})
+}
+
+func TestAccRTXSystem_update(t *testing.T) {
+	resourceName := "rtx_system.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccRTXSystemConfig_basic(),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "timezone", "+09:00"),
+				),
+			},
+			{
+				Config: testAccRTXSystemConfig_updated(),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "timezone", "+00:00"),
+				),
+			},
+		},
+	})
+}
+
+func testAccRTXSystemConfig_basic() string {
+	return `
+resource "rtx_system" "test" {
+  timezone = "+09:00"
+}
+`
+}
+
+func testAccRTXSystemConfig_withConsole() string {
+	return `
+resource "rtx_system" "test" {
+  timezone = "+09:00"
+
+  console {
+    character = "ja.utf8"
+    lines     = "infinity"
+  }
+}
+`
+}
+
+func testAccRTXSystemConfig_updated() string {
+	return `
+resource "rtx_system" "test" {
+  timezone = "+00:00"
+}
+`
 }
