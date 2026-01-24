@@ -929,3 +929,59 @@ ok      github.com/sh1/terraform-provider-rtx/internal/client   0.163s
 - ビルド成功
 - プロバイダーテスト全件パス
 - SSHプール統計テスト3件パス
+
+---
+
+## セッション30: スキーマ属性名の標準化（2026-01-25）
+
+### 背景
+
+リリース前に、業界標準の用語に合わせてフィルタ/ACLリソースの属性名を見直し。
+Cisco IOS XE Terraformプロバイダーのアプローチを参考に、「評価順序」を示す属性に`sequence`を使用。
+
+### 変更内容
+
+| リソース | 変更前 | 変更後 | 理由 |
+|----------|--------|--------|------|
+| rtx_access_list_ip | filter_id | sequence | 評価順序を示すため |
+| rtx_access_list_ipv6 | filter_id | sequence | 評価順序を示すため |
+| rtx_ethernet_filter | number | sequence | 評価順序を示すため |
+| rtx_ip_filter_dynamic | filter_id | sequence | 評価順序を示すため |
+| rtx_dns_server.server_select[] | id | priority | 優先度を示すため |
+| rtx_bgp.neighbor[] | id | index | 単なるインデックスのため |
+| rtx_ospf.area[] | id | area_id | 標準用語のため |
+
+### 修正ファイル（21ファイル）
+
+**リソース実装:**
+- `internal/provider/resource_rtx_access_list_ip.go`
+- `internal/provider/resource_rtx_access_list_ipv6.go`
+- `internal/provider/resource_rtx_ethernet_filter.go`
+- `internal/provider/resource_rtx_ip_filter_dynamic.go`
+- `internal/provider/resource_rtx_dns_server.go`
+- `internal/provider/resource_rtx_bgp.go`
+- `internal/provider/resource_rtx_ospf.go`
+
+**テストファイル:**
+- 上記リソースの対応する`_test.go`ファイル（7ファイル）
+
+**ドキュメント:**
+- `docs/resources/access_list_ip.md`
+- `docs/resources/access_list_ipv6.md`
+- `docs/resources/ethernet_filter.md`
+- `docs/resources/ip_filter_dynamic.md`
+- `docs/resources/dns_server.md`
+- `docs/resources/bgp.md`
+- `docs/resources/ospf.md`
+
+### コミット
+
+```
+3b82854 schema: standardize attribute names for clarity
+```
+
+### テスト結果
+
+- ビルド: ✅ 成功
+- リンター: ✅ 成功
+- テスト: ✅ 全件パス
