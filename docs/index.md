@@ -60,4 +60,14 @@ output "router_info" {
 - `sftp_enabled` (Boolean) Enable SFTP-based configuration reading for faster bulk operations. Defaults to false. Can be set with RTX_SFTP_ENABLED environment variable.
 - `skip_host_key_check` (Boolean) Skip SSH host key verification. WARNING: This is insecure and should only be used for testing. Can be set with RTX_SKIP_HOST_KEY_CHECK environment variable.
 - `ssh_host_key` (String) SSH host public key for verification (base64 encoded). If unset, uses known_hosts_file. Can be set with RTX_SSH_HOST_KEY environment variable.
+- `ssh_session_pool` (Block List, Max: 1) SSH session pool configuration for improved performance and state consistency. (see [below for nested schema](#nestedblock--ssh_session_pool))
 - `timeout` (Number) Connection timeout in seconds. Defaults to 30.
+
+<a id="nestedblock--ssh_session_pool"></a>
+### Nested Schema for `ssh_session_pool`
+
+Optional:
+
+- `enabled` (Boolean) Enable SSH session pooling. When enabled, SSH sessions are reused across operations, improving performance and preventing state drift. Defaults to true.
+- `idle_timeout` (String) Duration after which idle sessions are closed. Uses Go duration format (e.g., '5m', '30s', '1h'). Defaults to '5m'.
+- `max_sessions` (Number) Maximum number of concurrent SSH sessions in the pool. RTX routers typically support up to 8 SSH connections. Defaults to 2.
