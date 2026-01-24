@@ -87,11 +87,10 @@ func newWorkingSession(client *ssh.Client) (*workingSession, error) {
 	logger.Debug().Int("bytes", len(initialOutput)).Msg("Got initial output")
 	logger.Debug().Str("content", string(initialOutput)).Msg("Initial output content")
 
-	// Optional: Set character encoding (some routers don't support this)
-	logger.Debug().Msg("Setting character encoding")
-	if _, err := s.executeCommand("console character en.ascii", 5*time.Second); err != nil {
-		logger.Warn().Err(err).Msg("Failed to set character encoding (continuing anyway)")
-	}
+	// NOTE: We intentionally do NOT set "console character en.ascii" here.
+	// Setting it would cause state drift for rtx_system.console.character
+	// because Terraform would read the value we just set (en.ascii) instead
+	// of the user's actual configured value (e.g., ja.utf8).
 
 	// Disable paging to get full output from commands like "show config"
 	logger.Debug().Msg("Disabling console paging")
@@ -391,9 +390,11 @@ func (s *workingSession) exitAdminMode() error {
 
 	// Check if we got a configuration save confirmation prompt
 	if s.isSaveConfigurationPrompt(responseStr) {
-		logger.Debug().Msg("Configuration save prompt detected, responding with 'N'")
-		// Respond with 'N' to not save configuration
-		if _, err := fmt.Fprintf(s.stdin, "N\r"); err != nil {
+		logger.Debug().Msg("Configuration save prompt detected, responding with 'Y' to save changes")
+		// Respond with 'Y' to save configuration changes made in this session
+		// This is important because each command runs in a separate SSH session,
+		// and the explicit 'save' command runs in a different session
+		if _, err := fmt.Fprintf(s.stdin, "Y\r"); err != nil {
 			return fmt.Errorf("failed to respond to save prompt: %w", err)
 		}
 
