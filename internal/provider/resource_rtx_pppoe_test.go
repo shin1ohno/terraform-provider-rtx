@@ -108,9 +108,9 @@ func TestBuildPPPoEConfigFromResourceData_DefaultValues(t *testing.T) {
 
 	assert.Equal(t, "chap", config.Authentication.Method) // Default auth method
 	// With Computed: true (no Default), unset bool fields return false, unset int fields return 0
-	assert.False(t, config.AlwaysOn)                      // Unset returns false (zero value)
-	assert.False(t, config.Enabled)                       // Unset returns false (zero value)
-	assert.Equal(t, 0, config.DisconnectTimeout)          // Unset returns 0 (zero value)
+	assert.False(t, config.AlwaysOn)             // Unset returns false (zero value)
+	assert.False(t, config.Enabled)              // Unset returns false (zero value)
+	assert.Equal(t, 0, config.DisconnectTimeout) // Unset returns 0 (zero value)
 }
 
 func TestBuildPPPoEConfigFromResourceData_AllAuthMethods(t *testing.T) {

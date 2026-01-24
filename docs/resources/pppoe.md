@@ -25,10 +25,10 @@ Manages PPPoE connection configuration on RTX routers. This resource configures 
 ### Optional
 
 - `ac_name` (String) PPPoE Access Concentrator name (optional).
-- `always_on` (Boolean) Keep connection always active. Defaults to true.
+- `always_on` (Boolean) Keep connection always active. Defaults to true if not specified.
 - `auth_method` (String) Authentication method. Valid values: 'pap', 'chap', 'mschap', 'mschap-v2'. Defaults to 'chap'.
 - `disconnect_timeout` (Number) Idle disconnect timeout in seconds. 0 means no automatic disconnect.
-- `enabled` (Boolean) Whether the PP interface is enabled. Defaults to true.
+- `enabled` (Boolean) Whether the PP interface is enabled. Defaults to true if not specified.
 - `name` (String) Connection name or description.
 - `reconnect_attempts` (Number) Maximum reconnect attempts (0 = unlimited).
 - `reconnect_interval` (Number) Seconds between reconnect attempts (keepalive retry interval).

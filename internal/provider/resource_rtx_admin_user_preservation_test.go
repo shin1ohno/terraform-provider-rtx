@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+
 	"github.com/sh1/terraform-provider-rtx/internal/client"
 )
 
@@ -154,10 +155,10 @@ func TestBuildAdminUserFromResourceData_PointerTypes(t *testing.T) {
 	resource := resourceRTXAdminUser()
 
 	testCases := []struct {
-		name          string
-		input         map[string]interface{}
-		expectAdmin   *bool
-		expectTimer   *int
+		name        string
+		input       map[string]interface{}
+		expectAdmin *bool
+		expectTimer *int
 	}{
 		{
 			name: "all fields set",
@@ -371,4 +372,3 @@ func TestAdminUserMatchesClientStruct(t *testing.T) {
 		t.Error("expected LoginTimer=0")
 	}
 }
-

@@ -266,5 +266,3 @@ func TestRoutesParser_CanHandle(t *testing.T) {
 	assert.True(t, rtx12xxParser.CanHandle("RTX1200"))
 	assert.False(t, rtx12xxParser.CanHandle("RTX830"))
 }
-
-
