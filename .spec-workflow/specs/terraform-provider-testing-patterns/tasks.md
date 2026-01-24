@@ -69,7 +69,7 @@
 
 ## Phase 4: Reference Implementation Tests
 
-- [-] 7. Create rtx_admin_user perpetual diff test
+- [x] 7. Create rtx_admin_user perpetual diff test
   - File: `internal/provider/resource_rtx_admin_user_test.go`
   - Implement TestAccAdminUser_noDiff following Pattern 1 from design
   - Verify no changes on re-apply of same config
@@ -88,7 +88,7 @@
   - _Requirements: 3_
   - _Prompt: Implement the task for spec terraform-provider-testing-patterns, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Terraform Provider Test Developer | Task: Create import test for rtx_admin_user resource | Restrictions: Use ImportStep helper, ignore password field in verification, clean up resources | Success: Test passes when import correctly populates state, fails if import is broken | Instructions: Mark task as [-] in tasks.md when starting, use log-implementation tool after completion with detailed artifacts, then mark as [x] when done_
 
-- [-] 9. Create rtx_admin_user Optional+Computed preservation test
+- [x] 9. Create rtx_admin_user Optional+Computed preservation test
   - File: `internal/provider/resource_rtx_admin_user_test.go`
   - Implement TestAccAdminUser_preserveAdministrator following Pattern 4 from design
   - Verify administrator field preserved when not specified in update
@@ -97,7 +97,7 @@
   - _Requirements: 2_
   - _Prompt: Implement the task for spec terraform-provider-testing-patterns, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Terraform Provider Test Developer | Task: Create Optional+Computed preservation test for administrator field | Restrictions: Test both setting and removing the field from config, verify state values | Success: Test passes when administrator is preserved, fails if reset to default | Instructions: Mark task as [-] in tasks.md when starting, use log-implementation tool after completion with detailed artifacts, then mark as [x] when done_
 
-- [-] 10. Create WriteOnly attribute test for password
+- [x] 10. Create WriteOnly attribute test for password
   - File: `internal/provider/resource_rtx_admin_user_test.go`
   - Implement TestAccAdminUser_passwordHandling following Pattern 5 from design
   - Verify password is applied but not readable from state
@@ -118,7 +118,7 @@
   - _Requirements: 5, 7_
   - _Prompt: Implement the task for spec terraform-provider-testing-patterns, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Technical Writer | Task: Create comprehensive testing patterns documentation | Restrictions: Use clear examples, reference actual code, keep it practical | Success: Documentation helps developers write tests correctly, covers all patterns | Instructions: Mark task as [-] in tasks.md when starting, use log-implementation tool after completion with detailed artifacts, then mark as [x] when done_
 
-- [-] 12. Add tests to rtx_admin resource
+- [x] 12. Add tests to rtx_admin resource
   - File: `internal/provider/resource_rtx_admin_test.go`
   - Apply all test patterns from Phase 4 to rtx_admin
   - Adapt patterns to resource-specific attributes
