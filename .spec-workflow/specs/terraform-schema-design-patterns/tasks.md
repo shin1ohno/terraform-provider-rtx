@@ -47,7 +47,7 @@
 
 ## Phase 3: Unit Tests
 
-- [ ] 5. Add unit tests for DiffSuppressFunc library
+- [-] 5. Add unit tests for DiffSuppressFunc library
   - File: `internal/provider/diff_suppress_test.go`
   - Test each suppress function with equivalent and different values
   - Test edge cases: nil, empty, invalid format
@@ -69,7 +69,7 @@
 
 ## Phase 4: Reference Implementation
 
-- [-] 7. Apply WriteOnly pattern to password fields
+- [x] 7. Apply WriteOnly pattern to password fields
   - File: `internal/provider/resource_rtx_admin_user.go`
   - Update password field to use WriteOnlyStringSchema helper
   - Ensure Read function does not attempt to read password from router
@@ -79,7 +79,7 @@
   - _Requirements: 2_
   - _Prompt: Implement the task for spec terraform-schema-design-patterns, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Terraform Provider Developer | Task: Apply WriteOnly pattern to password field in rtx_admin_user resource | Restrictions: Do not break existing functionality, ensure password is still sent to router, verify with tests | Success: Password is applied to router but not stored in state | Instructions: Mark task as [-] in tasks.md when starting, use log-implementation tool after completion with detailed artifacts, then mark as [x] when done_
 
-- [ ] 8. Apply RequiresReplace to username field
+- [x] 8. Apply RequiresReplace to username field
   - File: `internal/provider/resource_rtx_admin_user.go`
   - Add ForceNew: true to username field if not already present
   - Update schema description to indicate immutability

@@ -31,15 +31,10 @@ func resourceRTXAdminUser() *schema.Resource {
 				Type:         schema.TypeString,
 				Required:     true,
 				ForceNew:     true,
-				Description:  "Username for the admin user. Must start with a letter and contain only alphanumeric characters and underscores.",
+				Description:  "Username for the admin user (cannot be changed after creation). Must start with a letter and contain only alphanumeric characters and underscores. Changing this value forces a new resource to be created.",
 				ValidateFunc: validateUsername,
 			},
-			"password": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Sensitive:   true,
-				Description: "Password for the admin user. Required for create, optional for import.",
-			},
+			"password": WriteOnlyStringSchema("Password for the admin user. Required for create, optional for import"),
 			"encrypted": {
 				Type:        schema.TypeBool,
 				Optional:    true,
