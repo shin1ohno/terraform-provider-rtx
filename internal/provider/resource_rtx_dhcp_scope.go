@@ -127,6 +127,8 @@ func resourceRTXDHCPScope() *schema.Resource {
 func resourceRTXDHCPScopeCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_dhcp_scope", d.Id())
 	scope := buildDHCPScopeFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_dhcp_scope").Msgf("Creating DHCP scope: %+v", scope)
@@ -145,6 +147,9 @@ func resourceRTXDHCPScopeCreate(ctx context.Context, d *schema.ResourceData, met
 
 func resourceRTXDHCPScopeRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_dhcp_scope", d.Id())
 	logger := logging.FromContext(ctx)
 
 	scopeID, err := strconv.Atoi(d.Id())
@@ -263,6 +268,8 @@ func convertParsedDHCPScope(parsed *parsers.DHCPScope) *client.DHCPScope {
 func resourceRTXDHCPScopeUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_dhcp_scope", d.Id())
 	scope := buildDHCPScopeFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_dhcp_scope").Msgf("Updating DHCP scope: %+v", scope)
@@ -278,6 +285,8 @@ func resourceRTXDHCPScopeUpdate(ctx context.Context, d *schema.ResourceData, met
 func resourceRTXDHCPScopeDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_dhcp_scope", d.Id())
 	scopeID, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid resource ID: %v", err)

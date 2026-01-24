@@ -57,6 +57,8 @@ func resourceRTXShape() *schema.Resource {
 func resourceRTXShapeCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_shape", d.Id())
 	sc := buildShapeConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_shape").Msgf("Creating shape: %+v", sc)
@@ -75,6 +77,8 @@ func resourceRTXShapeCreate(ctx context.Context, d *schema.ResourceData, meta in
 func resourceRTXShapeRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_shape", d.Id())
 	iface, direction, err := parseShapeID(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid resource ID: %v", err)
@@ -111,6 +115,8 @@ func resourceRTXShapeRead(ctx context.Context, d *schema.ResourceData, meta inte
 func resourceRTXShapeUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_shape", d.Id())
 	sc := buildShapeConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_shape").Msgf("Updating shape: %+v", sc)
@@ -126,6 +132,8 @@ func resourceRTXShapeUpdate(ctx context.Context, d *schema.ResourceData, meta in
 func resourceRTXShapeDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_shape", d.Id())
 	iface, direction, err := parseShapeID(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid resource ID: %v", err)

@@ -168,6 +168,8 @@ func validateAccessListExtendedIPv6Entries(ctx context.Context, diff *schema.Res
 func resourceRTXAccessListExtendedIPv6Create(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_access_list_extended_ipv6", d.Id())
 	acl := buildAccessListExtendedIPv6FromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_extended_ipv6").Msgf("Creating IPv6 access list extended: %+v", acl)
@@ -185,6 +187,8 @@ func resourceRTXAccessListExtendedIPv6Create(ctx context.Context, d *schema.Reso
 func resourceRTXAccessListExtendedIPv6Read(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_access_list_extended_ipv6", d.Id())
 	name := d.Id()
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_extended_ipv6").Msgf("Reading IPv6 access list extended: %s", name)
@@ -214,6 +218,8 @@ func resourceRTXAccessListExtendedIPv6Read(ctx context.Context, d *schema.Resour
 func resourceRTXAccessListExtendedIPv6Update(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_access_list_extended_ipv6", d.Id())
 	acl := buildAccessListExtendedIPv6FromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_extended_ipv6").Msgf("Updating IPv6 access list extended: %+v", acl)
@@ -229,6 +235,8 @@ func resourceRTXAccessListExtendedIPv6Update(ctx context.Context, d *schema.Reso
 func resourceRTXAccessListExtendedIPv6Delete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_access_list_extended_ipv6", d.Id())
 	name := d.Id()
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_extended_ipv6").Msgf("Deleting IPv6 access list extended: %s", name)

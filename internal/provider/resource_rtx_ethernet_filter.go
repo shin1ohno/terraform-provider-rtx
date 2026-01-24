@@ -113,6 +113,8 @@ func resourceRTXEthernetFilter() *schema.Resource {
 func resourceRTXEthernetFilterCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ethernet_filter", d.Id())
 	filter := buildEthernetFilterFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_ethernet_filter").Msgf("Creating Ethernet filter: %d", filter.Number)
@@ -129,6 +131,9 @@ func resourceRTXEthernetFilterCreate(ctx context.Context, d *schema.ResourceData
 
 func resourceRTXEthernetFilterRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ethernet_filter", d.Id())
 	logger := logging.FromContext(ctx)
 
 	number, err := strconv.Atoi(d.Id())
@@ -200,6 +205,8 @@ func convertParsedEthernetFilter(parsed *parsers.EthernetFilter) *client.Etherne
 func resourceRTXEthernetFilterUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ethernet_filter", d.Id())
 	filter := buildEthernetFilterFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_ethernet_filter").Msgf("Updating Ethernet filter: %d", filter.Number)
@@ -215,6 +222,8 @@ func resourceRTXEthernetFilterUpdate(ctx context.Context, d *schema.ResourceData
 func resourceRTXEthernetFilterDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ethernet_filter", d.Id())
 	number, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid filter number: %v", err)

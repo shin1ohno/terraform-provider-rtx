@@ -246,6 +246,8 @@ func resourceRTXIPsecTunnel() *schema.Resource {
 func resourceRTXIPsecTunnelCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ipsec_tunnel", d.Id())
 	tunnel := buildIPsecTunnelFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipsec_tunnel").Msgf("Creating IPsec tunnel: %+v", tunnel)
@@ -262,6 +264,9 @@ func resourceRTXIPsecTunnelCreate(ctx context.Context, d *schema.ResourceData, m
 
 func resourceRTXIPsecTunnelRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ipsec_tunnel", d.Id())
 	logger := logging.FromContext(ctx)
 
 	tunnelID, err := strconv.Atoi(d.Id())
@@ -384,6 +389,8 @@ func resourceRTXIPsecTunnelRead(ctx context.Context, d *schema.ResourceData, met
 func resourceRTXIPsecTunnelUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ipsec_tunnel", d.Id())
 	tunnel := buildIPsecTunnelFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipsec_tunnel").Msgf("Updating IPsec tunnel: %+v", tunnel)
@@ -399,6 +406,8 @@ func resourceRTXIPsecTunnelUpdate(ctx context.Context, d *schema.ResourceData, m
 func resourceRTXIPsecTunnelDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ipsec_tunnel", d.Id())
 	tunnelID, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid tunnel ID: %v", err)

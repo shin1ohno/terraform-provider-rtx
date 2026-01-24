@@ -107,6 +107,8 @@ func resourceRTXSNMPServer() *schema.Resource {
 func resourceRTXSNMPServerCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_snmp_server", d.Id())
 	config := buildSNMPConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_snmp_server").Msgf("Creating SNMP configuration: %+v", config)
@@ -125,6 +127,9 @@ func resourceRTXSNMPServerCreate(ctx context.Context, d *schema.ResourceData, me
 
 func resourceRTXSNMPServerRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_snmp_server", d.Id())
 	logger := logging.FromContext(ctx)
 
 	logger.Debug().Str("resource", "rtx_snmp_server").Msg("Reading SNMP configuration")
@@ -235,6 +240,8 @@ func convertParsedSNMPConfig(parsed *parsers.SNMPConfig) *client.SNMPConfig {
 func resourceRTXSNMPServerUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_snmp_server", d.Id())
 	config := buildSNMPConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_snmp_server").Msgf("Updating SNMP configuration: %+v", config)
@@ -250,6 +257,8 @@ func resourceRTXSNMPServerUpdate(ctx context.Context, d *schema.ResourceData, me
 func resourceRTXSNMPServerDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_snmp_server", d.Id())
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_snmp_server").Msg("Deleting SNMP configuration")
 
 	err := apiClient.client.DeleteSNMP(ctx)

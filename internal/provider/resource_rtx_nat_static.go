@@ -109,6 +109,8 @@ func validateNATStaticEntries(ctx context.Context, diff *schema.ResourceDiff, me
 func resourceRTXNATStaticCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_nat_static", d.Id())
 	natStatic := buildNATStaticFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_nat_static").Msgf("Creating NAT static: %+v", natStatic)
@@ -127,6 +129,9 @@ func resourceRTXNATStaticCreate(ctx context.Context, d *schema.ResourceData, met
 
 func resourceRTXNATStaticRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_nat_static", d.Id())
 	logger := logging.FromContext(ctx)
 
 	descriptorID, err := strconv.Atoi(d.Id())
@@ -188,6 +193,8 @@ func resourceRTXNATStaticRead(ctx context.Context, d *schema.ResourceData, meta 
 func resourceRTXNATStaticUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_nat_static", d.Id())
 	natStatic := buildNATStaticFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_nat_static").Msgf("Updating NAT static: %+v", natStatic)
@@ -203,6 +210,8 @@ func resourceRTXNATStaticUpdate(ctx context.Context, d *schema.ResourceData, met
 func resourceRTXNATStaticDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_nat_static", d.Id())
 	descriptorID, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid resource ID: %v", err)

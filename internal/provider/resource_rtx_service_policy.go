@@ -51,6 +51,8 @@ func resourceRTXServicePolicy() *schema.Resource {
 func resourceRTXServicePolicyCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_service_policy", d.Id())
 	sp := buildServicePolicyFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_service_policy").Msgf("Creating service-policy: %+v", sp)
@@ -69,6 +71,8 @@ func resourceRTXServicePolicyCreate(ctx context.Context, d *schema.ResourceData,
 func resourceRTXServicePolicyRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_service_policy", d.Id())
 	iface, direction, err := parseServicePolicyID(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid resource ID: %v", err)
@@ -102,6 +106,8 @@ func resourceRTXServicePolicyRead(ctx context.Context, d *schema.ResourceData, m
 func resourceRTXServicePolicyUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_service_policy", d.Id())
 	sp := buildServicePolicyFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_service_policy").Msgf("Updating service-policy: %+v", sp)
@@ -117,6 +123,8 @@ func resourceRTXServicePolicyUpdate(ctx context.Context, d *schema.ResourceData,
 func resourceRTXServicePolicyDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_service_policy", d.Id())
 	iface, direction, err := parseServicePolicyID(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid resource ID: %v", err)

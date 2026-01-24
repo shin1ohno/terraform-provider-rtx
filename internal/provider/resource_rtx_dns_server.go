@@ -149,6 +149,8 @@ func resourceRTXDNSServer() *schema.Resource {
 func resourceRTXDNSServerCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_dns_server", d.Id())
 	config := buildDNSConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_dns_server").Msgf("Creating DNS server configuration: %+v", config)
@@ -167,6 +169,9 @@ func resourceRTXDNSServerCreate(ctx context.Context, d *schema.ResourceData, met
 
 func resourceRTXDNSServerRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_dns_server", d.Id())
 	logger := logging.FromContext(ctx)
 
 	logger.Debug().Str("resource", "rtx_dns_server").Msg("Reading DNS server configuration")
@@ -256,6 +261,8 @@ func resourceRTXDNSServerRead(ctx context.Context, d *schema.ResourceData, meta 
 func resourceRTXDNSServerUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_dns_server", d.Id())
 	config := buildDNSConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_dns_server").Msgf("Updating DNS server configuration: %+v", config)
@@ -271,6 +278,8 @@ func resourceRTXDNSServerUpdate(ctx context.Context, d *schema.ResourceData, met
 func resourceRTXDNSServerDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_dns_server", d.Id())
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_dns_server").Msg("Deleting (resetting) DNS server configuration")
 
 	err := apiClient.client.ResetDNS(ctx)

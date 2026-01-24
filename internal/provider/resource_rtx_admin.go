@@ -37,6 +37,9 @@ func resourceRTXAdmin() *schema.Resource {
 
 func resourceRTXAdminCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_admin", d.Id())
 	logger := logging.FromContext(ctx)
 
 	config := buildAdminConfigFromResourceData(d)
@@ -66,6 +69,9 @@ func resourceRTXAdminCreate(ctx context.Context, d *schema.ResourceData, meta in
 
 func resourceRTXAdminRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_admin", d.Id())
 	logger := logging.FromContext(ctx)
 
 	// Passwords cannot be read back from the router for security reasons
@@ -96,6 +102,9 @@ func resourceRTXAdminRead(ctx context.Context, d *schema.ResourceData, meta inte
 
 func resourceRTXAdminUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_admin", d.Id())
 	logger := logging.FromContext(ctx)
 
 	// Check if passwords have changed

@@ -118,6 +118,8 @@ func validateIPv6PrefixConfig(ctx context.Context, d *schema.ResourceDiff, meta 
 func resourceRTXIPv6PrefixCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ipv6_prefix", d.Id())
 	prefix := buildIPv6PrefixFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_prefix").Msgf("Creating IPv6 prefix: %+v", prefix)
@@ -136,6 +138,9 @@ func resourceRTXIPv6PrefixCreate(ctx context.Context, d *schema.ResourceData, me
 
 func resourceRTXIPv6PrefixRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ipv6_prefix", d.Id())
 	logger := logging.FromContext(ctx)
 
 	prefixID, err := strconv.Atoi(d.Id())
@@ -204,6 +209,8 @@ func resourceRTXIPv6PrefixRead(ctx context.Context, d *schema.ResourceData, meta
 func resourceRTXIPv6PrefixUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ipv6_prefix", d.Id())
 	prefix := buildIPv6PrefixFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_prefix").Msgf("Updating IPv6 prefix: %+v", prefix)
@@ -219,6 +226,8 @@ func resourceRTXIPv6PrefixUpdate(ctx context.Context, d *schema.ResourceData, me
 func resourceRTXIPv6PrefixDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ipv6_prefix", d.Id())
 	prefixID, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid resource ID: %v", err)

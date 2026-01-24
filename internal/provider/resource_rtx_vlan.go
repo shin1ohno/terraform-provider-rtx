@@ -91,6 +91,8 @@ func resourceRTXVLAN() *schema.Resource {
 func resourceRTXVLANCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_vlan", d.Id())
 	vlan := buildVLANFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_vlan").Msgf("Creating VLAN: %+v", vlan)
@@ -110,6 +112,8 @@ func resourceRTXVLANCreate(ctx context.Context, d *schema.ResourceData, meta int
 func resourceRTXVLANRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_vlan", d.Id())
 	// Parse the ID
 	iface, vlanID, err := parseVLANID(d.Id())
 	if err != nil {
@@ -158,6 +162,8 @@ func resourceRTXVLANRead(ctx context.Context, d *schema.ResourceData, meta inter
 func resourceRTXVLANUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_vlan", d.Id())
 	vlan := buildVLANFromResourceData(d)
 
 	// Get the current vlan_interface from state
@@ -178,6 +184,8 @@ func resourceRTXVLANUpdate(ctx context.Context, d *schema.ResourceData, meta int
 func resourceRTXVLANDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_vlan", d.Id())
 	// Parse the ID
 	iface, vlanID, err := parseVLANID(d.Id())
 	if err != nil {

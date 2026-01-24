@@ -61,6 +61,8 @@ func resourceRTXIPsecTransport() *schema.Resource {
 func resourceRTXIPsecTransportCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ipsec_transport", d.Id())
 	transport := buildIPsecTransportFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipsec_transport").Msgf("Creating IPsec transport: %+v", transport)
@@ -77,6 +79,9 @@ func resourceRTXIPsecTransportCreate(ctx context.Context, d *schema.ResourceData
 
 func resourceRTXIPsecTransportRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ipsec_transport", d.Id())
 	logger := logging.FromContext(ctx)
 
 	transportID, err := strconv.Atoi(d.Id())
@@ -151,6 +156,8 @@ func convertParsedIPsecTransport(parsed *parsers.IPsecTransport) *client.IPsecTr
 func resourceRTXIPsecTransportUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ipsec_transport", d.Id())
 	transport := buildIPsecTransportFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipsec_transport").Msgf("Updating IPsec transport: %+v", transport)
@@ -166,6 +173,8 @@ func resourceRTXIPsecTransportUpdate(ctx context.Context, d *schema.ResourceData
 func resourceRTXIPsecTransportDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ipsec_transport", d.Id())
 	transportID, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid transport ID: %v", err)

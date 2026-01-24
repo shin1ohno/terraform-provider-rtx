@@ -108,6 +108,8 @@ func validateUsername(v interface{}, k string) ([]string, []error) {
 func resourceRTXAdminUserCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_admin_user", d.Id())
 	user := buildAdminUserFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_admin_user").Msgf("Creating admin user: %s", user.Username)
@@ -125,6 +127,9 @@ func resourceRTXAdminUserCreate(ctx context.Context, d *schema.ResourceData, met
 
 func resourceRTXAdminUserRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_admin_user", d.Id())
 	logger := logging.FromContext(ctx)
 
 	username := d.Id()
@@ -223,6 +228,8 @@ func resourceRTXAdminUserRead(ctx context.Context, d *schema.ResourceData, meta 
 func resourceRTXAdminUserUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_admin_user", d.Id())
 	user := buildAdminUserFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_admin_user").Msgf("Updating admin user: %s", user.Username)
@@ -238,6 +245,8 @@ func resourceRTXAdminUserUpdate(ctx context.Context, d *schema.ResourceData, met
 func resourceRTXAdminUserDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_admin_user", d.Id())
 	username := d.Id()
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_admin_user").Msgf("Deleting admin user: %s", username)

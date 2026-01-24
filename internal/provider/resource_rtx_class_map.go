@@ -74,6 +74,8 @@ func resourceRTXClassMap() *schema.Resource {
 func resourceRTXClassMapCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_class_map", d.Id())
 	cm := buildClassMapFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_class_map").Msgf("Creating class-map: %+v", cm)
@@ -91,6 +93,8 @@ func resourceRTXClassMapCreate(ctx context.Context, d *schema.ResourceData, meta
 func resourceRTXClassMapRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_class_map", d.Id())
 	name := d.Id()
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_class_map").Msgf("Reading class-map: %s", name)
@@ -130,6 +134,8 @@ func resourceRTXClassMapRead(ctx context.Context, d *schema.ResourceData, meta i
 func resourceRTXClassMapUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_class_map", d.Id())
 	cm := buildClassMapFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_class_map").Msgf("Updating class-map: %+v", cm)
@@ -145,6 +151,8 @@ func resourceRTXClassMapUpdate(ctx context.Context, d *schema.ResourceData, meta
 func resourceRTXClassMapDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_class_map", d.Id())
 	name := d.Id()
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_class_map").Msgf("Deleting class-map: %s", name)

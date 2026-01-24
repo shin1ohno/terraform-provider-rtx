@@ -69,6 +69,8 @@ func resourceRTXNetVolanteDNS() *schema.Resource {
 func resourceRTXNetVolanteDNSCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_netvolante_dns", d.Id())
 	config := buildNetVolanteConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_netvolante_dns").Msgf("Creating NetVolante DNS configuration: %+v", config)
@@ -87,6 +89,8 @@ func resourceRTXNetVolanteDNSCreate(ctx context.Context, d *schema.ResourceData,
 func resourceRTXNetVolanteDNSRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_netvolante_dns", d.Id())
 	iface := d.Id()
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_netvolante_dns").Msgf("Reading NetVolante DNS configuration for interface: %s", iface)
 
@@ -125,6 +129,8 @@ func resourceRTXNetVolanteDNSRead(ctx context.Context, d *schema.ResourceData, m
 func resourceRTXNetVolanteDNSUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_netvolante_dns", d.Id())
 	config := buildNetVolanteConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_netvolante_dns").Msgf("Updating NetVolante DNS configuration: %+v", config)
@@ -140,6 +146,8 @@ func resourceRTXNetVolanteDNSUpdate(ctx context.Context, d *schema.ResourceData,
 func resourceRTXNetVolanteDNSDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_netvolante_dns", d.Id())
 	iface := d.Id()
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_netvolante_dns").Msgf("Deleting NetVolante DNS configuration for interface: %s", iface)
 

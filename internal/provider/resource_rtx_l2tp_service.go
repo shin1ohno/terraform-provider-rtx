@@ -54,6 +54,8 @@ func resourceRTXL2TPService() *schema.Resource {
 func resourceRTXL2TPServiceCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_l2tp_service", d.Id())
 	enabled := d.Get("enabled").(bool)
 	protocols := expandStringList(d.Get("protocols").([]interface{}))
 
@@ -73,6 +75,9 @@ func resourceRTXL2TPServiceCreate(ctx context.Context, d *schema.ResourceData, m
 
 func resourceRTXL2TPServiceRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_l2tp_service", d.Id())
 	logger := logging.FromContext(ctx)
 
 	logger.Debug().Str("resource", "rtx_l2tp_service").Msg("Reading L2TP service configuration")
@@ -128,6 +133,8 @@ func resourceRTXL2TPServiceRead(ctx context.Context, d *schema.ResourceData, met
 func resourceRTXL2TPServiceUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_l2tp_service", d.Id())
 	enabled := d.Get("enabled").(bool)
 	protocols := expandStringList(d.Get("protocols").([]interface{}))
 
@@ -144,6 +151,8 @@ func resourceRTXL2TPServiceUpdate(ctx context.Context, d *schema.ResourceData, m
 func resourceRTXL2TPServiceDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_l2tp_service", d.Id())
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_l2tp_service").Msg("Deleting L2TP service configuration (disabling service)")
 
 	// Disable L2TP service on delete

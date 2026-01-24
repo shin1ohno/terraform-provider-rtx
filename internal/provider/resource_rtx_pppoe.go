@@ -106,6 +106,8 @@ func resourceRTXPPPoE() *schema.Resource {
 func resourceRTXPPPoECreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_pppoe", d.Id())
 	config := buildPPPoEConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_pppoe").Msgf("Creating PPPoE configuration for PP %d", config.Number)
@@ -125,6 +127,8 @@ func resourceRTXPPPoECreate(ctx context.Context, d *schema.ResourceData, meta in
 func resourceRTXPPPoERead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_pppoe", d.Id())
 	ppNum, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid PP number in resource ID: %v", err)
@@ -194,6 +198,8 @@ func resourceRTXPPPoERead(ctx context.Context, d *schema.ResourceData, meta inte
 func resourceRTXPPPoEUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_pppoe", d.Id())
 	config := buildPPPoEConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_pppoe").Msgf("Updating PPPoE configuration for PP %d", config.Number)
@@ -209,6 +215,8 @@ func resourceRTXPPPoEUpdate(ctx context.Context, d *schema.ResourceData, meta in
 func resourceRTXPPPoEDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_pppoe", d.Id())
 	ppNum, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid PP number in resource ID: %v", err)

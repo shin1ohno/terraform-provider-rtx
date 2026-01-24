@@ -51,6 +51,8 @@ func resourceRTXHTTPD() *schema.Resource {
 func resourceRTXHTTPDCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_httpd", d.Id())
 	config := buildHTTPDConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_httpd").Msgf("Creating HTTPD configuration: %+v", config)
@@ -69,6 +71,9 @@ func resourceRTXHTTPDCreate(ctx context.Context, d *schema.ResourceData, meta in
 
 func resourceRTXHTTPDRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_httpd", d.Id())
 	logger := logging.FromContext(ctx)
 
 	logger.Debug().Str("resource", "rtx_httpd").Msg("Reading HTTPD configuration")
@@ -134,6 +139,8 @@ func convertParsedHTTPDConfig(parsed *parsers.HTTPDConfig) *client.HTTPDConfig {
 func resourceRTXHTTPDUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_httpd", d.Id())
 	config := buildHTTPDConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_httpd").Msgf("Updating HTTPD configuration: %+v", config)
@@ -149,6 +156,8 @@ func resourceRTXHTTPDUpdate(ctx context.Context, d *schema.ResourceData, meta in
 func resourceRTXHTTPDDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_httpd", d.Id())
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_httpd").Msg("Deleting HTTPD configuration")
 
 	err := apiClient.client.ResetHTTPD(ctx)

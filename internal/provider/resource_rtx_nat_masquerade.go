@@ -107,6 +107,8 @@ func resourceRTXNATMasquerade() *schema.Resource {
 func resourceRTXNATMasqueradeCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_nat_masquerade", d.Id())
 	nat := buildNATMasqueradeFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_nat_masquerade").Msgf("Creating NAT Masquerade: %+v", nat)
@@ -125,6 +127,9 @@ func resourceRTXNATMasqueradeCreate(ctx context.Context, d *schema.ResourceData,
 
 func resourceRTXNATMasqueradeRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_nat_masquerade", d.Id())
 	logger := logging.FromContext(ctx)
 
 	// Parse the ID
@@ -215,6 +220,8 @@ func convertParsedNATMasquerade(parsed *parsers.NATMasquerade) *client.NATMasque
 func resourceRTXNATMasqueradeUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_nat_masquerade", d.Id())
 	nat := buildNATMasqueradeFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_nat_masquerade").Msgf("Updating NAT Masquerade: %+v", nat)
@@ -230,6 +237,8 @@ func resourceRTXNATMasqueradeUpdate(ctx context.Context, d *schema.ResourceData,
 func resourceRTXNATMasqueradeDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_nat_masquerade", d.Id())
 	// Parse the ID
 	descriptorID, err := parseNATMasqueradeID(d.Id())
 	if err != nil {

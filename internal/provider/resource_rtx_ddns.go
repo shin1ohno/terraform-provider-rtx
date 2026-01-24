@@ -56,6 +56,8 @@ func resourceRTXDDNS() *schema.Resource {
 func resourceRTXDDNSCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ddns", d.Id())
 	config := buildDDNSServerConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_ddns").Msgf("Creating DDNS configuration: server_id=%d, hostname=%s", config.ID, config.Hostname)
@@ -73,6 +75,8 @@ func resourceRTXDDNSCreate(ctx context.Context, d *schema.ResourceData, meta int
 func resourceRTXDDNSRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ddns", d.Id())
 	id, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid DDNS server ID: %s", d.Id())
@@ -110,6 +114,8 @@ func resourceRTXDDNSRead(ctx context.Context, d *schema.ResourceData, meta inter
 func resourceRTXDDNSUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ddns", d.Id())
 	config := buildDDNSServerConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_ddns").Msgf("Updating DDNS configuration: server_id=%d, hostname=%s", config.ID, config.Hostname)
@@ -125,6 +131,8 @@ func resourceRTXDDNSUpdate(ctx context.Context, d *schema.ResourceData, meta int
 func resourceRTXDDNSDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ddns", d.Id())
 	id, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid DDNS server ID: %s", d.Id())

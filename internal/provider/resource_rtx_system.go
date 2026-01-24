@@ -119,6 +119,9 @@ func resourceRTXSystem() *schema.Resource {
 func resourceRTXSystemCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_system", d.Id())
+
 	config := buildSystemConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_system").Msgf("Creating system configuration: %+v", config)
@@ -137,6 +140,9 @@ func resourceRTXSystemCreate(ctx context.Context, d *schema.ResourceData, meta i
 
 func resourceRTXSystemRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_system", d.Id())
 	logger := logging.FromContext(ctx)
 
 	logger.Debug().Str("resource", "rtx_system").Msg("Reading system configuration")
@@ -229,6 +235,9 @@ func resourceRTXSystemRead(ctx context.Context, d *schema.ResourceData, meta int
 
 func resourceRTXSystemUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_system", d.Id())
 
 	config := buildSystemConfigFromResourceData(d)
 

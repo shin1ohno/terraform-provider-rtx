@@ -97,6 +97,8 @@ func resourceRTXDHCPBinding() *schema.Resource {
 func resourceRTXDHCPBindingCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_dhcp_binding", d.Id())
 	binding := client.DHCPBinding{
 		ScopeID:   d.Get("scope_id").(int),
 		IPAddress: d.Get("ip_address").(string),
@@ -136,6 +138,9 @@ func resourceRTXDHCPBindingCreate(ctx context.Context, d *schema.ResourceData, m
 
 func resourceRTXDHCPBindingRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_dhcp_binding", d.Id())
 	logger := logging.FromContext(ctx)
 
 	logger.Debug().Str("resource", "rtx_dhcp_binding").Msgf("resourceRTXDHCPBindingRead: Starting with ID=%s", d.Id())
@@ -271,6 +276,8 @@ func convertParsedDHCPBindings(parsed []parsers.DHCPBinding) []client.DHCPBindin
 func resourceRTXDHCPBindingDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_dhcp_binding", d.Id())
 	// Parse the composite ID
 	scopeID, macAddress, err := parseDHCPBindingID(d.Id())
 	if err != nil {

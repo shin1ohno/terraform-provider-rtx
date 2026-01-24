@@ -91,6 +91,8 @@ func resourceRTXStaticRoute() *schema.Resource {
 func resourceRTXStaticRouteCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_static_route", d.Id())
 	route := buildStaticRouteFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_static_route").Msgf("Creating static route: %+v", route)
@@ -109,6 +111,9 @@ func resourceRTXStaticRouteCreate(ctx context.Context, d *schema.ResourceData, m
 
 func resourceRTXStaticRouteRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_static_route", d.Id())
 	logger := logging.FromContext(ctx)
 
 	prefix, mask, err := parseStaticRouteID(d.Id())
@@ -202,6 +207,8 @@ func convertParsedStaticRoute(parsed *parsers.StaticRoute) *client.StaticRoute {
 func resourceRTXStaticRouteUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_static_route", d.Id())
 	route := buildStaticRouteFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_static_route").Msgf("Updating static route: %+v", route)
@@ -217,6 +224,8 @@ func resourceRTXStaticRouteUpdate(ctx context.Context, d *schema.ResourceData, m
 func resourceRTXStaticRouteDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_static_route", d.Id())
 	prefix, mask, err := parseStaticRouteID(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid resource ID: %v", err)

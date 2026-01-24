@@ -85,6 +85,8 @@ func resourceRTXAccessListIP() *schema.Resource {
 func resourceRTXAccessListIPCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_access_list_ip", d.Id())
 	filter := buildIPFilterFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ip").Msgf("Creating IP filter: %+v", filter)
@@ -102,6 +104,9 @@ func resourceRTXAccessListIPCreate(ctx context.Context, d *schema.ResourceData, 
 
 func resourceRTXAccessListIPRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_access_list_ip", d.Id())
 	logger := logging.FromContext(ctx)
 
 	filterID, err := strconv.Atoi(d.Id())
@@ -173,6 +178,8 @@ func convertParsedIPFilter(parsed *parsers.IPFilter) *client.IPFilter {
 func resourceRTXAccessListIPUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_access_list_ip", d.Id())
 	filter := buildIPFilterFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ip").Msgf("Updating IP filter: %+v", filter)
@@ -188,6 +195,8 @@ func resourceRTXAccessListIPUpdate(ctx context.Context, d *schema.ResourceData, 
 func resourceRTXAccessListIPDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_access_list_ip", d.Id())
 	filterID, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid filter ID: %v", err)

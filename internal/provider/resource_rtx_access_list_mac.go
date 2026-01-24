@@ -193,6 +193,8 @@ func resourceRTXAccessListMAC() *schema.Resource {
 func resourceRTXAccessListMACCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_access_list_mac", d.Id())
 	acl := buildAccessListMACFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_mac").Msgf("Creating MAC access list: %s", acl.Name)
@@ -210,6 +212,8 @@ func resourceRTXAccessListMACCreate(ctx context.Context, d *schema.ResourceData,
 func resourceRTXAccessListMACRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_access_list_mac", d.Id())
 	name := d.Id()
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_mac").Msgf("Reading MAC access list: %s", name)
@@ -277,6 +281,8 @@ func resourceRTXAccessListMACRead(ctx context.Context, d *schema.ResourceData, m
 func resourceRTXAccessListMACUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_access_list_mac", d.Id())
 	acl := buildAccessListMACFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_mac").Msgf("Updating MAC access list: %s", acl.Name)
@@ -292,6 +298,8 @@ func resourceRTXAccessListMACUpdate(ctx context.Context, d *schema.ResourceData,
 func resourceRTXAccessListMACDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_access_list_mac", d.Id())
 	name := d.Id()
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_mac").Msgf("Deleting MAC access list: %s", name)

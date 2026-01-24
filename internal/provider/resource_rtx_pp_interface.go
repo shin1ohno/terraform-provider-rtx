@@ -87,6 +87,8 @@ func resourceRTXPPInterface() *schema.Resource {
 func resourceRTXPPInterfaceCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_pp_interface", d.Id())
 	ppNum := d.Get("pp_number").(int)
 	config := buildPPIPConfigFromResourceData(d)
 
@@ -107,6 +109,8 @@ func resourceRTXPPInterfaceCreate(ctx context.Context, d *schema.ResourceData, m
 func resourceRTXPPInterfaceRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_pp_interface", d.Id())
 	ppNum, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid PP number in resource ID: %v", err)
@@ -154,6 +158,8 @@ func resourceRTXPPInterfaceRead(ctx context.Context, d *schema.ResourceData, met
 func resourceRTXPPInterfaceUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_pp_interface", d.Id())
 	ppNum, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid PP number in resource ID: %v", err)
@@ -174,6 +180,8 @@ func resourceRTXPPInterfaceUpdate(ctx context.Context, d *schema.ResourceData, m
 func resourceRTXPPInterfaceDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_pp_interface", d.Id())
 	ppNum, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid PP number in resource ID: %v", err)

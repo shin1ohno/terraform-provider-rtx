@@ -166,6 +166,8 @@ func validateAccessListExtendedEntries(ctx context.Context, diff *schema.Resourc
 func resourceRTXAccessListExtendedCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_access_list_extended", d.Id())
 	acl := buildAccessListExtendedFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_extended").Msgf("Creating access list extended: %+v", acl)
@@ -183,6 +185,8 @@ func resourceRTXAccessListExtendedCreate(ctx context.Context, d *schema.Resource
 func resourceRTXAccessListExtendedRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_access_list_extended", d.Id())
 	name := d.Id()
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_extended").Msgf("Reading access list extended: %s", name)
@@ -212,6 +216,8 @@ func resourceRTXAccessListExtendedRead(ctx context.Context, d *schema.ResourceDa
 func resourceRTXAccessListExtendedUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_access_list_extended", d.Id())
 	acl := buildAccessListExtendedFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_extended").Msgf("Updating access list extended: %+v", acl)
@@ -227,6 +233,8 @@ func resourceRTXAccessListExtendedUpdate(ctx context.Context, d *schema.Resource
 func resourceRTXAccessListExtendedDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_access_list_extended", d.Id())
 	name := d.Id()
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_extended").Msgf("Deleting access list extended: %s", name)

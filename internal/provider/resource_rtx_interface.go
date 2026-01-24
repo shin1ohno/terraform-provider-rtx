@@ -135,6 +135,8 @@ func resourceRTXInterface() *schema.Resource {
 func resourceRTXInterfaceCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_interface", d.Id())
 	config := buildInterfaceConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_interface").Msgf("Creating interface configuration: %+v", config)
@@ -153,6 +155,9 @@ func resourceRTXInterfaceCreate(ctx context.Context, d *schema.ResourceData, met
 
 func resourceRTXInterfaceRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_interface", d.Id())
 	logger := logging.FromContext(ctx)
 
 	interfaceName := d.Id()
@@ -253,6 +258,8 @@ func resourceRTXInterfaceRead(ctx context.Context, d *schema.ResourceData, meta 
 func resourceRTXInterfaceUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_interface", d.Id())
 	config := buildInterfaceConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_interface").Msgf("Updating interface configuration: %+v", config)
@@ -268,6 +275,8 @@ func resourceRTXInterfaceUpdate(ctx context.Context, d *schema.ResourceData, met
 func resourceRTXInterfaceDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_interface", d.Id())
 	interfaceName := d.Id()
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_interface").Msgf("Resetting interface configuration: %s", interfaceName)

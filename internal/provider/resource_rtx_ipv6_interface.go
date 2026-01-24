@@ -151,6 +151,8 @@ func resourceRTXIPv6Interface() *schema.Resource {
 func resourceRTXIPv6InterfaceCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ipv6_interface", d.Id())
 	config := buildIPv6InterfaceConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_interface").Msgf("Creating IPv6 interface configuration: %+v", config)
@@ -169,6 +171,9 @@ func resourceRTXIPv6InterfaceCreate(ctx context.Context, d *schema.ResourceData,
 
 func resourceRTXIPv6InterfaceRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ipv6_interface", d.Id())
 	logger := logging.FromContext(ctx)
 
 	interfaceName := d.Id()
@@ -270,6 +275,8 @@ func resourceRTXIPv6InterfaceRead(ctx context.Context, d *schema.ResourceData, m
 func resourceRTXIPv6InterfaceUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ipv6_interface", d.Id())
 	config := buildIPv6InterfaceConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_interface").Msgf("Updating IPv6 interface configuration: %+v", config)
@@ -285,6 +292,8 @@ func resourceRTXIPv6InterfaceUpdate(ctx context.Context, d *schema.ResourceData,
 func resourceRTXIPv6InterfaceDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ipv6_interface", d.Id())
 	interfaceName := d.Id()
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_interface").Msgf("Resetting IPv6 interface configuration: %s", interfaceName)

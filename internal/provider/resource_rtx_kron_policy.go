@@ -50,6 +50,8 @@ func resourceRTXKronPolicy() *schema.Resource {
 func resourceRTXKronPolicyCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_kron_policy", d.Id())
 	policy := buildKronPolicyFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_kron_policy").Msgf("Creating kron policy: %+v", policy)
@@ -84,6 +86,8 @@ func resourceRTXKronPolicyRead(ctx context.Context, d *schema.ResourceData, meta
 func resourceRTXKronPolicyUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_kron_policy", d.Id())
 	policy := buildKronPolicyFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_kron_policy").Msgf("Updating kron policy: %+v", policy)
@@ -99,6 +103,8 @@ func resourceRTXKronPolicyUpdate(ctx context.Context, d *schema.ResourceData, me
 func resourceRTXKronPolicyDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_kron_policy", d.Id())
 	name := d.Id()
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_kron_policy").Msgf("Deleting kron policy: %s", name)

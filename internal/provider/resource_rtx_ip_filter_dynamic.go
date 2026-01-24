@@ -138,6 +138,8 @@ resource "rtx_ip_filter_dynamic" "custom" {
 func resourceRTXIPFilterDynamicCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ip_filter_dynamic", d.Id())
 	filter, err := buildIPFilterDynamicFromResourceData(d)
 	if err != nil {
 		return diag.FromErr(err)
@@ -158,6 +160,9 @@ func resourceRTXIPFilterDynamicCreate(ctx context.Context, d *schema.ResourceDat
 
 func resourceRTXIPFilterDynamicRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ip_filter_dynamic", d.Id())
 	logger := logging.FromContext(ctx)
 
 	filterID, err := strconv.Atoi(d.Id())
@@ -228,6 +233,8 @@ func convertParsedIPFilterDynamic(parsed *parsers.IPFilterDynamic) *client.IPFil
 func resourceRTXIPFilterDynamicUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ip_filter_dynamic", d.Id())
 	filter, err := buildIPFilterDynamicFromResourceData(d)
 	if err != nil {
 		return diag.FromErr(err)
@@ -247,6 +254,8 @@ func resourceRTXIPFilterDynamicUpdate(ctx context.Context, d *schema.ResourceDat
 func resourceRTXIPFilterDynamicDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ip_filter_dynamic", d.Id())
 	filterID, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid filter ID: %v", err)

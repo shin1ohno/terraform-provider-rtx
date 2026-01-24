@@ -50,6 +50,8 @@ func resourceRTXBridge() *schema.Resource {
 func resourceRTXBridgeCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_bridge", d.Id())
 	bridge := buildBridgeFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_bridge").Msgf("Creating bridge: %+v", bridge)
@@ -68,6 +70,9 @@ func resourceRTXBridgeCreate(ctx context.Context, d *schema.ResourceData, meta i
 
 func resourceRTXBridgeRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_bridge", d.Id())
 	logger := logging.FromContext(ctx)
 
 	name := d.Id()
@@ -125,6 +130,8 @@ func resourceRTXBridgeRead(ctx context.Context, d *schema.ResourceData, meta int
 func resourceRTXBridgeUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_bridge", d.Id())
 	bridge := buildBridgeFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_bridge").Msgf("Updating bridge: %+v", bridge)
@@ -140,6 +147,8 @@ func resourceRTXBridgeUpdate(ctx context.Context, d *schema.ResourceData, meta i
 func resourceRTXBridgeDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_bridge", d.Id())
 	name := d.Id()
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_bridge").Msgf("Deleting bridge: %s", name)

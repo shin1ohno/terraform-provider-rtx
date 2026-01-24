@@ -147,6 +147,8 @@ func resourceRTXPPTP() *schema.Resource {
 func resourceRTXPPTPCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_pptp", d.Id())
 	config := buildPPTPConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_pptp").Msgf("Creating PPTP configuration: %+v", config)
@@ -164,6 +166,9 @@ func resourceRTXPPTPCreate(ctx context.Context, d *schema.ResourceData, meta int
 
 func resourceRTXPPTPRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_pptp", d.Id())
 	logger := logging.FromContext(ctx)
 
 	logger.Debug().Str("resource", "rtx_pptp").Msg("Reading PPTP configuration")
@@ -271,6 +276,8 @@ func resourceRTXPPTPRead(ctx context.Context, d *schema.ResourceData, meta inter
 func resourceRTXPPTPUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_pptp", d.Id())
 	config := buildPPTPConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_pptp").Msgf("Updating PPTP configuration: %+v", config)
@@ -286,6 +293,8 @@ func resourceRTXPPTPUpdate(ctx context.Context, d *schema.ResourceData, meta int
 func resourceRTXPPTPDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_pptp", d.Id())
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_pptp").Msg("Disabling PPTP configuration")
 
 	err := apiClient.client.DeletePPTP(ctx)

@@ -150,6 +150,8 @@ func resourceRTXBGP() *schema.Resource {
 func resourceRTXBGPCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_bgp", d.Id())
 	config := buildBGPConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_bgp").Msgf("Creating BGP configuration: %+v", config)
@@ -167,6 +169,9 @@ func resourceRTXBGPCreate(ctx context.Context, d *schema.ResourceData, meta inte
 
 func resourceRTXBGPRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_bgp", d.Id())
 	logger := logging.FromContext(ctx)
 
 	logger.Debug().Str("resource", "rtx_bgp").Msg("Reading BGP configuration")
@@ -264,6 +269,8 @@ func resourceRTXBGPRead(ctx context.Context, d *schema.ResourceData, meta interf
 func resourceRTXBGPUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_bgp", d.Id())
 	config := buildBGPConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_bgp").Msgf("Updating BGP configuration: %+v", config)
@@ -279,6 +286,8 @@ func resourceRTXBGPUpdate(ctx context.Context, d *schema.ResourceData, meta inte
 func resourceRTXBGPDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_bgp", d.Id())
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_bgp").Msg("Disabling BGP configuration")
 
 	err := apiClient.client.ResetBGP(ctx)

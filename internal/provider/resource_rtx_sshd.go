@@ -60,6 +60,8 @@ func resourceRTXSSHD() *schema.Resource {
 func resourceRTXSSHDCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_sshd", d.Id())
 	config := buildSSHDConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_sshd").Msgf("Creating SSHD configuration: enabled=%v, hosts=%v", config.Enabled, config.Hosts)
@@ -78,6 +80,9 @@ func resourceRTXSSHDCreate(ctx context.Context, d *schema.ResourceData, meta int
 
 func resourceRTXSSHDRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_sshd", d.Id())
 	logger := logging.FromContext(ctx)
 
 	logger.Debug().Str("resource", "rtx_sshd").Msg("Reading SSHD configuration")
@@ -140,6 +145,8 @@ func convertParsedSSHDConfig(parsed *parsers.SSHDConfig) *client.SSHDConfig {
 func resourceRTXSSHDUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_sshd", d.Id())
 	config := buildSSHDConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_sshd").Msgf("Updating SSHD configuration: enabled=%v, hosts=%v", config.Enabled, config.Hosts)
@@ -163,6 +170,8 @@ func resourceRTXSSHDUpdate(ctx context.Context, d *schema.ResourceData, meta int
 func resourceRTXSSHDDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_sshd", d.Id())
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_sshd").Msg("Deleting SSHD configuration (disabling service)")
 	logging.FromContext(ctx).Warn().Str("resource", "rtx_sshd").Msg("Disabling SSH service - ensure you have alternative access to the router")
 

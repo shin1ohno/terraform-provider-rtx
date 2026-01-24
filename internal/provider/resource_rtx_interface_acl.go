@@ -102,6 +102,8 @@ func resourceRTXInterfaceACL() *schema.Resource {
 func resourceRTXInterfaceACLCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_interface_acl", d.Id())
 	acl := buildInterfaceACLFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_interface_acl").Msgf("Creating interface ACL for: %s", acl.Interface)
@@ -119,6 +121,8 @@ func resourceRTXInterfaceACLCreate(ctx context.Context, d *schema.ResourceData, 
 func resourceRTXInterfaceACLRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_interface_acl", d.Id())
 	iface := d.Id()
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_interface_acl").Msgf("Reading interface ACL: %s", iface)
@@ -149,6 +153,8 @@ func resourceRTXInterfaceACLRead(ctx context.Context, d *schema.ResourceData, me
 func resourceRTXInterfaceACLUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_interface_acl", d.Id())
 	acl := buildInterfaceACLFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_interface_acl").Msgf("Updating interface ACL for: %s", acl.Interface)
@@ -164,6 +170,8 @@ func resourceRTXInterfaceACLUpdate(ctx context.Context, d *schema.ResourceData, 
 func resourceRTXInterfaceACLDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_interface_acl", d.Id())
 	iface := d.Id()
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_interface_acl").Msgf("Deleting interface ACL for: %s", iface)

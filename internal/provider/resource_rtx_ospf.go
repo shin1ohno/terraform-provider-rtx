@@ -153,6 +153,8 @@ func resourceRTXOSPF() *schema.Resource {
 func resourceRTXOSPFCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ospf", d.Id())
 	config := buildOSPFConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_ospf").Msgf("Creating OSPF configuration: %+v", config)
@@ -170,6 +172,9 @@ func resourceRTXOSPFCreate(ctx context.Context, d *schema.ResourceData, meta int
 
 func resourceRTXOSPFRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ospf", d.Id())
 	logger := logging.FromContext(ctx)
 
 	logger.Debug().Str("resource", "rtx_ospf").Msg("Reading OSPF configuration")
@@ -276,6 +281,8 @@ func resourceRTXOSPFRead(ctx context.Context, d *schema.ResourceData, meta inter
 func resourceRTXOSPFUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ospf", d.Id())
 	config := buildOSPFConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_ospf").Msgf("Updating OSPF configuration: %+v", config)
@@ -291,6 +298,8 @@ func resourceRTXOSPFUpdate(ctx context.Context, d *schema.ResourceData, meta int
 func resourceRTXOSPFDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ospf", d.Id())
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_ospf").Msg("Disabling OSPF configuration")
 
 	err := apiClient.client.DeleteOSPF(ctx)

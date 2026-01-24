@@ -49,6 +49,8 @@ func resourceRTXSFTPD() *schema.Resource {
 func resourceRTXSFTPDCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_sftpd", d.Id())
 	config := buildSFTPDConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_sftpd").Msgf("Creating SFTPD configuration: hosts=%v", config.Hosts)
@@ -67,6 +69,9 @@ func resourceRTXSFTPDCreate(ctx context.Context, d *schema.ResourceData, meta in
 
 func resourceRTXSFTPDRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_sftpd", d.Id())
 	logger := logging.FromContext(ctx)
 
 	logger.Debug().Str("resource", "rtx_sftpd").Msg("Reading SFTPD configuration")
@@ -128,6 +133,8 @@ func convertParsedSFTPDConfig(parsed *parsers.SFTPDConfig) *client.SFTPDConfig {
 func resourceRTXSFTPDUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_sftpd", d.Id())
 	config := buildSFTPDConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_sftpd").Msgf("Updating SFTPD configuration: hosts=%v", config.Hosts)
@@ -143,6 +150,8 @@ func resourceRTXSFTPDUpdate(ctx context.Context, d *schema.ResourceData, meta in
 func resourceRTXSFTPDDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_sftpd", d.Id())
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_sftpd").Msg("Deleting SFTPD configuration")
 
 	err := apiClient.client.ResetSFTPD(ctx)

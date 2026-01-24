@@ -124,6 +124,8 @@ func resourceRTXKronSchedule() *schema.Resource {
 func resourceRTXKronScheduleCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_kron_schedule", d.Id())
 	schedule := buildScheduleFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_kron_schedule").Msgf("Creating kron schedule: %+v", schedule)
@@ -141,6 +143,8 @@ func resourceRTXKronScheduleCreate(ctx context.Context, d *schema.ResourceData, 
 func resourceRTXKronScheduleRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_kron_schedule", d.Id())
 	id, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid schedule ID: %v", err)
@@ -196,6 +200,8 @@ func resourceRTXKronScheduleRead(ctx context.Context, d *schema.ResourceData, me
 func resourceRTXKronScheduleUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_kron_schedule", d.Id())
 	schedule := buildScheduleFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_kron_schedule").Msgf("Updating kron schedule: %+v", schedule)
@@ -211,6 +217,8 @@ func resourceRTXKronScheduleUpdate(ctx context.Context, d *schema.ResourceData, 
 func resourceRTXKronScheduleDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_kron_schedule", d.Id())
 	id, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid schedule ID: %v", err)

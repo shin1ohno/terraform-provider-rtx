@@ -81,6 +81,8 @@ func resourceRTXAccessListIPv6() *schema.Resource {
 func resourceRTXAccessListIPv6Create(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_access_list_ipv6", d.Id())
 	filter := buildIPv6FilterFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ipv6").Msgf("Creating IPv6 filter: %+v", filter)
@@ -98,6 +100,9 @@ func resourceRTXAccessListIPv6Create(ctx context.Context, d *schema.ResourceData
 
 func resourceRTXAccessListIPv6Read(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_access_list_ipv6", d.Id())
 	logger := logging.FromContext(ctx)
 
 	filterID, err := strconv.Atoi(d.Id())
@@ -191,6 +196,8 @@ func convertParsedIPv6Filter(parsed *parsers.IPFilter) *client.IPFilter {
 func resourceRTXAccessListIPv6Update(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_access_list_ipv6", d.Id())
 	filter := buildIPv6FilterFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ipv6").Msgf("Updating IPv6 filter: %+v", filter)
@@ -206,6 +213,8 @@ func resourceRTXAccessListIPv6Update(ctx context.Context, d *schema.ResourceData
 func resourceRTXAccessListIPv6Delete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_access_list_ipv6", d.Id())
 	filterID, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid filter ID: %v", err)

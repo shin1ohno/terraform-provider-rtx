@@ -258,6 +258,8 @@ func resourceRTXL2TP() *schema.Resource {
 func resourceRTXL2TPCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_l2tp", d.Id())
 	config := buildL2TPConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_l2tp").Msgf("Creating L2TP tunnel: %+v", config)
@@ -274,6 +276,9 @@ func resourceRTXL2TPCreate(ctx context.Context, d *schema.ResourceData, meta int
 
 func resourceRTXL2TPRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_l2tp", d.Id())
 	logger := logging.FromContext(ctx)
 
 	tunnelID, err := strconv.Atoi(d.Id())
@@ -435,6 +440,8 @@ func resourceRTXL2TPRead(ctx context.Context, d *schema.ResourceData, meta inter
 func resourceRTXL2TPUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_l2tp", d.Id())
 	config := buildL2TPConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_l2tp").Msgf("Updating L2TP tunnel: %+v", config)
@@ -450,6 +457,8 @@ func resourceRTXL2TPUpdate(ctx context.Context, d *schema.ResourceData, meta int
 func resourceRTXL2TPDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_l2tp", d.Id())
 	tunnelID, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.Errorf("Invalid tunnel ID: %v", err)

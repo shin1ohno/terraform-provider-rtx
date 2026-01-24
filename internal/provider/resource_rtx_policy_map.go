@@ -95,6 +95,8 @@ func resourceRTXPolicyMap() *schema.Resource {
 func resourceRTXPolicyMapCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_policy_map", d.Id())
 	pm := buildPolicyMapFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_policy_map").Msgf("Creating policy-map: %+v", pm)
@@ -112,6 +114,8 @@ func resourceRTXPolicyMapCreate(ctx context.Context, d *schema.ResourceData, met
 func resourceRTXPolicyMapRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_policy_map", d.Id())
 	name := d.Id()
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_policy_map").Msgf("Reading policy-map: %s", name)
@@ -152,6 +156,8 @@ func resourceRTXPolicyMapRead(ctx context.Context, d *schema.ResourceData, meta 
 func resourceRTXPolicyMapUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_policy_map", d.Id())
 	pm := buildPolicyMapFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_policy_map").Msgf("Updating policy-map: %+v", pm)
@@ -167,6 +173,8 @@ func resourceRTXPolicyMapUpdate(ctx context.Context, d *schema.ResourceData, met
 func resourceRTXPolicyMapDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_policy_map", d.Id())
 	name := d.Id()
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_policy_map").Msgf("Deleting policy-map: %s", name)

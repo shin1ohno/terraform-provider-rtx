@@ -70,6 +70,8 @@ func resourceRTXIPv6FilterDynamic() *schema.Resource {
 func resourceRTXIPv6FilterDynamicCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ipv6_filter_dynamic", d.Id())
 	config := buildIPv6FilterDynamicConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_filter_dynamic").Msgf("Creating IPv6 filter dynamic: %+v", config)
@@ -87,6 +89,9 @@ func resourceRTXIPv6FilterDynamicCreate(ctx context.Context, d *schema.ResourceD
 
 func resourceRTXIPv6FilterDynamicRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ipv6_filter_dynamic", d.Id())
 	logger := logging.FromContext(ctx)
 
 	logger.Debug().Str("resource", "rtx_ipv6_filter_dynamic").Msg("Reading IPv6 filter dynamic")
@@ -150,6 +155,8 @@ func convertParsedIPv6FiltersDynamic(parsed []parsers.IPFilterDynamic) *client.I
 func resourceRTXIPv6FilterDynamicUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ipv6_filter_dynamic", d.Id())
 	config := buildIPv6FilterDynamicConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_filter_dynamic").Msgf("Updating IPv6 filter dynamic: %+v", config)
@@ -165,6 +172,8 @@ func resourceRTXIPv6FilterDynamicUpdate(ctx context.Context, d *schema.ResourceD
 func resourceRTXIPv6FilterDynamicDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_ipv6_filter_dynamic", d.Id())
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_ipv6_filter_dynamic").Msg("Deleting IPv6 filter dynamic configuration")
 
 	err := apiClient.client.DeleteIPv6FilterDynamicConfig(ctx)

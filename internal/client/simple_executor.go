@@ -32,7 +32,16 @@ func NewSimpleExecutor(config *ssh.ClientConfig, addr string, promptDetector Pro
 // Run executes a command by creating a new SSH connection
 func (e *simpleExecutor) Run(ctx context.Context, cmd string) ([]byte, error) {
 	logger := logging.FromContext(ctx)
-	logger.Debug().Str("command", logging.SanitizeString(cmd)).Msg("SimpleExecutor: Running command")
+
+	// Log command with resource context if available
+	logEvent := logger.Info().Str("command", logging.SanitizeString(cmd))
+	if res := logging.ResourceFromContext(ctx); res != nil {
+		logEvent = logEvent.Str("resource", res.Type)
+		if res.ID != "" {
+			logEvent = logEvent.Str("id", res.ID)
+		}
+	}
+	logEvent.Msg("RTX command")
 
 	// Create a new SSH connection for each command
 	client, err := ssh.Dial("tcp", e.addr, e.config)

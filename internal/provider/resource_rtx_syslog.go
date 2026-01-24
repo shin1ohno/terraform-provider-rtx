@@ -88,6 +88,8 @@ func resourceRTXSyslog() *schema.Resource {
 func resourceRTXSyslogCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_syslog", d.Id())
 	config := buildSyslogConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_syslog").Msgf("Creating syslog configuration: %+v", config)
@@ -106,6 +108,9 @@ func resourceRTXSyslogCreate(ctx context.Context, d *schema.ResourceData, meta i
 
 func resourceRTXSyslogRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_syslog", d.Id())
 	logger := logging.FromContext(ctx)
 
 	logger.Debug().Str("resource", "rtx_syslog").Msg("Reading syslog configuration")
@@ -195,6 +200,8 @@ func convertParsedSyslogConfig(parsed *parsers.SyslogConfig) *client.SyslogConfi
 func resourceRTXSyslogUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_syslog", d.Id())
 	config := buildSyslogConfigFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_syslog").Msgf("Updating syslog configuration: %+v", config)
@@ -210,6 +217,8 @@ func resourceRTXSyslogUpdate(ctx context.Context, d *schema.ResourceData, meta i
 func resourceRTXSyslogDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_syslog", d.Id())
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_syslog").Msg("Deleting syslog configuration")
 
 	err := apiClient.client.ResetSyslog(ctx)

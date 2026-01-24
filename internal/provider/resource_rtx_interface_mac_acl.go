@@ -60,6 +60,8 @@ func resourceRTXInterfaceMACACL() *schema.Resource {
 func resourceRTXInterfaceMACACLCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_interface_mac_acl", d.Id())
 	acl := buildInterfaceMACACLFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_interface_mac_acl").Msgf("Creating interface MAC ACL for: %s", acl.Interface)
@@ -77,6 +79,8 @@ func resourceRTXInterfaceMACACLCreate(ctx context.Context, d *schema.ResourceDat
 func resourceRTXInterfaceMACACLRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_interface_mac_acl", d.Id())
 	iface := d.Id()
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_interface_mac_acl").Msgf("Reading interface MAC ACL: %s", iface)
@@ -101,6 +105,8 @@ func resourceRTXInterfaceMACACLRead(ctx context.Context, d *schema.ResourceData,
 func resourceRTXInterfaceMACACLUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_interface_mac_acl", d.Id())
 	acl := buildInterfaceMACACLFromResourceData(d)
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_interface_mac_acl").Msgf("Updating interface MAC ACL for: %s", acl.Interface)
@@ -116,6 +122,8 @@ func resourceRTXInterfaceMACACLUpdate(ctx context.Context, d *schema.ResourceDat
 func resourceRTXInterfaceMACACLDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_interface_mac_acl", d.Id())
 	iface := d.Id()
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_interface_mac_acl").Msgf("Deleting interface MAC ACL for: %s", iface)
