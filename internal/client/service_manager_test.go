@@ -53,6 +53,14 @@ func (m *mockServiceExecutor) RunBatch(ctx context.Context, cmds []string) ([]by
 	return allOutput, nil
 }
 
+func (m *mockServiceExecutor) SetAdministratorPassword(ctx context.Context, oldPassword, newPassword string) error {
+	return nil
+}
+
+func (m *mockServiceExecutor) SetLoginPassword(ctx context.Context, password string) error {
+	return nil
+}
+
 func (m *mockServiceExecutor) setOutput(pattern, output string) {
 	m.outputs[pattern] = output
 }

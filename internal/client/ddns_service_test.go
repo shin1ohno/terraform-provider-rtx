@@ -44,6 +44,14 @@ func (m *mockDDNSExecutor) RunBatch(ctx context.Context, cmds []string) ([]byte,
 	return allOutput, nil
 }
 
+func (m *mockDDNSExecutor) SetAdministratorPassword(ctx context.Context, oldPassword, newPassword string) error {
+	return nil
+}
+
+func (m *mockDDNSExecutor) SetLoginPassword(ctx context.Context, password string) error {
+	return nil
+}
+
 func (m *mockDDNSExecutor) setResponse(cmd string, resp []byte) {
 	m.responses[cmd] = resp
 }

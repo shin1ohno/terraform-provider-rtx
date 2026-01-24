@@ -33,6 +33,14 @@ func (m *mockBridgeExecutor) RunBatch(ctx context.Context, cmds []string) ([]byt
 	return allOutput, nil
 }
 
+func (m *mockBridgeExecutor) SetAdministratorPassword(ctx context.Context, oldPassword, newPassword string) error {
+	return nil
+}
+
+func (m *mockBridgeExecutor) SetLoginPassword(ctx context.Context, password string) error {
+	return nil
+}
+
 func TestBridgeService_CreateBridge(t *testing.T) {
 	tests := []struct {
 		name       string

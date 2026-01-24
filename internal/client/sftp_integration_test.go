@@ -73,6 +73,14 @@ func (m *integrationMockExecutor) RunBatch(ctx context.Context, cmds []string) (
 	return result, nil
 }
 
+func (m *integrationMockExecutor) SetAdministratorPassword(ctx context.Context, oldPassword, newPassword string) error {
+	return nil
+}
+
+func (m *integrationMockExecutor) SetLoginPassword(ctx context.Context, password string) error {
+	return nil
+}
+
 // ============================================================================
 // Mock SFTP Client for Integration Testing
 // ============================================================================

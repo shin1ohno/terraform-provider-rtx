@@ -44,6 +44,14 @@ func (m *mockPPPExecutor) RunBatch(ctx context.Context, cmds []string) ([]byte, 
 	return allOutput, nil
 }
 
+func (m *mockPPPExecutor) SetAdministratorPassword(ctx context.Context, oldPassword, newPassword string) error {
+	return nil
+}
+
+func (m *mockPPPExecutor) SetLoginPassword(ctx context.Context, password string) error {
+	return nil
+}
+
 func (m *mockPPPExecutor) setResponse(cmd string, resp []byte) {
 	m.responses[cmd] = resp
 }

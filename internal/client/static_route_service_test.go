@@ -29,6 +29,14 @@ func (m *mockStaticRouteExecutor) RunBatch(ctx context.Context, cmds []string) (
 	return allOutput, nil
 }
 
+func (m *mockStaticRouteExecutor) SetAdministratorPassword(ctx context.Context, oldPassword, newPassword string) error {
+	return nil
+}
+
+func (m *mockStaticRouteExecutor) SetLoginPassword(ctx context.Context, password string) error {
+	return nil
+}
+
 func TestStaticRouteService_GetRoute_MultiGateway(t *testing.T) {
 	// This test verifies that GetRoute correctly captures multiple gateways
 	// for the same prefix/mask when the grep command returns multiple lines.

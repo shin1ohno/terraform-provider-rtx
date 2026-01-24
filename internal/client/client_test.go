@@ -732,6 +732,14 @@ func (m *MockExecutorForCache) RunBatch(ctx context.Context, cmds []string) ([]b
 	return []byte("mock batch response"), nil
 }
 
+func (m *MockExecutorForCache) SetAdministratorPassword(ctx context.Context, oldPassword, newPassword string) error {
+	return nil
+}
+
+func (m *MockExecutorForCache) SetLoginPassword(ctx context.Context, password string) error {
+	return nil
+}
+
 func TestClient_GetCachedConfig_CacheHit(t *testing.T) {
 	// Setup client with valid cache
 	config := &Config{

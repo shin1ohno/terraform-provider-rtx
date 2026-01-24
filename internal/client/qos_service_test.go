@@ -35,6 +35,14 @@ func (m *mockQoSExecutor) RunBatch(ctx context.Context, cmds []string) ([]byte, 
 	return allOutput, nil
 }
 
+func (m *mockQoSExecutor) SetAdministratorPassword(ctx context.Context, oldPassword, newPassword string) error {
+	return nil
+}
+
+func (m *mockQoSExecutor) SetLoginPassword(ctx context.Context, password string) error {
+	return nil
+}
+
 func TestQoSService_CreateClassMap(t *testing.T) {
 	tests := []struct {
 		name    string

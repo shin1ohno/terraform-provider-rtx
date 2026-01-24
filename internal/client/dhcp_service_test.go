@@ -30,6 +30,16 @@ func (m *MockExecutor) RunBatch(ctx context.Context, cmds []string) ([]byte, err
 	return args.Get(0).([]byte), args.Error(1)
 }
 
+func (m *MockExecutor) SetAdministratorPassword(ctx context.Context, oldPassword, newPassword string) error {
+	args := m.Called(ctx, oldPassword, newPassword)
+	return args.Error(0)
+}
+
+func (m *MockExecutor) SetLoginPassword(ctx context.Context, password string) error {
+	args := m.Called(ctx, password)
+	return args.Error(0)
+}
+
 func TestDHCPService_CreateBinding(t *testing.T) {
 	tests := []struct {
 		name        string

@@ -33,6 +33,14 @@ func (m *mockIPv6InterfaceExecutor) RunBatch(ctx context.Context, cmds []string)
 	return allOutput, nil
 }
 
+func (m *mockIPv6InterfaceExecutor) SetAdministratorPassword(ctx context.Context, oldPassword, newPassword string) error {
+	return nil
+}
+
+func (m *mockIPv6InterfaceExecutor) SetLoginPassword(ctx context.Context, password string) error {
+	return nil
+}
+
 func TestIPv6InterfaceService_Configure(t *testing.T) {
 	tests := []struct {
 		name       string
