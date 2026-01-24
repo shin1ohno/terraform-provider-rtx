@@ -78,7 +78,7 @@
   - _Requirements: 1_
   - _Prompt: Implement the task for spec terraform-provider-testing-patterns, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Terraform Provider Test Developer | Task: Create perpetual diff prevention test for rtx_admin_user resource | Restrictions: Use acctest helpers, require TF_ACC flag, clean up test resources | Success: Test passes when resource produces no diff on re-apply, fails if perpetual diff exists | Instructions: Mark task as [-] in tasks.md when starting, use log-implementation tool after completion with detailed artifacts, then mark as [x] when done_
 
-- [-] 8. Create rtx_admin_user import test
+- [x] 8. Create rtx_admin_user import test
   - File: `internal/provider/resource_rtx_admin_user_test.go`
   - Implement TestAccAdminUser_import following Pattern 2 from design
   - Verify import populates all expected attributes
@@ -127,7 +127,7 @@
   - _Requirements: 1, 2, 3_
   - _Prompt: Implement the task for spec terraform-provider-testing-patterns, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Terraform Provider Test Developer | Task: Apply all test patterns to rtx_admin resource | Restrictions: Follow established patterns, adapt to resource specifics, maintain consistency | Success: rtx_admin has comprehensive test coverage matching rtx_admin_user | Instructions: Mark task as [-] in tasks.md when starting, use log-implementation tool after completion with detailed artifacts, then mark as [x] when done_
 
-- [-] 13. Audit and add tests to remaining resources
+- [x] 13. Audit and add tests to remaining resources
   - Files: All `internal/provider/resource_*_test.go`
   - Identify resources lacking test coverage
   - Apply test patterns to each resource
