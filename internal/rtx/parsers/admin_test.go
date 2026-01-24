@@ -6,6 +6,10 @@ import (
 	"testing"
 )
 
+// Helper functions for creating pointers to primitive types in tests
+func boolPtr(b bool) *bool { return &b }
+func intPtr(i int) *int    { return &i }
+
 func TestParseAdminConfig(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -26,7 +30,7 @@ user attribute admin administrator=on connection=ssh,telnet
 						Password:  "password123",
 						Encrypted: false,
 						Attributes: UserAttributes{
-							Administrator: true,
+							Administrator: boolPtr(true),
 							Connection:    []string{"ssh", "telnet"},
 							GUIPages:      []string{},
 						},
@@ -48,7 +52,7 @@ user attribute admin administrator=on
 						Password:  "$1$abcdef123456",
 						Encrypted: true,
 						Attributes: UserAttributes{
-							Administrator: true,
+							Administrator: boolPtr(true),
 							Connection:    []string{},
 							GUIPages:      []string{},
 						},
@@ -72,7 +76,7 @@ user attribute guest administrator=off connection=http gui-page=dashboard login-
 						Password:  "password123",
 						Encrypted: false,
 						Attributes: UserAttributes{
-							Administrator: true,
+							Administrator: boolPtr(true),
 							Connection:    []string{"ssh", "telnet", "http"},
 							GUIPages:      []string{"dashboard", "config"},
 						},
@@ -82,10 +86,10 @@ user attribute guest administrator=off connection=http gui-page=dashboard login-
 						Password:  "guestpass",
 						Encrypted: false,
 						Attributes: UserAttributes{
-							Administrator: false,
+							Administrator: boolPtr(false),
 							Connection:    []string{"http"},
 							GUIPages:      []string{"dashboard"},
-							LoginTimer:    300,
+							LoginTimer:    intPtr(300),
 						},
 					},
 				},
@@ -105,7 +109,7 @@ user attribute operator administrator=off connection=serial,telnet,remote,ssh,sf
 						Password:  "operpass",
 						Encrypted: false,
 						Attributes: UserAttributes{
-							Administrator: false,
+							Administrator: boolPtr(false),
 							Connection:    []string{"serial", "telnet", "remote", "ssh", "sftp", "http"},
 							GUIPages:      []string{},
 						},
@@ -135,10 +139,10 @@ user attribute netadmin administrator=on connection=ssh,telnet login-timer=3600
 						Password:  "$1$secure123",
 						Encrypted: true,
 						Attributes: UserAttributes{
-							Administrator: true,
+							Administrator: boolPtr(true),
 							Connection:    []string{"ssh", "telnet"},
 							GUIPages:      []string{},
-							LoginTimer:    3600,
+							LoginTimer:    intPtr(3600),
 						},
 					},
 				},
@@ -158,10 +162,10 @@ user attribute testuser login-timer=7200 administrator=on connection=http
 						Password:  "testpass",
 						Encrypted: false,
 						Attributes: UserAttributes{
-							Administrator: true,
+							Administrator: boolPtr(true),
 							Connection:    []string{"http"},
 							GUIPages:      []string{},
-							LoginTimer:    7200,
+							LoginTimer:    intPtr(7200),
 						},
 					},
 				},
@@ -181,10 +185,10 @@ user attribute guiuser administrator=on gui-page=dashboard,lan-map,config
 						Password:  "guipass",
 						Encrypted: false,
 						Attributes: UserAttributes{
-							Administrator: true,
+							Administrator: boolPtr(true),
 							Connection:    []string{},
 							GUIPages:      []string{"dashboard", "lan-map", "config"},
-							LoginTimer:    0,
+							LoginTimer:    nil, // Not specified in attribute string
 						},
 					},
 				},
@@ -204,10 +208,10 @@ user attribute admin administrator=on connection=ssh,telnet,http gui-page=dashbo
 						Password:  "$1$hashpass",
 						Encrypted: true,
 						Attributes: UserAttributes{
-							Administrator: true,
+							Administrator: boolPtr(true),
 							Connection:    []string{"ssh", "telnet", "http"},
 							GUIPages:      []string{"dashboard", "lan-map", "config"},
-							LoginTimer:    3600,
+							LoginTimer:    intPtr(3600),
 						},
 					},
 				},
@@ -228,10 +232,10 @@ user attribute shin1ohno connection=serial,telnet,remote,ssh,sftp,http gui-page=
 						Password:  "$1$shin1pass",
 						Encrypted: true,
 						Attributes: UserAttributes{
-							Administrator: false,
+							Administrator: nil, // Not specified in attribute string
 							Connection:    []string{"serial", "telnet", "remote", "ssh", "sftp", "http"},
 							GUIPages:      []string{"dashboard", "lan-map", "config"},
-							LoginTimer:    3600,
+							LoginTimer:    intPtr(3600),
 						},
 					},
 				},
@@ -252,10 +256,10 @@ user attribute timeout0 connection=ssh login-timer=0
 						Password:  "$1$pass0",
 						Encrypted: true,
 						Attributes: UserAttributes{
-							Administrator: false,
+							Administrator: nil, // Not specified in attribute string
 							Connection:    []string{"ssh"},
 							GUIPages:      []string{},
-							LoginTimer:    0,
+							LoginTimer:    intPtr(0),
 						},
 					},
 				},
@@ -275,10 +279,10 @@ user attribute timeout300 administrator=on connection=telnet login-timer=300
 						Password:  "$1$pass300",
 						Encrypted: true,
 						Attributes: UserAttributes{
-							Administrator: true,
+							Administrator: boolPtr(true),
 							Connection:    []string{"telnet"},
 							GUIPages:      []string{},
-							LoginTimer:    300,
+							LoginTimer:    intPtr(300),
 						},
 					},
 				},
@@ -299,10 +303,10 @@ user attribute guiempty administrator=on gui-page=none connection=http
 						Password:  "$1$passempty",
 						Encrypted: true,
 						Attributes: UserAttributes{
-							Administrator: true,
+							Administrator: boolPtr(true),
 							Connection:    []string{"http"},
 							GUIPages:      []string{},
-							LoginTimer:    0,
+							LoginTimer:    nil, // Not specified in attribute string
 						},
 					},
 				},
@@ -350,7 +354,7 @@ user attribute guiempty administrator=on gui-page=none connection=http
 					if user.Encrypted != expected.Encrypted {
 						t.Errorf("ParseAdminConfig() encrypted = %v, want %v", user.Encrypted, expected.Encrypted)
 					}
-					if user.Attributes.Administrator != expected.Attributes.Administrator {
+					if !reflect.DeepEqual(user.Attributes.Administrator, expected.Attributes.Administrator) {
 						t.Errorf("ParseAdminConfig() administrator = %v, want %v", user.Attributes.Administrator, expected.Attributes.Administrator)
 					}
 					if !reflect.DeepEqual(user.Attributes.Connection, expected.Attributes.Connection) {
@@ -359,7 +363,7 @@ user attribute guiempty administrator=on gui-page=none connection=http
 					if !reflect.DeepEqual(user.Attributes.GUIPages, expected.Attributes.GUIPages) {
 						t.Errorf("ParseAdminConfig() guiPages = %v, want %v", user.Attributes.GUIPages, expected.Attributes.GUIPages)
 					}
-					if user.Attributes.LoginTimer != expected.Attributes.LoginTimer {
+					if !reflect.DeepEqual(user.Attributes.LoginTimer, expected.Attributes.LoginTimer) {
 						t.Errorf("ParseAdminConfig() loginTimer = %v, want %v", user.Attributes.LoginTimer, expected.Attributes.LoginTimer)
 					}
 				}
@@ -390,7 +394,7 @@ user attribute guest administrator=off
 				Password:  "password123",
 				Encrypted: false,
 				Attributes: UserAttributes{
-					Administrator: true,
+					Administrator: boolPtr(true),
 					Connection:    []string{"ssh"},
 					GUIPages:      []string{},
 				},
@@ -528,7 +532,7 @@ func TestBuildUserAttributeCommand(t *testing.T) {
 			name:     "administrator on",
 			username: "admin",
 			attrs: UserAttributes{
-				Administrator: true,
+				Administrator: boolPtr(true),
 			},
 			expected: "user attribute admin administrator=on",
 		},
@@ -536,7 +540,7 @@ func TestBuildUserAttributeCommand(t *testing.T) {
 			name:     "administrator off with connections",
 			username: "guest",
 			attrs: UserAttributes{
-				Administrator: false,
+				Administrator: boolPtr(false),
 				Connection:    []string{"ssh", "telnet"},
 			},
 			expected: "user attribute guest administrator=off connection=ssh,telnet",
@@ -545,10 +549,10 @@ func TestBuildUserAttributeCommand(t *testing.T) {
 			name:     "full attributes",
 			username: "operator",
 			attrs: UserAttributes{
-				Administrator: true,
+				Administrator: boolPtr(true),
 				Connection:    []string{"ssh", "http"},
 				GUIPages:      []string{"dashboard", "config"},
-				LoginTimer:    600,
+				LoginTimer:    intPtr(600),
 			},
 			expected: "user attribute operator administrator=on connection=ssh,http gui-page=dashboard,config login-timer=600",
 		},
@@ -556,9 +560,223 @@ func TestBuildUserAttributeCommand(t *testing.T) {
 			name:     "empty attributes",
 			username: "user",
 			attrs: UserAttributes{
-				Administrator: false,
+				Administrator: boolPtr(false),
 			},
 			expected: "user attribute user administrator=off",
+		},
+		{
+			name:     "nil administrator preserves current value",
+			username: "importeduser",
+			attrs: UserAttributes{
+				Administrator: nil, // nil = don't include, preserve current router value
+				Connection:    []string{"ssh"},
+			},
+			expected: "user attribute importeduser connection=ssh",
+		},
+		{
+			name:     "nil login timer preserves current value",
+			username: "importeduser",
+			attrs: UserAttributes{
+				Administrator: boolPtr(true),
+				LoginTimer:    nil, // nil = don't include, preserve current router value
+			},
+			expected: "user attribute importeduser administrator=on",
+		},
+		{
+			name:     "all nil pointers only connections",
+			username: "minimaluser",
+			attrs: UserAttributes{
+				Administrator: nil, // Not specified
+				Connection:    []string{"http"},
+				GUIPages:      []string{},
+				LoginTimer:    nil, // Not specified
+			},
+			expected: "user attribute minimaluser connection=http",
+		},
+		{
+			name:     "all nil returns empty command",
+			username: "emptyuser",
+			attrs: UserAttributes{
+				Administrator: nil,
+				Connection:    []string{},
+				GUIPages:      []string{},
+				LoginTimer:    nil,
+			},
+			expected: "",
+		},
+		// === Additional tests for comprehensive pointer type coverage ===
+		// Test scenario 1: All fields set (non-nil pointers)
+		{
+			name:     "all fields set non-nil pointers",
+			username: "fulluser",
+			attrs: UserAttributes{
+				Administrator: boolPtr(false),
+				Connection:    []string{"serial", "telnet", "remote", "ssh", "sftp", "http"},
+				GUIPages:      []string{"dashboard", "lan-map", "config"},
+				LoginTimer:    intPtr(1800),
+			},
+			expected: "user attribute fulluser administrator=off connection=serial,telnet,remote,ssh,sftp,http gui-page=dashboard,lan-map,config login-timer=1800",
+		},
+		// Test scenario 2: All fields nil (should return empty command)
+		{
+			name:     "all fields nil returns empty",
+			username: "niluser",
+			attrs: UserAttributes{
+				Administrator: nil,
+				Connection:    nil, // nil slice
+				GUIPages:      nil, // nil slice
+				LoginTimer:    nil,
+			},
+			expected: "",
+		},
+		// Test scenario 3: Mix of set and unset fields - various combinations
+		{
+			name:     "mix: only administrator true",
+			username: "mixuser1",
+			attrs: UserAttributes{
+				Administrator: boolPtr(true),
+				Connection:    nil,
+				GUIPages:      nil,
+				LoginTimer:    nil,
+			},
+			expected: "user attribute mixuser1 administrator=on",
+		},
+		{
+			name:     "mix: only login timer",
+			username: "mixuser2",
+			attrs: UserAttributes{
+				Administrator: nil,
+				Connection:    nil,
+				GUIPages:      nil,
+				LoginTimer:    intPtr(900),
+			},
+			expected: "user attribute mixuser2 login-timer=900",
+		},
+		{
+			name:     "mix: administrator and login timer only",
+			username: "mixuser3",
+			attrs: UserAttributes{
+				Administrator: boolPtr(true),
+				Connection:    []string{},
+				GUIPages:      []string{},
+				LoginTimer:    intPtr(600),
+			},
+			expected: "user attribute mixuser3 administrator=on login-timer=600",
+		},
+		{
+			name:     "mix: connections and gui pages only",
+			username: "mixuser4",
+			attrs: UserAttributes{
+				Administrator: nil,
+				Connection:    []string{"ssh", "http"},
+				GUIPages:      []string{"dashboard"},
+				LoginTimer:    nil,
+			},
+			expected: "user attribute mixuser4 connection=ssh,http gui-page=dashboard",
+		},
+		// Test scenario 4: Administrator=true, Administrator=false, Administrator=nil
+		{
+			name:     "administrator explicit true with all other fields",
+			username: "admintest1",
+			attrs: UserAttributes{
+				Administrator: boolPtr(true),
+				Connection:    []string{"ssh"},
+				GUIPages:      []string{"config"},
+				LoginTimer:    intPtr(300),
+			},
+			expected: "user attribute admintest1 administrator=on connection=ssh gui-page=config login-timer=300",
+		},
+		{
+			name:     "administrator explicit false with all other fields",
+			username: "admintest2",
+			attrs: UserAttributes{
+				Administrator: boolPtr(false),
+				Connection:    []string{"http"},
+				GUIPages:      []string{"dashboard"},
+				LoginTimer:    intPtr(600),
+			},
+			expected: "user attribute admintest2 administrator=off connection=http gui-page=dashboard login-timer=600",
+		},
+		{
+			name:     "administrator nil with all other fields",
+			username: "admintest3",
+			attrs: UserAttributes{
+				Administrator: nil, // Should NOT be included
+				Connection:    []string{"telnet"},
+				GUIPages:      []string{"lan-map"},
+				LoginTimer:    intPtr(1200),
+			},
+			expected: "user attribute admintest3 connection=telnet gui-page=lan-map login-timer=1200",
+		},
+		// Test scenario 5: LoginTimer=0, LoginTimer=120, LoginTimer=nil
+		{
+			name:     "login timer zero (infinite timeout)",
+			username: "timertest1",
+			attrs: UserAttributes{
+				Administrator: boolPtr(true),
+				Connection:    []string{"ssh"},
+				GUIPages:      []string{},
+				LoginTimer:    intPtr(0), // 0 = infinite timeout, should be included
+			},
+			expected: "user attribute timertest1 administrator=on connection=ssh login-timer=0",
+		},
+		{
+			name:     "login timer 120 seconds",
+			username: "timertest2",
+			attrs: UserAttributes{
+				Administrator: boolPtr(false),
+				Connection:    []string{"http"},
+				GUIPages:      []string{},
+				LoginTimer:    intPtr(120),
+			},
+			expected: "user attribute timertest2 administrator=off connection=http login-timer=120",
+		},
+		{
+			name:     "login timer nil (preserve current)",
+			username: "timertest3",
+			attrs: UserAttributes{
+				Administrator: boolPtr(true),
+				Connection:    []string{"ssh", "telnet"},
+				GUIPages:      []string{},
+				LoginTimer:    nil, // Should NOT be included
+			},
+			expected: "user attribute timertest3 administrator=on connection=ssh,telnet",
+		},
+		// Additional edge cases for LoginTimer
+		{
+			name:     "login timer large value",
+			username: "timertest4",
+			attrs: UserAttributes{
+				Administrator: nil,
+				Connection:    nil,
+				GUIPages:      nil,
+				LoginTimer:    intPtr(86400), // 24 hours
+			},
+			expected: "user attribute timertest4 login-timer=86400",
+		},
+		// Edge case: single connection type
+		{
+			name:     "single connection type",
+			username: "singleconn",
+			attrs: UserAttributes{
+				Administrator: nil,
+				Connection:    []string{"sftp"},
+				GUIPages:      nil,
+				LoginTimer:    nil,
+			},
+			expected: "user attribute singleconn connection=sftp",
+		},
+		// Edge case: single gui page
+		{
+			name:     "single gui page",
+			username: "singlepage",
+			attrs: UserAttributes{
+				Administrator: nil,
+				Connection:    nil,
+				GUIPages:      []string{"lan-map"},
+				LoginTimer:    nil,
+			},
+			expected: "user attribute singlepage gui-page=lan-map",
 		},
 	}
 
@@ -601,7 +819,7 @@ func TestValidateUserConfig(t *testing.T) {
 				Username: "admin",
 				Password: "password123",
 				Attributes: UserAttributes{
-					Administrator: true,
+					Administrator: boolPtr(true),
 					Connection:    []string{"ssh", "telnet"},
 					GUIPages:      []string{"dashboard"},
 				},
@@ -674,7 +892,7 @@ func TestValidateUserConfig(t *testing.T) {
 				Username: "admin",
 				Password: "password123",
 				Attributes: UserAttributes{
-					LoginTimer: -1,
+					LoginTimer: intPtr(-1),
 				},
 			},
 			wantErr: true,
@@ -716,70 +934,70 @@ func TestParseUserAttributeString(t *testing.T) {
 			name:    "login-timer only",
 			attrStr: "login-timer=3600",
 			expected: UserAttributes{
-				Administrator: false,
+				Administrator: nil,
 				Connection:    []string{},
 				GUIPages:      []string{},
-				LoginTimer:    3600,
+				LoginTimer:    intPtr(3600),
 			},
 		},
 		{
 			name:    "gui-page only",
 			attrStr: "gui-page=dashboard,lan-map,config",
 			expected: UserAttributes{
-				Administrator: false,
+				Administrator: nil,
 				Connection:    []string{},
 				GUIPages:      []string{"dashboard", "lan-map", "config"},
-				LoginTimer:    0,
+				LoginTimer:    nil,
 			},
 		},
 		{
 			name:    "all attributes",
 			attrStr: "administrator=on connection=ssh,telnet,http gui-page=dashboard,lan-map,config login-timer=3600",
 			expected: UserAttributes{
-				Administrator: true,
+				Administrator: boolPtr(true),
 				Connection:    []string{"ssh", "telnet", "http"},
 				GUIPages:      []string{"dashboard", "lan-map", "config"},
-				LoginTimer:    3600,
+				LoginTimer:    intPtr(3600),
 			},
 		},
 		{
 			name:    "attributes in different order",
 			attrStr: "login-timer=7200 gui-page=config administrator=off connection=http",
 			expected: UserAttributes{
-				Administrator: false,
+				Administrator: boolPtr(false),
 				Connection:    []string{"http"},
 				GUIPages:      []string{"config"},
-				LoginTimer:    7200,
+				LoginTimer:    intPtr(7200),
 			},
 		},
 		{
 			name:    "connection none",
 			attrStr: "administrator=on connection=none",
 			expected: UserAttributes{
-				Administrator: true,
+				Administrator: boolPtr(true),
 				Connection:    []string{},
 				GUIPages:      []string{},
-				LoginTimer:    0,
+				LoginTimer:    nil,
 			},
 		},
 		{
 			name:    "gui-page none",
 			attrStr: "administrator=on gui-page=none",
 			expected: UserAttributes{
-				Administrator: true,
+				Administrator: boolPtr(true),
 				Connection:    []string{},
 				GUIPages:      []string{},
-				LoginTimer:    0,
+				LoginTimer:    nil,
 			},
 		},
 		{
 			name:    "login-timer zero",
 			attrStr: "administrator=on login-timer=0",
 			expected: UserAttributes{
-				Administrator: true,
+				Administrator: boolPtr(true),
 				Connection:    []string{},
 				GUIPages:      []string{},
-				LoginTimer:    0,
+				LoginTimer:    intPtr(0),
 			},
 		},
 		// REQ-5: Verify import fidelity for admin user attributes
@@ -787,30 +1005,30 @@ func TestParseUserAttributeString(t *testing.T) {
 			name:    "REQ-5 import fidelity - shin1ohno example",
 			attrStr: "on administrator=off gui-page=dashboard,lan-map,config login-timer=3600",
 			expected: UserAttributes{
-				Administrator: false,
+				Administrator: boolPtr(false),
 				Connection:    []string{},
 				GUIPages:      []string{"dashboard", "lan-map", "config"},
-				LoginTimer:    3600,
+				LoginTimer:    intPtr(3600),
 			},
 		},
 		{
 			name:    "REQ-5 hyphen-separated keys only",
 			attrStr: "administrator=on login-timer=1800 gui-page=dashboard",
 			expected: UserAttributes{
-				Administrator: true,
+				Administrator: boolPtr(true),
 				Connection:    []string{},
 				GUIPages:      []string{"dashboard"},
-				LoginTimer:    1800,
+				LoginTimer:    intPtr(1800),
 			},
 		},
 		{
 			name:    "REQ-5 large login-timer value",
 			attrStr: "administrator=off login-timer=86400 connection=ssh",
 			expected: UserAttributes{
-				Administrator: false,
+				Administrator: boolPtr(false),
 				Connection:    []string{"ssh"},
 				GUIPages:      []string{},
-				LoginTimer:    86400,
+				LoginTimer:    intPtr(86400),
 			},
 		},
 	}
@@ -818,7 +1036,7 @@ func TestParseUserAttributeString(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := parseUserAttributeString(tt.attrStr)
-			if result.Administrator != tt.expected.Administrator {
+			if !reflect.DeepEqual(result.Administrator, tt.expected.Administrator) {
 				t.Errorf("parseUserAttributeString() Administrator = %v, want %v", result.Administrator, tt.expected.Administrator)
 			}
 			if !reflect.DeepEqual(result.Connection, tt.expected.Connection) {
@@ -827,7 +1045,7 @@ func TestParseUserAttributeString(t *testing.T) {
 			if !reflect.DeepEqual(result.GUIPages, tt.expected.GUIPages) {
 				t.Errorf("parseUserAttributeString() GUIPages = %v, want %v", result.GUIPages, tt.expected.GUIPages)
 			}
-			if result.LoginTimer != tt.expected.LoginTimer {
+			if !reflect.DeepEqual(result.LoginTimer, tt.expected.LoginTimer) {
 				t.Errorf("parseUserAttributeString() LoginTimer = %v, want %v", result.LoginTimer, tt.expected.LoginTimer)
 			}
 		})

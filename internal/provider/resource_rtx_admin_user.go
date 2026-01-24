@@ -55,6 +55,7 @@ func resourceRTXAdminUser() *schema.Resource {
 			"connection_methods": {
 				Type:        schema.TypeSet,
 				Optional:    true,
+				Computed:    true,
 				Description: "Allowed connection methods for the user.",
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
@@ -66,6 +67,7 @@ func resourceRTXAdminUser() *schema.Resource {
 			"gui_pages": {
 				Type:        schema.TypeSet,
 				Optional:    true,
+				Computed:    true,
 				Description: "Allowed GUI pages for the user.",
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
@@ -179,16 +181,41 @@ func resourceRTXAdminUserRead(ctx context.Context, d *schema.ResourceData, meta 
 	if err := d.Set("encrypted", user.Encrypted); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set("administrator", user.Attributes.Administrator); err != nil {
+
+	// Handle pointer fields - dereference if non-nil, use zero value if nil
+	// This ensures state always has a value for Computed fields
+	var administrator bool
+	if user.Attributes.Administrator != nil {
+		administrator = *user.Attributes.Administrator
+	}
+	if err := d.Set("administrator", administrator); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set("connection_methods", user.Attributes.Connection); err != nil {
+
+	// Connection methods - ensure non-nil slice for state
+	connectionMethods := user.Attributes.Connection
+	if connectionMethods == nil {
+		connectionMethods = []string{}
+	}
+	if err := d.Set("connection_methods", connectionMethods); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set("gui_pages", user.Attributes.GUIPages); err != nil {
+
+	// GUI pages - ensure non-nil slice for state
+	guiPages := user.Attributes.GUIPages
+	if guiPages == nil {
+		guiPages = []string{}
+	}
+	if err := d.Set("gui_pages", guiPages); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set("login_timer", user.Attributes.LoginTimer); err != nil {
+
+	// Login timer - dereference if non-nil, use zero value if nil
+	var loginTimer int
+	if user.Attributes.LoginTimer != nil {
+		loginTimer = *user.Attributes.LoginTimer
+	}
+	if err := d.Set("login_timer", loginTimer); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -248,10 +275,34 @@ func resourceRTXAdminUserImport(ctx context.Context, d *schema.ResourceData, met
 	d.SetId(username)
 	d.Set("username", user.Username)
 	d.Set("encrypted", user.Encrypted)
-	d.Set("administrator", user.Attributes.Administrator)
-	d.Set("connection_methods", user.Attributes.Connection)
-	d.Set("gui_pages", user.Attributes.GUIPages)
-	d.Set("login_timer", user.Attributes.LoginTimer)
+
+	// Handle pointer fields - dereference if non-nil, use zero value if nil
+	var administrator bool
+	if user.Attributes.Administrator != nil {
+		administrator = *user.Attributes.Administrator
+	}
+	d.Set("administrator", administrator)
+
+	// Connection methods - ensure non-nil slice
+	connectionMethods := user.Attributes.Connection
+	if connectionMethods == nil {
+		connectionMethods = []string{}
+	}
+	d.Set("connection_methods", connectionMethods)
+
+	// GUI pages - ensure non-nil slice
+	guiPages := user.Attributes.GUIPages
+	if guiPages == nil {
+		guiPages = []string{}
+	}
+	d.Set("gui_pages", guiPages)
+
+	// Login timer - dereference if non-nil, use zero value if nil
+	var loginTimer int
+	if user.Attributes.LoginTimer != nil {
+		loginTimer = *user.Attributes.LoginTimer
+	}
+	d.Set("login_timer", loginTimer)
 
 	// Note: Password must be provided in the Terraform configuration after import
 	logging.FromContext(ctx).Info().Str("resource", "rtx_admin_user").Msgf("Admin user %s imported. Note: Password must be set in configuration as it cannot be read from the router.", username)
@@ -261,37 +312,25 @@ func resourceRTXAdminUserImport(ctx context.Context, d *schema.ResourceData, met
 
 // buildAdminUserFromResourceData creates an AdminUser from Terraform resource data
 func buildAdminUserFromResourceData(d *schema.ResourceData) client.AdminUser {
+	// Use field helpers to get merged values (config value if set, otherwise state value)
+	// This ensures that during Update, unspecified optional fields preserve their current values
 	user := client.AdminUser{
-		Username:  d.Get("username").(string),
-		Password:  d.Get("password").(string),
-		Encrypted: d.Get("encrypted").(bool),
+		Username:  GetStringValue(d, "username"),
+		Password:  GetStringValue(d, "password"),
+		Encrypted: GetBoolValue(d, "encrypted"),
 		Attributes: client.AdminUserAttributes{
-			Administrator: d.Get("administrator").(bool),
-			LoginTimer:    d.Get("login_timer").(int),
+			Administrator: BoolPtr(GetBoolValue(d, "administrator")),
+			LoginTimer:    IntPtr(GetIntValue(d, "login_timer")),
+			Connection:    GetStringListValue(d, "connection_methods"),
+			GUIPages:      GetStringListValue(d, "gui_pages"),
 		},
 	}
 
-	// Handle connection set
-	if v, ok := d.GetOk("connection_methods"); ok {
-		connectionSet := v.(*schema.Set)
-		connections := make([]string, connectionSet.Len())
-		for i, conn := range connectionSet.List() {
-			connections[i] = conn.(string)
-		}
-		user.Attributes.Connection = connections
-	} else {
+	// Ensure slices are not nil (empty slice is valid, nil is not)
+	if user.Attributes.Connection == nil {
 		user.Attributes.Connection = []string{}
 	}
-
-	// Handle gui_pages set
-	if v, ok := d.GetOk("gui_pages"); ok {
-		guiPagesSet := v.(*schema.Set)
-		guiPages := make([]string, guiPagesSet.Len())
-		for i, page := range guiPagesSet.List() {
-			guiPages[i] = page.(string)
-		}
-		user.Attributes.GUIPages = guiPages
-	} else {
+	if user.Attributes.GUIPages == nil {
 		user.Attributes.GUIPages = []string{}
 	}
 

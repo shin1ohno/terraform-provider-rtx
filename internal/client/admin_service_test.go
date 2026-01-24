@@ -35,6 +35,26 @@ func (m *mockExecutor) RunBatch(ctx context.Context, cmds []string) ([]byte, err
 	return allOutput, nil
 }
 
+func (m *mockExecutor) SetAdministratorPassword(ctx context.Context, oldPassword, newPassword string) error {
+	m.executedCmds = append(m.executedCmds, "administrator password "+newPassword)
+	return nil
+}
+
+func (m *mockExecutor) SetLoginPassword(ctx context.Context, newPassword string) error {
+	m.executedCmds = append(m.executedCmds, "login password "+newPassword)
+	return nil
+}
+
+// boolPtrAdmin returns a pointer to the given bool value
+func boolPtrAdmin(b bool) *bool {
+	return &b
+}
+
+// intPtrAdmin returns a pointer to the given int value
+func intPtrAdmin(i int) *int {
+	return &i
+}
+
 func TestAdminService_GetAdminConfig(t *testing.T) {
 	executor := &mockExecutor{
 		responses: map[string]string{},
@@ -198,7 +218,7 @@ func TestAdminService_CreateAdminUser(t *testing.T) {
 				Password:  "testpass",
 				Encrypted: false,
 				Attributes: AdminUserAttributes{
-					Administrator: false,
+					Administrator: boolPtrAdmin(false),
 					Connection:    []string{},
 					GUIPages:      []string{},
 				},
@@ -212,10 +232,10 @@ func TestAdminService_CreateAdminUser(t *testing.T) {
 				Password:  "adminpass",
 				Encrypted: false,
 				Attributes: AdminUserAttributes{
-					Administrator: true,
+					Administrator: boolPtrAdmin(true),
 					Connection:    []string{"ssh", "telnet"},
 					GUIPages:      []string{"dashboard", "config"},
-					LoginTimer:    300,
+					LoginTimer:    intPtrAdmin(300),
 				},
 			},
 			wantErr: false,
@@ -227,7 +247,7 @@ func TestAdminService_CreateAdminUser(t *testing.T) {
 				Password:  "$1$encrypted",
 				Encrypted: true,
 				Attributes: AdminUserAttributes{
-					Administrator: false,
+					Administrator: boolPtrAdmin(false),
 				},
 			},
 			wantErr: false,
@@ -286,7 +306,7 @@ func TestAdminService_UpdateAdminUser(t *testing.T) {
 		Password:  "newpassword",
 		Encrypted: false,
 		Attributes: AdminUserAttributes{
-			Administrator: true,
+			Administrator: boolPtrAdmin(true),
 			Connection:    []string{"ssh"},
 		},
 	}

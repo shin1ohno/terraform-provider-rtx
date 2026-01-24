@@ -43,7 +43,9 @@ func (s *AdminService) GetAdminConfig(ctx context.Context) (*AdminConfig, error)
 	}, nil
 }
 
-// ConfigureAdmin sets admin password configuration
+// ConfigureAdmin sets admin password configuration using interactive prompts
+// The old password is taken from the provider configuration (client.config.AdminPassword)
+// The new password is taken from the config parameter
 func (s *AdminService) ConfigureAdmin(ctx context.Context, config AdminConfig) error {
 	// Check context
 	select {
@@ -54,31 +56,27 @@ func (s *AdminService) ConfigureAdmin(ctx context.Context, config AdminConfig) e
 
 	// Set login password if provided
 	if config.LoginPassword != "" {
-		cmd := parsers.BuildLoginPasswordCommand(config.LoginPassword)
-		logging.FromContext(ctx).Debug().Str("service", "admin").Msg("Setting login password")
+		logging.FromContext(ctx).Debug().Str("service", "admin").Msg("Setting login password via interactive prompt")
 
-		output, err := s.executor.Run(ctx, cmd)
+		err := s.executor.SetLoginPassword(ctx, config.LoginPassword)
 		if err != nil {
 			return fmt.Errorf("failed to set login password: %w", err)
-		}
-
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("command failed: %s", string(output))
 		}
 	}
 
 	// Set admin password if provided
 	if config.AdminPassword != "" {
-		cmd := parsers.BuildAdminPasswordCommand(config.AdminPassword)
-		logging.FromContext(ctx).Debug().Str("service", "admin").Msg("Setting administrator password")
-
-		output, err := s.executor.Run(ctx, cmd)
-		if err != nil {
-			return fmt.Errorf("failed to set administrator password: %w", err)
+		// Get the current (old) password from the client config
+		var oldPassword string
+		if s.client != nil {
+			oldPassword = s.client.config.AdminPassword
 		}
 
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("command failed: %s", string(output))
+		logging.FromContext(ctx).Debug().Str("service", "admin").Msg("Setting administrator password via interactive prompt")
+
+		err := s.executor.SetAdministratorPassword(ctx, oldPassword, config.AdminPassword)
+		if err != nil {
+			return fmt.Errorf("failed to set administrator password: %w", err)
 		}
 	}
 
@@ -210,8 +208,8 @@ func (s *AdminService) CreateAdminUser(ctx context.Context, user AdminUser) erro
 	}
 
 	// Set user attributes if any are specified
-	if user.Attributes.Administrator || len(user.Attributes.Connection) > 0 ||
-		len(user.Attributes.GUIPages) > 0 || user.Attributes.LoginTimer > 0 {
+	if (user.Attributes.Administrator != nil && *user.Attributes.Administrator) || len(user.Attributes.Connection) > 0 ||
+		len(user.Attributes.GUIPages) > 0 || (user.Attributes.LoginTimer != nil && *user.Attributes.LoginTimer > 0) {
 		attrCmd := parsers.BuildUserAttributeCommand(user.Username, parserUser.Attributes)
 		if attrCmd != "" {
 			logging.FromContext(ctx).Debug().Str("service", "admin").Str("command", SanitizeCommandForLog(attrCmd)).Msg("Setting user attributes")

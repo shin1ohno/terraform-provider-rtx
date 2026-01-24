@@ -76,13 +76,13 @@ func resourceRTXPPPoE() *schema.Resource {
 			"always_on": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     true,
-				Description: "Keep connection always active. Defaults to true.",
+				Computed:    true,
+				Description: "Keep connection always active. Defaults to true if not specified.",
 			},
 			"disconnect_timeout": {
 				Type:         schema.TypeInt,
 				Optional:     true,
-				Default:      0,
+				Computed:     true,
 				Description:  "Idle disconnect timeout in seconds. 0 means no automatic disconnect.",
 				ValidateFunc: validation.IntAtLeast(0),
 			},
@@ -101,8 +101,8 @@ func resourceRTXPPPoE() *schema.Resource {
 			"enabled": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     true,
-				Description: "Whether the PP interface is enabled. Defaults to true.",
+				Computed:    true,
+				Description: "Whether the PP interface is enabled. Defaults to true if not specified.",
 			},
 		},
 	}
@@ -288,21 +288,21 @@ func resourceRTXPPPoEImport(ctx context.Context, d *schema.ResourceData, meta in
 // buildPPPoEConfigFromResourceData creates a PPPoEConfig from Terraform resource data
 func buildPPPoEConfigFromResourceData(d *schema.ResourceData) client.PPPoEConfig {
 	config := client.PPPoEConfig{
-		Number:            d.Get("pp_number").(int),
-		Name:              d.Get("name").(string),
-		BindInterface:     d.Get("bind_interface").(string),
-		ServiceName:       d.Get("service_name").(string),
-		ACName:            d.Get("ac_name").(string),
-		AlwaysOn:          d.Get("always_on").(bool),
-		Enabled:           d.Get("enabled").(bool),
-		DisconnectTimeout: d.Get("disconnect_timeout").(int),
+		Number:            GetIntValue(d, "pp_number"),
+		Name:              GetStringValue(d, "name"),
+		BindInterface:     GetStringValue(d, "bind_interface"),
+		ServiceName:       GetStringValue(d, "service_name"),
+		ACName:            GetStringValue(d, "ac_name"),
+		AlwaysOn:          GetBoolValue(d, "always_on"),
+		Enabled:           GetBoolValue(d, "enabled"),
+		DisconnectTimeout: GetIntValue(d, "disconnect_timeout"),
 	}
 
 	// Set authentication
 	config.Authentication = &client.PPPAuth{
-		Method:   d.Get("auth_method").(string),
-		Username: d.Get("username").(string),
-		Password: d.Get("password").(string),
+		Method:   GetStringValue(d, "auth_method"),
+		Username: GetStringValue(d, "username"),
+		Password: GetStringValue(d, "password"),
 	}
 
 	// Reconnect/keepalive

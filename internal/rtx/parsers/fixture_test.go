@@ -359,7 +359,7 @@ func TestFixture_AdminUserFullAttributes(t *testing.T) {
 		t.Fatal("Admin user not found")
 	}
 
-	if !adminUser.Attributes.Administrator {
+	if adminUser.Attributes.Administrator == nil || !*adminUser.Attributes.Administrator {
 		t.Error("Admin user should have administrator=on")
 	}
 
@@ -373,8 +373,8 @@ func TestFixture_AdminUserFullAttributes(t *testing.T) {
 		t.Errorf("Admin: expected %d GUI pages, got %d", len(expectedGUIPages), len(adminUser.Attributes.GUIPages))
 	}
 
-	if adminUser.Attributes.LoginTimer != 3600 {
-		t.Errorf("Admin: expected login-timer=3600, got %d", adminUser.Attributes.LoginTimer)
+	if adminUser.Attributes.LoginTimer == nil || *adminUser.Attributes.LoginTimer != 3600 {
+		t.Errorf("Admin: expected login-timer=3600, got %v", adminUser.Attributes.LoginTimer)
 	}
 
 	// Find operator user with encrypted password
@@ -394,7 +394,7 @@ func TestFixture_AdminUserFullAttributes(t *testing.T) {
 		t.Error("Operator user should have encrypted password")
 	}
 
-	if operatorUser.Attributes.Administrator {
+	if operatorUser.Attributes.Administrator != nil && *operatorUser.Attributes.Administrator {
 		t.Error("Operator user should have administrator=off")
 	}
 
@@ -416,7 +416,7 @@ func TestFixture_AdminUserFullAttributes(t *testing.T) {
 			len(fullUser.Attributes.Connection), fullUser.Attributes.Connection)
 	}
 
-	if fullUser.Attributes.LoginTimer != 0 {
-		t.Errorf("Fullaccess: expected login-timer=0, got %d", fullUser.Attributes.LoginTimer)
+	if fullUser.Attributes.LoginTimer == nil || *fullUser.Attributes.LoginTimer != 0 {
+		t.Errorf("Fullaccess: expected login-timer=0, got %v", fullUser.Attributes.LoginTimer)
 	}
 }

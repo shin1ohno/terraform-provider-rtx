@@ -44,21 +44,21 @@ func resourceRTXPPInterface() *schema.Resource {
 			"mtu": {
 				Type:         schema.TypeInt,
 				Optional:     true,
-				Default:      0,
+				Computed:     true,
 				Description:  "Maximum Transmission Unit size for the PP interface. Valid range: 64-1500. 0 means use default.",
 				ValidateFunc: validation.IntBetween(0, 1500),
 			},
 			"tcp_mss": {
 				Type:         schema.TypeInt,
 				Optional:     true,
-				Default:      0,
+				Computed:     true,
 				Description:  "TCP Maximum Segment Size limit. Valid range: 1-1460. 0 means not set.",
 				ValidateFunc: validation.IntBetween(0, 1460),
 			},
 			"nat_descriptor": {
 				Type:         schema.TypeInt,
 				Optional:     true,
-				Default:      0,
+				Computed:     true,
 				Description:  "NAT descriptor ID to bind to this PP interface. Use rtx_nat_masquerade or rtx_nat_static to define the descriptor.",
 				ValidateFunc: validation.IntAtLeast(0),
 			},
@@ -233,10 +233,10 @@ func resourceRTXPPInterfaceImport(ctx context.Context, d *schema.ResourceData, m
 // buildPPIPConfigFromResourceData creates a PPIPConfig from Terraform resource data
 func buildPPIPConfigFromResourceData(d *schema.ResourceData) client.PPIPConfig {
 	config := client.PPIPConfig{
-		Address:       d.Get("ip_address").(string),
-		MTU:           d.Get("mtu").(int),
-		TCPMSSLimit:   d.Get("tcp_mss").(int),
-		NATDescriptor: d.Get("nat_descriptor").(int),
+		Address:       GetStringValue(d, "ip_address"),
+		MTU:           GetIntValue(d, "mtu"),
+		TCPMSSLimit:   GetIntValue(d, "tcp_mss"),
+		NATDescriptor: GetIntValue(d, "nat_descriptor"),
 	}
 
 	// Handle secure_filter_in

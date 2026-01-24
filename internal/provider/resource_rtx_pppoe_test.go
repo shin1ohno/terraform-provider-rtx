@@ -107,9 +107,10 @@ func TestBuildPPPoEConfigFromResourceData_DefaultValues(t *testing.T) {
 	config := buildPPPoEConfigFromResourceData(d)
 
 	assert.Equal(t, "chap", config.Authentication.Method) // Default auth method
-	assert.True(t, config.AlwaysOn)                       // Default is true
-	assert.True(t, config.Enabled)                        // Default is true
-	assert.Equal(t, 0, config.DisconnectTimeout)          // Default is 0
+	// With Computed: true (no Default), unset bool fields return false, unset int fields return 0
+	assert.False(t, config.AlwaysOn)                      // Unset returns false (zero value)
+	assert.False(t, config.Enabled)                       // Unset returns false (zero value)
+	assert.Equal(t, 0, config.DisconnectTimeout)          // Unset returns 0 (zero value)
 }
 
 func TestBuildPPPoEConfigFromResourceData_AllAuthMethods(t *testing.T) {
@@ -167,13 +168,13 @@ func TestResourceRTXPPPoESchema(t *testing.T) {
 
 	assert.NotNil(t, resource.Schema["always_on"])
 	assert.True(t, resource.Schema["always_on"].Optional)
-	assert.Equal(t, true, resource.Schema["always_on"].Default)
+	assert.True(t, resource.Schema["always_on"].Computed) // Changed from Default to Computed for field preservation
 
 	assert.NotNil(t, resource.Schema["disconnect_timeout"])
 	assert.True(t, resource.Schema["disconnect_timeout"].Optional)
-	assert.Equal(t, 0, resource.Schema["disconnect_timeout"].Default)
+	assert.True(t, resource.Schema["disconnect_timeout"].Computed) // Changed from Default to Computed for field preservation
 
 	assert.NotNil(t, resource.Schema["enabled"])
 	assert.True(t, resource.Schema["enabled"].Optional)
-	assert.Equal(t, true, resource.Schema["enabled"].Default)
+	assert.True(t, resource.Schema["enabled"].Computed) // Changed from Default to Computed for field preservation
 }

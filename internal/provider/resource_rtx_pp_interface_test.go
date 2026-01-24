@@ -130,15 +130,15 @@ func TestResourceRTXPPInterfaceSchema(t *testing.T) {
 
 	assert.NotNil(t, resource.Schema["mtu"])
 	assert.True(t, resource.Schema["mtu"].Optional)
-	assert.Equal(t, 0, resource.Schema["mtu"].Default)
+	assert.True(t, resource.Schema["mtu"].Computed) // Changed from Default to Computed for field preservation
 
 	assert.NotNil(t, resource.Schema["tcp_mss"])
 	assert.True(t, resource.Schema["tcp_mss"].Optional)
-	assert.Equal(t, 0, resource.Schema["tcp_mss"].Default)
+	assert.True(t, resource.Schema["tcp_mss"].Computed) // Changed from Default to Computed for field preservation
 
 	assert.NotNil(t, resource.Schema["nat_descriptor"])
 	assert.True(t, resource.Schema["nat_descriptor"].Optional)
-	assert.Equal(t, 0, resource.Schema["nat_descriptor"].Default)
+	assert.True(t, resource.Schema["nat_descriptor"].Computed) // Changed from Default to Computed for field preservation
 
 	assert.NotNil(t, resource.Schema["secure_filter_in"])
 	assert.True(t, resource.Schema["secure_filter_in"].Optional)

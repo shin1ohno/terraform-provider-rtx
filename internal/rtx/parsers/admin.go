@@ -24,10 +24,10 @@ type UserConfig struct {
 
 // UserAttributes represents user attribute configuration
 type UserAttributes struct {
-	Administrator bool     `json:"administrator"`
+	Administrator *bool    `json:"administrator"`
 	Connection    []string `json:"connection"`  // serial, telnet, remote, ssh, sftp, http
 	GUIPages      []string `json:"gui_pages"`   // dashboard, lan-map, config
-	LoginTimer    int      `json:"login_timer"` // seconds (0 = infinite)
+	LoginTimer    *int     `json:"login_timer"` // seconds (0 = infinite)
 }
 
 // AdminParser is the interface for parsing admin configuration
@@ -160,7 +160,8 @@ func parseUserAttributeString(attrStr string) UserAttributes {
 	for _, part := range parts {
 		if strings.HasPrefix(part, "administrator=") {
 			value := strings.TrimPrefix(part, "administrator=")
-			attrs.Administrator = value == "on"
+			isAdmin := value == "on"
+			attrs.Administrator = &isAdmin
 		} else if strings.HasPrefix(part, "connection=") {
 			value := strings.TrimPrefix(part, "connection=")
 			// Connection types are comma-separated
@@ -176,7 +177,7 @@ func parseUserAttributeString(attrStr string) UserAttributes {
 		} else if strings.HasPrefix(part, "login-timer=") {
 			value := strings.TrimPrefix(part, "login-timer=")
 			if timer, err := strconv.Atoi(value); err == nil {
-				attrs.LoginTimer = timer
+				attrs.LoginTimer = &timer
 			}
 		}
 	}
@@ -203,15 +204,19 @@ func BuildUserCommand(user UserConfig) string {
 }
 
 // BuildUserAttributeCommand builds the command to set user attributes
+// Only includes attributes when the pointer is non-nil to preserve current router values
 func BuildUserAttributeCommand(username string, attrs UserAttributes) string {
 	var parts []string
 
-	// Administrator flag
-	if attrs.Administrator {
-		parts = append(parts, "administrator=on")
-	} else {
-		parts = append(parts, "administrator=off")
+	// Administrator flag - only include when explicitly set (non-nil)
+	if attrs.Administrator != nil {
+		if *attrs.Administrator {
+			parts = append(parts, "administrator=on")
+		} else {
+			parts = append(parts, "administrator=off")
+		}
 	}
+	// nil = don't include (preserve current router value)
 
 	// Connection types
 	if len(attrs.Connection) > 0 {
@@ -223,10 +228,11 @@ func BuildUserAttributeCommand(username string, attrs UserAttributes) string {
 		parts = append(parts, fmt.Sprintf("gui-page=%s", strings.Join(attrs.GUIPages, ",")))
 	}
 
-	// Login timer
-	if attrs.LoginTimer > 0 {
-		parts = append(parts, fmt.Sprintf("login-timer=%d", attrs.LoginTimer))
+	// Login timer - only include when explicitly set (non-nil)
+	if attrs.LoginTimer != nil {
+		parts = append(parts, fmt.Sprintf("login-timer=%d", *attrs.LoginTimer))
 	}
+	// nil = don't include (preserve current router value)
 
 	if len(parts) == 0 {
 		return ""
@@ -301,7 +307,7 @@ func ValidateUserConfig(user UserConfig) error {
 	}
 
 	// Validate login timer
-	if user.Attributes.LoginTimer < 0 {
+	if user.Attributes.LoginTimer != nil && *user.Attributes.LoginTimer < 0 {
 		return fmt.Errorf("login timer cannot be negative")
 	}
 
@@ -349,7 +355,7 @@ func ValidateUserConfigForAttributeUpdate(user UserConfig) error {
 	}
 
 	// Validate login timer
-	if user.Attributes.LoginTimer < 0 {
+	if user.Attributes.LoginTimer != nil && *user.Attributes.LoginTimer < 0 {
 		return fmt.Errorf("login timer cannot be negative")
 	}
 

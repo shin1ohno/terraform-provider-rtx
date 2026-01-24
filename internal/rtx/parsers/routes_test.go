@@ -267,7 +267,4 @@ func TestRoutesParser_CanHandle(t *testing.T) {
 	assert.False(t, rtx12xxParser.CanHandle("RTX830"))
 }
 
-// Helper function - same as in the main test file
-func intPtr(i int) *int {
-	return &i
-}
+

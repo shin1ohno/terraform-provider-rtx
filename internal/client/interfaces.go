@@ -1369,10 +1369,10 @@ type AdminUser struct {
 
 // AdminUserAttributes represents user attribute configuration
 type AdminUserAttributes struct {
-	Administrator bool     `json:"administrator"` // Whether user has administrator privileges
-	Connection    []string `json:"connection"`    // Allowed connection types: serial, telnet, remote, ssh, sftp, http
-	GUIPages      []string `json:"gui_pages"`     // Allowed GUI pages: dashboard, lan-map, config
-	LoginTimer    int      `json:"login_timer"`   // Login timeout in seconds (0 = infinite)
+	Administrator *bool    `json:"administrator,omitempty"` // Whether user has administrator privileges
+	Connection    []string `json:"connection,omitempty"`    // Allowed connection types: serial, telnet, remote, ssh, sftp, http
+	GUIPages      []string `json:"gui_pages,omitempty"`     // Allowed GUI pages: dashboard, lan-map, config
+	LoginTimer    *int     `json:"login_timer,omitempty"`   // Login timeout in seconds (0 = infinite)
 }
 
 // HTTPDConfig represents HTTP daemon configuration on an RTX router
