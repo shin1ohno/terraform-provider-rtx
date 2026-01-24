@@ -48,12 +48,7 @@ func resourceRTXDDNS() *schema.Resource {
 				Optional:    true,
 				Description: "DDNS account username for authentication.",
 			},
-			"password": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Sensitive:   true,
-				Description: "DDNS account password for authentication. This value is sensitive and will not be displayed in plan output.",
-			},
+			"password": WriteOnlyStringSchema("DDNS account password for authentication"),
 		},
 	}
 }

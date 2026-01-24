@@ -2,18 +2,19 @@ package provider
 
 import (
 	"context"
-
-	"github.com/sh1/terraform-provider-rtx/internal/logging"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
 )
 
 func resourceRTXAdmin() *schema.Resource {
 	return &schema.Resource{
-		Description:   "Manages admin password configuration on RTX routers. This is a singleton resource - only one instance can exist per router.",
+		Description: "Manages admin password configuration on RTX routers. This is a singleton resource - only one instance can exist per router. " +
+			"Note: Changing passwords requires the provider's admin_password to be set to the current password.",
 		CreateContext: resourceRTXAdminCreate,
 		ReadContext:   resourceRTXAdminRead,
 		UpdateContext: resourceRTXAdminUpdate,
@@ -23,17 +24,12 @@ func resourceRTXAdmin() *schema.Resource {
 		},
 
 		Schema: map[string]*schema.Schema{
-			"login_password": {
+			"login_password": WriteOnlyStringSchema("Login password for the RTX router. This password is used for initial authentication when connecting to the router"),
+			"admin_password": WriteOnlyStringSchema("Administrator password for the RTX router. This password is required for entering administrator mode to make configuration changes"),
+			"last_updated": {
 				Type:        schema.TypeString,
-				Optional:    true,
-				Sensitive:   true,
-				Description: "Login password for the RTX router. This password is used for initial authentication when connecting to the router.",
-			},
-			"admin_password": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Sensitive:   true,
-				Description: "Administrator password for the RTX router. This password is required for entering administrator mode to make configuration changes.",
+				Computed:    true,
+				Description: "Timestamp of the last password update performed by Terraform (RFC3339 format).",
 			},
 		},
 	}
@@ -41,21 +37,30 @@ func resourceRTXAdmin() *schema.Resource {
 
 func resourceRTXAdminCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
 
 	config := buildAdminConfigFromResourceData(d)
-
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_admin").Msg("Creating admin configuration")
-
-	err := apiClient.client.ConfigureAdmin(ctx, config)
-	if err != nil {
-		return diag.Errorf("Failed to configure admin: %v", err)
-	}
 
 	// Use fixed ID for singleton resource
 	d.SetId("admin")
 
-	// Store the passwords in state (they cannot be read back from router)
-	// Note: Read will not update these values since passwords are not returned
+	// Only configure if passwords are provided and different from current
+	if config.AdminPassword != "" || config.LoginPassword != "" {
+		logger.Debug().Str("resource", "rtx_admin").Msg("Creating admin configuration")
+
+		err := apiClient.client.ConfigureAdmin(ctx, config)
+		if err != nil {
+			return diag.Errorf("Failed to configure admin: %v", err)
+		}
+
+		// Record the timestamp of successful password update
+		if err := d.Set("last_updated", time.Now().Format(time.RFC3339)); err != nil {
+			return diag.Errorf("Failed to set last_updated: %v", err)
+		}
+	} else {
+		logger.Debug().Str("resource", "rtx_admin").Msg("Creating admin configuration (no password changes)")
+	}
+
 	return nil
 }
 
@@ -91,28 +96,37 @@ func resourceRTXAdminRead(ctx context.Context, d *schema.ResourceData, meta inte
 
 func resourceRTXAdminUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
+	logger := logging.FromContext(ctx)
 
-	config := buildAdminConfigFromResourceData(d)
+	// Check if passwords have changed
+	if d.HasChange("login_password") || d.HasChange("admin_password") {
+		config := buildAdminConfigFromResourceData(d)
 
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_admin").Msg("Updating admin configuration")
+		logger.Debug().Str("resource", "rtx_admin").Msg("Updating admin configuration")
 
-	err := apiClient.client.UpdateAdminConfig(ctx, config)
-	if err != nil {
-		return diag.Errorf("Failed to update admin configuration: %v", err)
+		err := apiClient.client.ConfigureAdmin(ctx, config)
+		if err != nil {
+			return diag.Errorf("Failed to update admin configuration: %v", err)
+		}
+
+		// Record the timestamp of successful password update
+		if err := d.Set("last_updated", time.Now().Format(time.RFC3339)); err != nil {
+			return diag.Errorf("Failed to set last_updated: %v", err)
+		}
 	}
 
 	return nil
 }
 
 func resourceRTXAdminDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	apiClient := meta.(*apiClient)
+	// Note: RTX password removal also requires interactive commands.
+	// To remove passwords on RTX, use the console:
+	//   administrator password    (then press Enter without entering a password)
+	//   login password            (then press Enter without entering a password)
+	//
+	// This delete only removes the state record, not the actual router passwords.
 
-	logging.FromContext(ctx).Debug().Str("resource", "rtx_admin").Msg("Deleting admin configuration")
-
-	err := apiClient.client.ResetAdmin(ctx)
-	if err != nil {
-		return diag.Errorf("Failed to reset admin configuration: %v", err)
-	}
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_admin").Msg("Deleting admin configuration (state record only - RTX password commands are interactive)")
 
 	return nil
 }
@@ -127,17 +141,9 @@ func resourceRTXAdminImport(ctx context.Context, d *schema.ResourceData, meta in
 	return []*schema.ResourceData{d}, nil
 }
 
-// buildAdminConfigFromResourceData creates an AdminConfig from Terraform resource data
 func buildAdminConfigFromResourceData(d *schema.ResourceData) client.AdminConfig {
-	config := client.AdminConfig{}
-
-	if v, ok := d.GetOk("login_password"); ok {
-		config.LoginPassword = v.(string)
+	return client.AdminConfig{
+		LoginPassword: d.Get("login_password").(string),
+		AdminPassword: d.Get("admin_password").(string),
 	}
-
-	if v, ok := d.GetOk("admin_password"); ok {
-		config.AdminPassword = v.(string)
-	}
-
-	return config
 }

@@ -50,12 +50,7 @@ func resourceRTXPPPoE() *schema.Resource {
 				Required:    true,
 				Description: "PPPoE authentication username.",
 			},
-			"password": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Sensitive:   true,
-				Description: "PPPoE authentication password. This value is sensitive and will not be displayed in logs.",
-			},
+			"password": WriteOnlyRequiredStringSchema("PPPoE authentication password"),
 			"service_name": {
 				Type:        schema.TypeString,
 				Optional:    true,

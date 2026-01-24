@@ -51,12 +51,7 @@ func resourceRTXIPsecTunnel() *schema.Resource {
 				Optional:    true,
 				Description: "Remote endpoint IP address or hostname (for dynamic DNS).",
 			},
-			"pre_shared_key": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Sensitive:   true,
-				Description: "Pre-shared key for IKE authentication.",
-			},
+			"pre_shared_key": WriteOnlyStringSchema("Pre-shared key for IKE authentication"),
 			"local_network": {
 				Type:        schema.TypeString,
 				Optional:    true,
