@@ -85,7 +85,6 @@ func newWorkingSession(client *ssh.Client) (*workingSession, error) {
 		return nil, fmt.Errorf("failed to get initial prompt: %w", err)
 	}
 	logger.Debug().Int("bytes", len(initialOutput)).Msg("Got initial output")
-	logger.Debug().Str("content", string(initialOutput)).Msg("Initial output content")
 
 	// NOTE: We intentionally do NOT set "console character en.ascii" here.
 	// Setting it would cause state drift for rtx_system.console.character
@@ -386,7 +385,6 @@ func (s *workingSession) exitAdminMode() error {
 	}
 
 	responseStr := string(response)
-	logger.Debug().Str("response", responseStr).Msg("Exit response")
 
 	// Check if we got a configuration save confirmation prompt
 	if s.isSaveConfigurationPrompt(responseStr) {
@@ -399,12 +397,11 @@ func (s *workingSession) exitAdminMode() error {
 		}
 
 		// Read final response after save confirmation
-		finalResponse, err := s.readUntilPrompt(3 * time.Second)
+		_, err := s.readUntilPrompt(3 * time.Second)
 		if err != nil {
-			logger.Warn().Err(err).Msg("Error reading final response")
+			logger.Warn().Err(err).Msg("Error reading final response after save")
 			return err
 		}
-		logger.Debug().Str("response", string(finalResponse)).Msg("Final exit response")
 	}
 
 	return nil
