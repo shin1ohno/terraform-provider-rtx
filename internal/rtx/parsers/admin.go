@@ -155,12 +155,20 @@ func parseUserAttributeString(attrStr string) UserAttributes {
 		GUIPages:   []string{},
 	}
 
+	// Track if administrator was explicitly set
+	administratorFound := false
+
 	// Parse key=value pairs
 	parts := strings.Fields(attrStr)
 	for _, part := range parts {
 		if strings.HasPrefix(part, "administrator=") {
+			administratorFound = true
 			value := strings.TrimPrefix(part, "administrator=")
-			isAdmin := value == "on"
+			// "on", "1", "2" all mean administrator is enabled
+			// "off" means disabled
+			// "2" = password-less elevation (some models)
+			// "1" = password required for elevation (some models)
+			isAdmin := value == "on" || value == "1" || value == "2"
 			attrs.Administrator = &isAdmin
 		} else if strings.HasPrefix(part, "connection=") {
 			value := strings.TrimPrefix(part, "connection=")
@@ -180,6 +188,16 @@ func parseUserAttributeString(attrStr string) UserAttributes {
 				attrs.LoginTimer = &timer
 			}
 		}
+	}
+
+	// If administrator was not explicitly set in the output, apply default value.
+	// RTX routers don't output default values in "show config".
+	// Default is "on" for RTX1210, RTX1220, RTX830, RTX5000, RTX3500, vRX series
+	// Default is "1" for other models (which also means enabled)
+	// So the default is always "enabled" (true)
+	if !administratorFound {
+		defaultAdmin := true
+		attrs.Administrator = &defaultAdmin
 	}
 
 	return attrs

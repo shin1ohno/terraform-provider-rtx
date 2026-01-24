@@ -232,7 +232,7 @@ user attribute shin1ohno connection=serial,telnet,remote,ssh,sftp,http gui-page=
 						Password:  "$1$shin1pass",
 						Encrypted: true,
 						Attributes: UserAttributes{
-							Administrator: nil, // Not specified in attribute string
+							Administrator: boolPtr(true), // Default value when not specified
 							Connection:    []string{"serial", "telnet", "remote", "ssh", "sftp", "http"},
 							GUIPages:      []string{"dashboard", "lan-map", "config"},
 							LoginTimer:    intPtr(3600),
@@ -256,7 +256,7 @@ user attribute timeout0 connection=ssh login-timer=0
 						Password:  "$1$pass0",
 						Encrypted: true,
 						Attributes: UserAttributes{
-							Administrator: nil, // Not specified in attribute string
+							Administrator: boolPtr(true), // Default value when not specified
 							Connection:    []string{"ssh"},
 							GUIPages:      []string{},
 							LoginTimer:    intPtr(0),
@@ -934,7 +934,7 @@ func TestParseUserAttributeString(t *testing.T) {
 			name:    "login-timer only",
 			attrStr: "login-timer=3600",
 			expected: UserAttributes{
-				Administrator: nil,
+				Administrator: boolPtr(true), // Default value when not specified
 				Connection:    []string{},
 				GUIPages:      []string{},
 				LoginTimer:    intPtr(3600),
@@ -944,7 +944,7 @@ func TestParseUserAttributeString(t *testing.T) {
 			name:    "gui-page only",
 			attrStr: "gui-page=dashboard,lan-map,config",
 			expected: UserAttributes{
-				Administrator: nil,
+				Administrator: boolPtr(true), // Default value when not specified
 				Connection:    []string{},
 				GUIPages:      []string{"dashboard", "lan-map", "config"},
 				LoginTimer:    nil,
