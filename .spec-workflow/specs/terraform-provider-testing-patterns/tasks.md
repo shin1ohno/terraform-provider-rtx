@@ -12,7 +12,7 @@
   - _Requirements: 5, 7_
   - _Prompt: Implement the task for spec terraform-provider-testing-patterns, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Test Infrastructure Developer | Task: Create acctest package with PreCheck, RandomName, and provider factory functions as specified in design.md | Restrictions: Do not import production code unnecessarily, follow existing test patterns, ensure PreCheck verifies RTX_HOST and RTX_USER env vars | Success: Package compiles, PreCheck correctly identifies missing prerequisites, RandomName generates unique prefixed names | Instructions: Mark task as [-] in tasks.md when starting, use log-implementation tool after completion with detailed artifacts, then mark as [x] when done_
 
-- [ ] 2. Create reusable check functions
+- [x] 2. Create reusable check functions
   - File: `internal/provider/acctest/checks.go`
   - Implement CheckResourceAttrNotEmpty for non-empty attribute verification
   - Implement CheckNoPlannedChanges wrapper for SDK v2
@@ -22,7 +22,7 @@
   - _Requirements: 1, 3, 6_
   - _Prompt: Implement the task for spec terraform-provider-testing-patterns, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Test Developer | Task: Create reusable check functions in acctest/checks.go for common test assertions | Restrictions: Follow terraform-plugin-sdk patterns, return proper TestCheckFunc signatures, handle edge cases gracefully | Success: All check functions compile, work with resource.TestCase, provide clear failure messages | Instructions: Mark task as [-] in tasks.md when starting, use log-implementation tool after completion with detailed artifacts, then mark as [x] when done_
 
-- [ ] 3. Create test step builders
+- [x] 3. Create test step builders
   - File: `internal/provider/acctest/steps.go`
   - Implement BasicCreateStep for standard resource creation
   - Implement UpdateStep for update testing
@@ -57,7 +57,7 @@
 
 ## Phase 3: Unit Tests for Test Infrastructure
 
-- [ ] 6. Add unit tests for acctest package
+- [-] 6. Add unit tests for acctest package
   - File: `internal/provider/acctest/acctest_test.go`
   - Test RandomName generates unique names
   - Test ConfigBuilder produces valid HCL
@@ -69,7 +69,7 @@
 
 ## Phase 4: Reference Implementation Tests
 
-- [ ] 7. Create rtx_admin_user perpetual diff test
+- [-] 7. Create rtx_admin_user perpetual diff test
   - File: `internal/provider/resource_rtx_admin_user_test.go`
   - Implement TestAccAdminUser_noDiff following Pattern 1 from design
   - Verify no changes on re-apply of same config
@@ -78,7 +78,7 @@
   - _Requirements: 1_
   - _Prompt: Implement the task for spec terraform-provider-testing-patterns, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Terraform Provider Test Developer | Task: Create perpetual diff prevention test for rtx_admin_user resource | Restrictions: Use acctest helpers, require TF_ACC flag, clean up test resources | Success: Test passes when resource produces no diff on re-apply, fails if perpetual diff exists | Instructions: Mark task as [-] in tasks.md when starting, use log-implementation tool after completion with detailed artifacts, then mark as [x] when done_
 
-- [ ] 8. Create rtx_admin_user import test
+- [-] 8. Create rtx_admin_user import test
   - File: `internal/provider/resource_rtx_admin_user_test.go`
   - Implement TestAccAdminUser_import following Pattern 2 from design
   - Verify import populates all expected attributes
@@ -88,7 +88,7 @@
   - _Requirements: 3_
   - _Prompt: Implement the task for spec terraform-provider-testing-patterns, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Terraform Provider Test Developer | Task: Create import test for rtx_admin_user resource | Restrictions: Use ImportStep helper, ignore password field in verification, clean up resources | Success: Test passes when import correctly populates state, fails if import is broken | Instructions: Mark task as [-] in tasks.md when starting, use log-implementation tool after completion with detailed artifacts, then mark as [x] when done_
 
-- [ ] 9. Create rtx_admin_user Optional+Computed preservation test
+- [-] 9. Create rtx_admin_user Optional+Computed preservation test
   - File: `internal/provider/resource_rtx_admin_user_test.go`
   - Implement TestAccAdminUser_preserveAdministrator following Pattern 4 from design
   - Verify administrator field preserved when not specified in update
@@ -97,7 +97,7 @@
   - _Requirements: 2_
   - _Prompt: Implement the task for spec terraform-provider-testing-patterns, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Terraform Provider Test Developer | Task: Create Optional+Computed preservation test for administrator field | Restrictions: Test both setting and removing the field from config, verify state values | Success: Test passes when administrator is preserved, fails if reset to default | Instructions: Mark task as [-] in tasks.md when starting, use log-implementation tool after completion with detailed artifacts, then mark as [x] when done_
 
-- [ ] 10. Create WriteOnly attribute test for password
+- [-] 10. Create WriteOnly attribute test for password
   - File: `internal/provider/resource_rtx_admin_user_test.go`
   - Implement TestAccAdminUser_passwordHandling following Pattern 5 from design
   - Verify password is applied but not readable from state
@@ -108,7 +108,7 @@
 
 ## Phase 5: Documentation and Expansion
 
-- [ ] 11. Create test pattern documentation
+- [x] 11. Create test pattern documentation
   - File: `docs/testing-patterns.md`
   - Document all test patterns with examples
   - Include decision tree for choosing test types
@@ -118,7 +118,7 @@
   - _Requirements: 5, 7_
   - _Prompt: Implement the task for spec terraform-provider-testing-patterns, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Technical Writer | Task: Create comprehensive testing patterns documentation | Restrictions: Use clear examples, reference actual code, keep it practical | Success: Documentation helps developers write tests correctly, covers all patterns | Instructions: Mark task as [-] in tasks.md when starting, use log-implementation tool after completion with detailed artifacts, then mark as [x] when done_
 
-- [ ] 12. Add tests to rtx_admin resource
+- [-] 12. Add tests to rtx_admin resource
   - File: `internal/provider/resource_rtx_admin_test.go`
   - Apply all test patterns from Phase 4 to rtx_admin
   - Adapt patterns to resource-specific attributes
@@ -127,7 +127,7 @@
   - _Requirements: 1, 2, 3_
   - _Prompt: Implement the task for spec terraform-provider-testing-patterns, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Terraform Provider Test Developer | Task: Apply all test patterns to rtx_admin resource | Restrictions: Follow established patterns, adapt to resource specifics, maintain consistency | Success: rtx_admin has comprehensive test coverage matching rtx_admin_user | Instructions: Mark task as [-] in tasks.md when starting, use log-implementation tool after completion with detailed artifacts, then mark as [x] when done_
 
-- [ ] 13. Audit and add tests to remaining resources
+- [-] 13. Audit and add tests to remaining resources
   - Files: All `internal/provider/resource_*_test.go`
   - Identify resources lacking test coverage
   - Apply test patterns to each resource
