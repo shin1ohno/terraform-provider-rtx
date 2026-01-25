@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/sh1/terraform-provider-rtx/internal/logging"
@@ -145,6 +144,18 @@ func resourceRTXAccessListIPv6DynamicRead(ctx context.Context, d *schema.Resourc
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ipv6_dynamic").Msgf("Reading dynamic IPv6 access list: %s", name)
 
+	// Get current sequences from state to filter results
+	// This prevents other access lists' filters from leaking into this resource's state
+	currentSeqs := make(map[int]bool)
+	if currentEntries, ok := d.GetOk("entry"); ok {
+		for _, e := range currentEntries.([]interface{}) {
+			entry := e.(map[string]interface{})
+			if seq, ok := entry["sequence"].(int); ok && seq > 0 {
+				currentSeqs[seq] = true
+			}
+		}
+	}
+
 	acl, err := apiClient.client.GetAccessListIPv6Dynamic(ctx, name)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
@@ -159,6 +170,13 @@ func resourceRTXAccessListIPv6DynamicRead(ctx context.Context, d *schema.Resourc
 
 	entries := make([]map[string]interface{}, 0, len(acl.Entries))
 	for _, entry := range acl.Entries {
+		// Only include sequences that are already in state
+		// This prevents filters from other access lists from appearing here
+		// After import (no entries in state), this returns empty - terraform config defines entries
+		if !currentSeqs[entry.Sequence] {
+			continue
+		}
+
 		e := map[string]interface{}{
 			"sequence":    entry.Sequence,
 			"source":      entry.Source,
@@ -222,31 +240,19 @@ func resourceRTXAccessListIPv6DynamicDelete(ctx context.Context, d *schema.Resou
 }
 
 func resourceRTXAccessListIPv6DynamicImport(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
-	apiClient := meta.(*apiClient)
 	name := d.Id()
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ipv6_dynamic").Msgf("Importing dynamic IPv6 access list: %s", name)
 
-	acl, err := apiClient.client.GetAccessListIPv6Dynamic(ctx, name)
-	if err != nil {
-		return nil, fmt.Errorf("failed to import dynamic IPv6 access list %s: %v", name, err)
-	}
-
+	// Import only sets the name - entries are intentionally NOT imported.
+	// This is because RTX doesn't track which filters belong to which "named list".
+	// The Terraform configuration defines which entries belong to this access list.
+	// After import, run `terraform apply` to bind the configured entries to this resource.
 	d.SetId(name)
-	d.Set("name", acl.Name)
+	d.Set("name", name)
 
-	entries := make([]map[string]interface{}, 0, len(acl.Entries))
-	for _, entry := range acl.Entries {
-		e := map[string]interface{}{
-			"sequence":    entry.Sequence,
-			"source":      entry.Source,
-			"destination": entry.Destination,
-			"protocol":    entry.Protocol,
-			"syslog":      entry.Syslog,
-		}
-		entries = append(entries, e)
-	}
-	d.Set("entry", entries)
+	// Don't set entries - let Terraform config define them
+	// This prevents filters from other access lists from being incorrectly imported
 
 	return []*schema.ResourceData{d}, nil
 }
