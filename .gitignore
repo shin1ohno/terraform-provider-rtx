@@ -74,3 +74,6 @@ audit.log
 
 # Local import testing
 examples/import/
+
+# RTX command reference (external documentation)
+docs/RTX-commands/
