@@ -120,10 +120,12 @@ func TestIPv6InterfaceService_Configure(t *testing.T) {
 					MFlag:    true,
 					Lifetime: 1800,
 				},
-				DHCPv6Service:   "server",
-				MTU:             1500,
-				SecureFilterIn:  []int{1, 2},
-				SecureFilterOut: []int{10, 20},
+				DHCPv6Service:            "server",
+				MTU:                      1500,
+				AccessListIPv6In:         "ipv6-in-acl",
+				AccessListIPv6Out:        "ipv6-out-acl",
+				AccessListIPv6DynamicIn:  "ipv6-dynamic-in",
+				AccessListIPv6DynamicOut: "ipv6-dynamic-out",
 			},
 			setupMock: func(m *mockIPv6InterfaceExecutor) {
 				m.output = []byte("")
@@ -489,6 +491,7 @@ func TestIPv6InterfaceService_Reset(t *testing.T) {
 			}
 
 			// Check that all delete commands were issued
+			// Note: Parser still generates 6 commands including filter cleanup for backward compatibility
 			expectedCmdCount := 6 // address, rtadv, dhcp, mtu, filter in, filter out
 			if len(mock.cmdLog) != expectedCmdCount {
 				t.Errorf("expected %d commands, got %d", expectedCmdCount, len(mock.cmdLog))

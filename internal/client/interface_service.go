@@ -72,31 +72,8 @@ func (s *InterfaceService) Configure(ctx context.Context, config InterfaceConfig
 		}
 	}
 
-	// Configure inbound security filter
-	if len(config.SecureFilterIn) > 0 {
-		filterCmd := parsers.BuildSecureFilterInCommand(config.Name, config.SecureFilterIn)
-		logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Setting inbound filter with command: %s", filterCmd)
-		output, err := s.executor.Run(ctx, filterCmd)
-		if err != nil {
-			return fmt.Errorf("failed to set inbound filter: %w", err)
-		}
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("inbound filter command failed: %s", string(output))
-		}
-	}
-
-	// Configure outbound security filter (with optional dynamic filters)
-	if len(config.SecureFilterOut) > 0 {
-		filterCmd := parsers.BuildSecureFilterOutCommand(config.Name, config.SecureFilterOut, config.DynamicFilterOut)
-		logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Setting outbound filter with command: %s", filterCmd)
-		output, err := s.executor.Run(ctx, filterCmd)
-		if err != nil {
-			return fmt.Errorf("failed to set outbound filter: %w", err)
-		}
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("outbound filter command failed: %s", string(output))
-		}
-	}
+	// Note: Access list bindings are managed by separate ACL resources
+	// (rtx_interface_acl, rtx_interface_mac_acl)
 
 	// Configure NAT descriptor
 	if config.NATDescriptor > 0 {
@@ -134,32 +111,6 @@ func (s *InterfaceService) Configure(ctx context.Context, config InterfaceConfig
 		}
 		if len(output) > 0 && containsError(string(output)) {
 			return fmt.Errorf("MTU command failed: %s", string(output))
-		}
-	}
-
-	// Configure inbound Ethernet filter
-	if len(config.EthernetFilterIn) > 0 {
-		ethFilterCmd := parsers.BuildInterfaceEthernetFilterCommand(config.Name, "in", config.EthernetFilterIn)
-		logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Setting inbound ethernet filter with command: %s", ethFilterCmd)
-		output, err := s.executor.Run(ctx, ethFilterCmd)
-		if err != nil {
-			return fmt.Errorf("failed to set inbound ethernet filter: %w", err)
-		}
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("inbound ethernet filter command failed: %s", string(output))
-		}
-	}
-
-	// Configure outbound Ethernet filter
-	if len(config.EthernetFilterOut) > 0 {
-		ethFilterCmd := parsers.BuildInterfaceEthernetFilterCommand(config.Name, "out", config.EthernetFilterOut)
-		logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Setting outbound ethernet filter with command: %s", ethFilterCmd)
-		output, err := s.executor.Run(ctx, ethFilterCmd)
-		if err != nil {
-			return fmt.Errorf("failed to set outbound ethernet filter: %w", err)
-		}
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("outbound ethernet filter command failed: %s", string(output))
 		}
 	}
 
@@ -274,50 +225,8 @@ func (s *InterfaceService) Update(ctx context.Context, config InterfaceConfig) e
 		}
 	}
 
-	// Update inbound security filter if changed
-	if !intSliceEqual(currentConfig.SecureFilterIn, config.SecureFilterIn) {
-		// Remove old filter
-		if len(currentConfig.SecureFilterIn) > 0 {
-			deleteCmd := parsers.BuildDeleteSecureFilterCommand(config.Name, "in")
-			logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Removing old inbound filter with command: %s", deleteCmd)
-			_, _ = s.executor.Run(ctx, deleteCmd)
-		}
-		// Set new filter
-		if len(config.SecureFilterIn) > 0 {
-			filterCmd := parsers.BuildSecureFilterInCommand(config.Name, config.SecureFilterIn)
-			logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Setting inbound filter with command: %s", filterCmd)
-			output, err := s.executor.Run(ctx, filterCmd)
-			if err != nil {
-				return fmt.Errorf("failed to set inbound filter: %w", err)
-			}
-			if len(output) > 0 && containsError(string(output)) {
-				return fmt.Errorf("inbound filter command failed: %s", string(output))
-			}
-		}
-	}
-
-	// Update outbound security filter if changed
-	if !intSliceEqual(currentConfig.SecureFilterOut, config.SecureFilterOut) ||
-		!intSliceEqual(currentConfig.DynamicFilterOut, config.DynamicFilterOut) {
-		// Remove old filter
-		if len(currentConfig.SecureFilterOut) > 0 {
-			deleteCmd := parsers.BuildDeleteSecureFilterCommand(config.Name, "out")
-			logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Removing old outbound filter with command: %s", deleteCmd)
-			_, _ = s.executor.Run(ctx, deleteCmd)
-		}
-		// Set new filter
-		if len(config.SecureFilterOut) > 0 {
-			filterCmd := parsers.BuildSecureFilterOutCommand(config.Name, config.SecureFilterOut, config.DynamicFilterOut)
-			logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Setting outbound filter with command: %s", filterCmd)
-			output, err := s.executor.Run(ctx, filterCmd)
-			if err != nil {
-				return fmt.Errorf("failed to set outbound filter: %w", err)
-			}
-			if len(output) > 0 && containsError(string(output)) {
-				return fmt.Errorf("outbound filter command failed: %s", string(output))
-			}
-		}
-	}
+	// Note: Access list bindings are managed by separate ACL resources
+	// (rtx_interface_acl, rtx_interface_mac_acl)
 
 	// Update NAT descriptor if changed
 	if currentConfig.NATDescriptor != config.NATDescriptor {
@@ -372,50 +281,6 @@ func (s *InterfaceService) Update(ctx context.Context, config InterfaceConfig) e
 		}
 	}
 
-	// Update inbound Ethernet filter if changed
-	if !intSliceEqual(currentConfig.EthernetFilterIn, config.EthernetFilterIn) {
-		// Remove old filter
-		if len(currentConfig.EthernetFilterIn) > 0 {
-			deleteCmd := parsers.BuildDeleteInterfaceEthernetFilterCommand(config.Name, "in")
-			logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Removing old inbound ethernet filter with command: %s", deleteCmd)
-			_, _ = s.executor.Run(ctx, deleteCmd)
-		}
-		// Set new filter
-		if len(config.EthernetFilterIn) > 0 {
-			ethFilterCmd := parsers.BuildInterfaceEthernetFilterCommand(config.Name, "in", config.EthernetFilterIn)
-			logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Setting inbound ethernet filter with command: %s", ethFilterCmd)
-			output, err := s.executor.Run(ctx, ethFilterCmd)
-			if err != nil {
-				return fmt.Errorf("failed to set inbound ethernet filter: %w", err)
-			}
-			if len(output) > 0 && containsError(string(output)) {
-				return fmt.Errorf("inbound ethernet filter command failed: %s", string(output))
-			}
-		}
-	}
-
-	// Update outbound Ethernet filter if changed
-	if !intSliceEqual(currentConfig.EthernetFilterOut, config.EthernetFilterOut) {
-		// Remove old filter
-		if len(currentConfig.EthernetFilterOut) > 0 {
-			deleteCmd := parsers.BuildDeleteInterfaceEthernetFilterCommand(config.Name, "out")
-			logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Removing old outbound ethernet filter with command: %s", deleteCmd)
-			_, _ = s.executor.Run(ctx, deleteCmd)
-		}
-		// Set new filter
-		if len(config.EthernetFilterOut) > 0 {
-			ethFilterCmd := parsers.BuildInterfaceEthernetFilterCommand(config.Name, "out", config.EthernetFilterOut)
-			logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Setting outbound ethernet filter with command: %s", ethFilterCmd)
-			output, err := s.executor.Run(ctx, ethFilterCmd)
-			if err != nil {
-				return fmt.Errorf("failed to set outbound ethernet filter: %w", err)
-			}
-			if len(output) > 0 && containsError(string(output)) {
-				return fmt.Errorf("outbound ethernet filter command failed: %s", string(output))
-			}
-		}
-	}
-
 	// Save configuration
 	if s.client != nil {
 		if err := s.client.SaveConfig(ctx); err != nil {
@@ -450,15 +315,8 @@ func (s *InterfaceService) Reset(ctx context.Context, interfaceName string) erro
 	logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Removing description with command: %s", descCmd)
 	_, _ = s.executor.Run(ctx, descCmd)
 
-	// Remove inbound security filter
-	filterInCmd := parsers.BuildDeleteSecureFilterCommand(interfaceName, "in")
-	logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Removing inbound filter with command: %s", filterInCmd)
-	_, _ = s.executor.Run(ctx, filterInCmd)
-
-	// Remove outbound security filter
-	filterOutCmd := parsers.BuildDeleteSecureFilterCommand(interfaceName, "out")
-	logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Removing outbound filter with command: %s", filterOutCmd)
-	_, _ = s.executor.Run(ctx, filterOutCmd)
+	// Note: Access list bindings are managed by separate ACL resources
+	// (rtx_interface_acl, rtx_interface_mac_acl)
 
 	// Remove NAT descriptor
 	natCmd := parsers.BuildDeleteNATDescriptorCommand(interfaceName)
@@ -474,16 +332,6 @@ func (s *InterfaceService) Reset(ctx context.Context, interfaceName string) erro
 	mtuCmd := parsers.BuildDeleteMTUCommand(interfaceName)
 	logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Removing MTU with command: %s", mtuCmd)
 	_, _ = s.executor.Run(ctx, mtuCmd)
-
-	// Remove inbound Ethernet filter
-	ethFilterInCmd := parsers.BuildDeleteInterfaceEthernetFilterCommand(interfaceName, "in")
-	logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Removing inbound ethernet filter with command: %s", ethFilterInCmd)
-	_, _ = s.executor.Run(ctx, ethFilterInCmd)
-
-	// Remove outbound Ethernet filter
-	ethFilterOutCmd := parsers.BuildDeleteInterfaceEthernetFilterCommand(interfaceName, "out")
-	logging.FromContext(ctx).Debug().Str("service", "interface").Msgf("Removing outbound ethernet filter with command: %s", ethFilterOutCmd)
-	_, _ = s.executor.Run(ctx, ethFilterOutCmd)
 
 	// Save configuration
 	if s.client != nil {
@@ -509,8 +357,6 @@ func (s *InterfaceService) List(ctx context.Context) ([]InterfaceConfig, error) 
 		}
 		// Only include interfaces with actual configuration
 		if config.IPAddress != nil || config.Description != "" ||
-			len(config.SecureFilterIn) > 0 || len(config.SecureFilterOut) > 0 ||
-			len(config.EthernetFilterIn) > 0 || len(config.EthernetFilterOut) > 0 ||
 			config.NATDescriptor > 0 || config.ProxyARP || config.MTU > 0 {
 			configs = append(configs, *config)
 		}
@@ -522,16 +368,12 @@ func (s *InterfaceService) List(ctx context.Context) ([]InterfaceConfig, error) 
 // toParserConfig converts client.InterfaceConfig to parsers.InterfaceConfig
 func (s *InterfaceService) toParserConfig(config InterfaceConfig) parsers.InterfaceConfig {
 	parserConfig := parsers.InterfaceConfig{
-		Name:              config.Name,
-		Description:       config.Description,
-		SecureFilterIn:    config.SecureFilterIn,
-		SecureFilterOut:   config.SecureFilterOut,
-		DynamicFilterOut:  config.DynamicFilterOut,
-		EthernetFilterIn:  config.EthernetFilterIn,
-		EthernetFilterOut: config.EthernetFilterOut,
-		NATDescriptor:     config.NATDescriptor,
-		ProxyARP:          config.ProxyARP,
-		MTU:               config.MTU,
+		Name:          config.Name,
+		Description:   config.Description,
+		NATDescriptor: config.NATDescriptor,
+		ProxyARP:      config.ProxyARP,
+		MTU:           config.MTU,
+		// Note: Access list fields are managed by separate ACL resources
 	}
 
 	if config.IPAddress != nil {
@@ -547,16 +389,12 @@ func (s *InterfaceService) toParserConfig(config InterfaceConfig) parsers.Interf
 // fromParserConfig converts parsers.InterfaceConfig to client.InterfaceConfig
 func (s *InterfaceService) fromParserConfig(pc parsers.InterfaceConfig) InterfaceConfig {
 	config := InterfaceConfig{
-		Name:              pc.Name,
-		Description:       pc.Description,
-		SecureFilterIn:    pc.SecureFilterIn,
-		SecureFilterOut:   pc.SecureFilterOut,
-		DynamicFilterOut:  pc.DynamicFilterOut,
-		EthernetFilterIn:  pc.EthernetFilterIn,
-		EthernetFilterOut: pc.EthernetFilterOut,
-		NATDescriptor:     pc.NATDescriptor,
-		ProxyARP:          pc.ProxyARP,
-		MTU:               pc.MTU,
+		Name:          pc.Name,
+		Description:   pc.Description,
+		NATDescriptor: pc.NATDescriptor,
+		ProxyARP:      pc.ProxyARP,
+		MTU:           pc.MTU,
+		// Note: Access list fields are managed by separate ACL resources
 	}
 
 	if pc.IPAddress != nil {
@@ -578,17 +416,4 @@ func (s *InterfaceService) ipAddressChanged(old, new *InterfaceIP) bool {
 		return true
 	}
 	return old.Address != new.Address || old.DHCP != new.DHCP
-}
-
-// intSliceEqual compares two integer slices for equality
-func intSliceEqual(a, b []int) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }

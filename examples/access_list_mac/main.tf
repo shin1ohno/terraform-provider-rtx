@@ -114,10 +114,12 @@ resource "rtx_access_list_mac" "vlan_filter" {
   }
 }
 
-# Apply MAC access list to interface
-resource "rtx_interface_mac_acl" "lan1_filter" {
-  interface           = "lan1"
-  mac_access_group_in = rtx_access_list_mac.allow_known_devices.name
+# Apply MAC access list to interface using rtx_interface
+resource "rtx_interface" "lan1" {
+  name = "lan1"
+
+  # Reference the MAC access list by name
+  access_list_mac_in = rtx_access_list_mac.allow_known_devices.name
 }
 
 variable "rtx_host" {

@@ -18,7 +18,14 @@ func TestResourceRTXInterface_Schema(t *testing.T) {
 	}
 
 	// Test optional fields
-	optionalFields := []string{"description", "ip_address", "secure_filter_in", "secure_filter_out", "dynamic_filter_out", "nat_descriptor", "proxyarp", "mtu", "ethernet_filter_in", "ethernet_filter_out"}
+	optionalFields := []string{
+		"description", "ip_address", "nat_descriptor", "proxyarp", "mtu",
+		"access_list_ip_in", "access_list_ip_out",
+		"access_list_ipv6_in", "access_list_ipv6_out",
+		"access_list_ip_dynamic_in", "access_list_ip_dynamic_out",
+		"access_list_ipv6_dynamic_in", "access_list_ipv6_dynamic_out",
+		"access_list_mac_in", "access_list_mac_out",
+	}
 	for _, field := range optionalFields {
 		if resource.Schema[field].Optional != true {
 			t.Errorf("%s should be optional", field)
@@ -130,11 +137,11 @@ func TestBuildInterfaceConfigFromResourceData(t *testing.T) {
 				"dhcp":    true,
 			},
 		},
-		"secure_filter_in":  []interface{}{200020, 200021, 200099},
-		"secure_filter_out": []interface{}{200020, 200021, 200099},
-		"nat_descriptor":    1000,
-		"proxyarp":          false,
-		"mtu":               0,
+		"access_list_ip_in":  "wan-in-acl",
+		"access_list_ip_out": "wan-out-acl",
+		"nat_descriptor":     1000,
+		"proxyarp":           false,
+		"mtu":                0,
 	})
 
 	config := buildInterfaceConfigFromResourceData(d)
@@ -152,50 +159,71 @@ func TestBuildInterfaceConfigFromResourceData(t *testing.T) {
 			t.Error("IPAddress.DHCP should be true")
 		}
 	}
-	if len(config.SecureFilterIn) != 3 {
-		t.Errorf("SecureFilterIn length = %d, want 3", len(config.SecureFilterIn))
+	if config.AccessListIPIn != "wan-in-acl" {
+		t.Errorf("AccessListIPIn = %q, want %q", config.AccessListIPIn, "wan-in-acl")
+	}
+	if config.AccessListIPOut != "wan-out-acl" {
+		t.Errorf("AccessListIPOut = %q, want %q", config.AccessListIPOut, "wan-out-acl")
 	}
 	if config.NATDescriptor != 1000 {
 		t.Errorf("NATDescriptor = %d, want 1000", config.NATDescriptor)
 	}
 }
 
-func TestBuildInterfaceConfigFromResourceData_EthernetFilter(t *testing.T) {
-	// Create a mock ResourceData with ethernet filters
+func TestBuildInterfaceConfigFromResourceData_AccessLists(t *testing.T) {
+	// Create a mock ResourceData with access list attributes
 	resource := resourceRTXInterface()
 	d := schema.TestResourceDataRaw(t, resource.Schema, map[string]interface{}{
-		"name":                "lan1",
-		"ethernet_filter_in":  []interface{}{1, 10, 100},
-		"ethernet_filter_out": []interface{}{2, 20, 200},
+		"name":                         "lan1",
+		"access_list_ip_in":            "ip-in-acl",
+		"access_list_ip_out":           "ip-out-acl",
+		"access_list_ipv6_in":          "ipv6-in-acl",
+		"access_list_ipv6_out":         "ipv6-out-acl",
+		"access_list_ip_dynamic_in":    "ip-dyn-in-acl",
+		"access_list_ip_dynamic_out":   "ip-dyn-out-acl",
+		"access_list_ipv6_dynamic_in":  "ipv6-dyn-in-acl",
+		"access_list_ipv6_dynamic_out": "ipv6-dyn-out-acl",
+		"access_list_mac_in":           "mac-in-acl",
+		"access_list_mac_out":          "mac-out-acl",
 	})
 
 	config := buildInterfaceConfigFromResourceData(d)
 
-	// Verify ethernet_filter_in
-	if len(config.EthernetFilterIn) != 3 {
-		t.Errorf("EthernetFilterIn length = %d, want 3", len(config.EthernetFilterIn))
+	// Verify access list attributes
+	if config.AccessListIPIn != "ip-in-acl" {
+		t.Errorf("AccessListIPIn = %q, want %q", config.AccessListIPIn, "ip-in-acl")
 	}
-	expectedIn := []int{1, 10, 100}
-	for i, v := range expectedIn {
-		if config.EthernetFilterIn[i] != v {
-			t.Errorf("EthernetFilterIn[%d] = %d, want %d", i, config.EthernetFilterIn[i], v)
-		}
+	if config.AccessListIPOut != "ip-out-acl" {
+		t.Errorf("AccessListIPOut = %q, want %q", config.AccessListIPOut, "ip-out-acl")
 	}
-
-	// Verify ethernet_filter_out
-	if len(config.EthernetFilterOut) != 3 {
-		t.Errorf("EthernetFilterOut length = %d, want 3", len(config.EthernetFilterOut))
+	if config.AccessListIPv6In != "ipv6-in-acl" {
+		t.Errorf("AccessListIPv6In = %q, want %q", config.AccessListIPv6In, "ipv6-in-acl")
 	}
-	expectedOut := []int{2, 20, 200}
-	for i, v := range expectedOut {
-		if config.EthernetFilterOut[i] != v {
-			t.Errorf("EthernetFilterOut[%d] = %d, want %d", i, config.EthernetFilterOut[i], v)
-		}
+	if config.AccessListIPv6Out != "ipv6-out-acl" {
+		t.Errorf("AccessListIPv6Out = %q, want %q", config.AccessListIPv6Out, "ipv6-out-acl")
+	}
+	if config.AccessListIPDynamicIn != "ip-dyn-in-acl" {
+		t.Errorf("AccessListIPDynamicIn = %q, want %q", config.AccessListIPDynamicIn, "ip-dyn-in-acl")
+	}
+	if config.AccessListIPDynamicOut != "ip-dyn-out-acl" {
+		t.Errorf("AccessListIPDynamicOut = %q, want %q", config.AccessListIPDynamicOut, "ip-dyn-out-acl")
+	}
+	if config.AccessListIPv6DynamicIn != "ipv6-dyn-in-acl" {
+		t.Errorf("AccessListIPv6DynamicIn = %q, want %q", config.AccessListIPv6DynamicIn, "ipv6-dyn-in-acl")
+	}
+	if config.AccessListIPv6DynamicOut != "ipv6-dyn-out-acl" {
+		t.Errorf("AccessListIPv6DynamicOut = %q, want %q", config.AccessListIPv6DynamicOut, "ipv6-dyn-out-acl")
+	}
+	if config.AccessListMACIn != "mac-in-acl" {
+		t.Errorf("AccessListMACIn = %q, want %q", config.AccessListMACIn, "mac-in-acl")
+	}
+	if config.AccessListMACOut != "mac-out-acl" {
+		t.Errorf("AccessListMACOut = %q, want %q", config.AccessListMACOut, "mac-out-acl")
 	}
 }
 
-func TestBuildInterfaceConfigFromResourceData_EthernetFilterEmpty(t *testing.T) {
-	// Create a mock ResourceData without ethernet filters
+func TestBuildInterfaceConfigFromResourceData_AccessListsEmpty(t *testing.T) {
+	// Create a mock ResourceData without access list attributes
 	resource := resourceRTXInterface()
 	d := schema.TestResourceDataRaw(t, resource.Schema, map[string]interface{}{
 		"name": "lan1",
@@ -203,140 +231,81 @@ func TestBuildInterfaceConfigFromResourceData_EthernetFilterEmpty(t *testing.T) 
 
 	config := buildInterfaceConfigFromResourceData(d)
 
-	// Verify ethernet filters are nil when not set
-	if config.EthernetFilterIn != nil {
-		t.Errorf("EthernetFilterIn should be nil, got %v", config.EthernetFilterIn)
+	// Verify access list attributes are empty when not set
+	if config.AccessListIPIn != "" {
+		t.Errorf("AccessListIPIn should be empty, got %q", config.AccessListIPIn)
 	}
-	if config.EthernetFilterOut != nil {
-		t.Errorf("EthernetFilterOut should be nil, got %v", config.EthernetFilterOut)
+	if config.AccessListIPOut != "" {
+		t.Errorf("AccessListIPOut should be empty, got %q", config.AccessListIPOut)
+	}
+	if config.AccessListMACIn != "" {
+		t.Errorf("AccessListMACIn should be empty, got %q", config.AccessListMACIn)
+	}
+	if config.AccessListMACOut != "" {
+		t.Errorf("AccessListMACOut should be empty, got %q", config.AccessListMACOut)
 	}
 }
 
-func TestEthernetFilterSchemaValidation(t *testing.T) {
+func TestAccessListSchemaTypes(t *testing.T) {
 	resource := resourceRTXInterface()
 
-	// Get the validation function from the schema
-	ethernetFilterInSchema := resource.Schema["ethernet_filter_in"]
-	if ethernetFilterInSchema.Type != schema.TypeList {
-		t.Error("ethernet_filter_in should be TypeList")
+	accessListFields := []string{
+		"access_list_ip_in", "access_list_ip_out",
+		"access_list_ipv6_in", "access_list_ipv6_out",
+		"access_list_ip_dynamic_in", "access_list_ip_dynamic_out",
+		"access_list_ipv6_dynamic_in", "access_list_ipv6_dynamic_out",
+		"access_list_mac_in", "access_list_mac_out",
 	}
 
-	elemSchema, ok := ethernetFilterInSchema.Elem.(*schema.Schema)
-	if !ok {
-		t.Fatal("ethernet_filter_in Elem should be *schema.Schema")
-	}
-
-	if elemSchema.ValidateFunc == nil {
-		t.Fatal("ethernet_filter_in element should have ValidateFunc")
-	}
-
-	// Test validation with valid values
-	validValues := []int{1, 256, 512}
-	for _, v := range validValues {
-		_, errors := elemSchema.ValidateFunc(v, "test")
-		if len(errors) > 0 {
-			t.Errorf("ValidateFunc(%d) should pass, got errors: %v", v, errors)
+	for _, field := range accessListFields {
+		s := resource.Schema[field]
+		if s.Type != schema.TypeString {
+			t.Errorf("%s should be TypeString, got %v", field, s.Type)
 		}
-	}
-
-	// Test validation with invalid values
-	invalidValues := []int{0, -1, 513, 1000}
-	for _, v := range invalidValues {
-		_, errors := elemSchema.ValidateFunc(v, "test")
-		if len(errors) == 0 {
-			t.Errorf("ValidateFunc(%d) should fail, but passed", v)
-		}
-	}
-
-	// Verify ethernet_filter_out has the same validation
-	ethernetFilterOutSchema := resource.Schema["ethernet_filter_out"]
-	outElemSchema, ok := ethernetFilterOutSchema.Elem.(*schema.Schema)
-	if !ok {
-		t.Fatal("ethernet_filter_out Elem should be *schema.Schema")
-	}
-
-	if outElemSchema.ValidateFunc == nil {
-		t.Fatal("ethernet_filter_out element should have ValidateFunc")
-	}
-
-	// Test outbound filter validation
-	for _, v := range validValues {
-		_, errors := outElemSchema.ValidateFunc(v, "test")
-		if len(errors) > 0 {
-			t.Errorf("ethernet_filter_out ValidateFunc(%d) should pass, got errors: %v", v, errors)
-		}
-	}
-	for _, v := range invalidValues {
-		_, errors := outElemSchema.ValidateFunc(v, "test")
-		if len(errors) == 0 {
-			t.Errorf("ethernet_filter_out ValidateFunc(%d) should fail, but passed", v)
+		if !s.Optional {
+			t.Errorf("%s should be optional", field)
 		}
 	}
 }
 
-func TestFlattenInterfaceConfigToResourceData_EthernetFilter(t *testing.T) {
+func TestFlattenInterfaceConfigToResourceData_AccessLists(t *testing.T) {
 	resource := resourceRTXInterface()
 	d := schema.TestResourceDataRaw(t, resource.Schema, map[string]interface{}{
 		"name": "lan1",
 	})
 
-	// Simulate setting ethernet filters from config (as done in resourceRTXInterfaceRead)
-	ethernetFilterIn := []int{1, 50, 512}
-	ethernetFilterOut := []int{10, 100, 500}
-
-	if err := d.Set("ethernet_filter_in", ethernetFilterIn); err != nil {
-		t.Fatalf("Failed to set ethernet_filter_in: %v", err)
+	// Simulate setting access list attributes from config (as done in resourceRTXInterfaceRead)
+	if err := d.Set("access_list_ip_in", "test-acl-in"); err != nil {
+		t.Fatalf("Failed to set access_list_ip_in: %v", err)
 	}
-	if err := d.Set("ethernet_filter_out", ethernetFilterOut); err != nil {
-		t.Fatalf("Failed to set ethernet_filter_out: %v", err)
+	if err := d.Set("access_list_ip_out", "test-acl-out"); err != nil {
+		t.Fatalf("Failed to set access_list_ip_out: %v", err)
+	}
+	if err := d.Set("access_list_mac_in", "mac-acl-in"); err != nil {
+		t.Fatalf("Failed to set access_list_mac_in: %v", err)
+	}
+	if err := d.Set("access_list_mac_out", "mac-acl-out"); err != nil {
+		t.Fatalf("Failed to set access_list_mac_out: %v", err)
 	}
 
 	// Verify the values are correctly set and retrievable
-	gotIn := d.Get("ethernet_filter_in").([]interface{})
-	if len(gotIn) != 3 {
-		t.Errorf("ethernet_filter_in length = %d, want 3", len(gotIn))
-	}
-	for i, expected := range ethernetFilterIn {
-		if gotIn[i].(int) != expected {
-			t.Errorf("ethernet_filter_in[%d] = %d, want %d", i, gotIn[i], expected)
-		}
+	gotIPIn := d.Get("access_list_ip_in").(string)
+	if gotIPIn != "test-acl-in" {
+		t.Errorf("access_list_ip_in = %q, want %q", gotIPIn, "test-acl-in")
 	}
 
-	gotOut := d.Get("ethernet_filter_out").([]interface{})
-	if len(gotOut) != 3 {
-		t.Errorf("ethernet_filter_out length = %d, want 3", len(gotOut))
-	}
-	for i, expected := range ethernetFilterOut {
-		if gotOut[i].(int) != expected {
-			t.Errorf("ethernet_filter_out[%d] = %d, want %d", i, gotOut[i], expected)
-		}
-	}
-}
-
-func TestFlattenInterfaceConfigToResourceData_EthernetFilterEmpty(t *testing.T) {
-	resource := resourceRTXInterface()
-	d := schema.TestResourceDataRaw(t, resource.Schema, map[string]interface{}{
-		"name": "lan1",
-	})
-
-	// Simulate setting empty/nil ethernet filters (as done in resourceRTXInterfaceRead)
-	var emptyFilters []int
-
-	if err := d.Set("ethernet_filter_in", emptyFilters); err != nil {
-		t.Fatalf("Failed to set ethernet_filter_in: %v", err)
-	}
-	if err := d.Set("ethernet_filter_out", emptyFilters); err != nil {
-		t.Fatalf("Failed to set ethernet_filter_out: %v", err)
+	gotIPOut := d.Get("access_list_ip_out").(string)
+	if gotIPOut != "test-acl-out" {
+		t.Errorf("access_list_ip_out = %q, want %q", gotIPOut, "test-acl-out")
 	}
 
-	// Verify empty filters are handled correctly
-	gotIn := d.Get("ethernet_filter_in").([]interface{})
-	if len(gotIn) != 0 {
-		t.Errorf("ethernet_filter_in should be empty, got %v", gotIn)
+	gotMACIn := d.Get("access_list_mac_in").(string)
+	if gotMACIn != "mac-acl-in" {
+		t.Errorf("access_list_mac_in = %q, want %q", gotMACIn, "mac-acl-in")
 	}
 
-	gotOut := d.Get("ethernet_filter_out").([]interface{})
-	if len(gotOut) != 0 {
-		t.Errorf("ethernet_filter_out should be empty, got %v", gotOut)
+	gotMACOut := d.Get("access_list_mac_out").(string)
+	if gotMACOut != "mac-acl-out" {
+		t.Errorf("access_list_mac_out = %q, want %q", gotMACOut, "mac-acl-out")
 	}
 }

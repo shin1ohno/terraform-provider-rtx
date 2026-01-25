@@ -923,6 +923,48 @@ func (m *MockClientForRoutes) ListAccessListsMAC(ctx context.Context) ([]client.
 	return nil, fmt.Errorf("not implemented")
 }
 
+// Access List IP Dynamic
+func (m *MockClientForRoutes) GetAccessListIPDynamic(ctx context.Context, name string) (*client.AccessListIPDynamic, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) CreateAccessListIPDynamic(ctx context.Context, acl client.AccessListIPDynamic) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateAccessListIPDynamic(ctx context.Context, acl client.AccessListIPDynamic) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) DeleteAccessListIPDynamic(ctx context.Context, name string, filterNums []int) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) ListAccessListsIPDynamic(ctx context.Context) ([]client.AccessListIPDynamic, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+// Access List IPv6 Dynamic
+func (m *MockClientForRoutes) GetAccessListIPv6Dynamic(ctx context.Context, name string) (*client.AccessListIPv6Dynamic, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) CreateAccessListIPv6Dynamic(ctx context.Context, acl client.AccessListIPv6Dynamic) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) UpdateAccessListIPv6Dynamic(ctx context.Context, acl client.AccessListIPv6Dynamic) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) DeleteAccessListIPv6Dynamic(ctx context.Context, name string, filterNums []int) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForRoutes) ListAccessListsIPv6Dynamic(ctx context.Context) ([]client.AccessListIPv6Dynamic, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 // Interface MAC ACL
 func (m *MockClientForRoutes) GetInterfaceMACACL(ctx context.Context, iface string) (*client.InterfaceMACACL, error) {
 	return nil, fmt.Errorf("not implemented")

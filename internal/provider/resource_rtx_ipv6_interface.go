@@ -117,32 +117,25 @@ func resourceRTXIPv6Interface() *schema.Resource {
 				Description:  "IPv6 MTU size (minimum 1280 for IPv6). Set to 0 to use the default MTU.",
 				ValidateFunc: validation.IntBetween(0, 65535),
 			},
-			"secure_filter_in": {
-				Type:        schema.TypeList,
+			"access_list_ipv6_in": {
+				Type:        schema.TypeString,
 				Optional:    true,
-				Description: "Inbound IPv6 security filter numbers. Order matters - first match wins.",
-				Elem: &schema.Schema{
-					Type:         schema.TypeInt,
-					ValidateFunc: validation.IntAtLeast(1),
-				},
+				Description: "Inbound IPv6 access list name",
 			},
-			"secure_filter_out": {
-				Type:        schema.TypeList,
+			"access_list_ipv6_out": {
+				Type:        schema.TypeString,
 				Optional:    true,
-				Description: "Outbound IPv6 security filter numbers. Order matters - first match wins.",
-				Elem: &schema.Schema{
-					Type:         schema.TypeInt,
-					ValidateFunc: validation.IntAtLeast(1),
-				},
+				Description: "Outbound IPv6 access list name",
 			},
-			"dynamic_filter_out": {
-				Type:        schema.TypeList,
+			"access_list_ipv6_dynamic_in": {
+				Type:        schema.TypeString,
 				Optional:    true,
-				Description: "Dynamic filter numbers for outbound stateful inspection.",
-				Elem: &schema.Schema{
-					Type:         schema.TypeInt,
-					ValidateFunc: validation.IntAtLeast(1),
-				},
+				Description: "Inbound dynamic IPv6 access list name",
+			},
+			"access_list_ipv6_dynamic_out": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "Outbound dynamic IPv6 access list name",
 			},
 		},
 	}
@@ -259,13 +252,16 @@ func resourceRTXIPv6InterfaceRead(ctx context.Context, d *schema.ResourceData, m
 	if err := d.Set("mtu", config.MTU); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set("secure_filter_in", config.SecureFilterIn); err != nil {
+	if err := d.Set("access_list_ipv6_in", config.AccessListIPv6In); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set("secure_filter_out", config.SecureFilterOut); err != nil {
+	if err := d.Set("access_list_ipv6_out", config.AccessListIPv6Out); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set("dynamic_filter_out", config.DynamicFilterOut); err != nil {
+	if err := d.Set("access_list_ipv6_dynamic_in", config.AccessListIPv6DynamicIn); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("access_list_ipv6_dynamic_out", config.AccessListIPv6DynamicOut); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -358,9 +354,10 @@ func resourceRTXIPv6InterfaceImport(ctx context.Context, d *schema.ResourceData,
 
 	d.Set("dhcpv6_service", config.DHCPv6Service)
 	d.Set("mtu", config.MTU)
-	d.Set("secure_filter_in", config.SecureFilterIn)
-	d.Set("secure_filter_out", config.SecureFilterOut)
-	d.Set("dynamic_filter_out", config.DynamicFilterOut)
+	d.Set("access_list_ipv6_in", config.AccessListIPv6In)
+	d.Set("access_list_ipv6_out", config.AccessListIPv6Out)
+	d.Set("access_list_ipv6_dynamic_in", config.AccessListIPv6DynamicIn)
+	d.Set("access_list_ipv6_dynamic_out", config.AccessListIPv6DynamicOut)
 
 	return []*schema.ResourceData{d}, nil
 }
@@ -368,9 +365,13 @@ func resourceRTXIPv6InterfaceImport(ctx context.Context, d *schema.ResourceData,
 // buildIPv6InterfaceConfigFromResourceData creates an IPv6InterfaceConfig from Terraform resource data
 func buildIPv6InterfaceConfigFromResourceData(d *schema.ResourceData) client.IPv6InterfaceConfig {
 	config := client.IPv6InterfaceConfig{
-		Interface:     d.Get("interface").(string),
-		DHCPv6Service: d.Get("dhcpv6_service").(string),
-		MTU:           d.Get("mtu").(int),
+		Interface:                d.Get("interface").(string),
+		DHCPv6Service:            d.Get("dhcpv6_service").(string),
+		MTU:                      d.Get("mtu").(int),
+		AccessListIPv6In:         d.Get("access_list_ipv6_in").(string),
+		AccessListIPv6Out:        d.Get("access_list_ipv6_out").(string),
+		AccessListIPv6DynamicIn:  d.Get("access_list_ipv6_dynamic_in").(string),
+		AccessListIPv6DynamicOut: d.Get("access_list_ipv6_dynamic_out").(string),
 	}
 
 	// Handle address blocks
@@ -400,36 +401,6 @@ func buildIPv6InterfaceConfigFromResourceData(d *schema.ResourceData) client.IPv
 				Lifetime: rtadvMap["lifetime"].(int),
 			}
 		}
-	}
-
-	// Handle secure_filter_in
-	if v, ok := d.GetOk("secure_filter_in"); ok {
-		filtersList := v.([]interface{})
-		filters := make([]int, len(filtersList))
-		for i, f := range filtersList {
-			filters[i] = f.(int)
-		}
-		config.SecureFilterIn = filters
-	}
-
-	// Handle secure_filter_out
-	if v, ok := d.GetOk("secure_filter_out"); ok {
-		filtersList := v.([]interface{})
-		filters := make([]int, len(filtersList))
-		for i, f := range filtersList {
-			filters[i] = f.(int)
-		}
-		config.SecureFilterOut = filters
-	}
-
-	// Handle dynamic_filter_out
-	if v, ok := d.GetOk("dynamic_filter_out"); ok {
-		filtersList := v.([]interface{})
-		filters := make([]int, len(filtersList))
-		for i, f := range filtersList {
-			filters[i] = f.(int)
-		}
-		config.DynamicFilterOut = filters
 	}
 
 	return config
@@ -503,12 +474,11 @@ func validateDHCPv6Service(v interface{}, k string) ([]string, []error) {
 // convertParsedIPv6InterfaceConfig converts a parser IPv6InterfaceConfig to a client IPv6InterfaceConfig
 func convertParsedIPv6InterfaceConfig(parsed *parsers.IPv6InterfaceConfig) *client.IPv6InterfaceConfig {
 	config := &client.IPv6InterfaceConfig{
-		Interface:        parsed.Interface,
-		DHCPv6Service:    parsed.DHCPv6Service,
-		MTU:              parsed.MTU,
-		SecureFilterIn:   parsed.SecureFilterIn,
-		SecureFilterOut:  parsed.SecureFilterOut,
-		DynamicFilterOut: parsed.DynamicFilterOut,
+		Interface:     parsed.Interface,
+		DHCPv6Service: parsed.DHCPv6Service,
+		MTU:           parsed.MTU,
+		// Access list fields are populated from separate ACL resources
+		// and are not parsed from the interface config directly
 	}
 
 	// Convert addresses

@@ -105,31 +105,8 @@ func (s *IPv6InterfaceService) Configure(ctx context.Context, config IPv6Interfa
 		}
 	}
 
-	// Configure inbound security filter
-	if len(config.SecureFilterIn) > 0 {
-		filterCmd := parsers.BuildIPv6SecureFilterInCommand(config.Interface, config.SecureFilterIn)
-		logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Setting IPv6 inbound filter with command: %s", filterCmd)
-		output, err := s.executor.Run(ctx, filterCmd)
-		if err != nil {
-			return fmt.Errorf("failed to set IPv6 inbound filter: %w", err)
-		}
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("IPv6 inbound filter command failed: %s", string(output))
-		}
-	}
-
-	// Configure outbound security filter (with optional dynamic filters)
-	if len(config.SecureFilterOut) > 0 {
-		filterCmd := parsers.BuildIPv6SecureFilterOutCommand(config.Interface, config.SecureFilterOut, config.DynamicFilterOut)
-		logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Setting IPv6 outbound filter with command: %s", filterCmd)
-		output, err := s.executor.Run(ctx, filterCmd)
-		if err != nil {
-			return fmt.Errorf("failed to set IPv6 outbound filter: %w", err)
-		}
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("IPv6 outbound filter command failed: %s", string(output))
-		}
-	}
+	// Note: Access list bindings (access_list_ipv6_in, access_list_ipv6_out, etc.)
+	// are managed by separate ACL resources and not configured here
 
 	// Save configuration
 	if s.client != nil {
@@ -298,46 +275,8 @@ func (s *IPv6InterfaceService) Update(ctx context.Context, config IPv6InterfaceC
 		}
 	}
 
-	// Update inbound security filter
-	if !intSliceEqual(currentConfig.SecureFilterIn, config.SecureFilterIn) {
-		if len(currentConfig.SecureFilterIn) > 0 {
-			deleteCmd := parsers.BuildDeleteIPv6SecureFilterCommand(config.Interface, "in")
-			logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Removing old IPv6 inbound filter with command: %s", deleteCmd)
-			_, _ = s.executor.Run(ctx, deleteCmd)
-		}
-		if len(config.SecureFilterIn) > 0 {
-			filterCmd := parsers.BuildIPv6SecureFilterInCommand(config.Interface, config.SecureFilterIn)
-			logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Setting IPv6 inbound filter with command: %s", filterCmd)
-			output, err := s.executor.Run(ctx, filterCmd)
-			if err != nil {
-				return fmt.Errorf("failed to set IPv6 inbound filter: %w", err)
-			}
-			if len(output) > 0 && containsError(string(output)) {
-				return fmt.Errorf("IPv6 inbound filter command failed: %s", string(output))
-			}
-		}
-	}
-
-	// Update outbound security filter
-	if !intSliceEqual(currentConfig.SecureFilterOut, config.SecureFilterOut) ||
-		!intSliceEqual(currentConfig.DynamicFilterOut, config.DynamicFilterOut) {
-		if len(currentConfig.SecureFilterOut) > 0 {
-			deleteCmd := parsers.BuildDeleteIPv6SecureFilterCommand(config.Interface, "out")
-			logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Removing old IPv6 outbound filter with command: %s", deleteCmd)
-			_, _ = s.executor.Run(ctx, deleteCmd)
-		}
-		if len(config.SecureFilterOut) > 0 {
-			filterCmd := parsers.BuildIPv6SecureFilterOutCommand(config.Interface, config.SecureFilterOut, config.DynamicFilterOut)
-			logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Setting IPv6 outbound filter with command: %s", filterCmd)
-			output, err := s.executor.Run(ctx, filterCmd)
-			if err != nil {
-				return fmt.Errorf("failed to set IPv6 outbound filter: %w", err)
-			}
-			if len(output) > 0 && containsError(string(output)) {
-				return fmt.Errorf("IPv6 outbound filter command failed: %s", string(output))
-			}
-		}
-	}
+	// Note: Access list bindings (access_list_ipv6_in, access_list_ipv6_out, etc.)
+	// are managed by separate ACL resources and not configured here
 
 	// Save configuration
 	if s.client != nil {
@@ -394,8 +333,7 @@ func (s *IPv6InterfaceService) List(ctx context.Context) ([]IPv6InterfaceConfig,
 		}
 		// Only include interfaces with actual IPv6 configuration
 		if len(config.Addresses) > 0 || config.RTADV != nil ||
-			config.DHCPv6Service != "" || config.MTU > 0 ||
-			len(config.SecureFilterIn) > 0 || len(config.SecureFilterOut) > 0 {
+			config.DHCPv6Service != "" || config.MTU > 0 {
 			configs = append(configs, *config)
 		}
 	}
@@ -406,12 +344,11 @@ func (s *IPv6InterfaceService) List(ctx context.Context) ([]IPv6InterfaceConfig,
 // toParserConfig converts client.IPv6InterfaceConfig to parsers.IPv6InterfaceConfig
 func (s *IPv6InterfaceService) toParserConfig(config IPv6InterfaceConfig) parsers.IPv6InterfaceConfig {
 	parserConfig := parsers.IPv6InterfaceConfig{
-		Interface:        config.Interface,
-		DHCPv6Service:    config.DHCPv6Service,
-		MTU:              config.MTU,
-		SecureFilterIn:   config.SecureFilterIn,
-		SecureFilterOut:  config.SecureFilterOut,
-		DynamicFilterOut: config.DynamicFilterOut,
+		Interface:     config.Interface,
+		DHCPv6Service: config.DHCPv6Service,
+		MTU:           config.MTU,
+		// Note: Access list bindings are managed by separate ACL resources
+		// and are not included in the parser config
 	}
 
 	// Convert addresses
@@ -440,12 +377,11 @@ func (s *IPv6InterfaceService) toParserConfig(config IPv6InterfaceConfig) parser
 // fromParserConfig converts parsers.IPv6InterfaceConfig to client.IPv6InterfaceConfig
 func (s *IPv6InterfaceService) fromParserConfig(pc parsers.IPv6InterfaceConfig) IPv6InterfaceConfig {
 	config := IPv6InterfaceConfig{
-		Interface:        pc.Interface,
-		DHCPv6Service:    pc.DHCPv6Service,
-		MTU:              pc.MTU,
-		SecureFilterIn:   pc.SecureFilterIn,
-		SecureFilterOut:  pc.SecureFilterOut,
-		DynamicFilterOut: pc.DynamicFilterOut,
+		Interface:     pc.Interface,
+		DHCPv6Service: pc.DHCPv6Service,
+		MTU:           pc.MTU,
+		// Note: Access list bindings are managed by separate ACL resources
+		// and are not populated from the parser config
 	}
 
 	// Convert addresses

@@ -1,4 +1,4 @@
-# WAN interface with DHCP and security filters
+# WAN interface with DHCP and access list bindings
 resource "rtx_interface" "wan" {
   name        = "lan2"
   description = "WAN connection"
@@ -7,9 +7,10 @@ resource "rtx_interface" "wan" {
     dhcp = true
   }
 
-  secure_filter_in  = [200020, 200021, 200099]
-  secure_filter_out = [200020, 200021, 200099]
-  nat_descriptor    = 1000
+  # Access list bindings (reference rtx_access_list_ip resources by name)
+  access_list_ip_in  = "wan-secure-in"
+  access_list_ip_out = "wan-secure-out"
+  nat_descriptor     = 1000
 }
 
 # LAN interface with static IP

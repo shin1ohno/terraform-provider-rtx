@@ -30,12 +30,10 @@ resource "rtx_interface" "wan" {
     dhcp = true
   }
 
-  # Security filters for inbound traffic
-  secure_filter_in = [200020, 200021, 200022, 200023, 200024, 200025, 200103, 200100, 200102, 200104, 200101, 200105, 200099]
-
-  # Security filters for outbound traffic with dynamic (stateful) filters
-  secure_filter_out  = [200020, 200021, 200022, 200023, 200024, 200025, 200026, 200027, 200099]
-  dynamic_filter_out = [200080, 200081, 200082, 200083, 200084, 200085]
+  # Access list bindings (reference rtx_access_list_ip and rtx_access_list_ip_dynamic resources by name)
+  access_list_ip_in          = "wan-secure-in"
+  access_list_ip_out         = "wan-secure-out"
+  access_list_ip_dynamic_out = "wan-stateful-out"
 
   # NAT descriptor binding
   nat_descriptor = 1000

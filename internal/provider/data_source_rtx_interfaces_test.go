@@ -924,6 +924,48 @@ func (m *MockClientForInterfaces) ListAccessListsMAC(ctx context.Context) ([]cli
 	return nil, fmt.Errorf("not implemented")
 }
 
+// Access List IP Dynamic
+func (m *MockClientForInterfaces) GetAccessListIPDynamic(ctx context.Context, name string) (*client.AccessListIPDynamic, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForInterfaces) CreateAccessListIPDynamic(ctx context.Context, acl client.AccessListIPDynamic) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForInterfaces) UpdateAccessListIPDynamic(ctx context.Context, acl client.AccessListIPDynamic) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForInterfaces) DeleteAccessListIPDynamic(ctx context.Context, name string, filterNums []int) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForInterfaces) ListAccessListsIPDynamic(ctx context.Context) ([]client.AccessListIPDynamic, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+// Access List IPv6 Dynamic
+func (m *MockClientForInterfaces) GetAccessListIPv6Dynamic(ctx context.Context, name string) (*client.AccessListIPv6Dynamic, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForInterfaces) CreateAccessListIPv6Dynamic(ctx context.Context, acl client.AccessListIPv6Dynamic) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForInterfaces) UpdateAccessListIPv6Dynamic(ctx context.Context, acl client.AccessListIPv6Dynamic) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForInterfaces) DeleteAccessListIPv6Dynamic(ctx context.Context, name string, filterNums []int) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClientForInterfaces) ListAccessListsIPv6Dynamic(ctx context.Context) ([]client.AccessListIPv6Dynamic, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 // Interface MAC ACL
 func (m *MockClientForInterfaces) GetInterfaceMACACL(ctx context.Context, iface string) (*client.InterfaceMACACL, error) {
 	return nil, fmt.Errorf("not implemented")

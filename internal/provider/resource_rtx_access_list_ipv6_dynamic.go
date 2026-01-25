@@ -1,0 +1,275 @@
+package provider
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	"github.com/sh1/terraform-provider-rtx/internal/logging"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+
+	"github.com/sh1/terraform-provider-rtx/internal/client"
+)
+
+// resourceRTXAccessListIPv6Dynamic returns the schema for the rtx_access_list_ipv6_dynamic resource
+func resourceRTXAccessListIPv6Dynamic() *schema.Resource {
+	return &schema.Resource{
+		Description: `Manages a named collection of IPv6 dynamic (stateful) filters on RTX routers.
+
+Dynamic filters provide stateful packet inspection for various protocols. This resource groups
+multiple dynamic IPv6 filter entries under a single name for easier management and reference.
+
+Note: Unlike IPv4 dynamic filters, IPv6 dynamic filters do NOT support the timeout attribute.
+
+` + "```" + `hcl
+resource "rtx_access_list_ipv6_dynamic" "outbound_stateful" {
+  name = "outbound-stateful-ipv6"
+
+  entry {
+    sequence    = 100
+    source      = "*"
+    destination = "*"
+    protocol    = "www"
+    syslog      = true
+  }
+
+  entry {
+    sequence    = 101
+    source      = "*"
+    destination = "*"
+    protocol    = "ftp"
+  }
+
+  entry {
+    sequence    = 102
+    source      = "*"
+    destination = "*"
+    protocol    = "dns"
+  }
+}
+` + "```" + `
+`,
+		CreateContext: resourceRTXAccessListIPv6DynamicCreate,
+		ReadContext:   resourceRTXAccessListIPv6DynamicRead,
+		UpdateContext: resourceRTXAccessListIPv6DynamicUpdate,
+		DeleteContext: resourceRTXAccessListIPv6DynamicDelete,
+
+		Importer: &schema.ResourceImporter{
+			StateContext: resourceRTXAccessListIPv6DynamicImport,
+		},
+
+		Schema: map[string]*schema.Schema{
+			"name": {
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
+				Description: "Access list name (identifier)",
+			},
+			"entry": {
+				Type:        schema.TypeList,
+				Required:    true,
+				Description: "List of dynamic IPv6 filter entries",
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"sequence": {
+							Type:         schema.TypeInt,
+							Required:     true,
+							Description:  "Sequence number (determines order and filter number)",
+							ValidateFunc: validation.IntAtLeast(1),
+						},
+						"source": {
+							Type:        schema.TypeString,
+							Required:    true,
+							Description: "Source IPv6 address or '*' for any. Can be an IPv6 address, network in CIDR notation, or '*'.",
+						},
+						"destination": {
+							Type:        schema.TypeString,
+							Required:    true,
+							Description: "Destination IPv6 address or '*' for any. Can be an IPv6 address, network in CIDR notation, or '*'.",
+						},
+						"protocol": {
+							Type:     schema.TypeString,
+							Required: true,
+							Description: "Protocol for stateful inspection. Valid values: ftp, www, smtp, pop3, dns, domain, " +
+								"telnet, ssh, tcp, udp, *, tftp, submission, https, imap, imaps, pop3s, smtps, ldap, ldaps, bgp, sip, " +
+								"ipsec-nat-t, ntp, snmp, rtsp, h323, pptp, l2tp, ike, esp.",
+							ValidateFunc: validation.StringInSlice([]string{
+								"ftp", "www", "smtp", "pop3", "dns", "domain", "telnet", "ssh",
+								"tcp", "udp", "*",
+								"tftp", "submission", "https", "imap", "imaps", "pop3s", "smtps",
+								"ldap", "ldaps", "bgp", "sip", "ipsec-nat-t", "ntp", "snmp",
+								"rtsp", "h323", "pptp", "l2tp", "ike", "esp",
+							}, false),
+						},
+						"syslog": {
+							Type:        schema.TypeBool,
+							Optional:    true,
+							Default:     false,
+							Description: "Enable syslog logging for this filter.",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func resourceRTXAccessListIPv6DynamicCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_access_list_ipv6_dynamic", d.Id())
+	acl := buildAccessListIPv6DynamicFromResourceData(d)
+
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ipv6_dynamic").Msgf("Creating dynamic IPv6 access list: %s", acl.Name)
+
+	err := apiClient.client.CreateAccessListIPv6Dynamic(ctx, acl)
+	if err != nil {
+		return diag.Errorf("Failed to create dynamic IPv6 access list: %v", err)
+	}
+
+	d.SetId(acl.Name)
+
+	return resourceRTXAccessListIPv6DynamicRead(ctx, d, meta)
+}
+
+func resourceRTXAccessListIPv6DynamicRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_access_list_ipv6_dynamic", d.Id())
+	name := d.Id()
+
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ipv6_dynamic").Msgf("Reading dynamic IPv6 access list: %s", name)
+
+	acl, err := apiClient.client.GetAccessListIPv6Dynamic(ctx, name)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			logging.FromContext(ctx).Warn().Str("resource", "rtx_access_list_ipv6_dynamic").Msgf("Dynamic IPv6 access list %s not found, removing from state", name)
+			d.SetId("")
+			return nil
+		}
+		return diag.Errorf("Failed to read dynamic IPv6 access list: %v", err)
+	}
+
+	d.Set("name", acl.Name)
+
+	entries := make([]map[string]interface{}, 0, len(acl.Entries))
+	for _, entry := range acl.Entries {
+		e := map[string]interface{}{
+			"sequence":    entry.Sequence,
+			"source":      entry.Source,
+			"destination": entry.Destination,
+			"protocol":    entry.Protocol,
+			"syslog":      entry.Syslog,
+		}
+		entries = append(entries, e)
+	}
+	d.Set("entry", entries)
+
+	return nil
+}
+
+func resourceRTXAccessListIPv6DynamicUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_access_list_ipv6_dynamic", d.Id())
+	acl := buildAccessListIPv6DynamicFromResourceData(d)
+
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ipv6_dynamic").Msgf("Updating dynamic IPv6 access list: %s", acl.Name)
+
+	err := apiClient.client.UpdateAccessListIPv6Dynamic(ctx, acl)
+	if err != nil {
+		return diag.Errorf("Failed to update dynamic IPv6 access list: %v", err)
+	}
+
+	return resourceRTXAccessListIPv6DynamicRead(ctx, d, meta)
+}
+
+func resourceRTXAccessListIPv6DynamicDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	apiClient := meta.(*apiClient)
+
+	// Add resource context for command logging
+	ctx = logging.WithResource(ctx, "rtx_access_list_ipv6_dynamic", d.Id())
+	name := d.Id()
+
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ipv6_dynamic").Msgf("Deleting dynamic IPv6 access list: %s", name)
+
+	// Collect filter numbers to delete
+	var filterNums []int
+	entries := d.Get("entry").([]interface{})
+	for _, e := range entries {
+		entry := e.(map[string]interface{})
+		num := entry["sequence"].(int)
+		if num > 0 {
+			filterNums = append(filterNums, num)
+		}
+	}
+
+	err := apiClient.client.DeleteAccessListIPv6Dynamic(ctx, name, filterNums)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return nil
+		}
+		return diag.Errorf("Failed to delete dynamic IPv6 access list: %v", err)
+	}
+
+	return nil
+}
+
+func resourceRTXAccessListIPv6DynamicImport(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+	apiClient := meta.(*apiClient)
+	name := d.Id()
+
+	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ipv6_dynamic").Msgf("Importing dynamic IPv6 access list: %s", name)
+
+	acl, err := apiClient.client.GetAccessListIPv6Dynamic(ctx, name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to import dynamic IPv6 access list %s: %v", name, err)
+	}
+
+	d.SetId(name)
+	d.Set("name", acl.Name)
+
+	entries := make([]map[string]interface{}, 0, len(acl.Entries))
+	for _, entry := range acl.Entries {
+		e := map[string]interface{}{
+			"sequence":    entry.Sequence,
+			"source":      entry.Source,
+			"destination": entry.Destination,
+			"protocol":    entry.Protocol,
+			"syslog":      entry.Syslog,
+		}
+		entries = append(entries, e)
+	}
+	d.Set("entry", entries)
+
+	return []*schema.ResourceData{d}, nil
+}
+
+func buildAccessListIPv6DynamicFromResourceData(d *schema.ResourceData) client.AccessListIPv6Dynamic {
+	acl := client.AccessListIPv6Dynamic{
+		Name:    d.Get("name").(string),
+		Entries: make([]client.AccessListIPv6DynamicEntry, 0),
+	}
+
+	entries := d.Get("entry").([]interface{})
+	for _, e := range entries {
+		entry := e.(map[string]interface{})
+		aclEntry := client.AccessListIPv6DynamicEntry{
+			Sequence:    entry["sequence"].(int),
+			Source:      entry["source"].(string),
+			Destination: entry["destination"].(string),
+			Protocol:    entry["protocol"].(string),
+			Syslog:      entry["syslog"].(bool),
+		}
+
+		acl.Entries = append(acl.Entries, aclEntry)
+	}
+
+	return acl
+}

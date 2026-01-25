@@ -68,33 +68,6 @@ func resourceRTXInterface() *schema.Resource {
 					},
 				},
 			},
-			"secure_filter_in": {
-				Type:        schema.TypeList,
-				Optional:    true,
-				Description: "Inbound security filter numbers. Order matters - first match wins.",
-				Elem: &schema.Schema{
-					Type:         schema.TypeInt,
-					ValidateFunc: validation.IntAtLeast(1),
-				},
-			},
-			"secure_filter_out": {
-				Type:        schema.TypeList,
-				Optional:    true,
-				Description: "Outbound security filter numbers. Order matters - first match wins.",
-				Elem: &schema.Schema{
-					Type:         schema.TypeInt,
-					ValidateFunc: validation.IntAtLeast(1),
-				},
-			},
-			"dynamic_filter_out": {
-				Type:        schema.TypeList,
-				Optional:    true,
-				Description: "Dynamic filter numbers for outbound stateful inspection.",
-				Elem: &schema.Schema{
-					Type:         schema.TypeInt,
-					ValidateFunc: validation.IntAtLeast(1),
-				},
-			},
 			"nat_descriptor": {
 				Type:         schema.TypeInt,
 				Optional:     true,
@@ -115,23 +88,55 @@ func resourceRTXInterface() *schema.Resource {
 				Description:  "Maximum Transmission Unit size. Set to 0 to use the default MTU.",
 				ValidateFunc: validation.IntBetween(0, 65535),
 			},
-			"ethernet_filter_in": {
-				Type:        schema.TypeList,
+			"access_list_ip_in": {
+				Type:        schema.TypeString,
 				Optional:    true,
-				Description: "Ethernet (L2) filter numbers to apply on inbound traffic. Order matters - first match wins.",
-				Elem: &schema.Schema{
-					Type:         schema.TypeInt,
-					ValidateFunc: validation.IntBetween(1, 512),
-				},
+				Description: "Inbound IP access list name",
 			},
-			"ethernet_filter_out": {
-				Type:        schema.TypeList,
+			"access_list_ip_out": {
+				Type:        schema.TypeString,
 				Optional:    true,
-				Description: "Ethernet (L2) filter numbers to apply on outbound traffic. Order matters - first match wins.",
-				Elem: &schema.Schema{
-					Type:         schema.TypeInt,
-					ValidateFunc: validation.IntBetween(1, 512),
-				},
+				Description: "Outbound IP access list name",
+			},
+			"access_list_ipv6_in": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "Inbound IPv6 access list name",
+			},
+			"access_list_ipv6_out": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "Outbound IPv6 access list name",
+			},
+			"access_list_ip_dynamic_in": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "Inbound dynamic IP access list name",
+			},
+			"access_list_ip_dynamic_out": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "Outbound dynamic IP access list name",
+			},
+			"access_list_ipv6_dynamic_in": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "Inbound dynamic IPv6 access list name",
+			},
+			"access_list_ipv6_dynamic_out": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "Outbound dynamic IPv6 access list name",
+			},
+			"access_list_mac_in": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "Inbound MAC access list name",
+			},
+			"access_list_mac_out": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "Outbound MAC access list name",
 			},
 		},
 	}
@@ -231,22 +236,35 @@ func resourceRTXInterfaceRead(ctx context.Context, d *schema.ResourceData, meta 
 		}
 	}
 
-	// Set security filters
-	if err := d.Set("secure_filter_in", config.SecureFilterIn); err != nil {
+	// Set access list attributes
+	if err := d.Set("access_list_ip_in", config.AccessListIPIn); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set("secure_filter_out", config.SecureFilterOut); err != nil {
+	if err := d.Set("access_list_ip_out", config.AccessListIPOut); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set("dynamic_filter_out", config.DynamicFilterOut); err != nil {
+	if err := d.Set("access_list_ipv6_in", config.AccessListIPv6In); err != nil {
 		return diag.FromErr(err)
 	}
-
-	// Set ethernet filters
-	if err := d.Set("ethernet_filter_in", config.EthernetFilterIn); err != nil {
+	if err := d.Set("access_list_ipv6_out", config.AccessListIPv6Out); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set("ethernet_filter_out", config.EthernetFilterOut); err != nil {
+	if err := d.Set("access_list_ip_dynamic_in", config.AccessListIPDynamicIn); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("access_list_ip_dynamic_out", config.AccessListIPDynamicOut); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("access_list_ipv6_dynamic_in", config.AccessListIPv6DynamicIn); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("access_list_ipv6_dynamic_out", config.AccessListIPv6DynamicOut); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("access_list_mac_in", config.AccessListMACIn); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("access_list_mac_out", config.AccessListMACOut); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -335,9 +353,16 @@ func resourceRTXInterfaceImport(ctx context.Context, d *schema.ResourceData, met
 		d.Set("ip_address", ipAddress)
 	}
 
-	d.Set("secure_filter_in", config.SecureFilterIn)
-	d.Set("secure_filter_out", config.SecureFilterOut)
-	d.Set("dynamic_filter_out", config.DynamicFilterOut)
+	d.Set("access_list_ip_in", config.AccessListIPIn)
+	d.Set("access_list_ip_out", config.AccessListIPOut)
+	d.Set("access_list_ipv6_in", config.AccessListIPv6In)
+	d.Set("access_list_ipv6_out", config.AccessListIPv6Out)
+	d.Set("access_list_ip_dynamic_in", config.AccessListIPDynamicIn)
+	d.Set("access_list_ip_dynamic_out", config.AccessListIPDynamicOut)
+	d.Set("access_list_ipv6_dynamic_in", config.AccessListIPv6DynamicIn)
+	d.Set("access_list_ipv6_dynamic_out", config.AccessListIPv6DynamicOut)
+	d.Set("access_list_mac_in", config.AccessListMACIn)
+	d.Set("access_list_mac_out", config.AccessListMACOut)
 	d.Set("nat_descriptor", config.NATDescriptor)
 	d.Set("proxyarp", config.ProxyARP)
 	d.Set("mtu", config.MTU)
@@ -348,11 +373,21 @@ func resourceRTXInterfaceImport(ctx context.Context, d *schema.ResourceData, met
 // buildInterfaceConfigFromResourceData creates an InterfaceConfig from Terraform resource data
 func buildInterfaceConfigFromResourceData(d *schema.ResourceData) client.InterfaceConfig {
 	config := client.InterfaceConfig{
-		Name:          d.Get("name").(string),
-		Description:   d.Get("description").(string),
-		NATDescriptor: d.Get("nat_descriptor").(int),
-		ProxyARP:      d.Get("proxyarp").(bool),
-		MTU:           d.Get("mtu").(int),
+		Name:                     d.Get("name").(string),
+		Description:              d.Get("description").(string),
+		NATDescriptor:            d.Get("nat_descriptor").(int),
+		ProxyARP:                 d.Get("proxyarp").(bool),
+		MTU:                      d.Get("mtu").(int),
+		AccessListIPIn:           d.Get("access_list_ip_in").(string),
+		AccessListIPOut:          d.Get("access_list_ip_out").(string),
+		AccessListIPv6In:         d.Get("access_list_ipv6_in").(string),
+		AccessListIPv6Out:        d.Get("access_list_ipv6_out").(string),
+		AccessListIPDynamicIn:    d.Get("access_list_ip_dynamic_in").(string),
+		AccessListIPDynamicOut:   d.Get("access_list_ip_dynamic_out").(string),
+		AccessListIPv6DynamicIn:  d.Get("access_list_ipv6_dynamic_in").(string),
+		AccessListIPv6DynamicOut: d.Get("access_list_ipv6_dynamic_out").(string),
+		AccessListMACIn:          d.Get("access_list_mac_in").(string),
+		AccessListMACOut:         d.Get("access_list_mac_out").(string),
 	}
 
 	// Handle ip_address block
@@ -365,56 +400,6 @@ func buildInterfaceConfigFromResourceData(d *schema.ResourceData) client.Interfa
 				DHCP:    ipMap["dhcp"].(bool),
 			}
 		}
-	}
-
-	// Handle secure_filter_in
-	if v, ok := d.GetOk("secure_filter_in"); ok {
-		filtersList := v.([]interface{})
-		filters := make([]int, len(filtersList))
-		for i, f := range filtersList {
-			filters[i] = f.(int)
-		}
-		config.SecureFilterIn = filters
-	}
-
-	// Handle secure_filter_out
-	if v, ok := d.GetOk("secure_filter_out"); ok {
-		filtersList := v.([]interface{})
-		filters := make([]int, len(filtersList))
-		for i, f := range filtersList {
-			filters[i] = f.(int)
-		}
-		config.SecureFilterOut = filters
-	}
-
-	// Handle dynamic_filter_out
-	if v, ok := d.GetOk("dynamic_filter_out"); ok {
-		filtersList := v.([]interface{})
-		filters := make([]int, len(filtersList))
-		for i, f := range filtersList {
-			filters[i] = f.(int)
-		}
-		config.DynamicFilterOut = filters
-	}
-
-	// Handle ethernet_filter_in
-	if v, ok := d.GetOk("ethernet_filter_in"); ok {
-		filtersList := v.([]interface{})
-		filters := make([]int, len(filtersList))
-		for i, f := range filtersList {
-			filters[i] = f.(int)
-		}
-		config.EthernetFilterIn = filters
-	}
-
-	// Handle ethernet_filter_out
-	if v, ok := d.GetOk("ethernet_filter_out"); ok {
-		filtersList := v.([]interface{})
-		filters := make([]int, len(filtersList))
-		for i, f := range filtersList {
-			filters[i] = f.(int)
-		}
-		config.EthernetFilterOut = filters
 	}
 
 	return config
@@ -461,16 +446,13 @@ func validateCIDROptional(v interface{}, k string) ([]string, []error) {
 // convertParsedInterfaceConfig converts a parser InterfaceConfig to a client InterfaceConfig
 func convertParsedInterfaceConfig(parsed *parsers.InterfaceConfig) *client.InterfaceConfig {
 	config := &client.InterfaceConfig{
-		Name:              parsed.Name,
-		Description:       parsed.Description,
-		SecureFilterIn:    parsed.SecureFilterIn,
-		SecureFilterOut:   parsed.SecureFilterOut,
-		DynamicFilterOut:  parsed.DynamicFilterOut,
-		EthernetFilterIn:  parsed.EthernetFilterIn,
-		EthernetFilterOut: parsed.EthernetFilterOut,
-		NATDescriptor:     parsed.NATDescriptor,
-		ProxyARP:          parsed.ProxyARP,
-		MTU:               parsed.MTU,
+		Name:          parsed.Name,
+		Description:   parsed.Description,
+		NATDescriptor: parsed.NATDescriptor,
+		ProxyARP:      parsed.ProxyARP,
+		MTU:           parsed.MTU,
+		// Access list fields are populated from separate ACL resources
+		// and are not parsed from the interface config directly
 	}
 
 	if parsed.IPAddress != nil {

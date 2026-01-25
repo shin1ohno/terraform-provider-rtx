@@ -925,6 +925,48 @@ func (m *MockClient) ListAccessListsMAC(ctx context.Context) ([]client.AccessLis
 	return nil, fmt.Errorf("not implemented")
 }
 
+// Access List IP Dynamic
+func (m *MockClient) GetAccessListIPDynamic(ctx context.Context, name string) (*client.AccessListIPDynamic, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) CreateAccessListIPDynamic(ctx context.Context, acl client.AccessListIPDynamic) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) UpdateAccessListIPDynamic(ctx context.Context, acl client.AccessListIPDynamic) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) DeleteAccessListIPDynamic(ctx context.Context, name string, filterNums []int) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) ListAccessListsIPDynamic(ctx context.Context) ([]client.AccessListIPDynamic, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+// Access List IPv6 Dynamic
+func (m *MockClient) GetAccessListIPv6Dynamic(ctx context.Context, name string) (*client.AccessListIPv6Dynamic, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) CreateAccessListIPv6Dynamic(ctx context.Context, acl client.AccessListIPv6Dynamic) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) UpdateAccessListIPv6Dynamic(ctx context.Context, acl client.AccessListIPv6Dynamic) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) DeleteAccessListIPv6Dynamic(ctx context.Context, name string, filterNums []int) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (m *MockClient) ListAccessListsIPv6Dynamic(ctx context.Context) ([]client.AccessListIPv6Dynamic, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 // Interface MAC ACL
 func (m *MockClient) GetInterfaceMACACL(ctx context.Context, iface string) (*client.InterfaceMACACL, error) {
 	return nil, fmt.Errorf("not implemented")

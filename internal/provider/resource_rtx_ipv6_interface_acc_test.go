@@ -83,20 +83,20 @@ func TestAccRTXIPv6Interface_dhcpv6Client(t *testing.T) {
 	})
 }
 
-func TestAccRTXIPv6Interface_securityFilters(t *testing.T) {
+func TestAccRTXIPv6Interface_accessLists(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
 		ProviderFactories: testAccProviderFactories,
 		CheckDestroy:      testAccCheckRTXIPv6InterfaceDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccRTXIPv6InterfaceConfig_securityFilters(),
+				Config: testAccRTXIPv6InterfaceConfig_accessLists(),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckRTXIPv6InterfaceExists("rtx_ipv6_interface.test"),
 					resource.TestCheckResourceAttr("rtx_ipv6_interface.test", "interface", "lan1"),
-					resource.TestCheckResourceAttr("rtx_ipv6_interface.test", "secure_filter_in.0", "1"),
-					resource.TestCheckResourceAttr("rtx_ipv6_interface.test", "secure_filter_in.1", "2"),
-					resource.TestCheckResourceAttr("rtx_ipv6_interface.test", "secure_filter_out.0", "10"),
+					resource.TestCheckResourceAttr("rtx_ipv6_interface.test", "access_list_ipv6_in", "ipv6-in-acl"),
+					resource.TestCheckResourceAttr("rtx_ipv6_interface.test", "access_list_ipv6_out", "ipv6-out-acl"),
+					resource.TestCheckResourceAttr("rtx_ipv6_interface.test", "access_list_ipv6_dynamic_out", "ipv6-dynamic-out-acl"),
 				),
 			},
 		},
@@ -270,7 +270,7 @@ resource "rtx_ipv6_interface" "test" {
 `
 }
 
-func testAccRTXIPv6InterfaceConfig_securityFilters() string {
+func testAccRTXIPv6InterfaceConfig_accessLists() string {
 	return `
 resource "rtx_ipv6_interface" "test" {
   interface = "lan1"
@@ -279,9 +279,9 @@ resource "rtx_ipv6_interface" "test" {
     address = "2001:db8::1/64"
   }
 
-  secure_filter_in  = [1, 2, 3]
-  secure_filter_out = [10, 20]
-  dynamic_filter_out = [100]
+  access_list_ipv6_in          = "ipv6-in-acl"
+  access_list_ipv6_out         = "ipv6-out-acl"
+  access_list_ipv6_dynamic_out = "ipv6-dynamic-out-acl"
 }
 `
 }
@@ -326,8 +326,8 @@ resource "rtx_ipv6_interface" "test" {
   dhcpv6_service = "server"
   mtu            = 1500
 
-  secure_filter_in  = [1, 2]
-  secure_filter_out = [10, 20]
+  access_list_ipv6_in  = "ipv6-in-acl"
+  access_list_ipv6_out = "ipv6-out-acl"
 }
 `
 }

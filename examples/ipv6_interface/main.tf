@@ -152,15 +152,10 @@ resource "rtx_ipv6_interface" "secured" {
     address = "2001:db8:2::1/64"
   }
 
-  # Inbound security filters (first match wins)
-  # Filter 1: Allow established connections
-  # Filter 2: Allow ICMPv6
-  # Filter 3: Deny all other
-  secure_filter_in = [1, 2, 3]
-
-  # Outbound security filters with stateful inspection
-  secure_filter_out  = [10, 20, 30]
-  dynamic_filter_out = [100, 101] # Dynamic filters for stateful inspection
+  # Access list bindings (reference rtx_access_list_ipv6 and rtx_access_list_ipv6_dynamic resources by name)
+  access_list_ipv6_in          = "ipv6-secure-in"
+  access_list_ipv6_out         = "ipv6-secure-out"
+  access_list_ipv6_dynamic_out = "ipv6-stateful-out"
 }
 
 # ============================================================
@@ -201,10 +196,10 @@ resource "rtx_ipv6_interface" "full_example" {
   # IPv6 MTU (minimum 1280)
   mtu = 1500
 
-  # Security filters
-  secure_filter_in   = [1, 2, 3, 4, 5]
-  secure_filter_out  = [10, 20, 30]
-  dynamic_filter_out = [100]
+  # Access list bindings (reference rtx_access_list_ipv6 and rtx_access_list_ipv6_dynamic resources by name)
+  access_list_ipv6_in          = "full-ipv6-in"
+  access_list_ipv6_out         = "full-ipv6-out"
+  access_list_ipv6_dynamic_out = "full-ipv6-dynamic"
 }
 
 # Output the configured interfaces

@@ -134,10 +134,12 @@ func TestBuildIPv6InterfaceConfigFromResourceData_BasicConfig(t *testing.T) {
 			OFlag:    true,
 			MFlag:    false,
 		},
-		DHCPv6Service:   "server",
-		MTU:             1500,
-		SecureFilterIn:  []int{1, 2, 3},
-		SecureFilterOut: []int{10, 20},
+		DHCPv6Service:            "server",
+		MTU:                      1500,
+		AccessListIPv6In:         "ipv6-in-acl",
+		AccessListIPv6Out:        "ipv6-out-acl",
+		AccessListIPv6DynamicIn:  "ipv6-dynamic-in",
+		AccessListIPv6DynamicOut: "ipv6-dynamic-out",
 	}
 
 	// Validate structure
@@ -178,12 +180,20 @@ func TestBuildIPv6InterfaceConfigFromResourceData_BasicConfig(t *testing.T) {
 		t.Errorf("MTU = %d, want 1500", config.MTU)
 	}
 
-	if len(config.SecureFilterIn) != 3 {
-		t.Errorf("SecureFilterIn count = %d, want 3", len(config.SecureFilterIn))
+	if config.AccessListIPv6In != "ipv6-in-acl" {
+		t.Errorf("AccessListIPv6In = %q, want %q", config.AccessListIPv6In, "ipv6-in-acl")
 	}
 
-	if len(config.SecureFilterOut) != 2 {
-		t.Errorf("SecureFilterOut count = %d, want 2", len(config.SecureFilterOut))
+	if config.AccessListIPv6Out != "ipv6-out-acl" {
+		t.Errorf("AccessListIPv6Out = %q, want %q", config.AccessListIPv6Out, "ipv6-out-acl")
+	}
+
+	if config.AccessListIPv6DynamicIn != "ipv6-dynamic-in" {
+		t.Errorf("AccessListIPv6DynamicIn = %q, want %q", config.AccessListIPv6DynamicIn, "ipv6-dynamic-in")
+	}
+
+	if config.AccessListIPv6DynamicOut != "ipv6-dynamic-out" {
+		t.Errorf("AccessListIPv6DynamicOut = %q, want %q", config.AccessListIPv6DynamicOut, "ipv6-dynamic-out")
 	}
 }
 
@@ -243,49 +253,31 @@ func TestBuildIPv6InterfaceConfigFromResourceData_MultipleAddresses(t *testing.T
 	}
 }
 
-func TestBuildIPv6InterfaceConfigFromResourceData_SecurityFilters(t *testing.T) {
-	// Test security filter configuration
+func TestBuildIPv6InterfaceConfigFromResourceData_AccessLists(t *testing.T) {
+	// Test access list configuration
 	config := client.IPv6InterfaceConfig{
-		Interface:        "lan1",
-		SecureFilterIn:   []int{1, 2, 3},
-		SecureFilterOut:  []int{10, 20, 30},
-		DynamicFilterOut: []int{100, 101},
+		Interface:                "lan1",
+		AccessListIPv6In:         "ipv6-in-acl",
+		AccessListIPv6Out:        "ipv6-out-acl",
+		AccessListIPv6DynamicIn:  "ipv6-dynamic-in-acl",
+		AccessListIPv6DynamicOut: "ipv6-dynamic-out-acl",
 	}
 
-	// Validate inbound filters
-	expectedIn := []int{1, 2, 3}
-	if len(config.SecureFilterIn) != len(expectedIn) {
-		t.Errorf("SecureFilterIn count = %d, want %d", len(config.SecureFilterIn), len(expectedIn))
-	} else {
-		for i, v := range expectedIn {
-			if config.SecureFilterIn[i] != v {
-				t.Errorf("SecureFilterIn[%d] = %d, want %d", i, config.SecureFilterIn[i], v)
-			}
-		}
+	// Validate access list names
+	if config.AccessListIPv6In != "ipv6-in-acl" {
+		t.Errorf("AccessListIPv6In = %q, want %q", config.AccessListIPv6In, "ipv6-in-acl")
 	}
 
-	// Validate outbound filters
-	expectedOut := []int{10, 20, 30}
-	if len(config.SecureFilterOut) != len(expectedOut) {
-		t.Errorf("SecureFilterOut count = %d, want %d", len(config.SecureFilterOut), len(expectedOut))
-	} else {
-		for i, v := range expectedOut {
-			if config.SecureFilterOut[i] != v {
-				t.Errorf("SecureFilterOut[%d] = %d, want %d", i, config.SecureFilterOut[i], v)
-			}
-		}
+	if config.AccessListIPv6Out != "ipv6-out-acl" {
+		t.Errorf("AccessListIPv6Out = %q, want %q", config.AccessListIPv6Out, "ipv6-out-acl")
 	}
 
-	// Validate dynamic filters
-	expectedDynamic := []int{100, 101}
-	if len(config.DynamicFilterOut) != len(expectedDynamic) {
-		t.Errorf("DynamicFilterOut count = %d, want %d", len(config.DynamicFilterOut), len(expectedDynamic))
-	} else {
-		for i, v := range expectedDynamic {
-			if config.DynamicFilterOut[i] != v {
-				t.Errorf("DynamicFilterOut[%d] = %d, want %d", i, config.DynamicFilterOut[i], v)
-			}
-		}
+	if config.AccessListIPv6DynamicIn != "ipv6-dynamic-in-acl" {
+		t.Errorf("AccessListIPv6DynamicIn = %q, want %q", config.AccessListIPv6DynamicIn, "ipv6-dynamic-in-acl")
+	}
+
+	if config.AccessListIPv6DynamicOut != "ipv6-dynamic-out-acl" {
+		t.Errorf("AccessListIPv6DynamicOut = %q, want %q", config.AccessListIPv6DynamicOut, "ipv6-dynamic-out-acl")
 	}
 }
 
