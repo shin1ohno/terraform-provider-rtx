@@ -1,0 +1,12 @@
+{
+  "id": "approval_1769326276064_2fn1iv66f",
+  "title": "Requirements: Filter Attribute Consolidation",
+  "filePath": ".spec-workflow/specs/filter-attribute-consolidation/requirements.md",
+  "type": "document",
+  "status": "rejected",
+  "createdAt": "2026-01-25T07:31:16.064Z",
+  "category": "spec",
+  "categoryName": "filter-attribute-consolidation",
+  "response": "リソースとしてはmacも含めてrtx_interface_aclに統合できませんかね？",
+  "respondedAt": "2026-01-25T07:47:22.285Z"
+}

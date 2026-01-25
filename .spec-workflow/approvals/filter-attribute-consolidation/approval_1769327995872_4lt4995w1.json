@@ -1,0 +1,12 @@
+{
+  "id": "approval_1769327995872_4lt4995w1",
+  "title": "Requirements: Filter Consolidation (Unified Access List Pattern)",
+  "filePath": ".spec-workflow/specs/filter-attribute-consolidation/requirements.md",
+  "type": "document",
+  "status": "rejected",
+  "createdAt": "2026-01-25T07:59:55.872Z",
+  "category": "spec",
+  "categoryName": "filter-attribute-consolidation",
+  "response": "古い名前・実装はドキュメントも含んで削除することを明記",
+  "respondedAt": "2026-01-25T08:06:10.194Z"
+}

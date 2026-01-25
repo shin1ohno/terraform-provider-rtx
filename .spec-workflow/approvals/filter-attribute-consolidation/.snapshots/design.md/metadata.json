@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/filter-attribute-consolidation/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-25T07:31:21.200Z",
+      "trigger": "initial",
+      "approvalId": "approval_1769326281121_tmwn7dh25",
+      "approvalTitle": "Design: Filter Attribute Consolidation"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-25T08:51:49.141Z",
+      "trigger": "approved",
+      "approvalId": "approval_1769328539062_bhdrw9ayu",
+      "approvalTitle": "Design: Filter Consolidation (Unified Access List Pattern)"
+    }
+  ]
+}

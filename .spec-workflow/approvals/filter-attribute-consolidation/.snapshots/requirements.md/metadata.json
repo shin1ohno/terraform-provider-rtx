@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/filter-attribute-consolidation/requirements.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-25T07:31:16.220Z",
+      "trigger": "initial",
+      "approvalId": "approval_1769326276064_2fn1iv66f",
+      "approvalTitle": "Requirements: Filter Attribute Consolidation"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-25T08:08:02.149Z",
+      "trigger": "approved",
+      "approvalId": "approval_1769328414385_a2djudxn7",
+      "approvalTitle": "Requirements: Filter Consolidation (with explicit deletion list)"
+    }
+  ]
+}
