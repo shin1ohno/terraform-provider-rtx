@@ -569,4 +569,3 @@ func convertParsedInterfaceConfig(parsed *parsers.InterfaceConfig) *client.Inter
 
 	return config
 }
-

@@ -568,4 +568,3 @@ func convertParsedIPv6InterfaceConfig(parsed *parsers.IPv6InterfaceConfig) *clie
 
 	return config
 }
-

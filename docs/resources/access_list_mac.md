@@ -22,8 +22,8 @@ Manages MAC address access lists on RTX routers. MAC ACLs filter traffic based o
 
 ### Optional
 
-- `apply` (Block List, Max: 1) Optional application of ethernet filters to an interface (see [below for nested schema](#nestedblock--apply))
-- `filter_id` (Number) Optional RTX filter ID to enable numeric ethernet filter mode
+- `apply` (Block List, Max: 1) Optional application of ethernet filters to an interface. Read from router configuration. (see [below for nested schema](#nestedblock--apply))
+- `filter_id` (Number) Optional RTX filter ID to enable numeric ethernet filter mode. If not specified, derived from first entry.
 
 ### Read-Only
 
