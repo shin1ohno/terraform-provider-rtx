@@ -10,63 +10,68 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/crypto/ssh"
 )
 
 // =============================================================================
-// Helper functions and mock session factory
+// Helper functions and mock connection factory
 // =============================================================================
 
-// mockSessionFactory creates a simple session factory for testing
-func mockSessionFactory() SessionFactory {
-	return func() (*PooledSSHSession, error) {
-		return &PooledSSHSession{
-			workingSession: nil, // nil is fine for tests that don't use actual SSH
-			poolID:         "mock-session",
-			lastUsed:       time.Now(),
-			useCount:       0,
-			initialized:    false,
+// mockConnectionFactory creates a simple connection factory for testing
+func mockConnectionFactory() ConnectionFactory {
+	return func() (*PooledConnection, error) {
+		return &PooledConnection{
+			client:      nil, // nil is fine for tests that don't use actual SSH
+			session:     nil,
+			adminMode:   false,
+			poolID:      "mock-conn",
+			lastUsed:    time.Now(),
+			useCount:    0,
+			initialized: false,
 		}, nil
 	}
 }
 
-// errorSessionFactory creates a session factory that always returns an error
-func errorSessionFactory(err error) SessionFactory {
-	return func() (*PooledSSHSession, error) {
+// errorConnectionFactory creates a connection factory that always returns an error
+func errorConnectionFactory(err error) ConnectionFactory {
+	return func() (*PooledConnection, error) {
 		return nil, err
 	}
 }
 
-// countingSessionFactory creates a session factory that counts creations
-func countingSessionFactory(counter *int32) SessionFactory {
-	return func() (*PooledSSHSession, error) {
+// countingConnectionFactory creates a connection factory that counts creations
+func countingConnectionFactory(counter *int32) ConnectionFactory {
+	return func() (*PooledConnection, error) {
 		atomic.AddInt32(counter, 1)
-		return &PooledSSHSession{
-			workingSession: nil,
-			poolID:         "counting-session",
-			lastUsed:       time.Now(),
-			useCount:       0,
-			initialized:    false,
+		return &PooledConnection{
+			client:      nil,
+			session:     nil,
+			adminMode:   false,
+			poolID:      "counting-conn",
+			lastUsed:    time.Now(),
+			useCount:    0,
+			initialized: false,
 		}, nil
 	}
 }
 
-// createTestPool creates a pool with mock session factory and no idle cleanup
-func createTestPool(config SSHPoolConfig) *SSHSessionPool {
-	return NewSSHSessionPoolWithOptions(
-		nil, // sshClient not needed with factory
+// createTestPool creates a pool with mock connection factory and no idle cleanup
+func createTestPool(config SSHPoolConfig) *SSHConnectionPool {
+	return NewSSHConnectionPoolWithOptions(
+		nil, // sshConfig not needed with factory
+		"",  // address not needed with factory
 		config,
-		WithSessionFactory(mockSessionFactory()),
+		WithConnectionFactory(mockConnectionFactory()),
 		WithoutIdleCleanup(),
 	)
 }
 
-// createTestPoolWithFactory creates a pool with custom session factory
-func createTestPoolWithFactory(config SSHPoolConfig, factory SessionFactory) *SSHSessionPool {
-	return NewSSHSessionPoolWithOptions(
+// createTestPoolWithFactory creates a pool with custom connection factory
+func createTestPoolWithFactory(config SSHPoolConfig, factory ConnectionFactory) *SSHConnectionPool {
+	return NewSSHConnectionPoolWithOptions(
 		nil,
+		"",
 		config,
-		WithSessionFactory(factory),
+		WithConnectionFactory(factory),
 		WithoutIdleCleanup(),
 	)
 }
@@ -83,19 +88,19 @@ func TestDefaultSSHPoolConfig(t *testing.T) {
 	assert.Equal(t, 30*time.Second, config.AcquireTimeout, "default AcquireTimeout should be 30s")
 }
 
-func TestNewSSHSessionPool_DefaultConfig(t *testing.T) {
+func TestNewSSHConnectionPool_DefaultConfig(t *testing.T) {
 	config := DefaultSSHPoolConfig()
 	pool := createTestPool(config)
 	defer pool.Close()
 
 	stats := pool.Stats()
-	assert.Equal(t, 0, stats.TotalCreated, "new pool should have 0 sessions created")
-	assert.Equal(t, 0, stats.InUse, "new pool should have 0 sessions in use")
-	assert.Equal(t, 0, stats.Available, "new pool should have 0 available sessions")
+	assert.Equal(t, 0, stats.TotalCreated, "new pool should have 0 connections created")
+	assert.Equal(t, 0, stats.InUse, "new pool should have 0 connections in use")
+	assert.Equal(t, 0, stats.Available, "new pool should have 0 available connections")
 	assert.Equal(t, config.MaxSessions, stats.MaxSessions, "MaxSessions should match config")
 }
 
-func TestNewSSHSessionPool_CustomConfig(t *testing.T) {
+func TestNewSSHConnectionPool_CustomConfig(t *testing.T) {
 	tests := []struct {
 		name        string
 		config      SSHPoolConfig
@@ -104,7 +109,7 @@ func TestNewSSHSessionPool_CustomConfig(t *testing.T) {
 		wantAcquire time.Duration
 	}{
 		{
-			name: "single session pool",
+			name: "single connection pool",
 			config: SSHPoolConfig{
 				MaxSessions:    1,
 				IdleTimeout:    1 * time.Minute,
@@ -138,7 +143,7 @@ func TestNewSSHSessionPool_CustomConfig(t *testing.T) {
 	}
 }
 
-func TestSSHSessionPool_Acquire_EmptyPool(t *testing.T) {
+func TestSSHConnectionPool_Acquire_EmptyPool(t *testing.T) {
 	config := SSHPoolConfig{
 		MaxSessions:    2,
 		IdleTimeout:    5 * time.Minute,
@@ -148,20 +153,20 @@ func TestSSHSessionPool_Acquire_EmptyPool(t *testing.T) {
 	defer pool.Close()
 
 	ctx := context.Background()
-	session, err := pool.Acquire(ctx)
+	conn, err := pool.Acquire(ctx)
 
 	require.NoError(t, err, "Acquire should succeed on empty pool")
-	require.NotNil(t, session, "acquired session should not be nil")
-	assert.Equal(t, 1, session.useCount, "first acquisition should set useCount to 1")
-	assert.True(t, session.initialized, "session should be initialized")
+	require.NotNil(t, conn, "acquired connection should not be nil")
+	assert.Equal(t, 1, conn.useCount, "first acquisition should set useCount to 1")
+	assert.True(t, conn.initialized, "connection should be initialized")
 
 	stats := pool.Stats()
-	assert.Equal(t, 1, stats.TotalCreated, "should have created 1 session")
-	assert.Equal(t, 1, stats.InUse, "should have 1 session in use")
-	assert.Equal(t, 0, stats.Available, "should have 0 available sessions")
+	assert.Equal(t, 1, stats.TotalCreated, "should have created 1 connection")
+	assert.Equal(t, 1, stats.InUse, "should have 1 connection in use")
+	assert.Equal(t, 0, stats.Available, "should have 0 available connections")
 }
 
-func TestSSHSessionPool_Acquire_ReusesAvailableSession(t *testing.T) {
+func TestSSHConnectionPool_Acquire_ReusesAvailableConnection(t *testing.T) {
 	config := SSHPoolConfig{
 		MaxSessions:    2,
 		IdleTimeout:    5 * time.Minute,
@@ -172,23 +177,23 @@ func TestSSHSessionPool_Acquire_ReusesAvailableSession(t *testing.T) {
 
 	ctx := context.Background()
 
-	// Acquire and release a session
-	session1, err := pool.Acquire(ctx)
+	// Acquire and release a connection
+	conn1, err := pool.Acquire(ctx)
 	require.NoError(t, err)
-	pool.Release(session1)
+	pool.Release(conn1)
 
-	// Acquire again - should get the same session
-	session2, err := pool.Acquire(ctx)
+	// Acquire again - should get the same connection
+	conn2, err := pool.Acquire(ctx)
 	require.NoError(t, err)
 
-	assert.Equal(t, session1, session2, "should reuse the same session")
-	assert.Equal(t, 2, session2.useCount, "reused session should have incremented useCount")
+	assert.Equal(t, conn1, conn2, "should reuse the same connection")
+	assert.Equal(t, 2, conn2.useCount, "reused connection should have incremented useCount")
 
 	stats := pool.Stats()
-	assert.Equal(t, 1, stats.TotalCreated, "should only have created 1 session total")
+	assert.Equal(t, 1, stats.TotalCreated, "should only have created 1 connection total")
 }
 
-func TestSSHSessionPool_Release_ReturnsToPool(t *testing.T) {
+func TestSSHConnectionPool_Release_ReturnsToPool(t *testing.T) {
 	config := SSHPoolConfig{
 		MaxSessions:    2,
 		IdleTimeout:    5 * time.Minute,
@@ -198,21 +203,21 @@ func TestSSHSessionPool_Release_ReturnsToPool(t *testing.T) {
 	defer pool.Close()
 
 	ctx := context.Background()
-	session, err := pool.Acquire(ctx)
+	conn, err := pool.Acquire(ctx)
 	require.NoError(t, err)
 
 	stats := pool.Stats()
 	assert.Equal(t, 1, stats.InUse)
 	assert.Equal(t, 0, stats.Available)
 
-	pool.Release(session)
+	pool.Release(conn)
 
 	stats = pool.Stats()
-	assert.Equal(t, 0, stats.InUse, "released session should not be in use")
-	assert.Equal(t, 1, stats.Available, "released session should be available")
+	assert.Equal(t, 0, stats.InUse, "released connection should not be in use")
+	assert.Equal(t, 1, stats.Available, "released connection should be available")
 }
 
-func TestSSHSessionPool_Close_ClosesAllSessions(t *testing.T) {
+func TestSSHConnectionPool_Close_ClosesAllConnections(t *testing.T) {
 	config := SSHPoolConfig{
 		MaxSessions:    3,
 		IdleTimeout:    5 * time.Minute,
@@ -222,17 +227,17 @@ func TestSSHSessionPool_Close_ClosesAllSessions(t *testing.T) {
 
 	ctx := context.Background()
 
-	// Acquire and release multiple sessions
-	var sessions []*PooledSSHSession
+	// Acquire and release multiple connections
+	var conns []*PooledConnection
 	for i := 0; i < 3; i++ {
-		session, err := pool.Acquire(ctx)
+		conn, err := pool.Acquire(ctx)
 		require.NoError(t, err)
-		sessions = append(sessions, session)
+		conns = append(conns, conn)
 	}
 
 	// Release all
-	for _, s := range sessions {
-		pool.Release(s)
+	for _, c := range conns {
+		pool.Release(c)
 	}
 
 	stats := pool.Stats()
@@ -243,10 +248,10 @@ func TestSSHSessionPool_Close_ClosesAllSessions(t *testing.T) {
 	require.NoError(t, err)
 
 	stats = pool.Stats()
-	assert.Equal(t, 0, stats.Available, "close should clear available sessions")
+	assert.Equal(t, 0, stats.Available, "close should clear available connections")
 }
 
-func TestSSHSessionPool_Close_Idempotent(t *testing.T) {
+func TestSSHConnectionPool_Close_Idempotent(t *testing.T) {
 	config := SSHPoolConfig{
 		MaxSessions:    2,
 		IdleTimeout:    5 * time.Minute,
@@ -261,7 +266,7 @@ func TestSSHSessionPool_Close_Idempotent(t *testing.T) {
 	require.NoError(t, err, "second close should succeed (idempotent)")
 }
 
-func TestSSHSessionPool_Stats_ReturnsCorrectValues(t *testing.T) {
+func TestSSHConnectionPool_Stats_ReturnsCorrectValues(t *testing.T) {
 	config := SSHPoolConfig{
 		MaxSessions:    5,
 		IdleTimeout:    5 * time.Minute,
@@ -279,11 +284,11 @@ func TestSSHSessionPool_Stats_ReturnsCorrectValues(t *testing.T) {
 	assert.Equal(t, 0, stats.Available)
 	assert.Equal(t, 5, stats.MaxSessions)
 
-	// Acquire 3 sessions
-	var sessions []*PooledSSHSession
+	// Acquire 3 connections
+	var conns []*PooledConnection
 	for i := 0; i < 3; i++ {
-		s, _ := pool.Acquire(ctx)
-		sessions = append(sessions, s)
+		c, _ := pool.Acquire(ctx)
+		conns = append(conns, c)
 	}
 
 	stats = pool.Stats()
@@ -291,9 +296,9 @@ func TestSSHSessionPool_Stats_ReturnsCorrectValues(t *testing.T) {
 	assert.Equal(t, 3, stats.InUse)
 	assert.Equal(t, 0, stats.Available)
 
-	// Release 2 sessions
-	pool.Release(sessions[0])
-	pool.Release(sessions[1])
+	// Release 2 connections
+	pool.Release(conns[0])
+	pool.Release(conns[1])
 
 	stats = pool.Stats()
 	assert.Equal(t, 3, stats.TotalCreated)
@@ -301,7 +306,7 @@ func TestSSHSessionPool_Stats_ReturnsCorrectValues(t *testing.T) {
 	assert.Equal(t, 2, stats.Available)
 }
 
-func TestSSHSessionPool_DoubleRelease_HandledGracefully(t *testing.T) {
+func TestSSHConnectionPool_DoubleRelease_HandledGracefully(t *testing.T) {
 	config := SSHPoolConfig{
 		MaxSessions:    2,
 		IdleTimeout:    5 * time.Minute,
@@ -311,23 +316,23 @@ func TestSSHSessionPool_DoubleRelease_HandledGracefully(t *testing.T) {
 	defer pool.Close()
 
 	ctx := context.Background()
-	session, err := pool.Acquire(ctx)
+	conn, err := pool.Acquire(ctx)
 	require.NoError(t, err)
 
 	// First release
-	pool.Release(session)
+	pool.Release(conn)
 
 	stats := pool.Stats()
 	assert.Equal(t, 1, stats.Available)
 
 	// Second release should be ignored
-	pool.Release(session)
+	pool.Release(conn)
 
 	stats = pool.Stats()
-	assert.Equal(t, 1, stats.Available, "double release should not add duplicate session")
+	assert.Equal(t, 1, stats.Available, "double release should not add duplicate connection")
 }
 
-func TestSSHSessionPool_ReleaseUnknownSession_Ignored(t *testing.T) {
+func TestSSHConnectionPool_ReleaseUnknownConnection_Ignored(t *testing.T) {
 	config := SSHPoolConfig{
 		MaxSessions:    2,
 		IdleTimeout:    5 * time.Minute,
@@ -336,27 +341,29 @@ func TestSSHSessionPool_ReleaseUnknownSession_Ignored(t *testing.T) {
 	pool := createTestPool(config)
 	defer pool.Close()
 
-	// Create a session that was never acquired from this pool
-	unknownSession := &PooledSSHSession{
-		workingSession: nil,
-		poolID:         "unknown-session",
-		lastUsed:       time.Now(),
-		useCount:       1,
-		initialized:    true,
+	// Create a connection that was never acquired from this pool
+	unknownConn := &PooledConnection{
+		client:      nil,
+		session:     nil,
+		adminMode:   false,
+		poolID:      "unknown-conn",
+		lastUsed:    time.Now(),
+		useCount:    1,
+		initialized: true,
 	}
 
 	// Release should be handled gracefully (no panic)
-	pool.Release(unknownSession)
+	pool.Release(unknownConn)
 
 	stats := pool.Stats()
-	assert.Equal(t, 0, stats.Available, "unknown session should not be added to pool")
+	assert.Equal(t, 0, stats.Available, "unknown connection should not be added to pool")
 }
 
 // =============================================================================
 // Task 8: Concurrent Access Tests
 // =============================================================================
 
-func TestSSHSessionPool_ConcurrentAcquire(t *testing.T) {
+func TestSSHConnectionPool_ConcurrentAcquire(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping concurrent test in short mode")
 	}
@@ -381,7 +388,7 @@ func TestSSHSessionPool_ConcurrentAcquire(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			session, err := pool.Acquire(ctx)
+			conn, err := pool.Acquire(ctx)
 			if err != nil {
 				atomic.AddInt32(&errorCount, 1)
 				return
@@ -392,7 +399,7 @@ func TestSSHSessionPool_ConcurrentAcquire(t *testing.T) {
 			// Simulate work
 			time.Sleep(5 * time.Millisecond)
 
-			pool.Release(session)
+			pool.Release(conn)
 		}()
 	}
 
@@ -402,10 +409,10 @@ func TestSSHSessionPool_ConcurrentAcquire(t *testing.T) {
 	assert.Equal(t, int32(0), errorCount, "no errors expected")
 
 	stats := pool.Stats()
-	assert.Equal(t, 0, stats.InUse, "all sessions should be released")
+	assert.Equal(t, 0, stats.InUse, "all connections should be released")
 }
 
-func TestSSHSessionPool_ConcurrentRelease(t *testing.T) {
+func TestSSHConnectionPool_ConcurrentRelease(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping concurrent test in short mode")
 	}
@@ -416,49 +423,50 @@ func TestSSHSessionPool_ConcurrentRelease(t *testing.T) {
 		AcquireTimeout: 10 * time.Second,
 	}
 
-	mockClient := &ssh.Client{}
-
-	pool := &SSHSessionPool{
-		sshClient: mockClient,
+	pool := &SSHConnectionPool{
+		sshConfig: nil,
+		address:   "",
 		config:    config,
-		available: make([]*PooledSSHSession, 0, config.MaxSessions),
-		inUse:     make(map[*PooledSSHSession]bool),
+		available: make([]*PooledConnection, 0, config.MaxSessions),
+		inUse:     make(map[*PooledConnection]bool),
 	}
 	pool.cond = sync.NewCond(&pool.mu)
 
-	// Create sessions that are "in use"
-	sessions := make([]*PooledSSHSession, config.MaxSessions)
+	// Create connections that are "in use"
+	conns := make([]*PooledConnection, config.MaxSessions)
 	for i := 0; i < config.MaxSessions; i++ {
-		session := &PooledSSHSession{
-			workingSession: nil,
-			poolID:         "release-test-" + string(rune('0'+i)),
-			lastUsed:       time.Now(),
-			useCount:       1,
-			initialized:    true,
+		conn := &PooledConnection{
+			client:      nil,
+			session:     nil,
+			adminMode:   false,
+			poolID:      "release-test-" + string(rune('0'+i)),
+			lastUsed:    time.Now(),
+			useCount:    1,
+			initialized: true,
 		}
-		sessions[i] = session
-		pool.inUse[session] = true
+		conns[i] = conn
+		pool.inUse[conn] = true
 	}
 
 	var wg sync.WaitGroup
 
-	// Release all sessions concurrently
+	// Release all connections concurrently
 	for i := 0; i < config.MaxSessions; i++ {
 		wg.Add(1)
-		go func(session *PooledSSHSession) {
+		go func(conn *PooledConnection) {
 			defer wg.Done()
-			pool.Release(session)
-		}(sessions[i])
+			pool.Release(conn)
+		}(conns[i])
 	}
 
 	wg.Wait()
 
 	stats := pool.Stats()
-	assert.Equal(t, 0, stats.InUse, "all sessions should be released")
-	assert.Equal(t, config.MaxSessions, stats.Available, "all sessions should be available")
+	assert.Equal(t, 0, stats.InUse, "all connections should be released")
+	assert.Equal(t, config.MaxSessions, stats.Available, "all connections should be available")
 }
 
-func TestSSHSessionPool_MixedAcquireRelease(t *testing.T) {
+func TestSSHConnectionPool_MixedAcquireRelease(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping concurrent test in short mode")
 	}
@@ -482,7 +490,7 @@ func TestSSHSessionPool_MixedAcquireRelease(t *testing.T) {
 		go func(id int) {
 			defer wg.Done()
 
-			session, err := pool.Acquire(ctx)
+			conn, err := pool.Acquire(ctx)
 			if err != nil {
 				return
 			}
@@ -490,7 +498,7 @@ func TestSSHSessionPool_MixedAcquireRelease(t *testing.T) {
 			// Variable work duration
 			time.Sleep(time.Duration(id%5) * time.Millisecond)
 
-			pool.Release(session)
+			pool.Release(conn)
 			atomic.AddInt32(&successCount, 1)
 		}(i)
 	}
@@ -501,10 +509,10 @@ func TestSSHSessionPool_MixedAcquireRelease(t *testing.T) {
 	assert.Greater(t, successCount, int32(0), "should have some successful operations")
 
 	stats := pool.Stats()
-	assert.Equal(t, 0, stats.InUse, "all sessions should be released")
+	assert.Equal(t, 0, stats.InUse, "all connections should be released")
 }
 
-func TestSSHSessionPool_RaceDetector(t *testing.T) {
+func TestSSHConnectionPool_RaceDetector(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping race detector test in short mode")
 	}
@@ -524,9 +532,9 @@ func TestSSHSessionPool_RaceDetector(t *testing.T) {
 	go func() {
 		ctx := context.Background()
 		for i := 0; i < iterations; i++ {
-			session, err := pool.Acquire(ctx)
-			if err == nil && session != nil {
-				pool.Release(session)
+			conn, err := pool.Acquire(ctx)
+			if err == nil && conn != nil {
+				pool.Release(conn)
 			}
 		}
 		done <- true
@@ -536,9 +544,9 @@ func TestSSHSessionPool_RaceDetector(t *testing.T) {
 	go func() {
 		ctx := context.Background()
 		for i := 0; i < iterations; i++ {
-			session, err := pool.Acquire(ctx)
-			if err == nil && session != nil {
-				pool.Release(session)
+			conn, err := pool.Acquire(ctx)
+			if err == nil && conn != nil {
+				pool.Release(conn)
 			}
 		}
 		done <- true
@@ -560,7 +568,7 @@ func TestSSHSessionPool_RaceDetector(t *testing.T) {
 	t.Log("Race detector test completed without detecting races")
 }
 
-func TestSSHSessionPool_ConcurrentStatsAccess(t *testing.T) {
+func TestSSHConnectionPool_ConcurrentStatsAccess(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping concurrent test in short mode")
 	}
@@ -590,7 +598,7 @@ func TestSSHSessionPool_ConcurrentStatsAccess(t *testing.T) {
 	wg.Wait()
 }
 
-func TestSSHSessionPool_ConcurrentClose(t *testing.T) {
+func TestSSHConnectionPool_ConcurrentClose(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping concurrent test in short mode")
 	}
@@ -610,10 +618,10 @@ func TestSSHSessionPool_ConcurrentClose(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			session, err := pool.Acquire(ctx)
-			if err == nil && session != nil {
+			conn, err := pool.Acquire(ctx)
+			if err == nil && conn != nil {
 				time.Sleep(50 * time.Millisecond)
-				pool.Release(session)
+				pool.Release(conn)
 			}
 		}()
 	}
@@ -630,7 +638,7 @@ func TestSSHSessionPool_ConcurrentClose(t *testing.T) {
 	assert.Error(t, err, "acquire should fail on closed pool")
 }
 
-func TestSSHSessionPool_HighContention(t *testing.T) {
+func TestSSHConnectionPool_HighContention(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping high contention test in short mode")
 	}
@@ -656,14 +664,14 @@ func TestSSHSessionPool_HighContention(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for j := 0; j < numIterations; j++ {
-				session, err := pool.Acquire(ctx)
+				conn, err := pool.Acquire(ctx)
 				if err != nil {
 					continue
 				}
 
 				time.Sleep(time.Millisecond)
 
-				pool.Release(session)
+				pool.Release(conn)
 				atomic.AddInt32(&totalOperations, 1)
 			}
 		}()
@@ -676,14 +684,14 @@ func TestSSHSessionPool_HighContention(t *testing.T) {
 	assert.Greater(t, total, int32(0), "should complete some operations")
 
 	stats := pool.Stats()
-	assert.Equal(t, 0, stats.InUse, "all sessions should be released")
+	assert.Equal(t, 0, stats.InUse, "all connections should be released")
 }
 
 // =============================================================================
 // Task 9: Timeout and Error Handling Tests
 // =============================================================================
 
-func TestSSHSessionPool_AcquireTimeout_PoolExhausted(t *testing.T) {
+func TestSSHConnectionPool_AcquireTimeout_PoolExhausted(t *testing.T) {
 	config := SSHPoolConfig{
 		MaxSessions:    1,
 		IdleTimeout:    5 * time.Minute,
@@ -694,8 +702,8 @@ func TestSSHSessionPool_AcquireTimeout_PoolExhausted(t *testing.T) {
 
 	ctx := context.Background()
 
-	// Acquire the only available session
-	session, err := pool.Acquire(ctx)
+	// Acquire the only available connection
+	conn, err := pool.Acquire(ctx)
 	require.NoError(t, err)
 
 	// Try to acquire another - should timeout
@@ -703,16 +711,16 @@ func TestSSHSessionPool_AcquireTimeout_PoolExhausted(t *testing.T) {
 	_, err = pool.Acquire(ctx)
 	elapsed := time.Since(start)
 
-	assert.Error(t, err, "should timeout waiting for session")
+	assert.Error(t, err, "should timeout waiting for connection")
 	assert.Contains(t, err.Error(), "timeout", "error should mention timeout")
 	assert.GreaterOrEqual(t, elapsed, 200*time.Millisecond, "should wait at least AcquireTimeout")
 	assert.Less(t, elapsed, 500*time.Millisecond, "should not wait too long")
 
 	// Cleanup
-	pool.Release(session)
+	pool.Release(conn)
 }
 
-func TestSSHSessionPool_AcquireTimeout_WithContextDeadline(t *testing.T) {
+func TestSSHConnectionPool_AcquireTimeout_WithContextDeadline(t *testing.T) {
 	config := SSHPoolConfig{
 		MaxSessions:    1,
 		IdleTimeout:    5 * time.Minute,
@@ -723,8 +731,8 @@ func TestSSHSessionPool_AcquireTimeout_WithContextDeadline(t *testing.T) {
 
 	ctx := context.Background()
 
-	// Acquire the only available session
-	session, err := pool.Acquire(ctx)
+	// Acquire the only available connection
+	conn, err := pool.Acquire(ctx)
 	require.NoError(t, err)
 
 	// Try to acquire with a short context deadline
@@ -740,10 +748,10 @@ func TestSSHSessionPool_AcquireTimeout_WithContextDeadline(t *testing.T) {
 	assert.Less(t, elapsed, 500*time.Millisecond)
 
 	// Cleanup
-	pool.Release(session)
+	pool.Release(conn)
 }
 
-func TestSSHSessionPool_ContextCancellation(t *testing.T) {
+func TestSSHConnectionPool_ContextCancellation(t *testing.T) {
 	config := SSHPoolConfig{
 		MaxSessions:    1,
 		IdleTimeout:    5 * time.Minute,
@@ -754,8 +762,8 @@ func TestSSHSessionPool_ContextCancellation(t *testing.T) {
 
 	ctx := context.Background()
 
-	// Acquire the only available session
-	session, err := pool.Acquire(ctx)
+	// Acquire the only available connection
+	conn, err := pool.Acquire(ctx)
 	require.NoError(t, err)
 
 	// Try to acquire with a cancelled context
@@ -775,10 +783,10 @@ func TestSSHSessionPool_ContextCancellation(t *testing.T) {
 	assert.Less(t, elapsed, 300*time.Millisecond)
 
 	// Cleanup
-	pool.Release(session)
+	pool.Release(conn)
 }
 
-func TestSSHSessionPool_PoolClosedError(t *testing.T) {
+func TestSSHConnectionPool_PoolClosedError(t *testing.T) {
 	config := SSHPoolConfig{
 		MaxSessions:    2,
 		IdleTimeout:    5 * time.Minute,
@@ -798,15 +806,15 @@ func TestSSHSessionPool_PoolClosedError(t *testing.T) {
 	assert.Contains(t, err.Error(), "closed", "error should mention pool is closed")
 }
 
-func TestSSHSessionPool_SessionCreationFailure(t *testing.T) {
+func TestSSHConnectionPool_ConnectionCreationFailure(t *testing.T) {
 	config := SSHPoolConfig{
 		MaxSessions:    2,
 		IdleTimeout:    5 * time.Minute,
 		AcquireTimeout: 5 * time.Second,
 	}
 
-	creationError := errors.New("SSH session creation failed")
-	pool := createTestPoolWithFactory(config, errorSessionFactory(creationError))
+	creationError := errors.New("SSH connection creation failed")
+	pool := createTestPoolWithFactory(config, errorConnectionFactory(creationError))
 	defer pool.Close()
 
 	ctx := context.Background()
@@ -816,7 +824,7 @@ func TestSSHSessionPool_SessionCreationFailure(t *testing.T) {
 	assert.ErrorIs(t, err, creationError, "should return the factory error")
 }
 
-func TestSSHSessionPool_SessionCreationFailure_CountedCorrectly(t *testing.T) {
+func TestSSHConnectionPool_ConnectionCreationFailure_CountedCorrectly(t *testing.T) {
 	config := SSHPoolConfig{
 		MaxSessions:    2,
 		IdleTimeout:    5 * time.Minute,
@@ -826,17 +834,19 @@ func TestSSHSessionPool_SessionCreationFailure_CountedCorrectly(t *testing.T) {
 	callCount := int32(0)
 	failAfter := int32(2)
 
-	factory := func() (*PooledSSHSession, error) {
+	factory := func() (*PooledConnection, error) {
 		count := atomic.AddInt32(&callCount, 1)
 		if count > failAfter {
-			return nil, errors.New("max sessions reached simulation")
+			return nil, errors.New("max connections reached simulation")
 		}
-		return &PooledSSHSession{
-			workingSession: nil,
-			poolID:         "test-session",
-			lastUsed:       time.Now(),
-			useCount:       0,
-			initialized:    false,
+		return &PooledConnection{
+			client:      nil,
+			session:     nil,
+			adminMode:   false,
+			poolID:      "test-conn",
+			lastUsed:    time.Now(),
+			useCount:    0,
+			initialized: false,
 		}, nil
 	}
 
@@ -846,19 +856,19 @@ func TestSSHSessionPool_SessionCreationFailure_CountedCorrectly(t *testing.T) {
 	ctx := context.Background()
 
 	// First two should succeed
-	session1, err1 := pool.Acquire(ctx)
-	session2, err2 := pool.Acquire(ctx)
+	conn1, err1 := pool.Acquire(ctx)
+	conn2, err2 := pool.Acquire(ctx)
 	require.NoError(t, err1)
 	require.NoError(t, err2)
 
-	pool.Release(session1)
-	pool.Release(session2)
+	pool.Release(conn1)
+	pool.Release(conn2)
 
 	stats := pool.Stats()
-	assert.Equal(t, 2, stats.TotalCreated, "should have created 2 sessions")
+	assert.Equal(t, 2, stats.TotalCreated, "should have created 2 connections")
 }
 
-func TestSSHSessionPool_ReleaseAfterClose(t *testing.T) {
+func TestSSHConnectionPool_ReleaseAfterClose(t *testing.T) {
 	config := SSHPoolConfig{
 		MaxSessions:    2,
 		IdleTimeout:    5 * time.Minute,
@@ -867,22 +877,22 @@ func TestSSHSessionPool_ReleaseAfterClose(t *testing.T) {
 	pool := createTestPool(config)
 
 	ctx := context.Background()
-	session, err := pool.Acquire(ctx)
+	conn, err := pool.Acquire(ctx)
 	require.NoError(t, err)
 
-	// Close pool while session is in use
+	// Close pool while connection is in use
 	err = pool.Close()
 	require.NoError(t, err)
 
-	// Release should still work (session gets closed)
-	pool.Release(session)
+	// Release should still work (connection gets closed)
+	pool.Release(conn)
 
 	stats := pool.Stats()
-	assert.Equal(t, 0, stats.InUse, "session should be removed from in use")
-	assert.Equal(t, 0, stats.Available, "session should not be added to available (pool closed)")
+	assert.Equal(t, 0, stats.InUse, "connection should be removed from in use")
+	assert.Equal(t, 0, stats.Available, "connection should not be added to available (pool closed)")
 }
 
-func TestSSHSessionPool_AcquireBlocksUntilReleased(t *testing.T) {
+func TestSSHConnectionPool_AcquireBlocksUntilReleased(t *testing.T) {
 	config := SSHPoolConfig{
 		MaxSessions:    1,
 		IdleTimeout:    5 * time.Minute,
@@ -893,23 +903,23 @@ func TestSSHSessionPool_AcquireBlocksUntilReleased(t *testing.T) {
 
 	ctx := context.Background()
 
-	// Acquire the only session
-	session, err := pool.Acquire(ctx)
+	// Acquire the only connection
+	conn, err := pool.Acquire(ctx)
 	require.NoError(t, err)
 
 	// Start goroutine to release after delay
 	go func() {
 		time.Sleep(200 * time.Millisecond)
-		pool.Release(session)
+		pool.Release(conn)
 	}()
 
 	// Try to acquire - should block and then succeed
 	start := time.Now()
-	session2, err := pool.Acquire(ctx)
+	conn2, err := pool.Acquire(ctx)
 	elapsed := time.Since(start)
 
-	require.NoError(t, err, "should succeed after session is released")
-	assert.Equal(t, session, session2, "should get the same session")
+	require.NoError(t, err, "should succeed after connection is released")
+	assert.Equal(t, conn, conn2, "should get the same connection")
 	assert.GreaterOrEqual(t, elapsed, 200*time.Millisecond, "should have waited for release")
 	assert.Less(t, elapsed, 1*time.Second, "should not wait too long")
 }
@@ -918,7 +928,7 @@ func TestSSHSessionPool_AcquireBlocksUntilReleased(t *testing.T) {
 // Additional Edge Case Tests
 // =============================================================================
 
-func TestSSHSessionPool_SessionFactoryCalledCorrectly(t *testing.T) {
+func TestSSHConnectionPool_ConnectionFactoryCalledCorrectly(t *testing.T) {
 	config := SSHPoolConfig{
 		MaxSessions:    3,
 		IdleTimeout:    5 * time.Minute,
@@ -926,37 +936,37 @@ func TestSSHSessionPool_SessionFactoryCalledCorrectly(t *testing.T) {
 	}
 
 	var callCount int32
-	pool := createTestPoolWithFactory(config, countingSessionFactory(&callCount))
+	pool := createTestPoolWithFactory(config, countingConnectionFactory(&callCount))
 	defer pool.Close()
 
 	ctx := context.Background()
 
-	// Acquire 3 sessions (should create 3)
-	var sessions []*PooledSSHSession
+	// Acquire 3 connections (should create 3)
+	var conns []*PooledConnection
 	for i := 0; i < 3; i++ {
-		s, err := pool.Acquire(ctx)
+		c, err := pool.Acquire(ctx)
 		require.NoError(t, err)
-		sessions = append(sessions, s)
+		conns = append(conns, c)
 	}
 
 	assert.Equal(t, int32(3), callCount, "factory should be called 3 times")
 
 	// Release all
-	for _, s := range sessions {
-		pool.Release(s)
+	for _, c := range conns {
+		pool.Release(c)
 	}
 
 	// Acquire again - should reuse, not create new
 	for i := 0; i < 3; i++ {
-		s, err := pool.Acquire(ctx)
+		c, err := pool.Acquire(ctx)
 		require.NoError(t, err)
-		pool.Release(s)
+		pool.Release(c)
 	}
 
-	assert.Equal(t, int32(3), callCount, "factory should not be called again for reused sessions")
+	assert.Equal(t, int32(3), callCount, "factory should not be called again for reused connections")
 }
 
-func TestSSHSessionPool_UseCountIncrementsOnReuse(t *testing.T) {
+func TestSSHConnectionPool_UseCountIncrementsOnReuse(t *testing.T) {
 	config := SSHPoolConfig{
 		MaxSessions:    1,
 		IdleTimeout:    5 * time.Minute,
@@ -967,19 +977,19 @@ func TestSSHSessionPool_UseCountIncrementsOnReuse(t *testing.T) {
 
 	ctx := context.Background()
 
-	var session *PooledSSHSession
+	var conn *PooledConnection
 	var err error
 
 	// Acquire and release 5 times
 	for i := 1; i <= 5; i++ {
-		session, err = pool.Acquire(ctx)
+		conn, err = pool.Acquire(ctx)
 		require.NoError(t, err)
-		assert.Equal(t, i, session.useCount, "useCount should increment on each acquisition")
-		pool.Release(session)
+		assert.Equal(t, i, conn.useCount, "useCount should increment on each acquisition")
+		pool.Release(conn)
 	}
 }
 
-func TestSSHSessionPool_LastUsedUpdated(t *testing.T) {
+func TestSSHConnectionPool_LastUsedUpdated(t *testing.T) {
 	config := SSHPoolConfig{
 		MaxSessions:    1,
 		IdleTimeout:    5 * time.Minute,
@@ -991,23 +1001,23 @@ func TestSSHSessionPool_LastUsedUpdated(t *testing.T) {
 	ctx := context.Background()
 
 	// First acquire
-	session, err := pool.Acquire(ctx)
+	conn, err := pool.Acquire(ctx)
 	require.NoError(t, err)
-	firstAcquireTime := session.lastUsed
-	pool.Release(session)
+	firstAcquireTime := conn.lastUsed
+	pool.Release(conn)
 
 	// Wait a bit
 	time.Sleep(50 * time.Millisecond)
 
 	// Second acquire
-	session, err = pool.Acquire(ctx)
+	conn, err = pool.Acquire(ctx)
 	require.NoError(t, err)
-	secondAcquireTime := session.lastUsed
+	secondAcquireTime := conn.lastUsed
 
 	assert.True(t, secondAcquireTime.After(firstAcquireTime), "lastUsed should be updated on acquisition")
 }
 
-func TestSSHSessionPool_WithoutIdleCleanupOption(t *testing.T) {
+func TestSSHConnectionPool_WithoutIdleCleanupOption(t *testing.T) {
 	config := SSHPoolConfig{
 		MaxSessions:    2,
 		IdleTimeout:    5 * time.Minute,
@@ -1015,74 +1025,79 @@ func TestSSHSessionPool_WithoutIdleCleanupOption(t *testing.T) {
 	}
 
 	// Create pool with WithoutIdleCleanup
-	pool := NewSSHSessionPoolWithOptions(
+	pool := NewSSHConnectionPoolWithOptions(
 		nil,
+		"",
 		config,
 		WithoutIdleCleanup(),
-		WithSessionFactory(mockSessionFactory()),
+		WithConnectionFactory(mockConnectionFactory()),
 	)
 	defer pool.Close()
 
 	// Verify pool works correctly without idle cleanup goroutine
 	ctx := context.Background()
-	session, err := pool.Acquire(ctx)
+	conn, err := pool.Acquire(ctx)
 	require.NoError(t, err)
-	pool.Release(session)
+	pool.Release(conn)
 
 	stats := pool.Stats()
 	assert.Equal(t, 1, stats.Available)
 }
 
-func TestSSHSessionPool_WithSessionFactoryOption(t *testing.T) {
+func TestSSHConnectionPool_WithConnectionFactoryOption(t *testing.T) {
 	config := SSHPoolConfig{
 		MaxSessions:    2,
 		IdleTimeout:    5 * time.Minute,
 		AcquireTimeout: 5 * time.Second,
 	}
 
-	customPoolID := "custom-factory-session"
-	factory := func() (*PooledSSHSession, error) {
-		return &PooledSSHSession{
-			workingSession: nil,
-			poolID:         customPoolID,
-			lastUsed:       time.Now(),
-			useCount:       0,
-			initialized:    false,
+	customPoolID := "custom-factory-conn"
+	factory := func() (*PooledConnection, error) {
+		return &PooledConnection{
+			client:      nil,
+			session:     nil,
+			adminMode:   false,
+			poolID:      customPoolID,
+			lastUsed:    time.Now(),
+			useCount:    0,
+			initialized: false,
 		}, nil
 	}
 
-	pool := NewSSHSessionPoolWithOptions(
+	pool := NewSSHConnectionPoolWithOptions(
 		nil,
+		"",
 		config,
-		WithSessionFactory(factory),
+		WithConnectionFactory(factory),
 		WithoutIdleCleanup(),
 	)
 	defer pool.Close()
 
 	ctx := context.Background()
-	session, err := pool.Acquire(ctx)
+	conn, err := pool.Acquire(ctx)
 	require.NoError(t, err)
 
 	// PoolID should be overwritten with sequential ID
-	assert.Contains(t, session.poolID, "ssh-session-", "factory session should get sequential poolID")
+	assert.Contains(t, conn.poolID, "ssh-conn-", "factory connection should get sequential poolID")
 }
 
 // =============================================================================
 // Task 12: Statistics and Observability Tests
 // =============================================================================
 
-func TestSSHSessionPool_TotalAcquisitions(t *testing.T) {
+func TestSSHConnectionPool_TotalAcquisitions(t *testing.T) {
 	config := SSHPoolConfig{
 		MaxSessions:    2,
 		IdleTimeout:    5 * time.Minute,
 		AcquireTimeout: 5 * time.Second,
 	}
 
-	pool := NewSSHSessionPoolWithOptions(
+	pool := NewSSHConnectionPoolWithOptions(
 		nil,
+		"",
 		config,
 		WithoutIdleCleanup(),
-		WithSessionFactory(mockSessionFactory()),
+		WithConnectionFactory(mockConnectionFactory()),
 	)
 	defer pool.Close()
 
@@ -1094,9 +1109,9 @@ func TestSSHSessionPool_TotalAcquisitions(t *testing.T) {
 
 	// Acquire and release 5 times
 	for i := 0; i < 5; i++ {
-		session, err := pool.Acquire(ctx)
+		conn, err := pool.Acquire(ctx)
 		require.NoError(t, err)
-		pool.Release(session)
+		pool.Release(conn)
 	}
 
 	// Verify total acquisitions
@@ -1104,18 +1119,19 @@ func TestSSHSessionPool_TotalAcquisitions(t *testing.T) {
 	assert.Equal(t, 5, stats.TotalAcquisitions, "should track 5 acquisitions")
 }
 
-func TestSSHSessionPool_WaitCount(t *testing.T) {
+func TestSSHConnectionPool_WaitCount(t *testing.T) {
 	config := SSHPoolConfig{
-		MaxSessions:    1, // Only 1 session to force waiting
+		MaxSessions:    1, // Only 1 connection to force waiting
 		IdleTimeout:    5 * time.Minute,
 		AcquireTimeout: 5 * time.Second,
 	}
 
-	pool := NewSSHSessionPoolWithOptions(
+	pool := NewSSHConnectionPoolWithOptions(
 		nil,
+		"",
 		config,
 		WithoutIdleCleanup(),
-		WithSessionFactory(mockSessionFactory()),
+		WithConnectionFactory(mockConnectionFactory()),
 	)
 	defer pool.Close()
 
@@ -1125,30 +1141,30 @@ func TestSSHSessionPool_WaitCount(t *testing.T) {
 	stats := pool.Stats()
 	assert.Equal(t, 0, stats.WaitCount, "initial wait count should be 0")
 
-	// Acquire the only session
-	session1, err := pool.Acquire(ctx)
+	// Acquire the only connection
+	conn1, err := pool.Acquire(ctx)
 	require.NoError(t, err)
 
-	// Start a goroutine that will wait for a session
-	var session2 *PooledSSHSession
+	// Start a goroutine that will wait for a connection
+	var conn2 *PooledConnection
 	var acquireErr error
 	done := make(chan struct{})
 	go func() {
-		session2, acquireErr = pool.Acquire(ctx)
+		conn2, acquireErr = pool.Acquire(ctx)
 		close(done)
 	}()
 
 	// Give the goroutine time to start waiting
 	time.Sleep(150 * time.Millisecond)
 
-	// Release the first session to unblock the waiting goroutine
-	pool.Release(session1)
+	// Release the first connection to unblock the waiting goroutine
+	pool.Release(conn1)
 
 	// Wait for the second acquire to complete
 	select {
 	case <-done:
 		require.NoError(t, acquireErr)
-		pool.Release(session2)
+		pool.Release(conn2)
 	case <-time.After(2 * time.Second):
 		t.Fatal("second acquire should have completed")
 	}
@@ -1158,27 +1174,28 @@ func TestSSHSessionPool_WaitCount(t *testing.T) {
 	assert.GreaterOrEqual(t, stats.WaitCount, 1, "wait count should be at least 1")
 }
 
-func TestSSHSessionPool_LogStats(t *testing.T) {
+func TestSSHConnectionPool_LogStats(t *testing.T) {
 	config := SSHPoolConfig{
 		MaxSessions:    3,
 		IdleTimeout:    5 * time.Minute,
 		AcquireTimeout: 5 * time.Second,
 	}
 
-	pool := NewSSHSessionPoolWithOptions(
+	pool := NewSSHConnectionPoolWithOptions(
 		nil,
+		"",
 		config,
 		WithoutIdleCleanup(),
-		WithSessionFactory(mockSessionFactory()),
+		WithConnectionFactory(mockConnectionFactory()),
 	)
 	defer pool.Close()
 
 	ctx := context.Background()
 
-	// Acquire a few sessions
-	session1, _ := pool.Acquire(ctx)
-	session2, _ := pool.Acquire(ctx)
-	pool.Release(session1)
+	// Acquire a few connections
+	conn1, _ := pool.Acquire(ctx)
+	conn2, _ := pool.Acquire(ctx)
+	pool.Release(conn1)
 
 	// LogStats should not panic and should log correctly
 	// We can't easily verify log output in unit tests, but we can ensure no panic
@@ -1193,5 +1210,33 @@ func TestSSHSessionPool_LogStats(t *testing.T) {
 	assert.Equal(t, 1, stats.Available)
 	assert.Equal(t, 2, stats.TotalAcquisitions)
 
-	pool.Release(session2)
+	pool.Release(conn2)
+}
+
+// =============================================================================
+// Admin Mode Tests
+// =============================================================================
+
+func TestSSHConnectionPool_AdminModePersists(t *testing.T) {
+	config := SSHPoolConfig{
+		MaxSessions:    1,
+		IdleTimeout:    5 * time.Minute,
+		AcquireTimeout: 5 * time.Second,
+	}
+	pool := createTestPool(config)
+	defer pool.Close()
+
+	ctx := context.Background()
+
+	// Acquire connection, set admin mode, release
+	conn, err := pool.Acquire(ctx)
+	require.NoError(t, err)
+	assert.False(t, conn.adminMode, "new connection should not be in admin mode")
+	conn.SetAdminMode(true)
+	pool.Release(conn)
+
+	// Acquire again - should get same connection with admin mode preserved
+	conn2, err := pool.Acquire(ctx)
+	require.NoError(t, err)
+	assert.True(t, conn2.adminMode, "reused connection should preserve admin mode")
 }

@@ -33,8 +33,7 @@ type rtxClient struct {
 	active                bool
 	configCache           *ConfigCache // Cache for SFTP-based config reading
 	sftpClient            SFTPClient   // Optional SFTP client for fast config download
-	sshClient             *ssh.Client  // Persistent SSH client for session pool
-	sshSessionPool        *SSHSessionPool
+	sshConnectionPool     *SSHConnectionPool
 	sshPoolEnabled        bool
 	dhcpService           *DHCPService
 	dhcpScopeService      *DHCPScopeService
@@ -78,9 +77,9 @@ func NewClient(config *Config, opts ...Option) (Client, error) {
 		maxParallelism = DefaultMaxParallelism
 	}
 
-	// SSH session pool is enabled by default unless explicitly disabled
-	// If no explicit pool config is provided (all zero values), default to enabled
-	sshPoolEnabled := config.SSHPoolEnabled || (config.SSHPoolMaxSessions == 0 && config.SSHPoolIdleTimeout == "")
+	// SSH connection pool uses multiple independent SSH connections, each with its own session.
+	// This works with RTX routers which only allow one session per SSH connection.
+	sshPoolEnabled := true
 
 	c := &rtxClient{
 		config:         config,
@@ -182,43 +181,43 @@ func (c *rtxClient) Dial(ctx context.Context) error {
 		c.session = session
 	}
 
-	// Initialize SSH session pool if enabled
+	// Initialize SSH connection pool if enabled
 	if c.sshPoolEnabled {
-		logger.Debug().Msg("SSH session pool enabled, creating persistent SSH client")
+		logger.Debug().Msg("SSH connection pool enabled, creating pool")
 
-		// Create persistent SSH client for the pool
-		sshClient, err := ssh.Dial("tcp", addr, sshConfig)
-		if err != nil {
-			logger.Warn().Err(err).Msg("Failed to create SSH client for session pool, falling back to non-pooled mode")
-			c.sshPoolEnabled = false
-		} else {
-			c.sshClient = sshClient
-
-			// Build pool config from client config or use defaults
-			poolConfig := DefaultSSHPoolConfig()
-			if c.config.SSHPoolMaxSessions > 0 {
-				poolConfig.MaxSessions = c.config.SSHPoolMaxSessions
-			}
-			if c.config.SSHPoolIdleTimeout != "" {
-				if parsed, err := time.ParseDuration(c.config.SSHPoolIdleTimeout); err == nil {
-					poolConfig.IdleTimeout = parsed
-				} else {
-					logger.Warn().
-						Str("idle_timeout", c.config.SSHPoolIdleTimeout).
-						Err(err).
-						Msg("Invalid SSH pool idle_timeout, using default")
-				}
-			}
-
-			c.sshSessionPool = NewSSHSessionPool(sshClient, poolConfig)
-			logger.Info().
-				Int("max_sessions", poolConfig.MaxSessions).
-				Dur("idle_timeout", poolConfig.IdleTimeout).
-				Msg("SSH session pool initialized")
+		// Build pool config from client config or use defaults
+		poolConfig := DefaultSSHPoolConfig()
+		if c.config.SSHPoolMaxSessions > 0 {
+			poolConfig.MaxSessions = c.config.SSHPoolMaxSessions
 		}
+		if c.config.SSHPoolIdleTimeout != "" {
+			if parsed, err := time.ParseDuration(c.config.SSHPoolIdleTimeout); err == nil {
+				poolConfig.IdleTimeout = parsed
+			} else {
+				logger.Warn().
+					Str("idle_timeout", c.config.SSHPoolIdleTimeout).
+					Err(err).
+					Msg("Invalid SSH pool idle_timeout, using default")
+			}
+		}
+
+		// Create connection pool with sshConfig and address
+		// Pool will create individual connections on demand
+		c.sshConnectionPool = NewSSHConnectionPool(sshConfig, addr, poolConfig)
+		logger.Info().
+			Int("max_connections", poolConfig.MaxSessions).
+			Dur("idle_timeout", poolConfig.IdleTimeout).
+			Msg("SSH connection pool initialized")
 	}
 
-	c.executor = NewSimpleExecutor(sshConfig, addr, c.promptDetector, c.config)
+	// Use PooledExecutor when connection pool is available, otherwise fall back to SimpleExecutor
+	if c.sshPoolEnabled && c.sshConnectionPool != nil {
+		c.executor = NewPooledExecutor(c.sshConnectionPool, c.promptDetector, c.config)
+		logger.Info().Msg("Using PooledExecutor for command execution")
+	} else {
+		c.executor = NewSimpleExecutor(sshConfig, addr, c.promptDetector, c.config)
+		logger.Info().Msg("Using SimpleExecutor for command execution")
+	}
 	c.dhcpService = NewDHCPService(c.executor, c)
 	c.dhcpScopeService = NewDHCPScopeService(c.executor, c)
 	c.ipv6PrefixService = NewIPv6PrefixService(c.executor, c)
@@ -267,22 +266,13 @@ func (c *rtxClient) Close() error {
 
 	var err error
 
-	// Close SSH session pool first (before SSH client)
-	if c.sshSessionPool != nil {
-		logger.Debug().Msg("Closing SSH session pool")
-		if poolErr := c.sshSessionPool.Close(); poolErr != nil {
-			logger.Warn().Err(poolErr).Msg("Failed to close SSH session pool")
+	// Close SSH connection pool (closes all pooled connections)
+	if c.sshConnectionPool != nil {
+		logger.Debug().Msg("Closing SSH connection pool")
+		if poolErr := c.sshConnectionPool.Close(); poolErr != nil {
+			logger.Warn().Err(poolErr).Msg("Failed to close SSH connection pool")
 		}
-		c.sshSessionPool = nil
-	}
-
-	// Close persistent SSH client (used by session pool)
-	if c.sshClient != nil {
-		logger.Debug().Msg("Closing persistent SSH client")
-		if sshErr := c.sshClient.Close(); sshErr != nil {
-			logger.Warn().Err(sshErr).Msg("Failed to close SSH client")
-		}
-		c.sshClient = nil
+		c.sshConnectionPool = nil
 	}
 
 	if c.session != nil {

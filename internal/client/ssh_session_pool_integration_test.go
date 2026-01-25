@@ -59,16 +59,18 @@ func TestStateDriftRegression_SessionReusePreventsDrift(t *testing.T) {
 		AcquireTimeout: 5 * time.Second,
 	}
 
-	factory := func() (*PooledSSHSession, error) {
-		// This simulates SSH session creation which includes init commands
+	factory := func() (*PooledConnection, error) {
+		// This simulates SSH connection creation which includes init commands
 		// like "console character en.ascii"
 		atomic.AddInt32(&initCount, 1)
-		return &PooledSSHSession{
-			workingSession: nil,
-			poolID:         "drift-test-session",
-			lastUsed:       time.Now(),
-			useCount:       0,
-			initialized:    true,
+		return &PooledConnection{
+			client:      nil,
+			session:     nil,
+			adminMode:   false,
+			poolID:      "drift-test-connection",
+			lastUsed:    time.Now(),
+			useCount:    0,
+			initialized: true,
 		}, nil
 	}
 
@@ -149,14 +151,16 @@ func TestStateDriftRegression_ConcurrentOperationsLimitedInit(t *testing.T) {
 		AcquireTimeout: 10 * time.Second,
 	}
 
-	factory := func() (*PooledSSHSession, error) {
+	factory := func() (*PooledConnection, error) {
 		atomic.AddInt32(&initCount, 1)
-		return &PooledSSHSession{
-			workingSession: nil,
-			poolID:         "concurrent-test-session",
-			lastUsed:       time.Now(),
-			useCount:       0,
-			initialized:    true,
+		return &PooledConnection{
+			client:      nil,
+			session:     nil,
+			adminMode:   false,
+			poolID:      "concurrent-test-connection",
+			lastUsed:    time.Now(),
+			useCount:    0,
+			initialized: true,
 		}, nil
 	}
 

@@ -11,14 +11,14 @@ import (
 	"github.com/sh1/terraform-provider-rtx/internal/logging"
 )
 
-// SSHPoolConfig configures the SSH session pool
+// SSHPoolConfig configures the SSH connection pool
 type SSHPoolConfig struct {
-	MaxSessions    int           // Maximum concurrent SSH sessions (default: 2)
-	IdleTimeout    time.Duration // Close SSH sessions after idle time (default: 5m)
-	AcquireTimeout time.Duration // Max wait for SSH session acquisition (default: 30s)
+	MaxSessions    int           // Maximum concurrent SSH connections (default: 2)
+	IdleTimeout    time.Duration // Close SSH connections after idle time (default: 5m)
+	AcquireTimeout time.Duration // Max wait for SSH connection acquisition (default: 30s)
 }
 
-// DefaultSSHPoolConfig returns sensible defaults for SSH session pool
+// DefaultSSHPoolConfig returns sensible defaults for SSH connection pool
 func DefaultSSHPoolConfig() SSHPoolConfig {
 	return SSHPoolConfig{
 		MaxSessions:    2,
@@ -27,71 +27,76 @@ func DefaultSSHPoolConfig() SSHPoolConfig {
 	}
 }
 
-// PooledSSHSession wraps workingSession with pool metadata
-type PooledSSHSession struct {
-	*workingSession
+// PooledConnection wraps an SSH connection with its session and pool metadata
+type PooledConnection struct {
+	client      *ssh.Client     // Independent SSH connection
+	session     *workingSession // Single session on this connection
+	adminMode   bool            // Whether admin authenticated on this connection
 	poolID      string
 	lastUsed    time.Time
 	useCount    int
 	initialized bool
 }
 
-// SessionFactory is a function that creates a new PooledSSHSession.
+// ConnectionFactory is a function that creates a new PooledConnection.
 // This is used for dependency injection in testing.
-type SessionFactory func() (*PooledSSHSession, error)
+type ConnectionFactory func() (*PooledConnection, error)
 
-// SSHSessionPool manages a pool of SSH sessions to RTX routers
-type SSHSessionPool struct {
+// SSHConnectionPool manages a pool of SSH connections to RTX routers
+type SSHConnectionPool struct {
 	mu                sync.Mutex
 	cond              *sync.Cond
-	sshClient         *ssh.Client
+	sshConfig         *ssh.ClientConfig // SSH configuration for new connections
+	address           string            // host:port for dial
 	config            SSHPoolConfig
-	available         []*PooledSSHSession
-	inUse             map[*PooledSSHSession]bool
+	available         []*PooledConnection
+	inUse             map[*PooledConnection]bool
 	totalCreated      int
 	totalAcquisitions int // Total number of successful acquisitions
 	waitCount         int // Number of times an acquire had to wait
 	closed            bool
-	sessionFactory    SessionFactory // Optional: custom factory for testing
-	skipIdleCleanup   bool           // For testing: skip idle cleanup goroutine
+	connectionFactory ConnectionFactory // Optional: custom factory for testing
+	skipIdleCleanup   bool              // For testing: skip idle cleanup goroutine
 }
 
-// SSHSessionPoolOption is a functional option for configuring SSHSessionPool
-type SSHSessionPoolOption func(*SSHSessionPool)
+// SSHConnectionPoolOption is a functional option for configuring SSHConnectionPool
+type SSHConnectionPoolOption func(*SSHConnectionPool)
 
-// WithSessionFactory sets a custom session factory for testing
-func WithSessionFactory(factory SessionFactory) SSHSessionPoolOption {
-	return func(p *SSHSessionPool) {
-		p.sessionFactory = factory
+// WithConnectionFactory sets a custom connection factory for testing
+func WithConnectionFactory(factory ConnectionFactory) SSHConnectionPoolOption {
+	return func(p *SSHConnectionPool) {
+		p.connectionFactory = factory
 	}
 }
 
 // WithoutIdleCleanup disables the idle cleanup goroutine (for testing)
-func WithoutIdleCleanup() SSHSessionPoolOption {
-	return func(p *SSHSessionPool) {
+func WithoutIdleCleanup() SSHConnectionPoolOption {
+	return func(p *SSHConnectionPool) {
 		p.skipIdleCleanup = true
 	}
 }
 
-// NewSSHSessionPool creates a new SSH session pool
-func NewSSHSessionPool(sshClient *ssh.Client, config SSHPoolConfig) *SSHSessionPool {
-	return NewSSHSessionPoolWithOptions(sshClient, config)
+// NewSSHConnectionPool creates a new SSH connection pool
+func NewSSHConnectionPool(sshConfig *ssh.ClientConfig, address string, config SSHPoolConfig) *SSHConnectionPool {
+	return NewSSHConnectionPoolWithOptions(sshConfig, address, config)
 }
 
-// NewSSHSessionPoolWithOptions creates a new SSH session pool with options
-func NewSSHSessionPoolWithOptions(sshClient *ssh.Client, config SSHPoolConfig, opts ...SSHSessionPoolOption) *SSHSessionPool {
+// NewSSHConnectionPoolWithOptions creates a new SSH connection pool with options
+func NewSSHConnectionPoolWithOptions(sshConfig *ssh.ClientConfig, address string, config SSHPoolConfig, opts ...SSHConnectionPoolOption) *SSHConnectionPool {
 	logger := logging.Global()
 	logger.Info().
-		Int("max_sessions", config.MaxSessions).
+		Int("max_connections", config.MaxSessions).
 		Dur("idle_timeout", config.IdleTimeout).
 		Dur("acquire_timeout", config.AcquireTimeout).
-		Msg("SSH session pool created")
+		Str("address", address).
+		Msg("SSH connection pool created")
 
-	pool := &SSHSessionPool{
-		sshClient: sshClient,
+	pool := &SSHConnectionPool{
+		sshConfig: sshConfig,
+		address:   address,
 		config:    config,
-		available: make([]*PooledSSHSession, 0, config.MaxSessions),
-		inUse:     make(map[*PooledSSHSession]bool),
+		available: make([]*PooledConnection, 0, config.MaxSessions),
+		inUse:     make(map[*PooledConnection]bool),
 	}
 	pool.cond = sync.NewCond(&pool.mu)
 
@@ -102,7 +107,7 @@ func NewSSHSessionPoolWithOptions(sshClient *ssh.Client, config SSHPoolConfig, o
 		}
 	}
 
-	// Start idle SSH session cleanup goroutine (unless disabled for testing)
+	// Start idle SSH connection cleanup goroutine (unless disabled for testing)
 	if !pool.skipIdleCleanup {
 		go pool.idleCleanup()
 	}
@@ -110,8 +115,8 @@ func NewSSHSessionPoolWithOptions(sshClient *ssh.Client, config SSHPoolConfig, o
 	return pool
 }
 
-// Acquire gets an SSH session from the pool or creates a new one
-func (p *SSHSessionPool) Acquire(ctx context.Context) (*PooledSSHSession, error) {
+// Acquire gets an SSH connection from the pool or creates a new one
+func (p *SSHConnectionPool) Acquire(ctx context.Context) (*PooledConnection, error) {
 	logger := logging.Global()
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -131,70 +136,71 @@ func (p *SSHSessionPool) Acquire(ctx context.Context) (*PooledSSHSession, error)
 
 		// Check if closed
 		if p.closed {
-			return nil, fmt.Errorf("SSH session pool is closed")
+			return nil, fmt.Errorf("SSH connection pool is closed")
 		}
 
-		// Try to get available SSH session
+		// Try to get available SSH connection
 		if len(p.available) > 0 {
-			session := p.available[len(p.available)-1]
+			conn := p.available[len(p.available)-1]
 			p.available = p.available[:len(p.available)-1]
-			p.inUse[session] = true
-			session.lastUsed = time.Now()
-			session.useCount++
+			p.inUse[conn] = true
+			conn.lastUsed = time.Now()
+			conn.useCount++
 
 			p.totalAcquisitions++
 
 			logger.Debug().
-				Str("pool_id", session.poolID).
-				Int("use_count", session.useCount).
+				Str("pool_id", conn.poolID).
+				Int("use_count", conn.useCount).
+				Bool("admin_mode", conn.adminMode).
 				Int("available", len(p.available)).
 				Int("in_use", len(p.inUse)).
 				Int("total_acquisitions", p.totalAcquisitions).
-				Msg("Acquired existing SSH session from pool")
+				Msg("Acquired existing SSH connection from pool")
 
-			return session, nil
+			return conn, nil
 		}
 
-		// Can we create a new SSH session?
-		totalSessions := len(p.inUse)
-		if totalSessions < p.config.MaxSessions {
+		// Can we create a new SSH connection?
+		totalConnections := len(p.inUse)
+		if totalConnections < p.config.MaxSessions {
 			logger.Debug().
-				Int("total_sessions", totalSessions).
-				Int("max_sessions", p.config.MaxSessions).
-				Msg("Creating new SSH session for pool")
+				Int("total_connections", totalConnections).
+				Int("max_connections", p.config.MaxSessions).
+				Msg("Creating new SSH connection for pool")
 
-			session, err := p.createSSHSession()
+			conn, err := p.createConnection()
 			if err != nil {
-				logger.Error().Err(err).Msg("Failed to create new SSH session")
+				logger.Error().Err(err).Msg("Failed to create new SSH connection")
 				return nil, err
 			}
-			p.inUse[session] = true
+			p.inUse[conn] = true
 			p.totalAcquisitions++
 
 			logger.Debug().
-				Str("pool_id", session.poolID).
+				Str("pool_id", conn.poolID).
 				Int("in_use", len(p.inUse)).
 				Int("total_acquisitions", p.totalAcquisitions).
-				Msg("Created and acquired new SSH session")
+				Msg("Created and acquired new SSH connection")
 
-			return session, nil
+			return conn, nil
 		}
 
-		// Wait for SSH session to become available
+		// Wait for SSH connection to become available
 		if time.Now().After(deadline) {
 			logger.Warn().
 				Int("in_use", len(p.inUse)).
-				Int("max_sessions", p.config.MaxSessions).
-				Msg("Timeout waiting for available SSH session")
-			return nil, fmt.Errorf("timeout waiting for available SSH session")
+				Int("max_connections", p.config.MaxSessions).
+				Msg("Timeout waiting for available SSH connection")
+			return nil, fmt.Errorf("timeout waiting for available SSH connection")
 		}
 
 		p.waitCount++
 		logger.Debug().
 			Int("in_use", len(p.inUse)).
-			Int("max_sessions", p.config.MaxSessions).
+			Int("max_connections", p.config.MaxSessions).
 			Int("wait_count", p.waitCount).
-			Msg("SSH pool exhausted, waiting for session to become available")
+			Msg("SSH pool exhausted, waiting for connection to become available")
 
 		// Use Cond.Wait with timeout emulation
 		done := make(chan struct{})
@@ -207,53 +213,90 @@ func (p *SSHSessionPool) Acquire(ctx context.Context) (*PooledSSHSession, error)
 	}
 }
 
-// Release returns an SSH session to the pool
-func (p *SSHSessionPool) Release(session *PooledSSHSession) {
+// Release returns an SSH connection to the pool (session stays open)
+func (p *SSHConnectionPool) Release(conn *PooledConnection) {
 	logger := logging.Global()
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if _, ok := p.inUse[session]; !ok {
-		// SSH session not from this pool or already released
+	if _, ok := p.inUse[conn]; !ok {
+		// SSH connection not from this pool or already released
 		logger.Warn().
-			Str("pool_id", session.poolID).
-			Msg("Attempted to release unknown or already released SSH session")
+			Str("pool_id", conn.poolID).
+			Msg("Attempted to release unknown or already released SSH connection")
 		return
 	}
 
-	delete(p.inUse, session)
+	delete(p.inUse, conn)
 
 	if p.closed {
 		logger.Debug().
-			Str("pool_id", session.poolID).
-			Msg("Pool is closed, closing released SSH session")
-		// Only close if workingSession is not nil (for test safety)
-		if session.workingSession != nil {
-			session.Close()
-		}
+			Str("pool_id", conn.poolID).
+			Msg("Pool is closed, closing released SSH connection")
+		p.closeConnection(conn)
 		return
 	}
 
-	session.lastUsed = time.Now()
-	p.available = append(p.available, session)
+	// Return connection to pool (session stays open, adminMode preserved)
+	conn.lastUsed = time.Now()
+	p.available = append(p.available, conn)
 	p.cond.Signal()
 
 	logger.Debug().
-		Str("pool_id", session.poolID).
-		Int("use_count", session.useCount).
+		Str("pool_id", conn.poolID).
+		Int("use_count", conn.useCount).
+		Bool("admin_mode", conn.adminMode).
 		Int("available", len(p.available)).
 		Int("in_use", len(p.inUse)).
-		Msg("Released SSH session back to pool")
+		Msg("Released SSH connection back to pool")
 }
 
-// Close closes all SSH sessions and the pool
-func (p *SSHSessionPool) Close() error {
+// Discard removes a failed connection from the pool without returning it to the available queue.
+// Use this when a connection has failed and should not be reused.
+func (p *SSHConnectionPool) Discard(conn *PooledConnection) {
+	logger := logging.Global()
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if _, ok := p.inUse[conn]; !ok {
+		// SSH connection not from this pool or already released/discarded
+		logger.Warn().
+			Str("pool_id", conn.poolID).
+			Msg("Attempted to discard unknown or already released SSH connection")
+		return
+	}
+
+	delete(p.inUse, conn)
+
+	// Close both session and client without returning to pool
+	p.closeConnection(conn)
+
+	logger.Debug().
+		Str("pool_id", conn.poolID).
+		Int("use_count", conn.useCount).
+		Int("available", len(p.available)).
+		Int("in_use", len(p.inUse)).
+		Msg("Discarded failed SSH connection from pool")
+}
+
+// closeConnection closes both the session and client of a connection
+func (p *SSHConnectionPool) closeConnection(conn *PooledConnection) {
+	if conn.session != nil {
+		conn.session.Close()
+	}
+	if conn.client != nil {
+		conn.client.Close()
+	}
+}
+
+// Close closes all SSH connections and the pool
+func (p *SSHConnectionPool) Close() error {
 	logger := logging.Global()
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	if p.closed {
-		logger.Debug().Msg("SSH session pool already closed")
+		logger.Debug().Msg("SSH connection pool already closed")
 		return nil
 	}
 
@@ -261,85 +304,97 @@ func (p *SSHSessionPool) Close() error {
 		Int("available", len(p.available)).
 		Int("in_use", len(p.inUse)).
 		Int("total_created", p.totalCreated).
-		Msg("Closing SSH session pool")
+		Msg("Closing SSH connection pool")
 
 	p.closed = true
 
-	// Close available SSH sessions
-	for _, session := range p.available {
+	// Close available SSH connections
+	for _, conn := range p.available {
 		logger.Debug().
-			Str("pool_id", session.poolID).
-			Msg("Closing available SSH session")
-		// Only close if workingSession is not nil (for test safety)
-		if session.workingSession != nil {
-			session.Close()
-		}
+			Str("pool_id", conn.poolID).
+			Msg("Closing available SSH connection")
+		p.closeConnection(conn)
 	}
 	p.available = nil
 
-	// In-use SSH sessions will be closed when released
+	// In-use SSH connections will be closed when released
 	p.cond.Broadcast()
 
 	logger.Info().
 		Int("total_created", p.totalCreated).
 		Int("total_acquisitions", p.totalAcquisitions).
 		Int("wait_count", p.waitCount).
-		Msg("SSH session pool closed")
+		Msg("SSH connection pool closed")
 
 	return nil
 }
 
-// createSSHSession creates a new pooled SSH session (must hold lock)
-func (p *SSHSessionPool) createSSHSession() (*PooledSSHSession, error) {
+// createConnection creates a new pooled SSH connection (must hold lock)
+func (p *SSHConnectionPool) createConnection() (*PooledConnection, error) {
 	logger := logging.Global()
 
 	// Increment totalCreated before releasing lock to ensure unique ID
 	p.totalCreated++
-	sessionID := p.totalCreated
+	connectionID := p.totalCreated
 
-	p.mu.Unlock() // Release lock during SSH session creation
+	p.mu.Unlock() // Release lock during SSH connection creation
 	defer p.mu.Lock()
 
 	// Use custom factory if provided (for testing)
-	if p.sessionFactory != nil {
-		session, err := p.sessionFactory()
+	if p.connectionFactory != nil {
+		conn, err := p.connectionFactory()
 		if err != nil {
 			return nil, err
 		}
 		// Override poolID with sequential ID
-		session.poolID = fmt.Sprintf("ssh-session-%d", sessionID)
-		session.lastUsed = time.Now()
-		session.useCount = 1
-		session.initialized = true
-		return session, nil
+		conn.poolID = fmt.Sprintf("ssh-conn-%d", connectionID)
+		conn.lastUsed = time.Now()
+		conn.useCount = 1
+		conn.initialized = true
+		return conn, nil
 	}
 
 	logger.Debug().
-		Int("session_id", sessionID).
-		Msg("Creating working session for pool")
+		Int("connection_id", connectionID).
+		Str("address", p.address).
+		Msg("Dialing new SSH connection for pool")
 
-	ws, err := newWorkingSession(p.sshClient)
+	// Establish new TCP connection + SSH handshake
+	client, err := ssh.Dial("tcp", p.address, p.sshConfig)
 	if err != nil {
+		return nil, fmt.Errorf("failed to dial SSH: %w", err)
+	}
+
+	logger.Debug().
+		Int("connection_id", connectionID).
+		Msg("Creating working session on new connection")
+
+	// Create working session on the new connection
+	session, err := newWorkingSession(client)
+	if err != nil {
+		client.Close()
 		return nil, fmt.Errorf("failed to create working session: %w", err)
 	}
 
-	pooledSession := &PooledSSHSession{
-		workingSession: ws,
-		poolID:         fmt.Sprintf("ssh-session-%d", sessionID),
-		lastUsed:       time.Now(),
-		useCount:       1,
-		initialized:    true, // newWorkingSession already runs init commands
+	pooledConn := &PooledConnection{
+		client:      client,
+		session:     session,
+		adminMode:   false,
+		poolID:      fmt.Sprintf("ssh-conn-%d", connectionID),
+		lastUsed:    time.Now(),
+		useCount:    1,
+		initialized: true,
 	}
 
 	logger.Debug().
-		Str("pool_id", pooledSession.poolID).
-		Msg("Created new pooled SSH session")
+		Str("pool_id", pooledConn.poolID).
+		Msg("Created new pooled SSH connection")
 
-	return pooledSession, nil
+	return pooledConn, nil
 }
 
-// idleCleanup periodically closes idle SSH sessions
-func (p *SSHSessionPool) idleCleanup() {
+// idleCleanup periodically closes idle SSH connections
+func (p *SSHConnectionPool) idleCleanup() {
 	logger := logging.Global()
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
@@ -348,27 +403,24 @@ func (p *SSHSessionPool) idleCleanup() {
 		p.mu.Lock()
 		if p.closed {
 			p.mu.Unlock()
-			logger.Debug().Msg("SSH session pool closed, stopping idle cleanup")
+			logger.Debug().Msg("SSH connection pool closed, stopping idle cleanup")
 			return
 		}
 
-		// Find and close idle SSH sessions (keep at least 1)
+		// Find and close idle SSH connections (keep at least 1)
 		now := time.Now()
-		remaining := make([]*PooledSSHSession, 0, len(p.available))
+		remaining := make([]*PooledConnection, 0, len(p.available))
 		closedCount := 0
 
-		for _, session := range p.available {
-			if len(remaining) == 0 || now.Sub(session.lastUsed) < p.config.IdleTimeout {
-				remaining = append(remaining, session)
+		for _, conn := range p.available {
+			if len(remaining) == 0 || now.Sub(conn.lastUsed) < p.config.IdleTimeout {
+				remaining = append(remaining, conn)
 			} else {
 				logger.Debug().
-					Str("pool_id", session.poolID).
-					Dur("idle_time", now.Sub(session.lastUsed)).
-					Msg("Closing idle SSH session")
-				// Only close if workingSession is not nil (for test safety)
-				if session.workingSession != nil {
-					session.Close()
-				}
+					Str("pool_id", conn.poolID).
+					Dur("idle_time", now.Sub(conn.lastUsed)).
+					Msg("Closing idle SSH connection")
+				p.closeConnection(conn)
 				closedCount++
 			}
 		}
@@ -377,7 +429,7 @@ func (p *SSHSessionPool) idleCleanup() {
 			logger.Debug().
 				Int("closed_count", closedCount).
 				Int("remaining", len(remaining)).
-				Msg("Completed idle SSH session cleanup")
+				Msg("Completed idle SSH connection cleanup")
 		}
 
 		p.available = remaining
@@ -385,18 +437,18 @@ func (p *SSHSessionPool) idleCleanup() {
 	}
 }
 
-// SSHPoolStats contains SSH session pool statistics
+// SSHPoolStats contains SSH connection pool statistics
 type SSHPoolStats struct {
 	TotalCreated      int
 	InUse             int
 	Available         int
 	MaxSessions       int
 	TotalAcquisitions int // Total number of successful acquisitions
-	WaitCount         int // Number of times an acquire had to wait for a session
+	WaitCount         int // Number of times an acquire had to wait for a connection
 }
 
-// Stats returns current SSH session pool statistics
-func (p *SSHSessionPool) Stats() SSHPoolStats {
+// Stats returns current SSH connection pool statistics
+func (p *SSHConnectionPool) Stats() SSHPoolStats {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -410,15 +462,36 @@ func (p *SSHSessionPool) Stats() SSHPoolStats {
 	}
 }
 
-// LogStats logs current SSH session pool statistics at Info level
-func (p *SSHSessionPool) LogStats() {
+// LogStats logs current SSH connection pool statistics at Info level
+func (p *SSHConnectionPool) LogStats() {
 	stats := p.Stats()
 	logging.Global().Info().
 		Int("total_created", stats.TotalCreated).
 		Int("in_use", stats.InUse).
 		Int("available", stats.Available).
-		Int("max_sessions", stats.MaxSessions).
+		Int("max_connections", stats.MaxSessions).
 		Int("total_acquisitions", stats.TotalAcquisitions).
 		Int("wait_count", stats.WaitCount).
-		Msg("SSH session pool statistics")
+		Msg("SSH connection pool statistics")
+}
+
+// SetAdminMode sets the admin mode flag for this connection
+func (c *PooledConnection) SetAdminMode(admin bool) {
+	c.adminMode = admin
+}
+
+// Send sends a command to the session and returns the output
+func (c *PooledConnection) Send(cmd string) ([]byte, error) {
+	if c.session == nil {
+		return nil, fmt.Errorf("connection has no active session")
+	}
+	return c.session.Send(cmd)
+}
+
+// Close closes the session (but not the client connection)
+func (c *PooledConnection) Close() error {
+	if c.session != nil {
+		return c.session.Close()
+	}
+	return nil
 }
