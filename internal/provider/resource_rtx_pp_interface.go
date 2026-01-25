@@ -99,8 +99,21 @@ func resourceRTXPPInterfaceCreate(ctx context.Context, d *schema.ResourceData, m
 	// Use PP number as the resource ID
 	d.SetId(strconv.Itoa(ppNum))
 
-	// Read back to ensure consistency
-	return resourceRTXPPInterfaceRead(ctx, d, meta)
+	// Set computed fields
+	if err := d.Set("pp_interface", fmt.Sprintf("pp%d", ppNum)); err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Explicitly set access list values to match the config.
+	// The RTX router stores filter numbers, not access list names.
+	if err := d.Set("access_list_ip_in", config.AccessListIPIn); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("access_list_ip_out", config.AccessListIPOut); err != nil {
+		return diag.FromErr(err)
+	}
+
+	return nil
 }
 
 func resourceRTXPPInterfaceRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
@@ -174,7 +187,16 @@ func resourceRTXPPInterfaceUpdate(ctx context.Context, d *schema.ResourceData, m
 		return diag.Errorf("Failed to update PP interface configuration: %v", err)
 	}
 
-	return resourceRTXPPInterfaceRead(ctx, d, meta)
+	// Explicitly set access list values to match the config.
+	// The RTX router stores filter numbers, not access list names.
+	if err := d.Set("access_list_ip_in", config.AccessListIPIn); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("access_list_ip_out", config.AccessListIPOut); err != nil {
+		return diag.FromErr(err)
+	}
+
+	return nil
 }
 
 func resourceRTXPPInterfaceDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
