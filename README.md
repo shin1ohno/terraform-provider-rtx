@@ -146,6 +146,58 @@ provider "rtx" {
 | `RTX_SKIP_HOST_KEY_CHECK` | Skip SSH host key verification (insecure) |
 | `RTX_MAX_PARALLELISM` | Max concurrent operations (default: 4) |
 
+#### Priority
+
+Provider configuration takes precedence over environment variables:
+
+```hcl
+provider "rtx" {
+  host = "192.168.1.1"  # This value is used, even if RTX_HOST is set
+}
+```
+
+If a value is not set in the provider block, the environment variable is used as the default.
+
+#### Usage Patterns
+
+**Local development** - Use environment variables to avoid committing credentials:
+
+```bash
+export RTX_HOST="192.168.1.1"
+export RTX_USERNAME="admin"
+export RTX_PASSWORD="secret"
+terraform plan
+```
+
+**CI/CD** - Set environment variables in your pipeline:
+
+```yaml
+# GitHub Actions example
+env:
+  RTX_HOST: ${{ secrets.RTX_HOST }}
+  RTX_USERNAME: ${{ secrets.RTX_USERNAME }}
+  RTX_PASSWORD: ${{ secrets.RTX_PASSWORD }}
+```
+
+**Multiple routers** - Use provider configuration with variables:
+
+```hcl
+variable "routers" {
+  type = map(object({
+    host     = string
+    username = string
+    password = string
+  }))
+}
+
+provider "rtx" {
+  alias    = "router1"
+  host     = var.routers["router1"].host
+  username = var.routers["router1"].username
+  password = var.routers["router1"].password
+}
+```
+
 ## Resource References
 
 Resources provide computed attributes for referencing in other resources:
