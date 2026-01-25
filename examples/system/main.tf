@@ -6,7 +6,7 @@
 terraform {
   required_providers {
     rtx = {
-      source = "hashicorp.com/sh1/rtx"
+      source = "shin1ohno/rtx"
     }
   }
 }

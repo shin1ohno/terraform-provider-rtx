@@ -7,8 +7,8 @@
 terraform {
   required_providers {
     rtx = {
-      source  = "registry.terraform.io/sh1/rtx"
-      version = "~> 0.2"
+      source = "shin1ohno/rtx"
+      version = "~> 0.5"
     }
   }
 }

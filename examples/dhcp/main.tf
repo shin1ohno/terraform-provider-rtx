@@ -1,8 +1,8 @@
 terraform {
   required_providers {
     rtx = {
-      source  = "sh1/rtx"
-      version = "0.1.0"
+      source = "shin1ohno/rtx"
+      version = "~> 0.5"
     }
   }
 }
