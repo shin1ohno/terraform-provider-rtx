@@ -51,6 +51,7 @@ type SSHConnectionPool struct {
 	config            SSHPoolConfig
 	available         []*PooledConnection
 	inUse             map[*PooledConnection]bool
+	pendingCreations  int // Number of connections currently being created
 	totalCreated      int
 	totalAcquisitions int // Total number of successful acquisitions
 	waitCount         int // Number of times an acquire had to wait
@@ -162,14 +163,19 @@ func (p *SSHConnectionPool) Acquire(ctx context.Context) (*PooledConnection, err
 		}
 
 		// Can we create a new SSH connection?
-		totalConnections := len(p.inUse)
+		// Include pending creations to prevent race conditions when lock is released during dial
+		totalConnections := len(p.inUse) + p.pendingCreations
 		if totalConnections < p.config.MaxSessions {
 			logger.Debug().
 				Int("total_connections", totalConnections).
+				Int("pending_creations", p.pendingCreations).
 				Int("max_connections", p.config.MaxSessions).
 				Msg("Creating new SSH connection for pool")
 
+			p.pendingCreations++
 			conn, err := p.createConnection()
+			p.pendingCreations--
+
 			if err != nil {
 				logger.Error().Err(err).Msg("Failed to create new SSH connection")
 				return nil, err
