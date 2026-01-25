@@ -158,8 +158,23 @@ func resourceRTXIPv6InterfaceCreate(ctx context.Context, d *schema.ResourceData,
 	// Use interface name as the resource ID
 	d.SetId(config.Interface)
 
-	// Read back to ensure consistency
-	return resourceRTXIPv6InterfaceRead(ctx, d, meta)
+	// Explicitly set access list values to match the config.
+	// The RTX router stores filter numbers, not access list names.
+	// We must set these values explicitly to ensure the state matches the config.
+	if err := d.Set("access_list_ipv6_in", config.AccessListIPv6In); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("access_list_ipv6_out", config.AccessListIPv6Out); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("access_list_ipv6_dynamic_in", config.AccessListIPv6DynamicIn); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("access_list_ipv6_dynamic_out", config.AccessListIPv6DynamicOut); err != nil {
+		return diag.FromErr(err)
+	}
+
+	return nil
 }
 
 func resourceRTXIPv6InterfaceRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
@@ -252,16 +267,50 @@ func resourceRTXIPv6InterfaceRead(ctx context.Context, d *schema.ResourceData, m
 	if err := d.Set("mtu", config.MTU); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set("access_list_ipv6_in", config.AccessListIPv6In); err != nil {
+	// Set access list attributes - preserve values when service returns empty.
+	// RTX router stores filter numbers, not access list names. The service layer cannot
+	// reverse-lookup names from numbers, so it returns empty values.
+	//
+	// We use a fallback chain:
+	// 1. Service value (if not empty)
+	// 2. Config value via GetRawConfig() (if available)
+	// 3. Prior state value via d.Get()
+	//
+	// This preserves access list names across plan/apply cycles.
+	rawConfig := d.GetRawConfig()
+	preserveOrSet := func(attrName, serviceValue string) error {
+		value := serviceValue
+		if value == "" {
+			// Try to get from raw config (Terraform configuration)
+			if !rawConfig.IsNull() {
+				configVal := rawConfig.GetAttr(attrName)
+				if !configVal.IsNull() && !configVal.IsKnown() {
+					// Value is unknown (being computed) - use prior state
+					value = d.Get(attrName).(string)
+				} else if !configVal.IsNull() && configVal.AsString() != "" {
+					value = configVal.AsString()
+				} else {
+					// Config is empty or null, use prior state
+					value = d.Get(attrName).(string)
+				}
+			} else {
+				// No raw config available, use prior state
+				value = d.Get(attrName).(string)
+			}
+		}
+		return d.Set(attrName, value)
+	}
+
+	if err := preserveOrSet("access_list_ipv6_in", config.AccessListIPv6In); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set("access_list_ipv6_out", config.AccessListIPv6Out); err != nil {
+	if err := preserveOrSet("access_list_ipv6_out", config.AccessListIPv6Out); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set("access_list_ipv6_dynamic_in", config.AccessListIPv6DynamicIn); err != nil {
+	if err := preserveOrSet("access_list_ipv6_dynamic_in", config.AccessListIPv6DynamicIn); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set("access_list_ipv6_dynamic_out", config.AccessListIPv6DynamicOut); err != nil {
+	if err := preserveOrSet("access_list_ipv6_dynamic_out", config.AccessListIPv6DynamicOut); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -282,7 +331,23 @@ func resourceRTXIPv6InterfaceUpdate(ctx context.Context, d *schema.ResourceData,
 		return diag.Errorf("Failed to update IPv6 interface configuration: %v", err)
 	}
 
-	return resourceRTXIPv6InterfaceRead(ctx, d, meta)
+	// Explicitly set access list values to match the config.
+	// The RTX router stores filter numbers, not access list names.
+	// We must set these values explicitly to ensure the state matches the config.
+	if err := d.Set("access_list_ipv6_in", config.AccessListIPv6In); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("access_list_ipv6_out", config.AccessListIPv6Out); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("access_list_ipv6_dynamic_in", config.AccessListIPv6DynamicIn); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("access_list_ipv6_dynamic_out", config.AccessListIPv6DynamicOut); err != nil {
+		return diag.FromErr(err)
+	}
+
+	return nil
 }
 
 func resourceRTXIPv6InterfaceDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
@@ -503,3 +568,4 @@ func convertParsedIPv6InterfaceConfig(parsed *parsers.IPv6InterfaceConfig) *clie
 
 	return config
 }
+

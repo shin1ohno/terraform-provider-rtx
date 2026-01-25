@@ -193,3 +193,103 @@ func SuppressBooleanStringDiff(k, old, new string, d *schema.ResourceData) bool 
 func SuppressEmptyStringDiff(k, old, new string, d *schema.ResourceData) bool {
 	return old == new
 }
+
+// SuppressMACAddressWhenAnyIsTrue suppresses diff for MAC address fields
+// when the corresponding *_any field is true. This handles the case where
+// RTX router normalizes "*:*:*:*:*:*" to *_any=true internally.
+//
+// The key format is expected to be like "entry.0.source_address" or
+// "entry.0.destination_address". This function extracts the entry index
+// and checks the corresponding source_any or destination_any field.
+//
+// Examples:
+//   - If source_any=true, source_address diff is suppressed
+//   - If destination_any=true, destination_address diff is suppressed
+//   - Wildcard address "*:*:*:*:*:*" with any=false shows diff
+//
+// Returns true if diff should be suppressed, false otherwise.
+func SuppressMACAddressWhenAnyIsTrue(k, old, new string, d *schema.ResourceData) bool {
+	// Extract the base path to find the corresponding *_any field
+	// Key format: "entry.0.source_address" or "entry.0.destination_address"
+	parts := strings.Split(k, ".")
+	if len(parts) < 3 {
+		return old == new
+	}
+
+	// Determine which field we're checking
+	fieldName := parts[len(parts)-1]
+	basePath := strings.Join(parts[:len(parts)-1], ".")
+
+	var anyFieldPath string
+	if fieldName == "source_address" {
+		anyFieldPath = basePath + ".source_any"
+	} else if fieldName == "destination_address" {
+		anyFieldPath = basePath + ".destination_any"
+	} else {
+		return old == new
+	}
+
+	// Check if the corresponding *_any field is true
+	if anyVal, ok := d.GetOk(anyFieldPath); ok && anyVal.(bool) {
+		// *_any is true, suppress diff for the address field
+		return true
+	}
+
+	// Also treat wildcard address as equivalent to *_any=true
+	wildcardMAC := "*:*:*:*:*:*"
+	if old == wildcardMAC || new == wildcardMAC {
+		// If either is wildcard and either *_any or address matches wildcard semantically
+		if (old == wildcardMAC && new == "") || (old == "" && new == wildcardMAC) {
+			return true
+		}
+		if old == wildcardMAC && new == wildcardMAC {
+			return true
+		}
+	}
+
+	return old == new
+}
+
+// SuppressEquivalentACLActionDiff compares ACL action values accounting for
+// equivalent representations. RTX routers may normalize action values differently
+// than Terraform configuration.
+//
+// Equivalent action groups:
+//   - "permit", "pass", "pass-nolog" are all equivalent (allow without logging)
+//   - "deny", "reject", "reject-nolog" are all equivalent (deny without logging)
+//   - "pass-log" stands alone (allow with logging)
+//   - "reject-log" stands alone (deny with logging)
+//
+// Examples:
+//   - "permit" and "pass" are considered equal
+//   - "pass", "pass-nolog", and "pass-log" are considered equal
+//   - "reject", "reject-nolog", and "reject-log" are considered equal
+//   - The router may normalize action values and add/remove logging suffixes
+//
+// Returns true if values represent the same action semantically.
+func SuppressEquivalentACLActionDiff(k, old, new string, d *schema.ResourceData) bool {
+	// Normalize both values to lowercase for comparison
+	oldLower := strings.ToLower(strings.TrimSpace(old))
+	newLower := strings.ToLower(strings.TrimSpace(new))
+
+	// Direct match (including case-insensitive)
+	if oldLower == newLower {
+		return true
+	}
+
+	// Define equivalent action groups
+	// Note: All pass/permit variants are equivalent, and all reject/deny variants are equivalent.
+	// The router may normalize these values and add/remove logging suffixes.
+	permitGroup := map[string]bool{"permit": true, "pass": true, "pass-nolog": true, "pass-log": true}
+	denyGroup := map[string]bool{"deny": true, "reject": true, "reject-nolog": true, "reject-log": true}
+
+	// Check if both are in the same equivalence group
+	if permitGroup[oldLower] && permitGroup[newLower] {
+		return true
+	}
+	if denyGroup[oldLower] && denyGroup[newLower] {
+		return true
+	}
+
+	return false
+}

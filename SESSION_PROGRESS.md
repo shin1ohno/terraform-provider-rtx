@@ -108,6 +108,28 @@ provider "rtx" {
 
 ## 最近の変更
 
+### State Drift問題の解決（2026-01-25）
+
+`terraform apply`後も差分が残り続ける問題を修正。
+
+**問題1: interface access list属性**
+- 原因: RTXルーターはフィルタ番号のみを保存、名前は逆引き不可
+- 解決: Create/Update関数で`d.Set()`を使用してconfig値を明示的に設定
+
+**問題2: rtx_access_list_mac source_any/destination_any**
+- 原因: ルーターが`*:*:*:*:*:*`を返すがTerraformは`*_any=true`を期待
+- 解決: Read関数でワイルドカードアドレスを検出して`*_any`フィールドに変換
+
+**問題3: rtx_access_list_mac filter_id/apply**
+- 原因: Optional属性がConfigで指定されていないのにReadで設定される
+- 解決: `Computed: true`を追加してReadからの値を許容
+
+**修正ファイル:**
+- `internal/provider/resource_rtx_interface.go`
+- `internal/provider/resource_rtx_ipv6_interface.go`
+- `internal/provider/resource_rtx_access_list_mac.go`
+- `internal/provider/diff_suppress.go`
+
 ### Dynamic Access List Import修正（2026-01-25）
 
 RTXルーターは「名前付きアクセスリスト」の概念を持たず、フィルタ番号のみを管理。

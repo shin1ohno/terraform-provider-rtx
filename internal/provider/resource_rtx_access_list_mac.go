@@ -39,14 +39,16 @@ func resourceRTXAccessListMAC() *schema.Resource {
 			"filter_id": {
 				Type:         schema.TypeInt,
 				Optional:     true,
-				Description:  "Optional RTX filter ID to enable numeric ethernet filter mode",
+				Computed:     true,
+				Description:  "Optional RTX filter ID to enable numeric ethernet filter mode. If not specified, derived from first entry.",
 				ValidateFunc: validation.IntAtLeast(1),
 			},
 			"apply": {
 				Type:        schema.TypeList,
 				Optional:    true,
+				Computed:    true,
 				MaxItems:    1,
-				Description: "Optional application of ethernet filters to an interface",
+				Description: "Optional application of ethernet filters to an interface. Read from router configuration.",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"interface": {
@@ -90,7 +92,7 @@ func resourceRTXAccessListMAC() *schema.Resource {
 							Required:         true,
 							Description:      "Action to take (permit/deny or RTX pass/reject with log/nolog)",
 							ValidateFunc:     validation.StringInSlice([]string{"permit", "deny", "pass-log", "pass-nolog", "reject-log", "reject-nolog", "pass", "reject"}, true),
-							DiffSuppressFunc: SuppressCaseDiff, // ACL actions are case-insensitive
+							DiffSuppressFunc: SuppressEquivalentACLActionDiff, // Treat equivalent actions as equal (permit=pass=pass-nolog, deny=reject=reject-nolog)
 						},
 						"source_any": {
 							Type:        schema.TypeBool,
@@ -99,9 +101,10 @@ func resourceRTXAccessListMAC() *schema.Resource {
 							Description: "Match any source MAC address",
 						},
 						"source_address": {
-							Type:        schema.TypeString,
-							Optional:    true,
-							Description: "Source MAC address (e.g., 00:00:00:00:00:00)",
+							Type:             schema.TypeString,
+							Optional:         true,
+							Description:      "Source MAC address (e.g., 00:00:00:00:00:00)",
+							DiffSuppressFunc: SuppressMACAddressWhenAnyIsTrue, // Suppress diff when source_any=true
 						},
 						"source_address_mask": {
 							Type:        schema.TypeString,
@@ -115,9 +118,10 @@ func resourceRTXAccessListMAC() *schema.Resource {
 							Description: "Match any destination MAC address",
 						},
 						"destination_address": {
-							Type:        schema.TypeString,
-							Optional:    true,
-							Description: "Destination MAC address (e.g., 00:00:00:00:00:00)",
+							Type:             schema.TypeString,
+							Optional:         true,
+							Description:      "Destination MAC address (e.g., 00:00:00:00:00:00)",
+							DiffSuppressFunc: SuppressMACAddressWhenAnyIsTrue, // Suppress diff when destination_any=true
 						},
 						"destination_address_mask": {
 							Type:        schema.TypeString,
@@ -232,15 +236,31 @@ func resourceRTXAccessListMACRead(ctx context.Context, d *schema.ResourceData, m
 	d.Set("filter_id", acl.FilterID)
 
 	entries := make([]map[string]interface{}, 0, len(acl.Entries))
+	wildcardMAC := "*:*:*:*:*:*"
 	for _, entry := range acl.Entries {
+		// Detect wildcard addresses and set *_any fields accordingly
+		// The router returns "*:*:*:*:*:*" for "any" addresses
+		sourceAny := entry.SourceAny || entry.SourceAddress == wildcardMAC
+		destinationAny := entry.DestinationAny || entry.DestinationAddress == wildcardMAC
+
+		// When *_any is true, clear the address to match the config pattern
+		sourceAddress := entry.SourceAddress
+		destinationAddress := entry.DestinationAddress
+		if sourceAny && sourceAddress == wildcardMAC {
+			sourceAddress = ""
+		}
+		if destinationAny && destinationAddress == wildcardMAC {
+			destinationAddress = ""
+		}
+
 		e := map[string]interface{}{
 			"sequence":                 entry.Sequence,
 			"ace_action":               entry.AceAction,
-			"source_any":               entry.SourceAny,
-			"source_address":           entry.SourceAddress,
+			"source_any":               sourceAny,
+			"source_address":           sourceAddress,
 			"source_address_mask":      entry.SourceAddressMask,
-			"destination_any":          entry.DestinationAny,
-			"destination_address":      entry.DestinationAddress,
+			"destination_any":          destinationAny,
+			"destination_address":      destinationAddress,
 			"destination_address_mask": entry.DestinationAddressMask,
 			"ether_type":               entry.EtherType,
 			"vlan_id":                  entry.VlanID,
