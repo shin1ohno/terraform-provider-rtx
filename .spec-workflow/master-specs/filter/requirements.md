@@ -16,53 +16,12 @@ The filter resources support the product goal of providing comprehensive network
 
 | Resource Name | Type | Import Support | ID Format | Description |
 |---------------|------|----------------|-----------|-------------|
-| `rtx_ethernet_filter` | collection | Yes | `{number}` | Layer 2 (Ethernet/MAC) filter rules |
 | `rtx_interface_acl` | collection | Yes | `{interface}` | Interface ACL bindings (IP/IPv6) |
 | `rtx_interface_mac_acl` | collection | Yes | `{interface}` | Interface MAC ACL bindings |
 | `rtx_ip_filter_dynamic` | collection | Yes | `{sequence}` | IPv4 stateful/dynamic filters |
 | `rtx_ipv6_filter_dynamic` | singleton | Yes | `ipv6_filter_dynamic` | IPv6 stateful/dynamic filters |
 
----
-
-## Resource: rtx_ethernet_filter
-
-### Functional Requirements
-
-#### Core Operations
-
-**Create**: Creates a new Ethernet (Layer 2) filter rule on the RTX router. The filter can match traffic based on MAC addresses, Ethernet types, VLAN IDs, or DHCP binding status.
-
-**Read**: Retrieves an existing Ethernet filter configuration by filter number.
-
-**Update**: Modifies an existing Ethernet filter by re-applying the configuration with the same number.
-
-**Delete**: Removes an Ethernet filter by filter number.
-
-### Schema Attributes
-
-| Attribute | Type | Required | ForceNew | Description | Constraints |
-|-----------|------|----------|----------|-------------|-------------|
-| `sequence` | Int | Yes | Yes | Filter number | 1-512 |
-| `action` | String | Yes | No | Action to take | `pass-log`, `pass-nolog`, `reject-log`, `reject-nolog`, `pass`, `reject` |
-| `source_mac` | String | No | No | Source MAC address | MAC format or `*` for any |
-| `destination_mac` | String | No | No | Destination MAC address | MAC format or `*` for any |
-| `ether_type` | String | No | No | Ethernet type | Hex format (e.g., `0x0800`) |
-| `vlan_id` | Int | No | No | VLAN ID to match | 1-4094 |
-| `dhcp_type` | String | No | No | DHCP filter type | `dhcp-bind`, `dhcp-not-bind` |
-| `dhcp_scope` | Int | No | No | DHCP scope number | >= 1 |
-| `offset` | Int | No | No | Byte offset for byte-match filtering | - |
-| `byte_list` | List(String) | No | No | Byte patterns for byte-match filtering | - |
-
-### Attribute Conflicts
-
-- `source_mac`, `destination_mac`, `ether_type`, `vlan_id`, `offset`, `byte_list` conflict with `dhcp_type`
-
-### Acceptance Criteria
-
-1. WHEN a user creates an Ethernet filter with MAC addresses THEN the system SHALL create the filter with the specified source and destination MACs
-2. WHEN a user creates a DHCP-based filter THEN the system SHALL reject any MAC address parameters
-3. WHEN a user specifies a filter number outside 1-512 THEN the system SHALL return a validation error
-4. WHEN a user imports an Ethernet filter THEN the system SHALL read the filter configuration and populate all attributes
+> **Note**: Layer 2 (Ethernet/MAC) filter rules are managed via `rtx_access_list_mac` resource (see access-list spec).
 
 ---
 

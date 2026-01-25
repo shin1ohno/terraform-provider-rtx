@@ -8,12 +8,14 @@ This document describes the technical design and architecture for filter-related
 
 | Attribute | Value |
 |-----------|-------|
-| Resource Names | `rtx_ethernet_filter`, `rtx_interface_acl`, `rtx_interface_mac_acl`, `rtx_ip_filter_dynamic`, `rtx_ipv6_filter_dynamic` |
+| Resource Names | `rtx_interface_acl`, `rtx_interface_mac_acl`, `rtx_ip_filter_dynamic`, `rtx_ipv6_filter_dynamic` |
 | Service Files | `internal/client/ethernet_filter_service.go`, `internal/client/ip_filter_service.go` |
 | Parser Files | `internal/rtx/parsers/ethernet_filter.go`, `internal/rtx/parsers/ip_filter.go` |
-| Resource Files | `internal/provider/resource_rtx_ethernet_filter.go`, `resource_rtx_interface_acl.go`, `resource_rtx_interface_mac_acl.go`, `resource_rtx_ip_filter_dynamic.go`, `resource_rtx_ipv6_filter_dynamic.go` |
-| Last Updated | 2025-01-23 |
+| Resource Files | `resource_rtx_interface_acl.go`, `resource_rtx_interface_mac_acl.go`, `resource_rtx_ip_filter_dynamic.go`, `resource_rtx_ipv6_filter_dynamic.go` |
+| Last Updated | 2026-01-25 |
 | Source Specs | Implementation code, Test files |
+
+> **Note**: Layer 2 (Ethernet/MAC) filter rules are managed via `rtx_access_list_mac` resource (see access-list spec). The `rtx_interface_mac_acl` resource binds MAC access lists to interfaces.
 
 ## Steering Document Alignment
 
@@ -59,7 +61,6 @@ The filter resources follow a three-layer architecture pattern consistent with o
 ```mermaid
 graph TD
     subgraph Provider Layer
-        EthernetFilter[resource_rtx_ethernet_filter.go]
         InterfaceACL[resource_rtx_interface_acl.go]
         InterfaceMACACL[resource_rtx_interface_mac_acl.go]
         IPFilterDynamic[resource_rtx_ip_filter_dynamic.go]
@@ -77,7 +78,6 @@ graph TD
         IPFilterParser[ip_filter.go]
     end
 
-    EthernetFilter --> Client
     InterfaceACL --> Client
     InterfaceMACACL --> Client
     IPFilterDynamic --> Client
@@ -95,7 +95,6 @@ graph TD
 ```mermaid
 graph LR
     subgraph Layer 2 Resources
-        EF[rtx_ethernet_filter]
         IMACL[rtx_interface_mac_acl]
     end
 
@@ -111,17 +110,18 @@ graph LR
     end
 
     subgraph Rule Resources
-        EF
         IPFD
         IPv6FD
     end
 ```
 
+> **Note**: Layer 2 (MAC) filter rules are defined via `rtx_access_list_mac` resource (see access-list spec), then applied to interfaces via `rtx_interface_mac_acl`.
+
 ## Components and Interfaces
 
 ### Component 1: EthernetFilterService (`internal/client/ethernet_filter_service.go`)
 
-- **Purpose:** Manages Ethernet (Layer 2) filter CRUD operations
+- **Purpose:** Manages Ethernet (Layer 2) filter CRUD operations. Used internally by `rtx_access_list_mac` and `rtx_interface_mac_acl` resources.
 - **Interfaces:**
   ```go
   type EthernetFilterService struct {
@@ -256,19 +256,21 @@ graph LR
 - **Purpose:** Terraform resource definitions implementing CRUD lifecycle
 - **Common Pattern:**
   ```go
-  func (r *rtxEthernetFilterResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse)
-  func (r *rtxEthernetFilterResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse)
-  func (r *rtxEthernetFilterResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse)
-  func (r *rtxEthernetFilterResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse)
-  func (r *rtxEthernetFilterResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse)
-  func (r *rtxEthernetFilterResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse)
+  func (r *resourceType) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse)
+  func (r *resourceType) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse)
+  func (r *resourceType) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse)
+  func (r *resourceType) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse)
+  func (r *resourceType) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse)
+  func (r *resourceType) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse)
   ```
 - **Dependencies:** terraform-plugin-framework, client services
 - **Reuses:** Common diagnostic helpers, attribute conversion utilities
 
 ## Data Models
 
-### EthernetFilter (Layer 2 Filter Model)
+### EthernetFilter (Layer 2 Filter Model - Internal)
+
+> **Note**: This is an internal model used by the service/parser layer. Terraform users define Layer 2 filters via `rtx_access_list_mac` resource (see access-list spec).
 
 ```go
 // EthernetFilter represents a Layer 2 filter rule on an RTX router
@@ -330,7 +332,9 @@ type SecureFilter struct {
 
 ## RTX Command Mapping
 
-### Ethernet Filter Commands
+### Ethernet Filter Commands (Internal)
+
+> **Note**: These commands are executed internally by the `rtx_access_list_mac` resource. Users define filters via Terraform schema.
 
 #### Create/Update Ethernet Filter (MAC-based)
 ```
@@ -512,11 +516,12 @@ Example: `no ipv6 lan1 secure filter in`
 
 | Resource | Unit Tests | Integration Tests | Import Tests |
 |----------|------------|-------------------|--------------|
-| rtx_ethernet_filter | Parser, Service | CRUD lifecycle | Filter by number |
 | rtx_interface_acl | Parser, Service | CRUD lifecycle | Filter by interface |
 | rtx_interface_mac_acl | Parser, Service | CRUD lifecycle | Filter by interface |
 | rtx_ip_filter_dynamic | Parser, Service | CRUD lifecycle, Form 1/2 | Filter by ID |
 | rtx_ipv6_filter_dynamic | Parser, Service | CRUD lifecycle | Static ID |
+
+> **Note**: Layer 2 filter tests are covered by `rtx_access_list_mac` resource tests (see access-list spec).
 
 ### End-to-End Testing
 
@@ -531,8 +536,6 @@ Example: `no ipv6 lan1 secure filter in`
 ```
 internal/
 ├── provider/
-│   ├── resource_rtx_ethernet_filter.go
-│   ├── resource_rtx_ethernet_filter_test.go
 │   ├── resource_rtx_interface_acl.go
 │   ├── resource_rtx_interface_acl_test.go
 │   ├── resource_rtx_interface_mac_acl.go
@@ -544,17 +547,19 @@ internal/
 ├── client/
 │   ├── interfaces.go                    # Interface definitions
 │   ├── client.go                        # Service initialization
-│   ├── ethernet_filter_service.go
+│   ├── ethernet_filter_service.go       # Used by rtx_access_list_mac
 │   ├── ethernet_filter_service_test.go
 │   ├── ip_filter_service.go
 │   └── ip_filter_service_test.go
 └── rtx/
     └── parsers/
-        ├── ethernet_filter.go
+        ├── ethernet_filter.go           # Used by rtx_access_list_mac
         ├── ethernet_filter_test.go
         ├── ip_filter.go
         └── ip_filter_test.go
 ```
+
+> **Note**: Ethernet filter service and parser are used internally by `rtx_access_list_mac` resource for Layer 2 filtering.
 
 ## Implementation Notes
 
@@ -593,3 +598,4 @@ internal/
 | 2025-01-23 | Implementation Code | Initial master design created from implementation analysis |
 | 2026-01-23 | filter-number-parsing-fix | Documented smart line joining for RTX output line wrapping in preprocessWrappedLines |
 | 2026-01-23 | terraform-plan-differences-fix | Ethernet filter parser accepts `*:*:*:*:*:*` MAC wildcard format; regex patterns use `.*$` for line wrapping |
+| 2026-01-25 | Resource consolidation | Removed `rtx_ethernet_filter` resource; Layer 2 filtering now managed via `rtx_access_list_mac` |

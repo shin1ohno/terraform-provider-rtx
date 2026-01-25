@@ -155,7 +155,7 @@ The following resources need to be audited for optional fields:
 - [ ] rtx_interface
 - [ ] rtx_dhcp_scope
 - [ ] rtx_l2tp_service
-- [ ] rtx_ethernet_filter
+- [ ] rtx_access_list_mac
 - [ ] (All other resources in the provider)
 
 ## References

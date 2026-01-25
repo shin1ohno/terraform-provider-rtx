@@ -155,7 +155,6 @@ func New(version string) *schema.Provider {
 			"rtx_dhcp_scope":                resourceRTXDHCPScope(),
 			"rtx_ddns":                      resourceRTXDDNS(),
 			"rtx_dns_server":                resourceRTXDNSServer(),
-			"rtx_ethernet_filter":           resourceRTXEthernetFilter(),
 			"rtx_httpd":                     resourceRTXHTTPD(),
 			"rtx_interface":                 resourceRTXInterface(),
 			"rtx_interface_acl":             resourceRTXInterfaceACL(),
