@@ -128,14 +128,14 @@ func TestRunStateMigrationTest(t *testing.T) {
 
 func TestCrossVersionTestStep(t *testing.T) {
 	step := CrossVersionTestStep(
-		"registry.terraform.io/sh1/rtx",
+		"shin1ohno/rtx",
 		"1.0.0",
 		`resource "rtx_admin" "test" { name = "test" }`,
 	)
 
 	assert.NotNil(t, step.ExternalProviders)
 	assert.Contains(t, step.ExternalProviders, "rtx")
-	assert.Equal(t, "registry.terraform.io/sh1/rtx", step.ExternalProviders["rtx"].Source)
+	assert.Equal(t, "shin1ohno/rtx", step.ExternalProviders["rtx"].Source)
 	assert.Equal(t, "1.0.0", step.ExternalProviders["rtx"].VersionConstraint)
 	assert.Contains(t, step.Config, "rtx_admin")
 }
@@ -148,7 +148,7 @@ func TestCrossVersionTestStepWithCheck(t *testing.T) {
 	}
 
 	step := CrossVersionTestStepWithCheck(
-		"registry.terraform.io/sh1/rtx",
+		"shin1ohno/rtx",
 		"1.0.0",
 		`resource "rtx_admin" "test" { name = "test" }`,
 		checkFunc,
@@ -162,7 +162,7 @@ func TestCrossVersionTestStepWithCheck(t *testing.T) {
 
 func TestBuildCrossVersionUpgradeSteps(t *testing.T) {
 	cfg := CrossVersionUpgradeTestConfig{
-		ProviderSource: "registry.terraform.io/sh1/rtx",
+		ProviderSource: "shin1ohno/rtx",
 		OldVersion:     "1.0.0",
 		OldConfig:      `resource "rtx_admin" "test" { name = "old" }`,
 		NewConfig:      `resource "rtx_admin" "test" { name = "new" }`,
@@ -181,7 +181,7 @@ func TestBuildCrossVersionUpgradeSteps(t *testing.T) {
 
 func TestBuildCrossVersionUpgradeSteps_WithEmptyPlanCheck(t *testing.T) {
 	cfg := CrossVersionUpgradeTestConfig{
-		ProviderSource:              "registry.terraform.io/sh1/rtx",
+		ProviderSource:              "shin1ohno/rtx",
 		OldVersion:                  "1.0.0",
 		OldConfig:                   `resource "rtx_admin" "test" { name = "test" }`,
 		ExpectEmptyPlanAfterUpgrade: true,
@@ -202,7 +202,7 @@ func TestBuildCrossVersionUpgradeSteps_WithEmptyPlanCheck(t *testing.T) {
 
 func TestBuildCrossVersionUpgradeSteps_UsesOldConfigWhenNewEmpty(t *testing.T) {
 	cfg := CrossVersionUpgradeTestConfig{
-		ProviderSource: "registry.terraform.io/sh1/rtx",
+		ProviderSource: "shin1ohno/rtx",
 		OldVersion:     "1.0.0",
 		OldConfig:      `resource "rtx_admin" "test" { name = "same" }`,
 		NewConfig:      "", // Empty - should reuse OldConfig

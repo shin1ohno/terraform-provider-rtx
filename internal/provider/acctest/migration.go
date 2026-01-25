@@ -97,7 +97,7 @@ func RunStateMigrationTest(t *testing.T, tc StateMigrationTestCase) {
 // by first applying with an old provider version, then upgrading to the current
 // version.
 //
-// The providerSource should be the full provider source (e.g., "registry.terraform.io/sh1/rtx")
+// The providerSource should be the full provider source (e.g., "shin1ohno/rtx")
 // The providerVersion should be a version constraint (e.g., "1.0.0" or "~> 1.0")
 // The config is the Terraform configuration to apply with the external provider.
 //
@@ -107,7 +107,7 @@ func RunStateMigrationTest(t *testing.T, tc StateMigrationTestCase) {
 //		Steps: []resource.TestStep{
 //			// Step 1: Apply with old provider version
 //			acctest.CrossVersionTestStep(
-//				"registry.terraform.io/sh1/rtx",
+//				"shin1ohno/rtx",
 //				"1.0.0",
 //				testAccOldConfig(),
 //			),
@@ -145,7 +145,7 @@ func CrossVersionTestStepWithCheck(providerSource, providerVersion, config strin
 // upgrade test scenario.
 type CrossVersionUpgradeTestConfig struct {
 	// ProviderSource is the full source address of the provider
-	// (e.g., "registry.terraform.io/sh1/rtx")
+	// (e.g., "shin1ohno/rtx")
 	ProviderSource string
 
 	// OldVersion is the version of the provider to start with
