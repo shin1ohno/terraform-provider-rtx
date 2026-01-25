@@ -102,6 +102,7 @@ VPN resources support enterprise-grade network infrastructure management by:
 | dpd_interval | int | No | No | No | >= 1 | DPD interval in seconds |
 | dpd_retry | int | No | No | No | >= 0 | DPD retry count |
 | enabled | bool | No | No | No | - | Enable the tunnel |
+| tunnel_interface | string | No | No | No | - | Computed tunnel interface name (e.g., "tunnel1") |
 
 #### ikev2_proposal Block
 
@@ -262,6 +263,7 @@ VPN resources support enterprise-grade network infrastructure management by:
 | disconnect_time | int | No | No | No | >= 0 | Idle disconnect time |
 | always_on | bool | No | No | No | - | Always-on mode |
 | enabled | bool | No | No | No | - | Enable the tunnel |
+| tunnel_interface | string | No | No | No | - | Computed tunnel interface name (e.g., "tunnel1") |
 
 #### authentication Block
 
@@ -753,3 +755,4 @@ resource "rtx_pptp" "main" {
 | Date | Source Spec | Changes |
 |------|-------------|---------|
 | 2026-01-23 | Implementation | Initial documentation from codebase |
+| 2026-01-25 | Implementation Sync | Add computed `tunnel_interface` for rtx_ipsec_tunnel and rtx_l2tp |

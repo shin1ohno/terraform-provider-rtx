@@ -254,6 +254,7 @@ type PPPoEConfig struct {
     Number            int                 `json:"number"`                       // PP interface number (1-based)
     Name              string              `json:"name,omitempty"`               // Connection name/description
     Interface         string              `json:"interface,omitempty"`          // PP interface name (e.g., "pp 1")
+    PPInterface       string              `json:"pp_interface,omitempty"`       // Computed: "pp{Number}" (e.g., "pp1")
     BindInterface     string              `json:"bind_interface"`               // Physical interface to bind (lan2, etc.)
     ServiceName       string              `json:"service_name,omitempty"`       // PPPoE service name filter
     ACName            string              `json:"ac_name,omitempty"`            // PPPoE AC name filter
@@ -560,6 +561,8 @@ internal/
 
 10. **Japanese Status Detection**: Connection status parsing handles both English ("PP[ON]") and Japanese ("接続中") status indicators.
 
+11. **Computed `pp_interface`**: The `pp_interface` attribute is computed from `pp_number` as `fmt.Sprintf("pp%d", config.Number)`. This enables Terraform resource references like `rtx_pppoe.primary.pp_interface` instead of hardcoded strings like `"pp1"`.
+
 ## State Handling
 
 - Persist only configuration attributes in Terraform state
@@ -572,3 +575,4 @@ internal/
 | Date | Source Spec | Changes |
 |------|-------------|---------|
 | 2026-01-23 | Implementation-based | Initial master design created from existing implementation |
+| 2026-01-25 | Implementation Sync | Add computed `pp_interface` attribute for resource references |

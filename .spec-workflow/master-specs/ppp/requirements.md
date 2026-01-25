@@ -178,6 +178,12 @@ This resource directly supports the provider's key features:
 | `reconnect_interval` | >= 0 | "reconnect interval must be >= 0" |
 | `reconnect_attempts` | >= 0 | "reconnect attempts must be >= 0" |
 
+### Computed Attributes
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `pp_interface` | string | Computed PP interface name (e.g., "pp1" from `pp_number=1`). Used for resource references. |
+
 ## RTX Commands Reference
 
 ### Configuration Commands
@@ -319,3 +325,4 @@ resource "rtx_pppoe" "resilient" {
 | Date | Source Spec | Changes |
 |------|-------------|---------|
 | 2026-01-23 | Implementation-based | Initial master spec created from existing implementation |
+| 2026-01-25 | Implementation Sync | Add computed `pp_interface` attribute for resource references |

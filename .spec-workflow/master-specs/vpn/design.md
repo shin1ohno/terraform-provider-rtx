@@ -262,11 +262,12 @@ func (s *PPTPService) Delete(ctx context.Context) error
 ```go
 // IPsecTunnel represents an IPsec tunnel configuration
 type IPsecTunnel struct {
-    ID             int            `json:"id"`              // Tunnel ID (1-65535)
-    Name           string         `json:"name,omitempty"`  // Description
-    LocalAddress   string         `json:"local_address"`   // Local endpoint IP
-    RemoteAddress  string         `json:"remote_address"`  // Remote endpoint IP/hostname
-    PreSharedKey   string         `json:"pre_shared_key"`  // IKE PSK (sensitive)
+    ID              int            `json:"id"`               // Tunnel ID (1-65535)
+    Name            string         `json:"name,omitempty"`   // Description
+    TunnelInterface string         `json:"tunnel_interface"` // Computed: "tunnel{ID}" (e.g., "tunnel1")
+    LocalAddress    string         `json:"local_address"`    // Local endpoint IP
+    RemoteAddress   string         `json:"remote_address"`   // Remote endpoint IP/hostname
+    PreSharedKey    string         `json:"pre_shared_key"`   // IKE PSK (sensitive)
     IKEv2Proposal  IKEv2Proposal  `json:"ikev2_proposal"`  // IKE Phase 1 settings
     IPsecTransform IPsecTransform `json:"ipsec_transform"` // IPsec Phase 2 settings
     LocalNetwork   string         `json:"local_network"`   // Local network CIDR
@@ -326,6 +327,7 @@ type IPsecTransportConfig struct {
 type L2TPConfig struct {
     ID               int            `json:"id"`               // Tunnel ID
     Name             string         `json:"name,omitempty"`   // Description
+    TunnelInterface  string         `json:"tunnel_interface"` // Computed: "tunnel{ID}" (e.g., "tunnel1")
     Version          string         `json:"version"`          // "l2tp" or "l2tpv3"
     Mode             string         `json:"mode"`             // "lns" or "l2vpn"
     Shutdown         bool           `json:"shutdown"`         // Admin shutdown
@@ -637,6 +639,7 @@ Pre-shared keys and passwords:
 Many attributes are `Optional + Computed`:
 - User can specify value or let it be computed from router
 - Defaults set in parser for new tunnels (e.g., `DPDInterval: 30`)
+- `tunnel_interface` computed as `fmt.Sprintf("tunnel%d", tunnel.ID)` for resource references
 
 ### 6. ForceNew Attributes
 
@@ -726,3 +729,4 @@ PPTP has known vulnerabilities:
 | Date | Source Spec | Changes |
 |------|-------------|---------|
 | 2026-01-23 | Implementation | Initial documentation from codebase |
+| 2026-01-25 | Implementation Sync | Add computed `tunnel_interface` for rtx_ipsec_tunnel and rtx_l2tp |

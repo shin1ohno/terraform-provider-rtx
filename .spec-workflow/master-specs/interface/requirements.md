@@ -79,6 +79,7 @@ Manages IPv4 network interface configuration on RTX routers including IP address
 | `mtu` | int | No | No | Yes | 0-65535 | MTU size (0 = default) |
 | `ethernet_filter_in` | list(int) | No | No | No | Each 1-512 | Inbound Ethernet filter numbers |
 | `ethernet_filter_out` | list(int) | No | No | No | Each 1-512 | Outbound Ethernet filter numbers |
+| `interface_name` | string | No | No | Yes | - | Computed interface name (same as `name`) |
 
 ### Import Specification
 
@@ -191,6 +192,7 @@ Manages IP configuration for Point-to-Point (PP) interfaces, typically used with
 | `nat_descriptor` | int | No | No | No | >= 0 | NAT descriptor ID |
 | `secure_filter_in` | list(int) | No | No | No | Each >= 1 | Inbound security filters |
 | `secure_filter_out` | list(int) | No | No | No | Each >= 1 | Outbound security filters |
+| `pp_interface` | string | No | No | Yes | - | Computed PP interface name (e.g., "pp1") |
 
 ### Import Specification
 
@@ -288,6 +290,7 @@ Manages Layer 2 bridge configurations that combine multiple interfaces into a si
 |-----------|------|----------|----------|----------|------------|-------------|
 | `name` | string | Yes | Yes | No | `^bridge\d+$` | Bridge name |
 | `members` | list(string) | No | No | No | Valid interface names | Member interfaces |
+| `interface_name` | string | No | No | Yes | - | Computed interface name (same as `name`) |
 
 ### Valid Member Interface Patterns
 
@@ -504,3 +507,4 @@ resource "rtx_bridge" "internal" {
 | Date | Source | Changes |
 |------|--------|---------|
 | 2025-01-23 | Implementation Analysis | Initial master spec from codebase analysis |
+| 2026-01-25 | Implementation Sync | Add computed `interface_name` for rtx_interface/rtx_bridge, `pp_interface` for rtx_pp_interface |

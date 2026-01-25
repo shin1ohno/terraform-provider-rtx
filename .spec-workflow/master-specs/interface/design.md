@@ -300,8 +300,9 @@ type VLAN struct {
 
 ```go
 type BridgeConfig struct {
-    Name    string   `json:"name"`    // bridge1, bridge2, etc.
-    Members []string `json:"members"` // lan1, tunnel1, etc.
+    Name          string   `json:"name"`           // bridge1, bridge2, etc.
+    Members       []string `json:"members"`        // lan1, tunnel1, etc.
+    InterfaceName string   `json:"interface_name"` // Computed: same as Name
 }
 ```
 
@@ -546,6 +547,8 @@ internal/
 
 5. **Computed Fields**:
    - `vlan_interface` computed from parent interface and slot
+   - `interface_name` computed for `rtx_interface` and `rtx_bridge` (same as `name`, for resource reference consistency)
+   - `pp_interface` computed for `rtx_pp_interface` (e.g., "pp1" from `pp_number=1`)
    - `ip_address.dhcp` defaults computed for import compatibility
 
 6. **Import Compatibility**: All resources support import. Computed fields are marked as such to avoid plan diffs after import.
@@ -663,3 +666,4 @@ resource "rtx_bridge" "internal" {
 | Date | Source | Changes |
 |------|--------|---------|
 | 2025-01-23 | Implementation Analysis | Initial master design from codebase analysis |
+| 2026-01-25 | Implementation Sync | Add computed `interface_name` for rtx_interface/rtx_bridge, `pp_interface` for rtx_pp_interface |
