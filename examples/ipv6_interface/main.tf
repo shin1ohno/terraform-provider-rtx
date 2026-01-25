@@ -9,7 +9,7 @@
 terraform {
   required_providers {
     rtx = {
-      source  = "github.com/sh1/rtx"
+      source  = "registry.terraform.io/sh1/rtx"
       version = "~> 0.2"
     }
   }
