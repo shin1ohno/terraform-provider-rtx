@@ -17,8 +17,8 @@ Terraform provider for managing Yamaha RTX series routers - enterprise-grade net
 
 ```bash
 # Linux/macOS
-mkdir -p ~/.terraform.d/plugins/registry.terraform.io/sh1/rtx/0.2.0/linux_amd64
-unzip terraform-provider-rtx_0.2.0_linux_amd64.zip -d ~/.terraform.d/plugins/registry.terraform.io/sh1/rtx/0.2.0/linux_amd64
+mkdir -p ~/.terraform.d/plugins/registry.terraform.io/sh1/rtx/0.2.1/linux_amd64
+unzip terraform-provider-rtx_0.2.1_linux_amd64.zip -d ~/.terraform.d/plugins/registry.terraform.io/sh1/rtx/0.2.1/linux_amd64
 ```
 
 3. Configure Terraform to use the local provider:
@@ -28,7 +28,7 @@ terraform {
   required_providers {
     rtx = {
       source  = "registry.terraform.io/sh1/rtx"
-      version = "0.2.0"
+      version = "0.2.1"
     }
   }
 }
@@ -49,7 +49,7 @@ terraform {
   required_providers {
     rtx = {
       source  = "registry.terraform.io/sh1/rtx"
-      version = "0.2.0"
+      version = "0.2.1"
     }
   }
 }
