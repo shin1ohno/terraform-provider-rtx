@@ -34,17 +34,17 @@ This feature directly supports the product vision of providing reliable, product
 
 | ID | Criterion |
 |----|-----------|
-| 1.1 | WHEN `sftp_enabled = true` AND `admin_password` is provided THEN provider SHALL use SFTP for bulk configuration reading |
-| 1.2 | IF `sftp_enabled = true` AND `admin_password` is not provided THEN provider SHALL return a configuration error |
-| 1.3 | WHEN `sftp_enabled = false` or not specified THEN provider SHALL use existing SSH CLI method |
+| 1.1 | WHEN `use_sftp = true` AND `admin_password` is provided THEN provider SHALL use SFTP for bulk configuration reading |
+| 1.2 | IF `use_sftp = true` AND `admin_password` is not provided THEN provider SHALL return a configuration error |
+| 1.3 | WHEN `use_sftp = false` or not specified THEN provider SHALL use existing SSH CLI method |
 | 1.4 | WHEN SFTP connection fails THEN provider SHALL fall back to SSH CLI method AND emit warning log |
 | 1.5 | WHEN fallback to SSH occurs THEN provider SHALL log specific error (e.g., "SFTP connection refused", "authentication failed") |
 | 1.6 | WHEN fallback to SSH occurs THEN provider SHALL continue to attempt SFTP for subsequent operations |
 
 #### Implementation Status
 
-- **Provider Schema**: `internal/provider/provider.go` - `sftp_enabled` (bool) and `sftp_config_path` (string) fields
-- **Environment Variables**: `RTX_SFTP_ENABLED`, `RTX_SFTP_CONFIG_PATH`
+- **Provider Schema**: `internal/provider/provider.go` - `use_sftp` (bool) and `sftp_config_path` (string) fields
+- **Environment Variables**: `RTX_USE_SFTP`, `RTX_SFTP_CONFIG_PATH`
 - **Client Config**: `internal/client/interfaces.go` - `SFTPEnabled` and `SFTPConfigPath` fields
 
 ### REQ-2: SFTP Client Implementation

@@ -34,11 +34,23 @@ variable "rtx_password" {
   sensitive   = true
 }
 
+# =============================================================================
+# Base Interface Resource
+# =============================================================================
+
+resource "rtx_interface" "lan1" {
+  name = "lan1"
+}
+
+# =============================================================================
+# VLAN Examples with Resource References
+# =============================================================================
+
 # Example 1: Basic VLAN (without IP address)
 # Creates a VLAN interface for 802.1Q tagging only
 resource "rtx_vlan" "basic" {
   vlan_id   = 10
-  interface = "lan1"
+  interface = rtx_interface.lan1.interface_name
   name      = "Basic VLAN"
 }
 
@@ -46,7 +58,7 @@ resource "rtx_vlan" "basic" {
 # Creates a VLAN interface with Layer 3 routing capability
 resource "rtx_vlan" "management" {
   vlan_id    = 100
-  interface  = "lan1"
+  interface  = rtx_interface.lan1.interface_name
   name       = "Management VLAN"
   ip_address = "192.168.100.1"
   ip_mask    = "255.255.255.0"
@@ -57,7 +69,7 @@ resource "rtx_vlan" "management" {
 # Demonstrates 802.1Q network segmentation with multiple VLANs on lan1
 resource "rtx_vlan" "users" {
   vlan_id    = 20
-  interface  = "lan1"
+  interface  = rtx_interface.lan1.interface_name
   name       = "Users VLAN"
   ip_address = "192.168.20.1"
   ip_mask    = "255.255.255.0"
@@ -66,7 +78,7 @@ resource "rtx_vlan" "users" {
 
 resource "rtx_vlan" "servers" {
   vlan_id    = 30
-  interface  = "lan1"
+  interface  = rtx_interface.lan1.interface_name
   name       = "Servers VLAN"
   ip_address = "192.168.30.1"
   ip_mask    = "255.255.255.0"
@@ -75,7 +87,7 @@ resource "rtx_vlan" "servers" {
 
 resource "rtx_vlan" "guest" {
   vlan_id    = 99
-  interface  = "lan1"
+  interface  = rtx_interface.lan1.interface_name
   name       = "Guest VLAN"
   ip_address = "192.168.99.1"
   ip_mask    = "255.255.255.0"

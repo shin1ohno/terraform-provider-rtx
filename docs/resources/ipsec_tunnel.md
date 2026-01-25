@@ -37,6 +37,7 @@ Manages IPsec VPN tunnel configuration on RTX routers. Supports IKEv2 with pre-s
 ### Read-Only
 
 - `id` (String) The ID of this resource.
+- `tunnel_interface` (String) The tunnel interface name (e.g., 'tunnel1'). Computed from tunnel_id.
 
 <a id="nestedblock--ikev2_proposal"></a>
 ### Nested Schema for `ikev2_proposal`

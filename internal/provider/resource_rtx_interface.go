@@ -36,6 +36,11 @@ func resourceRTXInterface() *schema.Resource {
 				Description:  "Interface name (e.g., 'lan1', 'lan2', 'bridge1', 'pp1', 'tunnel1')",
 				ValidateFunc: validateInterfaceConfigName,
 			},
+			"interface_name": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "The interface name. Same as 'name', provided for consistency with other resources.",
+			},
 			"description": {
 				Type:        schema.TypeString,
 				Optional:    true,
@@ -202,6 +207,9 @@ func resourceRTXInterfaceRead(ctx context.Context, d *schema.ResourceData, meta 
 	if err := d.Set("name", config.Name); err != nil {
 		return diag.FromErr(err)
 	}
+	if err := d.Set("interface_name", config.Name); err != nil {
+		return diag.FromErr(err)
+	}
 	if err := d.Set("description", config.Description); err != nil {
 		return diag.FromErr(err)
 	}
@@ -313,6 +321,7 @@ func resourceRTXInterfaceImport(ctx context.Context, d *schema.ResourceData, met
 	// Set all attributes
 	d.SetId(importID)
 	d.Set("name", config.Name)
+	d.Set("interface_name", config.Name)
 	d.Set("description", config.Description)
 
 	// Set IP address block

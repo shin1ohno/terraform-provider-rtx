@@ -99,11 +99,11 @@ func New(version string) *schema.Provider {
 				DefaultFunc: schema.EnvDefaultFunc("RTX_MAX_PARALLELISM", 4),
 				Description: "Maximum number of concurrent operations. RTX routers support up to 8 simultaneous SSH connections, but lower values are more stable. Defaults to 4. Can be set with RTX_MAX_PARALLELISM environment variable.",
 			},
-			"sftp_enabled": {
+			"use_sftp": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				DefaultFunc: schema.EnvDefaultFunc("RTX_SFTP_ENABLED", false),
-				Description: "Enable SFTP-based configuration reading for faster bulk operations. Defaults to false. Can be set with RTX_SFTP_ENABLED environment variable.",
+				DefaultFunc: schema.EnvDefaultFunc("RTX_USE_SFTP", false),
+				Description: "Use SFTP-based configuration reading for faster bulk operations. Defaults to false. Can be set with RTX_USE_SFTP environment variable.",
 			},
 			"sftp_config_path": {
 				Type:        schema.TypeString,
@@ -217,7 +217,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	knownHostsFile := d.Get("known_hosts_file").(string)
 	skipHostKeyCheck := d.Get("skip_host_key_check").(bool)
 	maxParallelism := d.Get("max_parallelism").(int)
-	sftpEnabled := d.Get("sftp_enabled").(bool)
+	sftpEnabled := d.Get("use_sftp").(bool)
 	sftpConfigPath := d.Get("sftp_config_path").(string)
 
 	// SSH session pool configuration (defaults)

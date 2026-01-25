@@ -80,6 +80,11 @@ func resourceRTXPPInterface() *schema.Resource {
 					ValidateFunc: validation.IntAtLeast(1),
 				},
 			},
+			"pp_interface": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "The PP interface name (e.g., 'pp1'). Computed from pp_number.",
+			},
 		},
 	}
 }
@@ -149,6 +154,9 @@ func resourceRTXPPInterfaceRead(ctx context.Context, d *schema.ResourceData, met
 		return diag.FromErr(err)
 	}
 	if err := d.Set("secure_filter_out", config.SecureFilterOut); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("pp_interface", fmt.Sprintf("pp%d", ppNum)); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -234,6 +242,7 @@ func resourceRTXPPInterfaceImport(ctx context.Context, d *schema.ResourceData, m
 	d.Set("nat_descriptor", config.NATDescriptor)
 	d.Set("secure_filter_in", config.SecureFilterIn)
 	d.Set("secure_filter_out", config.SecureFilterOut)
+	d.Set("pp_interface", fmt.Sprintf("pp%d", ppNum))
 
 	return []*schema.ResourceData{d}, nil
 }

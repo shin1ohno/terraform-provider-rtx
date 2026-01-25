@@ -34,6 +34,11 @@ func resourceRTXBridge() *schema.Resource {
 				Description:  "The bridge name (e.g., 'bridge1', 'bridge2'). Must be in format 'bridgeN'.",
 				ValidateFunc: validateBridgeName,
 			},
+			"interface_name": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "The bridge interface name. Same as 'name', provided for consistency with other resources.",
+			},
 			"members": {
 				Type:        schema.TypeList,
 				Optional:    true,
@@ -120,6 +125,9 @@ func resourceRTXBridgeRead(ctx context.Context, d *schema.ResourceData, meta int
 	if err := d.Set("name", bridge.Name); err != nil {
 		return diag.FromErr(err)
 	}
+	if err := d.Set("interface_name", bridge.Name); err != nil {
+		return diag.FromErr(err)
+	}
 	if err := d.Set("members", bridge.Members); err != nil {
 		return diag.FromErr(err)
 	}
@@ -185,6 +193,7 @@ func resourceRTXBridgeImport(ctx context.Context, d *schema.ResourceData, meta i
 	// Set all attributes
 	d.SetId(bridge.Name)
 	d.Set("name", bridge.Name)
+	d.Set("interface_name", bridge.Name)
 	d.Set("members", bridge.Members)
 
 	return []*schema.ResourceData{d}, nil

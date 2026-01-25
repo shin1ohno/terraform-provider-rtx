@@ -36,12 +36,33 @@ variable "router_password" {
   sensitive   = true
 }
 
+# =============================================================================
+# Base Interface Resources
+# =============================================================================
+
+resource "rtx_interface" "lan1" {
+  name = "lan1"
+}
+
+resource "rtx_interface" "lan2" {
+  name = "lan2"
+}
+
+resource "rtx_interface" "lan3" {
+  name = "lan3"
+}
+
+resource "rtx_bridge" "bridge1" {
+  name    = "bridge1"
+  members = [rtx_interface.lan1.interface_name]
+}
+
 # ============================================================
 # Example 1: WAN Interface with DHCPv6 Client
 # ============================================================
 # Obtains IPv6 prefix delegation from ISP via DHCPv6
 resource "rtx_ipv6_interface" "wan" {
-  interface = "lan2"
+  interface = rtx_interface.lan2.interface_name
 
   # Use DHCPv6 client to obtain address/prefix from ISP
   dhcpv6_service = "client"
@@ -60,7 +81,7 @@ resource "rtx_ipv6_prefix" "lan_prefix" {
 
 # Configure LAN interface with SLAAC and DHCPv6
 resource "rtx_ipv6_interface" "lan" {
-  interface = "lan1"
+  interface = rtx_interface.lan1.interface_name
 
   # Static IPv6 address for the router
   address {
@@ -88,7 +109,7 @@ resource "rtx_ipv6_interface" "lan" {
 # Example 3: Bridge Interface with Static Address
 # ============================================================
 resource "rtx_ipv6_interface" "bridge" {
-  interface = "bridge1"
+  interface = rtx_bridge.bridge1.interface_name
 
   # Multiple static IPv6 addresses
   address {
@@ -105,17 +126,17 @@ resource "rtx_ipv6_interface" "bridge" {
 # ============================================================
 # Uses prefix obtained from another interface via RA or DHCPv6-PD
 resource "rtx_ipv6_interface" "prefix_based" {
-  interface = "lan3"
+  interface = rtx_interface.lan3.interface_name
 
   # Address derived from prefix received on lan2
   address {
-    prefix_ref   = "ra-prefix@lan2"
+    prefix_ref   = "ra-prefix@${rtx_interface.lan2.interface_name}"
     interface_id = "::1/64"
   }
 
   # Also add a link-local derived address
   address {
-    prefix_ref   = "dhcp-prefix@lan2"
+    prefix_ref   = "dhcp-prefix@${rtx_interface.lan2.interface_name}"
     interface_id = "::1/64"
   }
 }
@@ -124,7 +145,7 @@ resource "rtx_ipv6_interface" "prefix_based" {
 # Example 5: Security Filter Configuration
 # ============================================================
 resource "rtx_ipv6_interface" "secured" {
-  interface = "lan1"
+  interface = rtx_interface.lan1.interface_name
 
   address {
     address = "2001:db8:2::1/64"
@@ -152,7 +173,7 @@ resource "rtx_ipv6_prefix" "full_prefix" {
 }
 
 resource "rtx_ipv6_interface" "full_example" {
-  interface = "lan1"
+  interface = rtx_interface.lan1.interface_name
 
   # Primary address
   address {

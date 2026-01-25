@@ -30,7 +30,7 @@ func TestProvider_HasAllExpectedSchemaFields(t *testing.T) {
 		"known_hosts_file",
 		"skip_host_key_check",
 		"max_parallelism",
-		"sftp_enabled",
+		"use_sftp",
 		"sftp_config_path",
 	}
 
@@ -41,24 +41,24 @@ func TestProvider_HasAllExpectedSchemaFields(t *testing.T) {
 	}
 }
 
-func TestProvider_SFTPEnabledSchema(t *testing.T) {
+func TestProvider_UseSFTPSchema(t *testing.T) {
 	p := New("test")
 
-	sftpEnabledSchema, ok := p.Schema["sftp_enabled"]
+	useSFTPSchema, ok := p.Schema["use_sftp"]
 	if !ok {
-		t.Fatal("expected sftp_enabled schema to exist")
+		t.Fatal("expected use_sftp schema to exist")
 	}
 
-	if sftpEnabledSchema.Type != schema.TypeBool {
-		t.Errorf("expected sftp_enabled type to be TypeBool, got %v", sftpEnabledSchema.Type)
+	if useSFTPSchema.Type != schema.TypeBool {
+		t.Errorf("expected use_sftp type to be TypeBool, got %v", useSFTPSchema.Type)
 	}
 
-	if sftpEnabledSchema.Required {
-		t.Error("expected sftp_enabled to be optional")
+	if useSFTPSchema.Required {
+		t.Error("expected use_sftp to be optional")
 	}
 
-	if sftpEnabledSchema.DefaultFunc == nil {
-		t.Error("expected sftp_enabled to have DefaultFunc for environment variable")
+	if useSFTPSchema.DefaultFunc == nil {
+		t.Error("expected use_sftp to have DefaultFunc for environment variable")
 	}
 }
 
@@ -83,16 +83,16 @@ func TestProvider_SFTPConfigPathSchema(t *testing.T) {
 	}
 }
 
-func TestProvider_SFTPEnabledEnvDefault(t *testing.T) {
+func TestProvider_UseSFTPEnvDefault(t *testing.T) {
 	p := New("test")
 
-	sftpEnabledSchema := p.Schema["sftp_enabled"]
+	useSFTPSchema := p.Schema["use_sftp"]
 
 	// Test default value (no env var set)
-	if err := os.Unsetenv("RTX_SFTP_ENABLED"); err != nil {
+	if err := os.Unsetenv("RTX_USE_SFTP"); err != nil {
 		t.Fatalf("failed to unset env var: %v", err)
 	}
-	val, err := sftpEnabledSchema.DefaultFunc()
+	val, err := useSFTPSchema.DefaultFunc()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -101,11 +101,11 @@ func TestProvider_SFTPEnabledEnvDefault(t *testing.T) {
 	}
 
 	// Test with env var set to true
-	if err := os.Setenv("RTX_SFTP_ENABLED", "true"); err != nil {
+	if err := os.Setenv("RTX_USE_SFTP", "true"); err != nil {
 		t.Fatalf("failed to set env var: %v", err)
 	}
-	defer func() { _ = os.Unsetenv("RTX_SFTP_ENABLED") }()
-	val, err = sftpEnabledSchema.DefaultFunc()
+	defer func() { _ = os.Unsetenv("RTX_USE_SFTP") }()
+	val, err = useSFTPSchema.DefaultFunc()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

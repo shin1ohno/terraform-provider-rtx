@@ -31,6 +31,22 @@ variable "rtx_password" {
   sensitive   = true
 }
 
+# =============================================================================
+# Base Interface Resources
+# =============================================================================
+
+resource "rtx_interface" "lan1" {
+  name = "lan1"
+}
+
+resource "rtx_interface" "lan2" {
+  name = "lan2"
+}
+
+resource "rtx_interface" "wan1" {
+  name = "wan1"
+}
+
 # ============================================================================
 # Example 1: Basic Class Map for VoIP Traffic
 # ============================================================================
@@ -71,7 +87,7 @@ resource "rtx_policy_map" "qos_policy" {
 
   # High priority for VoIP traffic (30% bandwidth guaranteed)
   class {
-    name              = "voip"
+    name              = rtx_class_map.voip.name
     priority          = "high"
     bandwidth_percent = 30
     queue_limit       = 64
@@ -79,7 +95,7 @@ resource "rtx_policy_map" "qos_policy" {
 
   # Normal priority for web traffic (40% bandwidth)
   class {
-    name              = "web"
+    name              = rtx_class_map.web.name
     priority          = "normal"
     bandwidth_percent = 40
   }
@@ -98,12 +114,9 @@ resource "rtx_policy_map" "qos_policy" {
 # Attach the policy map to an interface
 
 resource "rtx_service_policy" "lan1_qos" {
-  interface  = "lan1"
+  interface  = rtx_interface.lan1.interface_name
   direction  = "output"
-  policy_map = "priority"
-
-  # Ensure policy map is created first
-  depends_on = [rtx_policy_map.qos_policy]
+  policy_map = rtx_policy_map.qos_policy.name
 }
 
 # ============================================================================
@@ -112,7 +125,7 @@ resource "rtx_service_policy" "lan1_qos" {
 # Limit outbound traffic on WAN interface to 10 Mbps
 
 resource "rtx_shape" "wan_limit" {
-  interface     = "wan1"
+  interface     = rtx_interface.wan1.interface_name
   direction     = "output"
   shape_average = 10000000 # 10 Mbps in bps
 }
@@ -143,20 +156,20 @@ resource "rtx_policy_map" "complete_qos" {
   name = "complete-qos-policy"
 
   class {
-    name              = "realtime"
+    name              = rtx_class_map.realtime.name
     priority          = "high"
     bandwidth_percent = 25
     queue_limit       = 32
   }
 
   class {
-    name              = "interactive"
+    name              = rtx_class_map.interactive.name
     priority          = "high"
     bandwidth_percent = 25
   }
 
   class {
-    name              = "streaming"
+    name              = rtx_class_map.streaming.name
     priority          = "normal"
     bandwidth_percent = 30
   }
@@ -166,21 +179,14 @@ resource "rtx_policy_map" "complete_qos" {
 
 # Apply service policy to LAN interface
 resource "rtx_service_policy" "complete_policy" {
-  interface  = "lan2"
+  interface  = rtx_interface.lan2.interface_name
   direction  = "output"
-  policy_map = "priority"
-
-  depends_on = [
-    rtx_class_map.realtime,
-    rtx_class_map.interactive,
-    rtx_class_map.streaming,
-    rtx_policy_map.complete_qos
-  ]
+  policy_map = rtx_policy_map.complete_qos.name
 }
 
 # Apply traffic shaping to limit bandwidth
 resource "rtx_shape" "complete_shaping" {
-  interface     = "lan2"
+  interface     = rtx_interface.lan2.interface_name
   direction     = "output"
   shape_average = 50000000 # 50 Mbps
 

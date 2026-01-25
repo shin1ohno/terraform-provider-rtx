@@ -14,6 +14,29 @@ provider "rtx" {
   password = var.rtx_password
 }
 
+# =============================================================================
+# Dependent Resources
+# =============================================================================
+
+resource "rtx_interface" "lan2" {
+  name = "lan2"
+}
+
+resource "rtx_pppoe" "primary" {
+  pp_number      = 1
+  name           = "Primary WAN"
+  bind_interface = rtx_interface.lan2.interface_name
+  username       = "user@provider.ne.jp"
+  password       = "example!PASS123"
+  auth_method    = "chap"
+  always_on      = true
+  enabled        = true
+}
+
+# =============================================================================
+# NAT Masquerade Examples
+# =============================================================================
+
 # Basic NAT masquerade for PPPoE connection
 # Maps internal network to the PPPoE-assigned IP address
 resource "rtx_nat_masquerade" "pppoe" {
@@ -26,7 +49,7 @@ resource "rtx_nat_masquerade" "pppoe" {
 # Allows external access to internal services
 resource "rtx_nat_masquerade" "with_port_forwarding" {
   descriptor_id = 2
-  outer_address = "pp1"
+  outer_address = rtx_pppoe.primary.pp_interface
   inner_network = "192.168.2.0-192.168.2.255"
 
   # Forward HTTP traffic to internal web server

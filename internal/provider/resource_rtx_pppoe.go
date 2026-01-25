@@ -99,6 +99,11 @@ func resourceRTXPPPoE() *schema.Resource {
 				Computed:    true,
 				Description: "Whether the PP interface is enabled. Defaults to true if not specified.",
 			},
+			"pp_interface": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "The PP interface name (e.g., 'pp1'). Computed from pp_number.",
+			},
 		},
 	}
 }
@@ -177,6 +182,9 @@ func resourceRTXPPPoERead(ctx context.Context, d *schema.ResourceData, meta inte
 		d.Set("reconnect_attempts", nil)
 	}
 	if err := d.Set("enabled", config.Enabled); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("pp_interface", fmt.Sprintf("pp%d", config.Number)); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -274,6 +282,7 @@ func resourceRTXPPPoEImport(ctx context.Context, d *schema.ResourceData, meta in
 		d.Set("reconnect_attempts", config.LCPReconnect.ReconnectAttempts)
 	}
 	d.Set("enabled", config.Enabled)
+	d.Set("pp_interface", fmt.Sprintf("pp%d", config.Number))
 
 	// Set authentication attributes
 	if config.Authentication != nil {

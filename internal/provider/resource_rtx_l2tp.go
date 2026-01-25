@@ -35,6 +35,11 @@ func resourceRTXL2TP() *schema.Resource {
 				Description:  "Tunnel ID (1-65535).",
 				ValidateFunc: validation.IntBetween(1, 65535),
 			},
+			"tunnel_interface": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "The tunnel interface name (e.g., 'tunnel1'). Computed from tunnel_id.",
+			},
 			"name": {
 				Type:        schema.TypeString,
 				Optional:    true,
@@ -327,6 +332,9 @@ func resourceRTXL2TPRead(ctx context.Context, d *schema.ResourceData, meta inter
 	if err := d.Set("tunnel_id", config.ID); err != nil {
 		return diag.FromErr(err)
 	}
+	if err := d.Set("tunnel_interface", fmt.Sprintf("tunnel%d", config.ID)); err != nil {
+		return diag.FromErr(err)
+	}
 	if err := d.Set("name", config.Name); err != nil {
 		return diag.FromErr(err)
 	}
@@ -494,6 +502,7 @@ func resourceRTXL2TPImport(ctx context.Context, d *schema.ResourceData, meta int
 
 	d.SetId(strconv.Itoa(config.ID))
 	d.Set("tunnel_id", config.ID)
+	d.Set("tunnel_interface", fmt.Sprintf("tunnel%d", config.ID))
 	d.Set("name", config.Name)
 	d.Set("version", config.Version)
 	d.Set("mode", config.Mode)

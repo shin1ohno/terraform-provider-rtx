@@ -42,6 +42,7 @@ Manages L2TP/L2TPv3 tunnel configuration on RTX routers. Supports both L2TPv2 (L
 ### Read-Only
 
 - `id` (String) The ID of this resource.
+- `tunnel_interface` (String) The tunnel interface name (e.g., 'tunnel1'). Computed from tunnel_id.
 
 <a id="nestedblock--authentication"></a>
 ### Nested Schema for `authentication`

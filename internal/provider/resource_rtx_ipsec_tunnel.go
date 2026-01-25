@@ -239,6 +239,11 @@ func resourceRTXIPsecTunnel() *schema.Resource {
 				Computed:    true,
 				Description: "Enable the IPsec tunnel.",
 			},
+			"tunnel_interface": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "The tunnel interface name (e.g., 'tunnel1'). Computed from tunnel_id.",
+			},
 		},
 	}
 }
@@ -382,6 +387,9 @@ func resourceRTXIPsecTunnelRead(ctx context.Context, d *schema.ResourceData, met
 	if err := d.Set("ipsec_transform", ipsecTransform); err != nil {
 		return diag.FromErr(err)
 	}
+	if err := d.Set("tunnel_interface", fmt.Sprintf("tunnel%d", tunnel.ID)); err != nil {
+		return diag.FromErr(err)
+	}
 
 	return nil
 }
@@ -486,6 +494,7 @@ func resourceRTXIPsecTunnelImport(ctx context.Context, d *schema.ResourceData, m
 		},
 	}
 	d.Set("ipsec_transform", ipsecTransform)
+	d.Set("tunnel_interface", fmt.Sprintf("tunnel%d", tunnel.ID))
 
 	return []*schema.ResourceData{d}, nil
 }

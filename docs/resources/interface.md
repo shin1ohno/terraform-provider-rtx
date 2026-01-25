@@ -63,6 +63,7 @@ resource "rtx_interface" "lan" {
 ### Read-Only
 
 - `id` (String) The ID of this resource.
+- `interface_name` (String) The interface name. Same as 'name', provided for consistency with other resources.
 
 <a id="nestedblock--ip_address"></a>
 ### Nested Schema for `ip_address`

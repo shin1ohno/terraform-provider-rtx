@@ -250,12 +250,12 @@ Parser maintains context stack to associate commands with correct parent.
 
 **Schema Fields:**
 ```go
-"sftp_enabled": {
+"use_sftp": {
     Type:        schema.TypeBool,
     Optional:    true,
     Default:     false,
-    DefaultFunc: schema.EnvDefaultFunc("RTX_SFTP_ENABLED", false),
-    Description: "Enable SFTP-based bulk configuration reading.",
+    DefaultFunc: schema.EnvDefaultFunc("RTX_USE_SFTP", false),
+    Description: "Use SFTP-based bulk configuration reading.",
 },
 "sftp_config_path": {
     Type:        schema.TypeString,
