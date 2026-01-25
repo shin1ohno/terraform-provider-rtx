@@ -53,28 +53,21 @@ func TestBuildPPIPConfigFromResourceData_WithStaticIP(t *testing.T) {
 	assert.Equal(t, 1500, config.MTU)
 }
 
-func TestBuildPPIPConfigFromResourceData_WithSecurityFilters(t *testing.T) {
+func TestBuildPPIPConfigFromResourceData_WithAccessLists(t *testing.T) {
 	input := map[string]interface{}{
-		"pp_number":         1,
-		"ip_address":        "ipcp",
-		"mtu":               1454,
-		"secure_filter_in":  []interface{}{200020, 200021, 200022, 200099},
-		"secure_filter_out": []interface{}{200020, 200021, 200022, 200099},
+		"pp_number":          1,
+		"ip_address":         "ipcp",
+		"mtu":                1454,
+		"access_list_ip_in":  "pp-secure-in",
+		"access_list_ip_out": "pp-secure-out",
 	}
 
 	d := schema.TestResourceDataRaw(t, resourceRTXPPInterface().Schema, input)
 	config := buildPPIPConfigFromResourceData(d)
 
 	assert.Equal(t, "ipcp", config.Address)
-	assert.Len(t, config.SecureFilterIn, 4)
-	assert.Equal(t, 200020, config.SecureFilterIn[0])
-	assert.Equal(t, 200021, config.SecureFilterIn[1])
-	assert.Equal(t, 200022, config.SecureFilterIn[2])
-	assert.Equal(t, 200099, config.SecureFilterIn[3])
-
-	assert.Len(t, config.SecureFilterOut, 4)
-	assert.Equal(t, 200020, config.SecureFilterOut[0])
-	assert.Equal(t, 200099, config.SecureFilterOut[3])
+	assert.Equal(t, "pp-secure-in", config.AccessListIPIn)
+	assert.Equal(t, "pp-secure-out", config.AccessListIPOut)
 }
 
 func TestBuildPPIPConfigFromResourceData_DefaultValues(t *testing.T) {
@@ -85,23 +78,23 @@ func TestBuildPPIPConfigFromResourceData_DefaultValues(t *testing.T) {
 	d := schema.TestResourceDataRaw(t, resourceRTXPPInterface().Schema, input)
 	config := buildPPIPConfigFromResourceData(d)
 
-	assert.Equal(t, "", config.Address)      // Default is empty
-	assert.Equal(t, 0, config.MTU)           // Default is 0
-	assert.Equal(t, 0, config.TCPMSSLimit)   // Default is 0
-	assert.Equal(t, 0, config.NATDescriptor) // Default is 0
-	assert.Nil(t, config.SecureFilterIn)
-	assert.Nil(t, config.SecureFilterOut)
+	assert.Equal(t, "", config.Address)        // Default is empty
+	assert.Equal(t, 0, config.MTU)             // Default is 0
+	assert.Equal(t, 0, config.TCPMSSLimit)     // Default is 0
+	assert.Equal(t, 0, config.NATDescriptor)   // Default is 0
+	assert.Equal(t, "", config.AccessListIPIn) // Default is empty
+	assert.Equal(t, "", config.AccessListIPOut)
 }
 
 func TestBuildPPIPConfigFromResourceData_FullConfig(t *testing.T) {
 	input := map[string]interface{}{
-		"pp_number":         1,
-		"ip_address":        "ipcp",
-		"mtu":               1454,
-		"tcp_mss":           1414,
-		"nat_descriptor":    1000,
-		"secure_filter_in":  []interface{}{200020, 200021, 200022},
-		"secure_filter_out": []interface{}{200030, 200031},
+		"pp_number":          1,
+		"ip_address":         "ipcp",
+		"mtu":                1454,
+		"tcp_mss":            1414,
+		"nat_descriptor":     1000,
+		"access_list_ip_in":  "pp-secure-in",
+		"access_list_ip_out": "pp-secure-out",
 	}
 
 	d := schema.TestResourceDataRaw(t, resourceRTXPPInterface().Schema, input)
@@ -111,8 +104,8 @@ func TestBuildPPIPConfigFromResourceData_FullConfig(t *testing.T) {
 	assert.Equal(t, 1454, config.MTU)
 	assert.Equal(t, 1414, config.TCPMSSLimit)
 	assert.Equal(t, 1000, config.NATDescriptor)
-	assert.Len(t, config.SecureFilterIn, 3)
-	assert.Len(t, config.SecureFilterOut, 2)
+	assert.Equal(t, "pp-secure-in", config.AccessListIPIn)
+	assert.Equal(t, "pp-secure-out", config.AccessListIPOut)
 }
 
 func TestResourceRTXPPInterfaceSchema(t *testing.T) {
@@ -140,39 +133,40 @@ func TestResourceRTXPPInterfaceSchema(t *testing.T) {
 	assert.True(t, resource.Schema["nat_descriptor"].Optional)
 	assert.True(t, resource.Schema["nat_descriptor"].Computed) // Changed from Default to Computed for field preservation
 
-	assert.NotNil(t, resource.Schema["secure_filter_in"])
-	assert.True(t, resource.Schema["secure_filter_in"].Optional)
-	assert.Equal(t, schema.TypeList, resource.Schema["secure_filter_in"].Type)
+	// Access list attributes
+	assert.NotNil(t, resource.Schema["access_list_ip_in"])
+	assert.True(t, resource.Schema["access_list_ip_in"].Optional)
+	assert.Equal(t, schema.TypeString, resource.Schema["access_list_ip_in"].Type)
 
-	assert.NotNil(t, resource.Schema["secure_filter_out"])
-	assert.True(t, resource.Schema["secure_filter_out"].Optional)
-	assert.Equal(t, schema.TypeList, resource.Schema["secure_filter_out"].Type)
+	assert.NotNil(t, resource.Schema["access_list_ip_out"])
+	assert.True(t, resource.Schema["access_list_ip_out"].Optional)
+	assert.Equal(t, schema.TypeString, resource.Schema["access_list_ip_out"].Type)
 }
 
-func TestBuildPPIPConfigFromResourceData_OnlyInputFilters(t *testing.T) {
-	input := map[string]interface{}{
-		"pp_number":        1,
-		"ip_address":       "ipcp",
-		"secure_filter_in": []interface{}{100, 101, 102},
-	}
-
-	d := schema.TestResourceDataRaw(t, resourceRTXPPInterface().Schema, input)
-	config := buildPPIPConfigFromResourceData(d)
-
-	assert.Len(t, config.SecureFilterIn, 3)
-	assert.Nil(t, config.SecureFilterOut)
-}
-
-func TestBuildPPIPConfigFromResourceData_OnlyOutputFilters(t *testing.T) {
+func TestBuildPPIPConfigFromResourceData_OnlyInputAccessList(t *testing.T) {
 	input := map[string]interface{}{
 		"pp_number":         1,
 		"ip_address":        "ipcp",
-		"secure_filter_out": []interface{}{200, 201},
+		"access_list_ip_in": "pp-in-acl",
 	}
 
 	d := schema.TestResourceDataRaw(t, resourceRTXPPInterface().Schema, input)
 	config := buildPPIPConfigFromResourceData(d)
 
-	assert.Nil(t, config.SecureFilterIn)
-	assert.Len(t, config.SecureFilterOut, 2)
+	assert.Equal(t, "pp-in-acl", config.AccessListIPIn)
+	assert.Equal(t, "", config.AccessListIPOut)
+}
+
+func TestBuildPPIPConfigFromResourceData_OnlyOutputAccessList(t *testing.T) {
+	input := map[string]interface{}{
+		"pp_number":          1,
+		"ip_address":         "ipcp",
+		"access_list_ip_out": "pp-out-acl",
+	}
+
+	d := schema.TestResourceDataRaw(t, resourceRTXPPInterface().Schema, input)
+	config := buildPPIPConfigFromResourceData(d)
+
+	assert.Equal(t, "", config.AccessListIPIn)
+	assert.Equal(t, "pp-out-acl", config.AccessListIPOut)
 }

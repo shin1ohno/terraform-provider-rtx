@@ -354,19 +354,19 @@ func (s *PPPService) ConfigureIPConfig(ctx context.Context, ppNum int, config PP
 		}
 	}
 
-	// Configure secure filters
-	if len(config.SecureFilterIn) > 0 {
-		cmd := parsers.BuildIPPPSecureFilterInCommand(config.SecureFilterIn)
-		logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Setting secure filter in: %s", cmd)
+	// Configure access list bindings
+	if config.AccessListIPIn != "" {
+		cmd := parsers.BuildIPPPSecureFilterInCommand(config.AccessListIPIn)
+		logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Setting access list in: %s", cmd)
 		if _, err := s.executor.Run(ctx, cmd); err != nil {
-			return fmt.Errorf("failed to set secure filter in: %w", err)
+			return fmt.Errorf("failed to set access list in: %w", err)
 		}
 	}
-	if len(config.SecureFilterOut) > 0 {
-		cmd := parsers.BuildIPPPSecureFilterOutCommand(config.SecureFilterOut)
-		logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Setting secure filter out: %s", cmd)
+	if config.AccessListIPOut != "" {
+		cmd := parsers.BuildIPPPSecureFilterOutCommand(config.AccessListIPOut)
+		logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Setting access list out: %s", cmd)
 		if _, err := s.executor.Run(ctx, cmd); err != nil {
-			return fmt.Errorf("failed to set secure filter out: %w", err)
+			return fmt.Errorf("failed to set access list out: %w", err)
 		}
 	}
 
@@ -460,19 +460,19 @@ func (s *PPPService) ConfigureIPForPP(ctx context.Context, ppNum int, config PPI
 		}
 	}
 
-	// Configure secure filters
-	if len(config.SecureFilterIn) > 0 {
-		cmd := parsers.BuildIPPPSecureFilterInCommand(config.SecureFilterIn)
-		logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Setting secure filter in: %s", cmd)
+	// Configure access list bindings
+	if config.AccessListIPIn != "" {
+		cmd := parsers.BuildIPPPSecureFilterInCommand(config.AccessListIPIn)
+		logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Setting access list in: %s", cmd)
 		if _, err := s.executor.Run(ctx, cmd); err != nil {
-			return fmt.Errorf("failed to set secure filter in: %w", err)
+			return fmt.Errorf("failed to set access list in: %w", err)
 		}
 	}
-	if len(config.SecureFilterOut) > 0 {
-		cmd := parsers.BuildIPPPSecureFilterOutCommand(config.SecureFilterOut)
-		logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Setting secure filter out: %s", cmd)
+	if config.AccessListIPOut != "" {
+		cmd := parsers.BuildIPPPSecureFilterOutCommand(config.AccessListIPOut)
+		logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Setting access list out: %s", cmd)
 		if _, err := s.executor.Run(ctx, cmd); err != nil {
-			return fmt.Errorf("failed to set secure filter out: %w", err)
+			return fmt.Errorf("failed to set access list out: %w", err)
 		}
 	}
 
@@ -601,8 +601,8 @@ func (s *PPPService) toParserPPPoEConfig(config PPPoEConfig) parsers.PPPoEConfig
 			MTU:             config.IPConfig.MTU,
 			TCPMSSLimit:     config.IPConfig.TCPMSSLimit,
 			NATDescriptor:   config.IPConfig.NATDescriptor,
-			SecureFilterIn:  config.IPConfig.SecureFilterIn,
-			SecureFilterOut: config.IPConfig.SecureFilterOut,
+			AccessListIPIn:  config.IPConfig.AccessListIPIn,
+			AccessListIPOut: config.IPConfig.AccessListIPOut,
 		}
 	}
 
@@ -643,8 +643,8 @@ func (s *PPPService) fromParserPPPoEConfig(config parsers.PPPoEConfig) PPPoEConf
 			MTU:             config.IPConfig.MTU,
 			TCPMSSLimit:     config.IPConfig.TCPMSSLimit,
 			NATDescriptor:   config.IPConfig.NATDescriptor,
-			SecureFilterIn:  config.IPConfig.SecureFilterIn,
-			SecureFilterOut: config.IPConfig.SecureFilterOut,
+			AccessListIPIn:  config.IPConfig.AccessListIPIn,
+			AccessListIPOut: config.IPConfig.AccessListIPOut,
 		}
 	}
 
@@ -664,8 +664,8 @@ func (s *PPPService) toParserPPIPConfig(config PPIPConfig) parsers.PPIPConfig {
 		MTU:             config.MTU,
 		TCPMSSLimit:     config.TCPMSSLimit,
 		NATDescriptor:   config.NATDescriptor,
-		SecureFilterIn:  config.SecureFilterIn,
-		SecureFilterOut: config.SecureFilterOut,
+		AccessListIPIn:  config.AccessListIPIn,
+		AccessListIPOut: config.AccessListIPOut,
 	}
 }
 
@@ -678,8 +678,8 @@ func (s *PPPService) fromParserPPIPConfig(config *parsers.PPIPConfig) PPIPConfig
 		MTU:             config.MTU,
 		TCPMSSLimit:     config.TCPMSSLimit,
 		NATDescriptor:   config.NATDescriptor,
-		SecureFilterIn:  config.SecureFilterIn,
-		SecureFilterOut: config.SecureFilterOut,
+		AccessListIPIn:  config.AccessListIPIn,
+		AccessListIPOut: config.AccessListIPOut,
 	}
 }
 

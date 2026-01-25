@@ -62,23 +62,15 @@ func resourceRTXPPInterface() *schema.Resource {
 				Description:  "NAT descriptor ID to bind to this PP interface. Use rtx_nat_masquerade or rtx_nat_static to define the descriptor.",
 				ValidateFunc: validation.IntAtLeast(0),
 			},
-			"secure_filter_in": {
-				Type:        schema.TypeList,
+			"access_list_ip_in": {
+				Type:        schema.TypeString,
 				Optional:    true,
-				Description: "Inbound security filter numbers. Order matters - first match wins.",
-				Elem: &schema.Schema{
-					Type:         schema.TypeInt,
-					ValidateFunc: validation.IntAtLeast(1),
-				},
+				Description: "Inbound IP access list name. Reference an rtx_access_list_ip resource by name.",
 			},
-			"secure_filter_out": {
-				Type:        schema.TypeList,
+			"access_list_ip_out": {
+				Type:        schema.TypeString,
 				Optional:    true,
-				Description: "Outbound security filter numbers. Order matters - first match wins.",
-				Elem: &schema.Schema{
-					Type:         schema.TypeInt,
-					ValidateFunc: validation.IntAtLeast(1),
-				},
+				Description: "Outbound IP access list name. Reference an rtx_access_list_ip resource by name.",
 			},
 			"pp_interface": {
 				Type:        schema.TypeString,
@@ -150,10 +142,10 @@ func resourceRTXPPInterfaceRead(ctx context.Context, d *schema.ResourceData, met
 	if err := d.Set("nat_descriptor", config.NATDescriptor); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set("secure_filter_in", config.SecureFilterIn); err != nil {
+	if err := d.Set("access_list_ip_in", config.AccessListIPIn); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set("secure_filter_out", config.SecureFilterOut); err != nil {
+	if err := d.Set("access_list_ip_out", config.AccessListIPOut); err != nil {
 		return diag.FromErr(err)
 	}
 	if err := d.Set("pp_interface", fmt.Sprintf("pp%d", ppNum)); err != nil {
@@ -240,8 +232,8 @@ func resourceRTXPPInterfaceImport(ctx context.Context, d *schema.ResourceData, m
 	d.Set("mtu", config.MTU)
 	d.Set("tcp_mss", config.TCPMSSLimit)
 	d.Set("nat_descriptor", config.NATDescriptor)
-	d.Set("secure_filter_in", config.SecureFilterIn)
-	d.Set("secure_filter_out", config.SecureFilterOut)
+	d.Set("access_list_ip_in", config.AccessListIPIn)
+	d.Set("access_list_ip_out", config.AccessListIPOut)
 	d.Set("pp_interface", fmt.Sprintf("pp%d", ppNum))
 
 	return []*schema.ResourceData{d}, nil
@@ -250,30 +242,12 @@ func resourceRTXPPInterfaceImport(ctx context.Context, d *schema.ResourceData, m
 // buildPPIPConfigFromResourceData creates a PPIPConfig from Terraform resource data
 func buildPPIPConfigFromResourceData(d *schema.ResourceData) client.PPIPConfig {
 	config := client.PPIPConfig{
-		Address:       GetStringValue(d, "ip_address"),
-		MTU:           GetIntValue(d, "mtu"),
-		TCPMSSLimit:   GetIntValue(d, "tcp_mss"),
-		NATDescriptor: GetIntValue(d, "nat_descriptor"),
-	}
-
-	// Handle secure_filter_in
-	if v, ok := d.GetOk("secure_filter_in"); ok {
-		filtersList := v.([]interface{})
-		filters := make([]int, len(filtersList))
-		for i, f := range filtersList {
-			filters[i] = f.(int)
-		}
-		config.SecureFilterIn = filters
-	}
-
-	// Handle secure_filter_out
-	if v, ok := d.GetOk("secure_filter_out"); ok {
-		filtersList := v.([]interface{})
-		filters := make([]int, len(filtersList))
-		for i, f := range filtersList {
-			filters[i] = f.(int)
-		}
-		config.SecureFilterOut = filters
+		Address:         GetStringValue(d, "ip_address"),
+		MTU:             GetIntValue(d, "mtu"),
+		TCPMSSLimit:     GetIntValue(d, "tcp_mss"),
+		NATDescriptor:   GetIntValue(d, "nat_descriptor"),
+		AccessListIPIn:  d.Get("access_list_ip_in").(string),
+		AccessListIPOut: d.Get("access_list_ip_out").(string),
 	}
 
 	return config

@@ -635,6 +635,38 @@ type Client interface {
 	// ListAccessListsMAC retrieves all MAC access lists
 	ListAccessListsMAC(ctx context.Context) ([]AccessListMAC, error)
 
+	// Access List IP Dynamic methods
+	// GetAccessListIPDynamic retrieves a dynamic IP access list by name
+	GetAccessListIPDynamic(ctx context.Context, name string) (*AccessListIPDynamic, error)
+
+	// CreateAccessListIPDynamic creates a new dynamic IP access list
+	CreateAccessListIPDynamic(ctx context.Context, acl AccessListIPDynamic) error
+
+	// UpdateAccessListIPDynamic updates an existing dynamic IP access list
+	UpdateAccessListIPDynamic(ctx context.Context, acl AccessListIPDynamic) error
+
+	// DeleteAccessListIPDynamic removes a dynamic IP access list
+	DeleteAccessListIPDynamic(ctx context.Context, name string, filterNums []int) error
+
+	// ListAccessListsIPDynamic retrieves all dynamic IP access lists
+	ListAccessListsIPDynamic(ctx context.Context) ([]AccessListIPDynamic, error)
+
+	// Access List IPv6 Dynamic methods
+	// GetAccessListIPv6Dynamic retrieves a dynamic IPv6 access list by name
+	GetAccessListIPv6Dynamic(ctx context.Context, name string) (*AccessListIPv6Dynamic, error)
+
+	// CreateAccessListIPv6Dynamic creates a new dynamic IPv6 access list
+	CreateAccessListIPv6Dynamic(ctx context.Context, acl AccessListIPv6Dynamic) error
+
+	// UpdateAccessListIPv6Dynamic updates an existing dynamic IPv6 access list
+	UpdateAccessListIPv6Dynamic(ctx context.Context, acl AccessListIPv6Dynamic) error
+
+	// DeleteAccessListIPv6Dynamic removes a dynamic IPv6 access list
+	DeleteAccessListIPv6Dynamic(ctx context.Context, name string, filterNums []int) error
+
+	// ListAccessListsIPv6Dynamic retrieves all dynamic IPv6 access lists
+	ListAccessListsIPv6Dynamic(ctx context.Context) ([]AccessListIPv6Dynamic, error)
+
 	// Interface MAC ACL methods
 	// GetInterfaceMACACL retrieves MAC ACL bindings for an interface
 	GetInterfaceMACACL(ctx context.Context, iface string) (*InterfaceMACACL, error)
@@ -904,17 +936,22 @@ type Config struct {
 
 // InterfaceConfig represents interface configuration on an RTX router
 type InterfaceConfig struct {
-	Name              string       `json:"name"`                          // Interface name (lan1, lan2, pp1, bridge1, tunnel1)
-	Description       string       `json:"description,omitempty"`         // Interface description
-	IPAddress         *InterfaceIP `json:"ip_address,omitempty"`          // IPv4 address configuration
-	SecureFilterIn    []int        `json:"secure_filter_in,omitempty"`    // Inbound security filter numbers
-	SecureFilterOut   []int        `json:"secure_filter_out,omitempty"`   // Outbound security filter numbers
-	DynamicFilterOut  []int        `json:"dynamic_filter_out,omitempty"`  // Dynamic filters for outbound
-	EthernetFilterIn  []int        `json:"ethernet_filter_in,omitempty"`  // Inbound Ethernet (L2) filter numbers
-	EthernetFilterOut []int        `json:"ethernet_filter_out,omitempty"` // Outbound Ethernet (L2) filter numbers
-	NATDescriptor     int          `json:"nat_descriptor,omitempty"`      // NAT descriptor number (0 = none)
-	ProxyARP          bool         `json:"proxyarp"`                      // Enable ProxyARP
-	MTU               int          `json:"mtu,omitempty"`                 // MTU size (0 = default)
+	Name                     string       `json:"name"`                                   // Interface name (lan1, lan2, pp1, bridge1, tunnel1)
+	Description              string       `json:"description,omitempty"`                  // Interface description
+	IPAddress                *InterfaceIP `json:"ip_address,omitempty"`                   // IPv4 address configuration
+	AccessListIPIn           string       `json:"access_list_ip_in,omitempty"`            // Inbound IP access list name
+	AccessListIPOut          string       `json:"access_list_ip_out,omitempty"`           // Outbound IP access list name
+	AccessListIPv6In         string       `json:"access_list_ipv6_in,omitempty"`          // Inbound IPv6 access list name
+	AccessListIPv6Out        string       `json:"access_list_ipv6_out,omitempty"`         // Outbound IPv6 access list name
+	AccessListIPDynamicIn    string       `json:"access_list_ip_dynamic_in,omitempty"`    // Inbound dynamic IP access list name
+	AccessListIPDynamicOut   string       `json:"access_list_ip_dynamic_out,omitempty"`   // Outbound dynamic IP access list name
+	AccessListIPv6DynamicIn  string       `json:"access_list_ipv6_dynamic_in,omitempty"`  // Inbound dynamic IPv6 access list name
+	AccessListIPv6DynamicOut string       `json:"access_list_ipv6_dynamic_out,omitempty"` // Outbound dynamic IPv6 access list name
+	AccessListMACIn          string       `json:"access_list_mac_in,omitempty"`           // Inbound MAC access list name
+	AccessListMACOut         string       `json:"access_list_mac_out,omitempty"`          // Outbound MAC access list name
+	NATDescriptor            int          `json:"nat_descriptor,omitempty"`               // NAT descriptor number (0 = none)
+	ProxyARP                 bool         `json:"proxyarp"`                               // Enable ProxyARP
+	MTU                      int          `json:"mtu,omitempty"`                          // MTU size (0 = default)
 }
 
 // InterfaceIP represents IP address configuration
@@ -1406,14 +1443,15 @@ type BridgeConfig struct {
 
 // IPv6InterfaceConfig represents IPv6 configuration for an RTX router interface
 type IPv6InterfaceConfig struct {
-	Interface        string        `json:"interface"`                    // Interface name (lan1, lan2, pp1, bridge1, tunnel1)
-	Addresses        []IPv6Address `json:"addresses,omitempty"`          // IPv6 addresses
-	RTADV            *RTADVConfig  `json:"rtadv,omitempty"`              // Router Advertisement configuration
-	DHCPv6Service    string        `json:"dhcpv6_service,omitempty"`     // "server", "client", or "off"
-	MTU              int           `json:"mtu,omitempty"`                // MTU size (0 = default)
-	SecureFilterIn   []int         `json:"secure_filter_in,omitempty"`   // Inbound security filter numbers
-	SecureFilterOut  []int         `json:"secure_filter_out,omitempty"`  // Outbound security filter numbers
-	DynamicFilterOut []int         `json:"dynamic_filter_out,omitempty"` // Dynamic filters for outbound
+	Interface                string        `json:"interface"`                              // Interface name (lan1, lan2, pp1, bridge1, tunnel1)
+	Addresses                []IPv6Address `json:"addresses,omitempty"`                    // IPv6 addresses
+	RTADV                    *RTADVConfig  `json:"rtadv,omitempty"`                        // Router Advertisement configuration
+	DHCPv6Service            string        `json:"dhcpv6_service,omitempty"`               // "server", "client", or "off"
+	MTU                      int           `json:"mtu,omitempty"`                          // MTU size (0 = default)
+	AccessListIPv6In         string        `json:"access_list_ipv6_in,omitempty"`          // Inbound IPv6 access list name
+	AccessListIPv6Out        string        `json:"access_list_ipv6_out,omitempty"`         // Outbound IPv6 access list name
+	AccessListIPv6DynamicIn  string        `json:"access_list_ipv6_dynamic_in,omitempty"`  // Inbound dynamic IPv6 access list name
+	AccessListIPv6DynamicOut string        `json:"access_list_ipv6_dynamic_out,omitempty"` // Outbound dynamic IPv6 access list name
 }
 
 // IPv6Address represents an IPv6 address configuration
@@ -1577,6 +1615,37 @@ type IPsecTransportConfig struct {
 	Port        int    `json:"port"`         // Port number (1701 for L2TP)
 }
 
+// AccessListIPDynamic represents a named collection of dynamic IP filters
+type AccessListIPDynamic struct {
+	Name    string                     `json:"name"`    // ACL name (identifier)
+	Entries []AccessListIPDynamicEntry `json:"entries"` // List of dynamic filter entries
+}
+
+// AccessListIPDynamicEntry represents a single entry in a dynamic IP access list
+type AccessListIPDynamicEntry struct {
+	Sequence    int    `json:"sequence"`          // Sequence number (determines order and filter number)
+	Source      string `json:"source"`            // Source address or "*"
+	Destination string `json:"destination"`       // Destination address or "*"
+	Protocol    string `json:"protocol"`          // Protocol (ftp, www, smtp, etc.)
+	Syslog      bool   `json:"syslog,omitempty"`  // Enable syslog for this filter
+	Timeout     *int   `json:"timeout,omitempty"` // Optional timeout parameter
+}
+
+// AccessListIPv6Dynamic represents a named collection of dynamic IPv6 filters
+type AccessListIPv6Dynamic struct {
+	Name    string                       `json:"name"`    // ACL name (identifier)
+	Entries []AccessListIPv6DynamicEntry `json:"entries"` // List of dynamic filter entries
+}
+
+// AccessListIPv6DynamicEntry represents a single entry in a dynamic IPv6 access list
+type AccessListIPv6DynamicEntry struct {
+	Sequence    int    `json:"sequence"`         // Sequence number (determines order and filter number)
+	Source      string `json:"source"`           // Source IPv6 address or "*"
+	Destination string `json:"destination"`      // Destination IPv6 address or "*"
+	Protocol    string `json:"protocol"`         // Protocol (ftp, www, smtp, etc.)
+	Syslog      bool   `json:"syslog,omitempty"` // Enable syslog for this filter
+}
+
 // ============================================================================
 // DDNS Types
 // ============================================================================
@@ -1648,12 +1717,12 @@ type LCPReconnectConfig struct {
 
 // PPIPConfig represents PP interface IP configuration
 type PPIPConfig struct {
-	Address         string `json:"address,omitempty"`           // IP address or "ipcp" for dynamic
-	MTU             int    `json:"mtu,omitempty"`               // MTU size
-	TCPMSSLimit     int    `json:"tcp_mss_limit,omitempty"`     // TCP MSS limit value
-	NATDescriptor   int    `json:"nat_descriptor,omitempty"`    // NAT descriptor number
-	SecureFilterIn  []int  `json:"secure_filter_in,omitempty"`  // Inbound security filter numbers
-	SecureFilterOut []int  `json:"secure_filter_out,omitempty"` // Outbound security filter numbers
+	Address         string `json:"address,omitempty"`            // IP address or "ipcp" for dynamic
+	MTU             int    `json:"mtu,omitempty"`                // MTU size
+	TCPMSSLimit     int    `json:"tcp_mss_limit,omitempty"`      // TCP MSS limit value
+	NATDescriptor   int    `json:"nat_descriptor,omitempty"`     // NAT descriptor number
+	AccessListIPIn  string `json:"access_list_ip_in,omitempty"`  // Inbound IP access list name
+	AccessListIPOut string `json:"access_list_ip_out,omitempty"` // Outbound IP access list name
 }
 
 // PPConnectionStatus represents PPPoE connection status

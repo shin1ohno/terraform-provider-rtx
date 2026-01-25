@@ -47,11 +47,9 @@ Yamaha RTXシリーズルーター用Terraformプロバイダーの開発プロ�
 | rtx_ipv6_interface | ✅ 完了 | IPv6インターフェース設定（アドレス、RTADV、DHCPv6、MTU、フィルタ） |
 | rtx_access_list_extended | ✅ 完了 | IPv4アクセスリスト（Cisco互換、entries配列構造） |
 | rtx_access_list_extended_ipv6 | ✅ 完了 | IPv6アクセスリスト（Cisco互換、entries配列構造） |
-| rtx_ip_filter_dynamic | ✅ 完了 | IPv4動的フィルタ（ステートフル検査） |
-| rtx_ipv6_filter_dynamic | ✅ 完了 | IPv6動的フィルタ（ステートフル検査） |
-| rtx_interface_acl | ✅ 完了 | インターフェースへのACL適用（IPv4/IPv6、静的/動的） |
+| rtx_access_list_ip_dynamic | ✅ 完了 | IPv4動的フィルタのグループ化（entries配列構造） |
+| rtx_access_list_ipv6_dynamic | ✅ 完了 | IPv6動的フィルタのグループ化（entries配列構造） |
 | rtx_access_list_mac | ✅ 完了 | MACアクセスリスト（Cisco互換、entries配列構造） |
-| rtx_interface_mac_acl | ✅ 完了 | インターフェースへのMAC ACL適用 |
 
 ## データソース
 
@@ -979,6 +977,171 @@ Cisco IOS XE Terraformプロバイダーのアプローチを参考に、「評�
 ```
 3b82854 schema: standardize attribute names for clarity
 ```
+
+### テスト結果
+
+- ビルド: ✅ 成功
+- リンター: ✅ 成功
+- テスト: ✅ 全件パス
+
+---
+
+## セッション31: フィルタ属性統合 (filter-attribute-consolidation)（2026-01-25）
+
+### 背景
+
+フィルタ管理を簡素化し、以下を実現:
+1. 動的フィルタをアクセスリストリソースでグループ化
+2. `rtx_interface`から名前でアクセスリストを参照
+3. 冗長なACLバインディングリソースを削除
+
+### 破壊的変更
+
+**新規リソース:**
+- `rtx_access_list_ip_dynamic` - IPv4動的フィルタのグループ化
+- `rtx_access_list_ipv6_dynamic` - IPv6動的フィルタのグループ化
+
+**削除されたリソース:**
+- `rtx_interface_acl` → `rtx_interface`属性で代替
+- `rtx_interface_mac_acl` → `rtx_interface`属性で代替
+- `rtx_ip_filter_dynamic` → `rtx_access_list_ip_dynamic`で代替
+- `rtx_ipv6_filter_dynamic` → `rtx_access_list_ipv6_dynamic`で代替
+
+**`rtx_interface`から削除された属性:**
+- `secure_filter_in`, `secure_filter_out`
+- `dynamic_filter_out`
+- `ethernet_filter_in`, `ethernet_filter_out`
+
+**`rtx_interface`に追加された属性:**
+- `access_list_ip_in`, `access_list_ip_out`
+- `access_list_ipv6_in`, `access_list_ipv6_out`
+- `access_list_ip_dynamic_in`, `access_list_ip_dynamic_out`
+- `access_list_ipv6_dynamic_in`, `access_list_ipv6_dynamic_out`
+- `access_list_mac_in`, `access_list_mac_out`
+
+### 実装完了タスク
+
+| フェーズ | タスク | ステータス |
+|----------|--------|----------|
+| Phase 1 | rtx_access_list_ip_dynamic作成 | ✅ 完了 |
+| Phase 1 | rtx_access_list_ipv6_dynamic作成 | ✅ 完了 |
+| Phase 2 | rtx_interface属性更新 | ✅ 完了 |
+| Phase 2 | InterfaceConfig構造体更新 | ✅ 完了 |
+| Phase 2 | interface_service.go更新 | ✅ 完了 |
+| Phase 3 | rtx_interface_acl削除 | ✅ 完了 |
+| Phase 3 | rtx_interface_mac_acl削除 | ✅ 完了 |
+| Phase 3 | rtx_ip_filter_dynamic削除 | ✅ 完了 |
+| Phase 3 | rtx_ipv6_filter_dynamic削除 | ✅ 完了 |
+| Phase 5 | access_list_ip_dynamic.md作成 | ✅ 完了 |
+| Phase 5 | access_list_ipv6_dynamic.md作成 | ✅ 完了 |
+| Phase 5 | interface.md更新 | ✅ 完了 |
+| Phase 6 | lint修正 | ✅ 完了 |
+
+### 修正ファイル
+
+**新規作成:**
+- `internal/provider/resource_rtx_access_list_ip_dynamic.go`
+- `internal/provider/resource_rtx_access_list_ipv6_dynamic.go`
+- `docs/resources/access_list_ip_dynamic.md`
+- `docs/resources/access_list_ipv6_dynamic.md`
+
+**削除:**
+- `internal/provider/resource_rtx_interface_acl.go` + `_test.go`
+- `internal/provider/resource_rtx_interface_mac_acl.go` + `_test.go`
+- `internal/provider/resource_rtx_ip_filter_dynamic.go` + `_test.go`
+- `internal/provider/resource_rtx_ipv6_filter_dynamic.go` + `_test.go`
+- `docs/resources/interface_acl.md`
+- `docs/resources/interface_mac_acl.md`
+- `docs/resources/ip_filter_dynamic.md`
+- `docs/resources/ipv6_filter_dynamic.md`
+
+**更新:**
+- `internal/client/interfaces.go` - InterfaceConfig構造体
+- `internal/provider/resource_rtx_interface.go` - スキーマ、CRUD
+- `internal/client/interface_service.go` - フィルタ番号処理削除
+- `internal/provider/resource_rtx_interface_test.go` - テスト更新
+- `internal/provider/provider.go` - リソース登録更新
+- `docs/resources/interface.md` - マイグレーションガイド追加
+
+### テスト結果
+
+- ビルド: ✅ 成功
+- リンター: ✅ 成功
+- テスト: ✅ 全件パス
+
+### 変更統計
+
+50ファイル変更、601行追加、7804行削除
+
+---
+
+## rtx_ipv6_interface 属性統合（2026-01-25）
+
+`rtx_interface`と同じ設計を`rtx_ipv6_interface`にも適用。
+
+### 変更内容
+
+**IPv6InterfaceConfig構造体（internal/client/interfaces.go）:**
+- `SecureFilterIn []int` → `AccessListIPv6In string`
+- `SecureFilterOut []int` → `AccessListIPv6Out string`
+- `DynamicFilterOut []int` → `AccessListIPv6DynamicIn string` + `AccessListIPv6DynamicOut string`
+
+**rtx_ipv6_interfaceスキーマ:**
+- 削除: `secure_filter_in`, `secure_filter_out`, `dynamic_filter_out` (List of Number)
+- 追加: `access_list_ipv6_in`, `access_list_ipv6_out`, `access_list_ipv6_dynamic_in`, `access_list_ipv6_dynamic_out` (String)
+
+**ipv6_interface_service.go:**
+- Configure/Updateメソッドからフィルター設定コードを削除
+- toParserConfig/fromParserConfigを更新
+
+### 修正ファイル
+
+- `internal/client/interfaces.go`
+- `internal/client/ipv6_interface_service.go`
+- `internal/client/ipv6_interface_service_test.go`
+- `internal/client/interface_service.go` (未使用関数削除)
+- `internal/provider/resource_rtx_ipv6_interface.go`
+- `internal/provider/resource_rtx_ipv6_interface_test.go`
+- `internal/provider/resource_rtx_ipv6_interface_acc_test.go`
+- `examples/import/main.tf`
+
+### テスト結果
+
+- ビルド: ✅ 成功
+- リンター: ✅ 成功
+- テスト: ✅ 全件パス
+
+---
+
+## rtx_pp_interface 属性統合（2026-01-25）
+
+`rtx_interface`と同じ設計を`rtx_pp_interface`にも適用。
+
+### 変更内容
+
+**PPIPConfig構造体（internal/client/interfaces.go, internal/rtx/parsers/ppp.go）:**
+- `SecureFilterIn []int` → `AccessListIPIn string`
+- `SecureFilterOut []int` → `AccessListIPOut string`
+
+**rtx_pp_interfaceスキーマ:**
+- 削除: `secure_filter_in`, `secure_filter_out` (List of Number)
+- 追加: `access_list_ip_in`, `access_list_ip_out` (String)
+
+**ppp_service.go:**
+- Configure/Updateメソッドからフィルター番号処理を削除
+- toParserPPIPConfig/fromParserPPIPConfigを更新
+
+### 修正ファイル
+
+- `internal/client/interfaces.go` - PPIPConfig構造体更新
+- `internal/rtx/parsers/ppp.go` - PPIPConfig構造体、パーサー、コマンドビルダー更新
+- `internal/rtx/parsers/ppp_test.go` - テスト更新
+- `internal/client/ppp_service.go` - サービス関数更新
+- `internal/client/ppp_service_test.go` - テスト更新
+- `internal/provider/resource_rtx_pp_interface.go` - スキーマ、CRUD更新
+- `internal/provider/resource_rtx_pp_interface_test.go` - テスト更新
+- `examples/pppoe/main.tf` - 使用例更新
+- `docs/resources/pp_interface.md` - マイグレーションガイド追加
 
 ### テスト結果
 

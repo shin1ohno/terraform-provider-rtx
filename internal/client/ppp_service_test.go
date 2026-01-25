@@ -451,16 +451,16 @@ func TestPPPService_PPIPConfigConversion(t *testing.T) {
 		MTU:             1454,
 		TCPMSSLimit:     1414,
 		NATDescriptor:   1,
-		SecureFilterIn:  []int{1, 2, 3},
-		SecureFilterOut: []int{4, 5, 6},
+		AccessListIPIn:  "pp-secure-in",
+		AccessListIPOut: "pp-secure-out",
 	}
 
 	parserConfig := service.toParserPPIPConfig(config)
 	if parserConfig.Address != "ipcp" {
 		t.Errorf("toParserPPIPConfig() Address = %q, want %q", parserConfig.Address, "ipcp")
 	}
-	if len(parserConfig.SecureFilterIn) != 3 {
-		t.Errorf("toParserPPIPConfig() SecureFilterIn length = %d, want 3", len(parserConfig.SecureFilterIn))
+	if parserConfig.AccessListIPIn != "pp-secure-in" {
+		t.Errorf("toParserPPIPConfig() AccessListIPIn = %q, want %q", parserConfig.AccessListIPIn, "pp-secure-in")
 	}
 
 	// Test fromParserPPIPConfig

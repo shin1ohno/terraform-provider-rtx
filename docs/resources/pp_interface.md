@@ -21,12 +21,60 @@ Manages PP (Point-to-Point) interface IP configuration on RTX routers. This reso
 
 ### Optional
 
+- `access_list_ip_in` (String) Inbound IP access list name. Reference an rtx_access_list_ip resource by name.
+- `access_list_ip_out` (String) Outbound IP access list name. Reference an rtx_access_list_ip resource by name.
 - `ip_address` (String) IP address for the PP interface. Use 'ipcp' for dynamic IP assignment from the ISP, or specify a static IP address in CIDR notation.
 - `mtu` (Number) Maximum Transmission Unit size for the PP interface. Valid range: 64-1500. 0 means use default.
 - `nat_descriptor` (Number) NAT descriptor ID to bind to this PP interface. Use rtx_nat_masquerade or rtx_nat_static to define the descriptor.
-- `secure_filter_in` (List of Number) Inbound security filter numbers. Order matters - first match wins.
-- `secure_filter_out` (List of Number) Outbound security filter numbers. Order matters - first match wins.
 - `tcp_mss` (Number) TCP Maximum Segment Size limit. Valid range: 1-1460. 0 means not set.
+
+## Migration from Legacy Attributes
+
+This resource previously used `secure_filter_in` and `secure_filter_out` attributes with filter number arrays.
+These have been replaced with `access_list_ip_in` and `access_list_ip_out` which reference `rtx_access_list_ip` resources by name.
+
+### Before (deprecated pattern):
+```hcl
+resource "rtx_pp_interface" "wan" {
+  pp_number         = 1
+  ip_address        = "ipcp"
+  secure_filter_in  = [200020, 200021, 200022, 200099]
+  secure_filter_out = [200020, 200021, 200022, 200099]
+}
+```
+
+### After (recommended pattern):
+```hcl
+resource "rtx_access_list_ip" "pp_secure" {
+  name = "pp-secure-acl"
+
+  entry {
+    sequence    = 10
+    ace_action  = "permit"
+    protocol    = "tcp"
+    source_any  = true
+    destination_any = true
+    destination_port_range {
+      start = 443
+      end   = 443
+    }
+  }
+
+  entry {
+    sequence    = 100
+    ace_action  = "deny"
+    source_any  = true
+    destination_any = true
+  }
+}
+
+resource "rtx_pp_interface" "wan" {
+  pp_number          = 1
+  ip_address         = "ipcp"
+  access_list_ip_in  = rtx_access_list_ip.pp_secure.name
+  access_list_ip_out = rtx_access_list_ip.pp_secure.name
+}
+```
 
 ### Read-Only
 

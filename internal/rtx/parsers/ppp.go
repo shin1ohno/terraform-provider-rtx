@@ -34,12 +34,12 @@ type PPPAuth struct {
 
 // PPIPConfig represents PP interface IP configuration
 type PPIPConfig struct {
-	Address         string `json:"address"`                     // ip pp address <ip>/<mask> or "dhcp"
-	MTU             int    `json:"mtu"`                         // ip pp mtu <size>
-	TCPMSSLimit     int    `json:"tcp_mss_limit"`               // ip pp tcp mss limit <size>
-	NATDescriptor   int    `json:"nat_descriptor"`              // ip pp nat descriptor <id>
-	SecureFilterIn  []int  `json:"secure_filter_in,omitempty"`  // ip pp secure filter in
-	SecureFilterOut []int  `json:"secure_filter_out,omitempty"` // ip pp secure filter out
+	Address         string `json:"address"`                      // ip pp address <ip>/<mask> or "dhcp"
+	MTU             int    `json:"mtu"`                          // ip pp mtu <size>
+	TCPMSSLimit     int    `json:"tcp_mss_limit"`                // ip pp tcp mss limit <size>
+	NATDescriptor   int    `json:"nat_descriptor"`               // ip pp nat descriptor <id>
+	AccessListIPIn  string `json:"access_list_ip_in,omitempty"`  // Inbound IP access list name
+	AccessListIPOut string `json:"access_list_ip_out,omitempty"` // Outbound IP access list name
 }
 
 // LCPEchoConfig represents LCP echo (keepalive) configuration
@@ -244,23 +244,21 @@ func (p *PPPParser) ParsePPPoEConfig(raw string) ([]PPPoEConfig, error) {
 			continue
 		}
 
-		// IP PP secure filter in
+		// IP PP secure filter in (access list name)
 		if matches := ipPPSecureFilterInPattern.FindStringSubmatch(line); len(matches) >= 2 {
 			if currentConfig.IPConfig == nil {
 				currentConfig.IPConfig = &PPIPConfig{}
 			}
-			filterIDs := parseFilterList(matches[1])
-			currentConfig.IPConfig.SecureFilterIn = filterIDs
+			currentConfig.IPConfig.AccessListIPIn = strings.TrimSpace(matches[1])
 			continue
 		}
 
-		// IP PP secure filter out
+		// IP PP secure filter out (access list name)
 		if matches := ipPPSecureFilterOutPattern.FindStringSubmatch(line); len(matches) >= 2 {
 			if currentConfig.IPConfig == nil {
 				currentConfig.IPConfig = &PPIPConfig{}
 			}
-			filterIDs := parseFilterList(matches[1])
-			currentConfig.IPConfig.SecureFilterOut = filterIDs
+			currentConfig.IPConfig.AccessListIPOut = strings.TrimSpace(matches[1])
 			continue
 		}
 
@@ -354,12 +352,12 @@ func (p *PPPParser) ParsePPInterfaceConfig(raw string, ppNum int) (*PPIPConfig, 
 		}
 
 		if matches := ipPPSecureFilterInPattern.FindStringSubmatch(line); len(matches) >= 2 {
-			config.SecureFilterIn = parseFilterList(matches[1])
+			config.AccessListIPIn = strings.TrimSpace(matches[1])
 			continue
 		}
 
 		if matches := ipPPSecureFilterOutPattern.FindStringSubmatch(line); len(matches) >= 2 {
-			config.SecureFilterOut = parseFilterList(matches[1])
+			config.AccessListIPOut = strings.TrimSpace(matches[1])
 			continue
 		}
 	}
@@ -499,28 +497,20 @@ func BuildIPPPNATDescriptorCommand(descriptorID int) string {
 	return fmt.Sprintf("ip pp nat descriptor %d", descriptorID)
 }
 
-// BuildIPPPSecureFilterInCommand builds "ip pp secure filter in <ids...>" command
-func BuildIPPPSecureFilterInCommand(filterIDs []int) string {
-	if len(filterIDs) == 0 {
+// BuildIPPPSecureFilterInCommand builds "ip pp secure filter in <name>" command
+func BuildIPPPSecureFilterInCommand(accessListName string) string {
+	if accessListName == "" {
 		return ""
 	}
-	ids := make([]string, len(filterIDs))
-	for i, id := range filterIDs {
-		ids[i] = strconv.Itoa(id)
-	}
-	return fmt.Sprintf("ip pp secure filter in %s", strings.Join(ids, " "))
+	return fmt.Sprintf("ip pp secure filter in %s", accessListName)
 }
 
-// BuildIPPPSecureFilterOutCommand builds "ip pp secure filter out <ids...>" command
-func BuildIPPPSecureFilterOutCommand(filterIDs []int) string {
-	if len(filterIDs) == 0 {
+// BuildIPPPSecureFilterOutCommand builds "ip pp secure filter out <name>" command
+func BuildIPPPSecureFilterOutCommand(accessListName string) string {
+	if accessListName == "" {
 		return ""
 	}
-	ids := make([]string, len(filterIDs))
-	for i, id := range filterIDs {
-		ids[i] = strconv.Itoa(id)
-	}
-	return fmt.Sprintf("ip pp secure filter out %s", strings.Join(ids, " "))
+	return fmt.Sprintf("ip pp secure filter out %s", accessListName)
 }
 
 // BuildDeleteIPPPAddressCommand builds "no ip pp address" command
@@ -631,12 +621,12 @@ func BuildPPPoECommand(config PPPoEConfig) []string {
 		}
 
 		// ip pp secure filter in
-		if cmd := BuildIPPPSecureFilterInCommand(config.IPConfig.SecureFilterIn); cmd != "" {
+		if cmd := BuildIPPPSecureFilterInCommand(config.IPConfig.AccessListIPIn); cmd != "" {
 			commands = append(commands, cmd)
 		}
 
 		// ip pp secure filter out
-		if cmd := BuildIPPPSecureFilterOutCommand(config.IPConfig.SecureFilterOut); cmd != "" {
+		if cmd := BuildIPPPSecureFilterOutCommand(config.IPConfig.AccessListIPOut); cmd != "" {
 			commands = append(commands, cmd)
 		}
 	}

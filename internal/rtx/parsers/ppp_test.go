@@ -198,14 +198,14 @@ pp enable 1
 	}
 }
 
-func TestParsePPPoEConfig_WithSecureFilter(t *testing.T) {
+func TestParsePPPoEConfig_WithAccessLists(t *testing.T) {
 	raw := `
 pp select 1
  pppoe use lan2
  pp auth accept chap
  pp auth myname user pass
- ip pp secure filter in 100 101 102
- ip pp secure filter out 200 201
+ ip pp secure filter in pp-secure-in
+ ip pp secure filter out pp-secure-out
  pp always-on on
 pp enable 1
 `
@@ -222,11 +222,11 @@ pp enable 1
 	if configs[0].IPConfig == nil {
 		t.Fatal("IPConfig should not be nil")
 	}
-	if len(configs[0].IPConfig.SecureFilterIn) != 3 {
-		t.Errorf("SecureFilterIn: expected 3 filters, got %d", len(configs[0].IPConfig.SecureFilterIn))
+	if configs[0].IPConfig.AccessListIPIn != "pp-secure-in" {
+		t.Errorf("AccessListIPIn: expected 'pp-secure-in', got '%s'", configs[0].IPConfig.AccessListIPIn)
 	}
-	if len(configs[0].IPConfig.SecureFilterOut) != 2 {
-		t.Errorf("SecureFilterOut: expected 2 filters, got %d", len(configs[0].IPConfig.SecureFilterOut))
+	if configs[0].IPConfig.AccessListIPOut != "pp-secure-out" {
+		t.Errorf("AccessListIPOut: expected 'pp-secure-out', got '%s'", configs[0].IPConfig.AccessListIPOut)
 	}
 }
 
@@ -379,8 +379,8 @@ pp select 1
  ip pp mtu 1454
  ip pp tcp mss limit 1414
  ip pp nat descriptor 1
- ip pp secure filter in 100 101
- ip pp secure filter out 200
+ ip pp secure filter in pp-in-acl
+ ip pp secure filter out pp-out-acl
  pp always-on on
 pp enable 1
 
@@ -407,11 +407,11 @@ pp select 2
 	if config.NATDescriptor != 1 {
 		t.Errorf("NATDescriptor: expected 1, got %d", config.NATDescriptor)
 	}
-	if len(config.SecureFilterIn) != 2 {
-		t.Errorf("SecureFilterIn: expected 2, got %d", len(config.SecureFilterIn))
+	if config.AccessListIPIn != "pp-in-acl" {
+		t.Errorf("AccessListIPIn: expected 'pp-in-acl', got '%s'", config.AccessListIPIn)
 	}
-	if len(config.SecureFilterOut) != 1 {
-		t.Errorf("SecureFilterOut: expected 1, got %d", len(config.SecureFilterOut))
+	if config.AccessListIPOut != "pp-out-acl" {
+		t.Errorf("AccessListIPOut: expected 'pp-out-acl', got '%s'", config.AccessListIPOut)
 	}
 }
 
@@ -718,18 +718,17 @@ func TestBuildIPPPNATDescriptorCommand(t *testing.T) {
 
 func TestBuildIPPPSecureFilterCommands(t *testing.T) {
 	tests := []struct {
-		name      string
-		filterIDs []int
-		expected  string
+		name           string
+		accessListName string
+		expected       string
 	}{
-		{"single", []int{100}, "ip pp secure filter in 100"},
-		{"multiple", []int{100, 101, 102}, "ip pp secure filter in 100 101 102"},
-		{"empty", []int{}, ""},
+		{"with name", "pp-secure-acl", "ip pp secure filter in pp-secure-acl"},
+		{"empty", "", ""},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := BuildIPPPSecureFilterInCommand(tt.filterIDs)
+			result := BuildIPPPSecureFilterInCommand(tt.accessListName)
 			if result != tt.expected {
 				t.Errorf("Expected '%s', got '%s'", tt.expected, result)
 			}
