@@ -3,44 +3,17 @@
 page_title: "rtx_interface Resource - terraform-provider-rtx"
 subcategory: ""
 description: |-
-  Manages network interface configuration on RTX routers. This includes IP address assignment, access list bindings, NAT descriptors, and other interface-level settings.
+  Manages network interface configuration on RTX routers. This includes IP address assignment, security filters, NAT descriptors, and other interface-level settings.
 ---
 
 # rtx_interface (Resource)
 
-Manages network interface configuration on RTX routers. This includes IP address assignment, access list bindings, NAT descriptors, and other interface-level settings.
+Manages network interface configuration on RTX routers. This includes IP address assignment, security filters, NAT descriptors, and other interface-level settings.
 
 ## Example Usage
 
 ```terraform
-# Define access lists for filtering
-resource "rtx_access_list_ip" "inbound" {
-  sequence    = 100
-  action      = "pass"
-  source      = "192.168.1.0/24"
-  destination = "*"
-  protocol    = "*"
-}
-
-resource "rtx_access_list_ip_dynamic" "outbound_stateful" {
-  name = "wan-outbound"
-
-  entry {
-    sequence    = 100
-    source      = "*"
-    destination = "*"
-    protocol    = "www"
-  }
-
-  entry {
-    sequence    = 101
-    source      = "*"
-    destination = "*"
-    protocol    = "dns"
-  }
-}
-
-# WAN interface with access list bindings
+# WAN interface with DHCP and access list bindings
 resource "rtx_interface" "wan" {
   name        = "lan2"
   description = "WAN connection"
@@ -49,9 +22,10 @@ resource "rtx_interface" "wan" {
     dhcp = true
   }
 
-  access_list_ip_in          = "inbound-filter"
-  access_list_ip_dynamic_out = rtx_access_list_ip_dynamic.outbound_stateful.name
-  nat_descriptor             = 1000
+  # Access list bindings (reference rtx_access_list_ip resources by name)
+  access_list_ip_in  = "wan-secure-in"
+  access_list_ip_out = "wan-secure-out"
+  nat_descriptor     = 1000
 }
 
 # LAN interface with static IP
@@ -76,18 +50,18 @@ resource "rtx_interface" "lan" {
 
 ### Optional
 
+- `access_list_ip_dynamic_in` (String) Inbound dynamic IP access list name
+- `access_list_ip_dynamic_out` (String) Outbound dynamic IP access list name
+- `access_list_ip_in` (String) Inbound IP access list name
+- `access_list_ip_out` (String) Outbound IP access list name
+- `access_list_ipv6_dynamic_in` (String) Inbound dynamic IPv6 access list name
+- `access_list_ipv6_dynamic_out` (String) Outbound dynamic IPv6 access list name
+- `access_list_ipv6_in` (String) Inbound IPv6 access list name
+- `access_list_ipv6_out` (String) Outbound IPv6 access list name
+- `access_list_mac_in` (String) Inbound MAC access list name
+- `access_list_mac_out` (String) Outbound MAC access list name
 - `description` (String) Interface description
 - `ip_address` (Block List, Max: 1) IP address configuration block. Either 'address' or 'dhcp' must be set, but not both. (see [below for nested schema](#nestedblock--ip_address))
-- `access_list_ip_in` (String) Inbound IP access list name. References an `rtx_access_list_ip` resource.
-- `access_list_ip_out` (String) Outbound IP access list name. References an `rtx_access_list_ip` resource.
-- `access_list_ipv6_in` (String) Inbound IPv6 access list name. References an `rtx_access_list_ipv6` resource.
-- `access_list_ipv6_out` (String) Outbound IPv6 access list name. References an `rtx_access_list_ipv6` resource.
-- `access_list_ip_dynamic_in` (String) Inbound dynamic IP access list name. References an `rtx_access_list_ip_dynamic` resource.
-- `access_list_ip_dynamic_out` (String) Outbound dynamic IP access list name. References an `rtx_access_list_ip_dynamic` resource.
-- `access_list_ipv6_dynamic_in` (String) Inbound dynamic IPv6 access list name. References an `rtx_access_list_ipv6_dynamic` resource.
-- `access_list_ipv6_dynamic_out` (String) Outbound dynamic IPv6 access list name. References an `rtx_access_list_ipv6_dynamic` resource.
-- `access_list_mac_in` (String) Inbound MAC access list name. References an `rtx_access_list_mac` resource.
-- `access_list_mac_out` (String) Outbound MAC access list name. References an `rtx_access_list_mac` resource.
 - `mtu` (Number) Maximum Transmission Unit size. Set to 0 to use the default MTU.
 - `nat_descriptor` (Number) NAT descriptor ID to bind to this interface. Use rtx_nat_masquerade or rtx_nat_static to define the descriptor.
 - `proxyarp` (Boolean) Enable ProxyARP on this interface
@@ -104,60 +78,3 @@ Optional:
 
 - `address` (String) Static IP address in CIDR notation (e.g., '192.168.1.1/24')
 - `dhcp` (Boolean) Use DHCP for IP address assignment
-
-## Migration Guide
-
-### Breaking Changes in v2.0.0
-
-The following attributes have been **removed**:
-- `secure_filter_in` - Use `access_list_ip_in` instead
-- `secure_filter_out` - Use `access_list_ip_out` instead
-- `dynamic_filter_out` - Use `access_list_ip_dynamic_out` instead
-- `ethernet_filter_in` - Use `access_list_mac_in` instead
-- `ethernet_filter_out` - Use `access_list_mac_out` instead
-
-The following resources have been **removed**:
-- `rtx_interface_acl` - Use `rtx_interface` access list attributes instead
-- `rtx_interface_mac_acl` - Use `rtx_interface` access list attributes instead
-- `rtx_ip_filter_dynamic` - Use `rtx_access_list_ip_dynamic` instead
-- `rtx_ipv6_filter_dynamic` - Use `rtx_access_list_ipv6_dynamic` instead
-
-### Before (v1.x)
-
-```terraform
-resource "rtx_ip_filter_dynamic" "web" {
-  filter_number = 100
-  source        = "*"
-  destination   = "*"
-  protocol      = "www"
-}
-
-resource "rtx_interface" "wan" {
-  name              = "lan2"
-  secure_filter_in  = [200020, 200021, 200099]
-  secure_filter_out = [200020, 200021, 200099]
-  dynamic_filter_out = [100]
-}
-```
-
-### After (v2.0.0)
-
-```terraform
-resource "rtx_access_list_ip_dynamic" "web" {
-  name = "outbound-web"
-
-  entry {
-    sequence    = 100
-    source      = "*"
-    destination = "*"
-    protocol    = "www"
-  }
-}
-
-resource "rtx_interface" "wan" {
-  name                       = "lan2"
-  access_list_ip_in          = "secure-inbound"
-  access_list_ip_out         = "secure-outbound"
-  access_list_ip_dynamic_out = rtx_access_list_ip_dynamic.web.name
-}
-```

@@ -21,13 +21,14 @@ Manages IPv6 interface configuration on RTX routers. This includes IPv6 addresse
 
 ### Optional
 
+- `access_list_ipv6_dynamic_in` (String) Inbound dynamic IPv6 access list name
+- `access_list_ipv6_dynamic_out` (String) Outbound dynamic IPv6 access list name
+- `access_list_ipv6_in` (String) Inbound IPv6 access list name
+- `access_list_ipv6_out` (String) Outbound IPv6 access list name
 - `address` (Block List) IPv6 address configuration blocks. Multiple addresses can be configured on a single interface. (see [below for nested schema](#nestedblock--address))
 - `dhcpv6_service` (String) DHCPv6 service mode: 'server', 'client', or '' (disabled).
-- `dynamic_filter_out` (List of Number) Dynamic filter numbers for outbound stateful inspection.
 - `mtu` (Number) IPv6 MTU size (minimum 1280 for IPv6). Set to 0 to use the default MTU.
 - `rtadv` (Block List, Max: 1) Router Advertisement (RTADV) configuration for this interface. (see [below for nested schema](#nestedblock--rtadv))
-- `secure_filter_in` (List of Number) Inbound IPv6 security filter numbers. Order matters - first match wins.
-- `secure_filter_out` (List of Number) Outbound IPv6 security filter numbers. Order matters - first match wins.
 
 ### Read-Only
 
