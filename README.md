@@ -57,6 +57,27 @@ cd terraform-provider-rtx
 make install
 ```
 
+## Before You Begin
+
+### SSH Host Key Setup
+
+Before using this provider, you must configure SSH host key verification. Choose one of these options:
+
+**Option 1: Add router's host key to known_hosts (Recommended)**
+
+```bash
+ssh-keyscan -t rsa 192.168.1.1 >> ~/.ssh/known_hosts
+```
+
+**Option 2: Skip host key verification (Testing only)**
+
+```hcl
+provider "rtx" {
+  # ... other settings ...
+  skip_host_key_check = true
+}
+```
+
 ## Quick Start
 
 ```hcl
