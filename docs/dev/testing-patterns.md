@@ -294,7 +294,7 @@ resource "rtx_admin_user" "test" {
 }`
 
     steps := acctest.BuildCrossVersionUpgradeSteps(acctest.CrossVersionUpgradeTestConfig{
-        ProviderSource:              "registry.terraform.io/sh1/rtx",
+        ProviderSource:              "shin1ohno/rtx",
         OldVersion:                  "1.0.0",
         OldConfig:                   config,
         NewConfig:                   config,

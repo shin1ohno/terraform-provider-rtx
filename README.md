@@ -10,15 +10,30 @@ Terraform provider for managing Yamaha RTX series routers - enterprise-grade net
 
 ## Installation
 
+### From Terraform Registry (Recommended)
+
+```hcl
+terraform {
+  required_providers {
+    rtx = {
+      source  = "shin1ohno/rtx"
+      version = "~> 0.5"
+    }
+  }
+}
+```
+
+Then run `terraform init`.
+
 ### From GitHub Releases
 
-1. Download the appropriate archive for your platform from [GitHub Releases](https://github.com/sh1/terraform-provider-rtx/releases)
+1. Download the appropriate archive for your platform from [GitHub Releases](https://github.com/shin1ohno/terraform-provider-rtx/releases)
 2. Extract and install to your Terraform plugins directory:
 
 ```bash
 # Linux/macOS
-mkdir -p ~/.terraform.d/plugins/registry.terraform.io/sh1/rtx/0.3.1/linux_amd64
-unzip terraform-provider-rtx_0.3.1_linux_amd64.zip -d ~/.terraform.d/plugins/registry.terraform.io/sh1/rtx/0.3.1/linux_amd64
+mkdir -p ~/.terraform.d/plugins/registry.terraform.io/shin1ohno/rtx/0.5.1/linux_amd64
+unzip terraform-provider-rtx_0.5.1_linux_amd64.zip -d ~/.terraform.d/plugins/registry.terraform.io/shin1ohno/rtx/0.5.1/linux_amd64
 ```
 
 3. Configure Terraform to use the local provider:
@@ -27,8 +42,8 @@ unzip terraform-provider-rtx_0.3.1_linux_amd64.zip -d ~/.terraform.d/plugins/reg
 terraform {
   required_providers {
     rtx = {
-      source  = "registry.terraform.io/sh1/rtx"
-      version = "0.3.1"
+      source  = "shin1ohno/rtx"
+      version = "0.5.1"
     }
   }
 }
@@ -37,7 +52,7 @@ terraform {
 ### Building from Source
 
 ```bash
-git clone https://github.com/sh1/terraform-provider-rtx.git
+git clone https://github.com/shin1ohno/terraform-provider-rtx.git
 cd terraform-provider-rtx
 make install
 ```
@@ -48,8 +63,8 @@ make install
 terraform {
   required_providers {
     rtx = {
-      source  = "registry.terraform.io/sh1/rtx"
-      version = "0.3.1"
+      source  = "shin1ohno/rtx"
+      version = "~> 0.5"
     }
   }
 }
