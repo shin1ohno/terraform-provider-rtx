@@ -138,10 +138,13 @@ provider "rtx" {
 | `RTX_HOST` | Router hostname or IP |
 | `RTX_USERNAME` | SSH username |
 | `RTX_PASSWORD` | SSH password |
-| `RTX_PORT` | SSH port |
 | `RTX_ADMIN_PASSWORD` | Admin password for config changes |
 | `RTX_USE_SFTP` | Enable SFTP-based config reading |
+| `RTX_SFTP_CONFIG_PATH` | SFTP path to config file (auto-detected if empty) |
+| `RTX_SSH_HOST_KEY` | SSH host public key (base64 encoded) |
+| `RTX_KNOWN_HOSTS_FILE` | Path to known_hosts file (default: ~/.ssh/known_hosts) |
 | `RTX_SKIP_HOST_KEY_CHECK` | Skip SSH host key verification (insecure) |
+| `RTX_MAX_PARALLELISM` | Max concurrent operations (default: 4) |
 
 ## Resource References
 
