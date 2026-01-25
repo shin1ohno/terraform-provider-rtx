@@ -19,7 +19,7 @@ The filter resources support the product goal of providing comprehensive network
 | `rtx_ethernet_filter` | collection | Yes | `{number}` | Layer 2 (Ethernet/MAC) filter rules |
 | `rtx_interface_acl` | collection | Yes | `{interface}` | Interface ACL bindings (IP/IPv6) |
 | `rtx_interface_mac_acl` | collection | Yes | `{interface}` | Interface MAC ACL bindings |
-| `rtx_ip_filter_dynamic` | collection | Yes | `{filter_id}` | IPv4 stateful/dynamic filters |
+| `rtx_ip_filter_dynamic` | collection | Yes | `{sequence}` | IPv4 stateful/dynamic filters |
 | `rtx_ipv6_filter_dynamic` | singleton | Yes | `ipv6_filter_dynamic` | IPv6 stateful/dynamic filters |
 
 ---
@@ -42,7 +42,7 @@ The filter resources support the product goal of providing comprehensive network
 
 | Attribute | Type | Required | ForceNew | Description | Constraints |
 |-----------|------|----------|----------|-------------|-------------|
-| `number` | Int | Yes | Yes | Filter number | 1-512 |
+| `sequence` | Int | Yes | Yes | Filter number | 1-512 |
 | `action` | String | Yes | No | Action to take | `pass-log`, `pass-nolog`, `reject-log`, `reject-nolog`, `pass`, `reject` |
 | `source_mac` | String | No | No | Source MAC address | MAC format or `*` for any |
 | `destination_mac` | String | No | No | Destination MAC address | MAC format or `*` for any |
@@ -153,7 +153,7 @@ The filter resources support the product goal of providing comprehensive network
 
 | Attribute | Type | Required | ForceNew | Description | Constraints |
 |-----------|------|----------|----------|-------------|-------------|
-| `filter_id` | Int | Yes | Yes | Filter number (unique identifier) | >= 1 |
+| `sequence` | Int | Yes | Yes | Filter number (unique identifier) | >= 1 |
 | `source` | String | Yes | No | Source address or `*` for any | IP address, CIDR, or `*` |
 | `destination` | String | Yes | No | Destination address or `*` for any | IP address, CIDR, or `*` |
 | `protocol` | String | No | No | Protocol for stateful inspection (Form 1) | See valid protocols below |
@@ -205,7 +205,7 @@ The filter resources support the product goal of providing comprehensive network
 
 | Attribute | Type | Required | Description | Constraints |
 |-----------|------|----------|-------------|-------------|
-| `number` | Int | Yes | Filter number | >= 1 |
+| `sequence` | Int | Yes | Filter number | >= 1 |
 | `source` | String | Yes | Source address or `*` | IPv6 address or `*` |
 | `destination` | String | Yes | Destination address or `*` | IPv6 address or `*` |
 | `protocol` | String | Yes | Protocol | `ftp`, `www`, `smtp`, `submission`, `pop3`, `dns`, `domain`, `telnet`, `ssh`, `tcp`, `udp`, `*` |
@@ -317,7 +317,7 @@ no ipv6 <interface> secure filter <direction>
 | `rtx_ethernet_filter` | `{filter_number}` | `terraform import rtx_ethernet_filter.myfilter 100` |
 | `rtx_interface_acl` | `{interface_name}` | `terraform import rtx_interface_acl.lan1 lan1` |
 | `rtx_interface_mac_acl` | `{interface_name}` | `terraform import rtx_interface_mac_acl.lan1 lan1` |
-| `rtx_ip_filter_dynamic` | `{filter_id}` | `terraform import rtx_ip_filter_dynamic.http 100` |
+| `rtx_ip_filter_dynamic` | `{sequence}` | `terraform import rtx_ip_filter_dynamic.http 100` |
 | `rtx_ipv6_filter_dynamic` | `ipv6_filter_dynamic` | `terraform import rtx_ipv6_filter_dynamic.main ipv6_filter_dynamic` |
 
 ---
@@ -328,14 +328,14 @@ no ipv6 <interface> secure filter <direction>
 
 ```hcl
 resource "rtx_ethernet_filter" "allow_known_mac" {
-  number          = 100
+  sequence        = 100
   action          = "pass-log"
   source_mac      = "00:11:22:33:44:55"
   destination_mac = "*"
 }
 
 resource "rtx_ethernet_filter" "block_arp" {
-  number          = 200
+  sequence        = 200
   action          = "reject-nolog"
   source_mac      = "*"
   destination_mac = "*"
@@ -343,7 +343,7 @@ resource "rtx_ethernet_filter" "block_arp" {
 }
 
 resource "rtx_ethernet_filter" "vlan_filter" {
-  number          = 300
+  sequence        = 300
   action          = "pass-nolog"
   source_mac      = "*"
   destination_mac = "*"
@@ -355,7 +355,7 @@ resource "rtx_ethernet_filter" "vlan_filter" {
 
 ```hcl
 resource "rtx_ethernet_filter" "dhcp_bound" {
-  number     = 400
+  sequence   = 400
   action     = "pass-log"
   dhcp_type  = "dhcp-bind"
   dhcp_scope = 1
@@ -388,7 +388,7 @@ resource "rtx_interface_mac_acl" "lan1_mac" {
 
 ```hcl
 resource "rtx_ip_filter_dynamic" "http" {
-  filter_id   = 100
+  sequence    = 100
   source      = "*"
   destination = "*"
   protocol    = "www"
@@ -396,7 +396,7 @@ resource "rtx_ip_filter_dynamic" "http" {
 }
 
 resource "rtx_ip_filter_dynamic" "ftp" {
-  filter_id   = 101
+  sequence    = 101
   source      = "192.168.1.0/24"
   destination = "*"
   protocol    = "ftp"
@@ -408,7 +408,7 @@ resource "rtx_ip_filter_dynamic" "ftp" {
 
 ```hcl
 resource "rtx_ip_filter_dynamic" "custom" {
-  filter_id       = 200
+  sequence        = 200
   source          = "*"
   destination     = "*"
   filter_list     = [1000, 1001]
@@ -423,7 +423,7 @@ resource "rtx_ip_filter_dynamic" "custom" {
 ```hcl
 resource "rtx_ipv6_filter_dynamic" "main" {
   entry {
-    number      = 100
+    sequence    = 100
     source      = "*"
     destination = "*"
     protocol    = "www"
@@ -431,7 +431,7 @@ resource "rtx_ipv6_filter_dynamic" "main" {
   }
 
   entry {
-    number      = 101
+    sequence    = 101
     source      = "*"
     destination = "*"
     protocol    = "ftp"

@@ -37,20 +37,20 @@ resource "rtx_dns_server" "full" {
   # Domain-based DNS server selection
   # Use different DNS servers for specific domains/patterns
   server_select {
-    id            = 1
+    priority      = 1
     servers       = ["192.168.1.1"]
     query_pattern = "internal.example.com"
   }
 
   server_select {
-    id            = 2
+    priority      = 2
     servers       = ["10.0.0.1", "10.0.0.2"]
     query_pattern = "*.local"
   }
 
   # Advanced server select with EDNS and record type filtering
   server_select {
-    id            = 10
+    priority      = 10
     servers       = ["10.0.0.53"]
     edns          = true
     record_type   = "any" # a, aaaa, ptr, mx, ns, cname, any

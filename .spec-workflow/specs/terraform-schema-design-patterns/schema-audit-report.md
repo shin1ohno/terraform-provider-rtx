@@ -41,7 +41,7 @@ These resources correctly use singleton patterns:
 | rtx_bridge | bridge name | Compliant | ForceNew on name |
 | rtx_ipsec_tunnel | tunnel_id | Compliant | Uses WriteOnlyStringSchema |
 | rtx_pppoe | pp_number | Compliant | Uses WriteOnlyRequiredStringSchema |
-| rtx_access_list_ip | filter_id | Compliant | Has DiffSuppressFunc |
+| rtx_access_list_ip | sequence | Compliant | Has DiffSuppressFunc |
 
 ## Pattern Compliance Analysis
 
@@ -49,7 +49,7 @@ These resources correctly use singleton patterns:
 
 #### Required Fields (Required: true)
 All resources correctly use `Required: true` for mandatory user inputs:
-- Identifiers (username, filter_id, scope_id, vlan_id, etc.)
+- Identifiers (username, sequence, scope_id, vlan_id, etc.)
 - Critical configuration (asn in BGP, router_id in OSPF)
 
 #### Optional+Computed Fields (Optional: true, Computed: true)
@@ -74,7 +74,7 @@ All identifier fields correctly use `ForceNew: true`:
 - `name` in rtx_interface
 - `descriptor_id` in NAT resources
 - `vlan_id` and `interface` in rtx_vlan
-- `filter_id` in access list resources
+- `sequence` in access list resources
 - `tunnel_id` in rtx_ipsec_tunnel
 - `pp_number` in rtx_pppoe
 
@@ -181,7 +181,7 @@ Based on the design document decision tree:
 ```
 Is the value always provided by the user?
 ├── YES → Required: true
-│   Examples: username, filter_id, vlan_id, scope_id
+│   Examples: username, sequence, vlan_id, scope_id
 └── NO
     ├── Is the value ever provided by the user?
     │   ├── NO → Computed: true (read-only)

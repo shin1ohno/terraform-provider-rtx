@@ -202,7 +202,7 @@ Same create/read/update/delete semantics as IPv4 extended ACL.
 
 | Attribute | Type | Required | ForceNew | Computed | Description |
 |-----------|------|----------|----------|----------|-------------|
-| `filter_id` | int | Yes | Yes | No | Filter number (1-2147483647) |
+| `sequence` | int | Yes | Yes | No | Filter number (1-2147483647) |
 | `action` | string | Yes | No | No | Action: pass, reject, restrict, restrict-log |
 | `source` | string | Yes | No | No | Source IP/CIDR or "*" |
 | `destination` | string | Yes | No | No | Destination IP/CIDR or "*" |
@@ -242,7 +242,7 @@ Same as `rtx_access_list_ip` with IPv6 addressing.
 
 | Attribute | Type | Required | ForceNew | Computed | Description |
 |-----------|------|----------|----------|----------|-------------|
-| `filter_id` | int | Yes | Yes | No | Filter number (1-2147483647) |
+| `sequence` | int | Yes | Yes | No | Filter number (1-2147483647) |
 | `action` | string | Yes | No | No | Action: pass, reject, restrict, restrict-log |
 | `source` | string | Yes | No | No | Source IPv6/prefix or "*" |
 | `destination` | string | Yes | No | No | Destination IPv6/prefix or "*" |
@@ -315,7 +315,7 @@ Same as `rtx_access_list_ip` with IPv6 addressing.
 | Attribute | Type | Required | ForceNew | Description |
 |-----------|------|----------|----------|-------------|
 | `name` | string | Yes | Yes | Access list name (identifier) |
-| `filter_id` | int | No | No | Optional RTX filter ID for numeric mode |
+| `sequence` | int | No | No | Optional RTX filter ID for numeric mode |
 | `apply` | list(1) | No | No | Optional interface application |
 | `apply.interface` | string | Yes | No | Interface to apply (e.g., lan1) |
 | `apply.direction` | string | Yes | No | Direction: in or out |
@@ -518,7 +518,7 @@ resource "rtx_access_list_extended_ipv6" "ipv6_web" {
 
 ```hcl
 resource "rtx_access_list_ip" "block_netbios" {
-  filter_id   = 200000
+  sequence    = 200000
   action      = "reject"
   source      = "10.0.0.0/8"
   destination = "*"
@@ -532,7 +532,7 @@ resource "rtx_access_list_ip" "block_netbios" {
 
 ```hcl
 resource "rtx_access_list_ipv6" "allow_icmpv6" {
-  filter_id   = 101000
+  sequence    = 101000
   action      = "pass"
   source      = "*"
   destination = "*"
@@ -545,7 +545,7 @@ resource "rtx_access_list_ipv6" "allow_icmpv6" {
 ```hcl
 resource "rtx_access_list_mac" "mac_filter" {
   name      = "secure-mac"
-  filter_id = 100
+  sequence  = 100
 
   entry {
     sequence       = 10
@@ -553,7 +553,7 @@ resource "rtx_access_list_mac" "mac_filter" {
     source_any     = false
     source_address = "00:11:22:33:44:55"
     destination_any = true
-    filter_id      = 101
+    sequence       = 101
   }
 
   entry {
@@ -561,7 +561,7 @@ resource "rtx_access_list_mac" "mac_filter" {
     ace_action      = "reject-nolog"
     source_any      = true
     destination_any = true
-    filter_id       = 102
+    sequence        = 102
   }
 
   apply {

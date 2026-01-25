@@ -432,7 +432,7 @@ resource "rtx_access_list_extended_ipv6" "example" {
 
 ```hcl
 resource "rtx_access_list_ip" "block_netbios" {
-  filter_id   = 200000
+  sequence    = 200000
   action      = "reject"
   source      = "10.0.0.0/8"
   destination = "*"
@@ -442,7 +442,7 @@ resource "rtx_access_list_ip" "block_netbios" {
 }
 
 resource "rtx_access_list_ip" "allow_established" {
-  filter_id   = 200001
+  sequence    = 200001
   action      = "pass"
   source      = "*"
   destination = "192.168.1.0/24"
@@ -457,7 +457,7 @@ resource "rtx_access_list_ip" "allow_established" {
 
 ```hcl
 resource "rtx_access_list_ipv6" "allow_icmpv6" {
-  filter_id   = 101000
+  sequence    = 101000
   action      = "pass"
   source      = "*"
   destination = "*"
@@ -465,7 +465,7 @@ resource "rtx_access_list_ipv6" "allow_icmpv6" {
 }
 
 resource "rtx_access_list_ipv6" "web_server" {
-  filter_id   = 101001
+  sequence    = 101001
   action      = "pass"
   source      = "*"
   destination = "2001:db8:1::/64"
@@ -479,7 +479,7 @@ resource "rtx_access_list_ipv6" "web_server" {
 ```hcl
 resource "rtx_access_list_mac" "secure_lan" {
   name      = "secure-lan-mac"
-  filter_id = 100
+  sequence  = 100
 
   entry {
     sequence            = 10
@@ -487,7 +487,7 @@ resource "rtx_access_list_mac" "secure_lan" {
     source_address      = "00:11:22:33:44:55"
     source_address_mask = "ff:ff:ff:ff:ff:ff"
     destination_any     = true
-    filter_id           = 101
+    sequence            = 101
   }
 
   entry {
@@ -496,7 +496,7 @@ resource "rtx_access_list_mac" "secure_lan" {
     source_any     = true
     destination_any = true
     ether_type     = "0x0800"
-    filter_id      = 102
+    sequence       = 102
   }
 
   entry {
@@ -504,7 +504,7 @@ resource "rtx_access_list_mac" "secure_lan" {
     ace_action      = "reject-nolog"
     source_any      = true
     destination_any = true
-    filter_id       = 103
+    sequence        = 103
   }
 
   apply {
