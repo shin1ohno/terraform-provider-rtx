@@ -1,8 +1,8 @@
 HOSTNAME=registry.terraform.io
-NAMESPACE=sh1
+NAMESPACE=shin1ohno
 NAME=rtx
 BINARY=terraform-provider-${NAME}
-VERSION=0.4.0
+VERSION=0.5.2
 OS_ARCH=$(shell go env GOOS)_$(shell go env GOARCH)
 
 default: install
