@@ -1,0 +1,12 @@
+{
+  "id": "approval_1769338844338_tfov4vx0j",
+  "title": "Requirements: SSH Session Pool Integration",
+  "filePath": ".spec-workflow/specs/ssh-session-pool-integration/requirements.md",
+  "type": "document",
+  "status": "approved",
+  "createdAt": "2026-01-25T11:00:44.338Z",
+  "category": "spec",
+  "categoryName": "ssh-session-pool-integration",
+  "response": "Approved via dashboard",
+  "respondedAt": "2026-01-25T11:04:45.689Z"
+}

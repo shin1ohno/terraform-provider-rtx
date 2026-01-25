@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/ssh-connection-pool-redesign/tasks.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-25T12:17:52.344Z",
+      "trigger": "initial",
+      "approvalId": "approval_1769343472163_upf4wbozo",
+      "approvalTitle": "SSH Connection Pool Redesign - Tasks"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-25T12:24:48.126Z",
+      "trigger": "approved",
+      "approvalId": "approval_1769343472163_upf4wbozo",
+      "approvalTitle": "SSH Connection Pool Redesign - Tasks"
+    }
+  ]
+}

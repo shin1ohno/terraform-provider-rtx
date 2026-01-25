@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/ssh-connection-pool-redesign/requirements.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-25T12:08:28.724Z",
+      "trigger": "initial",
+      "approvalId": "approval_1769342908498_b35hpns8p",
+      "approvalTitle": "SSH Connection Pool Redesign - Requirements"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-25T12:09:13.157Z",
+      "trigger": "approved",
+      "approvalId": "approval_1769342908498_b35hpns8p",
+      "approvalTitle": "SSH Connection Pool Redesign - Requirements"
+    }
+  ]
+}

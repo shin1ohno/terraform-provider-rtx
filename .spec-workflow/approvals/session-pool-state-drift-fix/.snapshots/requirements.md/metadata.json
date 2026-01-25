@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/session-pool-state-drift-fix/requirements.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-25T13:13:17.118Z",
+      "trigger": "initial",
+      "approvalId": "approval_1769346796867_a56cqty2l",
+      "approvalTitle": "Requirements: State Drift Fix for Access List Resources"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-25T13:14:07.650Z",
+      "trigger": "approved",
+      "approvalId": "approval_1769346796867_a56cqty2l",
+      "approvalTitle": "Requirements: State Drift Fix for Access List Resources"
+    }
+  ]
+}

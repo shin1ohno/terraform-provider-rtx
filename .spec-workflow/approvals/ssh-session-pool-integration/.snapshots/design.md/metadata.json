@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/ssh-session-pool-integration/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-25T11:41:35.633Z",
+      "trigger": "initial",
+      "approvalId": "approval_1769341295314_1mlvnzp3q",
+      "approvalTitle": "SSH Session Pool Integration - Design Document"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-25T11:41:59.850Z",
+      "trigger": "approved",
+      "approvalId": "approval_1769341295314_1mlvnzp3q",
+      "approvalTitle": "SSH Session Pool Integration - Design Document"
+    }
+  ]
+}
