@@ -3438,21 +3438,71 @@ func (c *rtxClient) ListAccessListsExtendedIPv6(ctx context.Context) ([]AccessLi
 	return nil, fmt.Errorf("access list extended IPv6 not implemented")
 }
 
-// IP Filter Dynamic Config stub implementations
+// GetIPFilterDynamicConfig retrieves the IP filter dynamic configuration
 func (c *rtxClient) GetIPFilterDynamicConfig(ctx context.Context) (*IPFilterDynamicConfig, error) {
-	return nil, fmt.Errorf("IP filter dynamic config not implemented")
+	c.mu.Lock()
+	ipFilterService := c.ipFilterService
+	c.mu.Unlock()
+
+	if ipFilterService == nil {
+		return nil, fmt.Errorf("IP filter service not initialized")
+	}
+
+	return ipFilterService.GetIPFilterDynamicConfig(ctx)
 }
 
+// CreateIPFilterDynamicConfig creates the IP filter dynamic configuration
 func (c *rtxClient) CreateIPFilterDynamicConfig(ctx context.Context, config IPFilterDynamicConfig) error {
-	return fmt.Errorf("IP filter dynamic config not implemented")
+	c.mu.Lock()
+	ipFilterService := c.ipFilterService
+	c.mu.Unlock()
+
+	if ipFilterService == nil {
+		return fmt.Errorf("IP filter service not initialized")
+	}
+
+	return ipFilterService.CreateIPFilterDynamicConfig(ctx, config)
 }
 
+// UpdateIPFilterDynamicConfig updates the IP filter dynamic configuration
 func (c *rtxClient) UpdateIPFilterDynamicConfig(ctx context.Context, config IPFilterDynamicConfig) error {
-	return fmt.Errorf("IP filter dynamic config not implemented")
+	c.mu.Lock()
+	ipFilterService := c.ipFilterService
+	c.mu.Unlock()
+
+	if ipFilterService == nil {
+		return fmt.Errorf("IP filter service not initialized")
+	}
+
+	return ipFilterService.UpdateIPFilterDynamicConfig(ctx, config)
 }
 
+// DeleteIPFilterDynamicConfig removes IP filter dynamic configuration
 func (c *rtxClient) DeleteIPFilterDynamicConfig(ctx context.Context) error {
-	return fmt.Errorf("IP filter dynamic config not implemented")
+	c.mu.Lock()
+	ipFilterService := c.ipFilterService
+	c.mu.Unlock()
+
+	if ipFilterService == nil {
+		return fmt.Errorf("IP filter service not initialized")
+	}
+
+	// Get current config to find filter numbers to delete
+	config, err := ipFilterService.GetIPFilterDynamicConfig(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get IP filter dynamic config: %w", err)
+	}
+
+	if config == nil || len(config.Entries) == 0 {
+		return nil // Nothing to delete
+	}
+
+	filterNums := make([]int, len(config.Entries))
+	for i, entry := range config.Entries {
+		filterNums[i] = entry.Number
+	}
+
+	return ipFilterService.DeleteIPFilterDynamicConfig(ctx, filterNums)
 }
 
 // GetIPv6FilterDynamicConfig retrieves the IPv6 filter dynamic configuration
@@ -3556,25 +3606,230 @@ func (c *rtxClient) ListInterfaceACLs(ctx context.Context) ([]InterfaceACL, erro
 	return nil, fmt.Errorf("interface ACL not implemented")
 }
 
-// Access List MAC stub implementations
+// GetAccessListMAC retrieves a MAC access list
 func (c *rtxClient) GetAccessListMAC(ctx context.Context, name string) (*AccessListMAC, error) {
-	return nil, fmt.Errorf("access list MAC not implemented")
+	c.mu.Lock()
+	ethernetFilterService := c.ethernetFilterService
+	c.mu.Unlock()
+
+	if ethernetFilterService == nil {
+		return nil, fmt.Errorf("Ethernet filter service not initialized")
+	}
+
+	return ethernetFilterService.GetAccessListMAC(ctx, name)
 }
 
+// CreateAccessListMAC creates a new MAC access list
 func (c *rtxClient) CreateAccessListMAC(ctx context.Context, acl AccessListMAC) error {
-	return fmt.Errorf("access list MAC not implemented")
+	c.mu.Lock()
+	ethernetFilterService := c.ethernetFilterService
+	c.mu.Unlock()
+
+	if ethernetFilterService == nil {
+		return fmt.Errorf("Ethernet filter service not initialized")
+	}
+
+	return ethernetFilterService.CreateAccessListMAC(ctx, acl)
 }
 
+// UpdateAccessListMAC updates an existing MAC access list
 func (c *rtxClient) UpdateAccessListMAC(ctx context.Context, acl AccessListMAC) error {
-	return fmt.Errorf("access list MAC not implemented")
+	c.mu.Lock()
+	ethernetFilterService := c.ethernetFilterService
+	c.mu.Unlock()
+
+	if ethernetFilterService == nil {
+		return fmt.Errorf("Ethernet filter service not initialized")
+	}
+
+	return ethernetFilterService.UpdateAccessListMAC(ctx, acl)
 }
 
+// DeleteAccessListMAC removes a MAC access list
 func (c *rtxClient) DeleteAccessListMAC(ctx context.Context, name string, filterNums []int) error {
-	return fmt.Errorf("access list MAC not implemented")
+	c.mu.Lock()
+	ethernetFilterService := c.ethernetFilterService
+	c.mu.Unlock()
+
+	if ethernetFilterService == nil {
+		return fmt.Errorf("Ethernet filter service not initialized")
+	}
+
+	return ethernetFilterService.DeleteAccessListMAC(ctx, name, filterNums)
 }
 
+// ListAccessListsMAC retrieves all MAC access lists
 func (c *rtxClient) ListAccessListsMAC(ctx context.Context) ([]AccessListMAC, error) {
-	return nil, fmt.Errorf("access list MAC not implemented")
+	// Not implemented - would require tracking which filters belong to which named list
+	return nil, fmt.Errorf("listing MAC access lists not implemented")
+}
+
+// Access List IP Dynamic implementations
+func (c *rtxClient) GetAccessListIPDynamic(ctx context.Context, name string) (*AccessListIPDynamic, error) {
+	// Get all dynamic IP filters and group by name
+	// For now, we track entries by their sequence numbers stored in state
+	// The name is used as an identifier only - it's not stored on the router
+
+	config, err := c.GetIPFilterDynamicConfig(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get dynamic IP filters: %w", err)
+	}
+
+	if config == nil || len(config.Entries) == 0 {
+		return nil, fmt.Errorf("access list IP dynamic %s not found", name)
+	}
+
+	// For now, return all dynamic filters as one access list
+	// In a real implementation, we'd need to track which filters belong to which named list
+	acl := &AccessListIPDynamic{
+		Name:    name,
+		Entries: make([]AccessListIPDynamicEntry, 0, len(config.Entries)),
+	}
+
+	for _, entry := range config.Entries {
+		aclEntry := AccessListIPDynamicEntry{
+			Sequence:    entry.Number,
+			Source:      entry.Source,
+			Destination: entry.Dest,
+			Protocol:    entry.Protocol,
+			Syslog:      entry.Syslog,
+			Timeout:     entry.Timeout,
+		}
+		acl.Entries = append(acl.Entries, aclEntry)
+	}
+
+	return acl, nil
+}
+
+func (c *rtxClient) CreateAccessListIPDynamic(ctx context.Context, acl AccessListIPDynamic) error {
+	// Create each entry as an individual dynamic IP filter
+	config := IPFilterDynamicConfig{
+		Entries: make([]IPFilterDynamicEntry, 0, len(acl.Entries)),
+	}
+
+	for _, entry := range acl.Entries {
+		config.Entries = append(config.Entries, IPFilterDynamicEntry{
+			Number:   entry.Sequence,
+			Source:   entry.Source,
+			Dest:     entry.Destination,
+			Protocol: entry.Protocol,
+			Syslog:   entry.Syslog,
+			Timeout:  entry.Timeout,
+		})
+	}
+
+	return c.CreateIPFilterDynamicConfig(ctx, config)
+}
+
+func (c *rtxClient) UpdateAccessListIPDynamic(ctx context.Context, acl AccessListIPDynamic) error {
+	// Update is done by re-creating the entries (RTX routers overwrite on same number)
+	config := IPFilterDynamicConfig{
+		Entries: make([]IPFilterDynamicEntry, 0, len(acl.Entries)),
+	}
+
+	for _, entry := range acl.Entries {
+		config.Entries = append(config.Entries, IPFilterDynamicEntry{
+			Number:   entry.Sequence,
+			Source:   entry.Source,
+			Dest:     entry.Destination,
+			Protocol: entry.Protocol,
+			Syslog:   entry.Syslog,
+			Timeout:  entry.Timeout,
+		})
+	}
+
+	return c.UpdateIPFilterDynamicConfig(ctx, config)
+}
+
+func (c *rtxClient) DeleteAccessListIPDynamic(ctx context.Context, name string, filterNums []int) error {
+	return c.ipFilterService.DeleteIPFilterDynamicConfig(ctx, filterNums)
+}
+
+func (c *rtxClient) ListAccessListsIPDynamic(ctx context.Context) ([]AccessListIPDynamic, error) {
+	// For now, return empty list - real implementation would need metadata tracking
+	return nil, nil
+}
+
+// Access List IPv6 Dynamic implementations
+func (c *rtxClient) GetAccessListIPv6Dynamic(ctx context.Context, name string) (*AccessListIPv6Dynamic, error) {
+	// Get all dynamic IPv6 filters and group by name
+	// The name is used as an identifier only - it's not stored on the router
+
+	config, err := c.GetIPv6FilterDynamicConfig(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get dynamic IPv6 filters: %w", err)
+	}
+
+	if config == nil || len(config.Entries) == 0 {
+		return nil, fmt.Errorf("access list IPv6 dynamic %s not found", name)
+	}
+
+	// Return all dynamic IPv6 filters as one access list
+	// In a real implementation, we'd need to track which filters belong to which named list
+	acl := &AccessListIPv6Dynamic{
+		Name:    name,
+		Entries: make([]AccessListIPv6DynamicEntry, 0, len(config.Entries)),
+	}
+
+	for _, entry := range config.Entries {
+		aclEntry := AccessListIPv6DynamicEntry{
+			Sequence:    entry.Number,
+			Source:      entry.Source,
+			Destination: entry.Dest,
+			Protocol:    entry.Protocol,
+			Syslog:      entry.Syslog,
+		}
+		acl.Entries = append(acl.Entries, aclEntry)
+	}
+
+	return acl, nil
+}
+
+func (c *rtxClient) CreateAccessListIPv6Dynamic(ctx context.Context, acl AccessListIPv6Dynamic) error {
+	// Create each entry as an individual dynamic IPv6 filter
+	config := IPv6FilterDynamicConfig{
+		Entries: make([]IPv6FilterDynamicEntry, 0, len(acl.Entries)),
+	}
+
+	for _, entry := range acl.Entries {
+		config.Entries = append(config.Entries, IPv6FilterDynamicEntry{
+			Number:   entry.Sequence,
+			Source:   entry.Source,
+			Dest:     entry.Destination,
+			Protocol: entry.Protocol,
+			Syslog:   entry.Syslog,
+		})
+	}
+
+	return c.CreateIPv6FilterDynamicConfig(ctx, config)
+}
+
+func (c *rtxClient) UpdateAccessListIPv6Dynamic(ctx context.Context, acl AccessListIPv6Dynamic) error {
+	// Update is done by re-creating the entries (RTX routers overwrite on same number)
+	config := IPv6FilterDynamicConfig{
+		Entries: make([]IPv6FilterDynamicEntry, 0, len(acl.Entries)),
+	}
+
+	for _, entry := range acl.Entries {
+		config.Entries = append(config.Entries, IPv6FilterDynamicEntry{
+			Number:   entry.Sequence,
+			Source:   entry.Source,
+			Dest:     entry.Destination,
+			Protocol: entry.Protocol,
+			Syslog:   entry.Syslog,
+		})
+	}
+
+	return c.UpdateIPv6FilterDynamicConfig(ctx, config)
+}
+
+func (c *rtxClient) DeleteAccessListIPv6Dynamic(ctx context.Context, name string, filterNums []int) error {
+	return c.ipFilterService.DeleteIPv6FilterDynamicConfig(ctx, filterNums)
+}
+
+func (c *rtxClient) ListAccessListsIPv6Dynamic(ctx context.Context) ([]AccessListIPv6Dynamic, error) {
+	// For now, return empty list - real implementation would need metadata tracking
+	return nil, nil
 }
 
 // Interface MAC ACL stub implementations
