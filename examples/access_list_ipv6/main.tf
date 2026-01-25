@@ -2,7 +2,7 @@
 
 # Allow ICMPv6 (required for IPv6 to function properly)
 resource "rtx_access_list_ipv6" "allow_icmp6" {
-  sequence   = 101000
+  sequence    = 101000
   action      = "pass"
   source      = "*"
   destination = "*"
@@ -13,7 +13,7 @@ resource "rtx_access_list_ipv6" "allow_icmp6" {
 
 # Allow DHCPv6 client (UDP 546)
 resource "rtx_access_list_ipv6" "allow_dhcpv6_client" {
-  sequence   = 101001
+  sequence    = 101001
   action      = "pass"
   source      = "*"
   destination = "*"
@@ -24,7 +24,7 @@ resource "rtx_access_list_ipv6" "allow_dhcpv6_client" {
 
 # Allow DHCPv6 server (UDP 547)
 resource "rtx_access_list_ipv6" "allow_dhcpv6_server" {
-  sequence   = 101002
+  sequence    = 101002
   action      = "pass"
   source      = "*"
   destination = "*"
@@ -35,7 +35,7 @@ resource "rtx_access_list_ipv6" "allow_dhcpv6_server" {
 
 # Block incoming SSH except from specific prefix
 resource "rtx_access_list_ipv6" "allow_ssh_from_trusted" {
-  sequence   = 101010
+  sequence    = 101010
   action      = "pass"
   source      = "2001:db8::/32"
   destination = "*"
@@ -46,7 +46,7 @@ resource "rtx_access_list_ipv6" "allow_ssh_from_trusted" {
 
 # Default pass rule
 resource "rtx_access_list_ipv6" "default_pass" {
-  sequence   = 101099
+  sequence    = 101099
   action      = "pass"
   source      = "*"
   destination = "*"

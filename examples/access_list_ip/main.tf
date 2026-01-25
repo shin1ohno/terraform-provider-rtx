@@ -2,7 +2,7 @@
 
 # Block private network ranges from external interface
 resource "rtx_access_list_ip" "block_rfc1918_10" {
-  sequence   = 200000
+  sequence    = 200000
   action      = "reject"
   source      = "10.0.0.0/8"
   destination = "*"
@@ -10,7 +10,7 @@ resource "rtx_access_list_ip" "block_rfc1918_10" {
 }
 
 resource "rtx_access_list_ip" "block_rfc1918_172" {
-  sequence   = 200001
+  sequence    = 200001
   action      = "reject"
   source      = "172.16.0.0/12"
   destination = "*"
@@ -18,7 +18,7 @@ resource "rtx_access_list_ip" "block_rfc1918_172" {
 }
 
 resource "rtx_access_list_ip" "block_rfc1918_192" {
-  sequence   = 200002
+  sequence    = 200002
   action      = "reject"
   source      = "192.168.0.0/16"
   destination = "*"
@@ -27,7 +27,7 @@ resource "rtx_access_list_ip" "block_rfc1918_192" {
 
 # Block NetBIOS ports
 resource "rtx_access_list_ip" "block_netbios" {
-  sequence   = 200020
+  sequence    = 200020
   action      = "reject"
   source      = "*"
   destination = "*"
@@ -38,7 +38,7 @@ resource "rtx_access_list_ip" "block_netbios" {
 
 # Allow IPsec traffic
 resource "rtx_access_list_ip" "allow_ipsec_500" {
-  sequence   = 200100
+  sequence    = 200100
   action      = "pass"
   source      = "*"
   destination = "*"
@@ -48,7 +48,7 @@ resource "rtx_access_list_ip" "allow_ipsec_500" {
 }
 
 resource "rtx_access_list_ip" "allow_ipsec_4500" {
-  sequence   = 200101
+  sequence    = 200101
   action      = "pass"
   source      = "*"
   destination = "*"
@@ -59,7 +59,7 @@ resource "rtx_access_list_ip" "allow_ipsec_4500" {
 
 # Allow established TCP connections
 resource "rtx_access_list_ip" "allow_established" {
-  sequence   = 200098
+  sequence    = 200098
   action      = "pass"
   source      = "*"
   destination = "*"
@@ -69,7 +69,7 @@ resource "rtx_access_list_ip" "allow_established" {
 
 # Default pass rule
 resource "rtx_access_list_ip" "default_pass" {
-  sequence   = 200099
+  sequence    = 200099
   action      = "pass"
   source      = "*"
   destination = "*"
