@@ -228,7 +228,7 @@ make lint
 
 ## License
 
-[License information here]
+MIT License - see [LICENSE](LICENSE) for details.
 
 ## Contributing
 
