@@ -17,8 +17,8 @@ Terraform provider for managing Yamaha RTX series routers - enterprise-grade net
 
 ```bash
 # Linux/macOS
-mkdir -p ~/.terraform.d/plugins/registry.terraform.io/sh1/rtx/0.2.1/linux_amd64
-unzip terraform-provider-rtx_0.2.1_linux_amd64.zip -d ~/.terraform.d/plugins/registry.terraform.io/sh1/rtx/0.2.1/linux_amd64
+mkdir -p ~/.terraform.d/plugins/registry.terraform.io/sh1/rtx/0.3.1/linux_amd64
+unzip terraform-provider-rtx_0.3.1_linux_amd64.zip -d ~/.terraform.d/plugins/registry.terraform.io/sh1/rtx/0.3.1/linux_amd64
 ```
 
 3. Configure Terraform to use the local provider:
@@ -28,7 +28,7 @@ terraform {
   required_providers {
     rtx = {
       source  = "registry.terraform.io/sh1/rtx"
-      version = "0.2.1"
+      version = "0.3.1"
     }
   }
 }
@@ -49,7 +49,7 @@ terraform {
   required_providers {
     rtx = {
       source  = "registry.terraform.io/sh1/rtx"
-      version = "0.2.1"
+      version = "0.3.1"
     }
   }
 }
@@ -82,7 +82,7 @@ resource "rtx_vlan" "guest" {
 | **Connectivity** | [pppoe](docs/resources/pppoe.md), [static_route](docs/resources/static_route.md), [bgp](docs/resources/bgp.md), [ospf](docs/resources/ospf.md) |
 | **VPN** | [ipsec_tunnel](docs/resources/ipsec_tunnel.md), [ipsec_transport](docs/resources/ipsec_transport.md), [l2tp](docs/resources/l2tp.md), [l2tp_service](docs/resources/l2tp_service.md), [pptp](docs/resources/pptp.md) |
 | **NAT** | [nat_masquerade](docs/resources/nat_masquerade.md), [nat_static](docs/resources/nat_static.md) |
-| **Security** | [access_list_ip](docs/resources/access_list_ip.md), [access_list_ipv6](docs/resources/access_list_ipv6.md), [access_list_mac](docs/resources/access_list_mac.md), [access_list_extended](docs/resources/access_list_extended.md), [ip_filter_dynamic](docs/resources/ip_filter_dynamic.md), [interface_acl](docs/resources/interface_acl.md) |
+| **Security** | [access_list_ip](docs/resources/access_list_ip.md), [access_list_ipv6](docs/resources/access_list_ipv6.md), [access_list_ip_dynamic](docs/resources/access_list_ip_dynamic.md), [access_list_ipv6_dynamic](docs/resources/access_list_ipv6_dynamic.md), [access_list_mac](docs/resources/access_list_mac.md), [access_list_extended](docs/resources/access_list_extended.md), [access_list_extended_ipv6](docs/resources/access_list_extended_ipv6.md) |
 | **DHCP & DNS** | [dhcp_scope](docs/resources/dhcp_scope.md), [dhcp_binding](docs/resources/dhcp_binding.md), [dns_server](docs/resources/dns_server.md), [ddns](docs/resources/ddns.md), [netvolante_dns](docs/resources/netvolante_dns.md) |
 | **QoS** | [class_map](docs/resources/class_map.md), [policy_map](docs/resources/policy_map.md), [service_policy](docs/resources/service_policy.md), [shape](docs/resources/shape.md) |
 | **Services** | [sshd](docs/resources/sshd.md), [sftpd](docs/resources/sftpd.md), [httpd](docs/resources/httpd.md), [snmp_server](docs/resources/snmp_server.md), [syslog](docs/resources/syslog.md) |

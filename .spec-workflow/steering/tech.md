@@ -103,11 +103,12 @@ Terraform Provider plugin for Yamaha RTX series routers. This is a Go-based infr
 1. **terraform-plugin-sdk/v2 over plugin-framework**: SDK v2 chosen for mature ecosystem and extensive documentation; migration to framework possible in future
 2. **SSH over Telnet/API**: SSH provides encryption, authentication, and is universally supported on RTX routers; no REST API available on RTX
 3. **Parser Registry Pattern**: Enables modular parsing of different RTX CLI outputs; each feature can register its own parsers
-4. **Stateless SSH Sessions**: Each CRUD operation opens new SSH connection for reliability; connection pooling considered but adds complexity
+4. **SSH Session Pooling**: Reusable SSH session pool to reduce connection overhead; configurable via provider settings (max_sessions, idle_timeout)
 
 ## Known Limitations
 
-- **Sequential Operations**: SSH sessions are not multiplexed; concurrent operations on same router may conflict
+- **Sequential Operations**: Operations are serialized per SSH session; parallelism limited by `max_sessions` pool setting
 - **CLI Parsing Fragility**: RTX CLI output format may vary between firmware versions; parsers need version-specific handling
 - **No Transaction Support**: RTX router doesn't support atomic multi-command transactions; partial failures possible
 - **Limited Dry-Run**: `terraform plan` cannot fully validate against router state without actual SSH connection
+- **Session Initialization Side Effects**: SSH session setup may temporarily modify console settings; mitigated by session pooling

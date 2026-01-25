@@ -113,13 +113,17 @@ To maximize interoperability and reduce cognitive load for network engineers, th
 | `rtx_ospf` | `iosxe_ospf` | `<provider>_ospf` |
 | `rtx_bgp` | `iosxe_bgp` | `<provider>_bgp` |
 | `rtx_vlan` | `iosxe_vlan` | `<provider>_vlan` |
-| `rtx_nat` | `iosxe_nat` | `<provider>_nat` |
-| `rtx_access_list` | `iosxe_access_list_extended` | `<provider>_access_list*` |
+| `rtx_nat_masquerade` | `iosxe_nat` | `<provider>_nat*` |
+| `rtx_access_list_ip` | `iosxe_access_list_standard` | `<provider>_access_list_ip` |
+| `rtx_access_list_ipv6` | `iosxe_access_list_standard` | `<provider>_access_list_ipv6` |
+| `rtx_access_list_ip_dynamic` | - | Dynamic filter groups |
+| `rtx_access_list_mac` | `iosxe_access_list_extended` | `<provider>_access_list_mac` |
 | `rtx_interface` | `iosxe_interface_ethernet` | `<provider>_interface*` |
 
 ### Attribute Naming Conventions
 | Attribute | Example | Notes |
 |-----------|---------|-------|
+| `sequence` | ACL entry order | Evaluation order for filter entries |
 | `process_id` | OSPF process ID | Not just `id` |
 | `router_id` | OSPF/BGP router ID | Dotted decimal format |
 | `asn` | BGP AS number | String for 4-byte ASN support |
@@ -130,6 +134,7 @@ To maximize interoperability and reduce cognitive load for network engineers, th
 | `neighbors` | Routing neighbors | List of neighbor objects |
 | `entries` | ACL/filter rules | List of rule entries |
 | `shutdown` | Admin state | Boolean, true = disabled |
+| `access_list_*_in/out` | Interface ACL binding | Name reference to access list resources |
 
 ### Nested Block Patterns
 ```hcl

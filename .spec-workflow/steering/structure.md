@@ -8,6 +8,7 @@ terraform-provider-rtx/
 │   ├── client/                  # RTX router SSH client and services
 │   │   ├── client.go            # Main RTX client implementation
 │   │   ├── ssh_dialer.go        # SSH connection management
+│   │   ├── ssh_session_pool.go  # SSH session pooling for connection reuse
 │   │   ├── rtx_session.go       # RTX terminal session handling
 │   │   ├── executor.go          # Command execution interface
 │   │   ├── *_service.go         # Feature-specific service implementations
@@ -17,6 +18,8 @@ terraform-provider-rtx/
 │   │   ├── provider.go          # Provider configuration and setup
 │   │   ├── resource_rtx_*.go    # Resource implementations
 │   │   └── data_source_rtx_*.go # Data source implementations
+│   ├── logging/                 # Structured logging utilities
+│   │   └── logger.go            # Zerolog-based logging with context
 │   └── rtx/                     # RTX-specific utilities
 │       ├── parsers/             # CLI output parsers
 │       │   ├── registry.go      # Parser registry pattern
