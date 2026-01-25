@@ -42,7 +42,7 @@ func main() {
 
 	if debugMode {
 		opts.Debug = true
-		opts.ProviderAddr = "registry.terraform.io/sh1/rtx"
+		opts.ProviderAddr = "registry.terraform.io/shin1ohno/rtx"
 	}
 
 	plugin.Serve(opts)
