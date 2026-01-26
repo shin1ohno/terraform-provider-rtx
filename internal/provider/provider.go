@@ -48,10 +48,31 @@ func New(version string) *schema.Provider {
 			},
 			"password": {
 				Type:        schema.TypeString,
-				Required:    true,
+				Optional:    true,
 				Sensitive:   true,
 				DefaultFunc: schema.EnvDefaultFunc("RTX_PASSWORD", nil),
 				Description: "Password for RTX router authentication. Can be set with RTX_PASSWORD environment variable.",
+			},
+			"private_key": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Sensitive:   true,
+				DefaultFunc: schema.EnvDefaultFunc("RTX_PRIVATE_KEY", nil),
+				Description: "SSH private key content (PEM format) for authentication. Can be set with RTX_PRIVATE_KEY environment variable.",
+			},
+			"private_key_file": {
+				Type:          schema.TypeString,
+				Optional:      true,
+				ConflictsWith: []string{"private_key"},
+				DefaultFunc:   schema.EnvDefaultFunc("RTX_PRIVATE_KEY_FILE", nil),
+				Description:   "Path to SSH private key file for authentication. Can be set with RTX_PRIVATE_KEY_FILE environment variable.",
+			},
+			"private_key_passphrase": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Sensitive:   true,
+				DefaultFunc: schema.EnvDefaultFunc("RTX_PRIVATE_KEY_PASSPHRASE", nil),
+				Description: "Passphrase for encrypted private key. Can be set with RTX_PRIVATE_KEY_PASSPHRASE environment variable.",
 			},
 			"admin_password": {
 				Type:        schema.TypeString,
@@ -180,6 +201,8 @@ func New(version string) *schema.Provider {
 			"rtx_shape":                     resourceRTXShape(),
 			"rtx_snmp_server":               resourceRTXSNMPServer(),
 			"rtx_sshd":                      resourceRTXSSHD(),
+			"rtx_sshd_authorized_keys":      resourceRTXSSHDAuthorizedKeys(),
+			"rtx_sshd_host_key":             resourceRTXSSHDHostKey(),
 			"rtx_static_route":              resourceRTXStaticRoute(),
 			"rtx_syslog":                    resourceRTXSyslog(),
 			"rtx_system":                    resourceRTXSystem(),
@@ -207,6 +230,9 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	host := d.Get("host").(string)
 	username := d.Get("username").(string)
 	password := d.Get("password").(string)
+	privateKey := d.Get("private_key").(string)
+	privateKeyFile := d.Get("private_key_file").(string)
+	privateKeyPassphrase := d.Get("private_key_passphrase").(string)
 	adminPassword := d.Get("admin_password").(string)
 	port := d.Get("port").(int)
 	timeout := d.Get("timeout").(int)
@@ -255,21 +281,24 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 
 	// Create client configuration
 	config := &client.Config{
-		Host:               host,
-		Port:               port,
-		Username:           username,
-		Password:           password,
-		AdminPassword:      adminPassword,
-		Timeout:            timeout,
-		HostKey:            sshHostKey,
-		KnownHostsFile:     knownHostsFile,
-		SkipHostKeyCheck:   skipHostKeyCheck,
-		MaxParallelism:     maxParallelism,
-		SFTPEnabled:        sftpEnabled,
-		SFTPConfigPath:     sftpConfigPath,
-		SSHPoolEnabled:     sshPoolEnabled,
-		SSHPoolMaxSessions: sshPoolMaxSessions,
-		SSHPoolIdleTimeout: sshPoolIdleTimeout,
+		Host:                 host,
+		Port:                 port,
+		Username:             username,
+		Password:             password,
+		PrivateKey:           privateKey,
+		PrivateKeyFile:       privateKeyFile,
+		PrivateKeyPassphrase: privateKeyPassphrase,
+		AdminPassword:        adminPassword,
+		Timeout:              timeout,
+		HostKey:              sshHostKey,
+		KnownHostsFile:       knownHostsFile,
+		SkipHostKeyCheck:     skipHostKeyCheck,
+		MaxParallelism:       maxParallelism,
+		SFTPEnabled:          sftpEnabled,
+		SFTPConfigPath:       sftpConfigPath,
+		SSHPoolEnabled:       sshPoolEnabled,
+		SSHPoolMaxSessions:   sshPoolMaxSessions,
+		SSHPoolIdleTimeout:   sshPoolIdleTimeout,
 	}
 
 	// Create SSH client with default options

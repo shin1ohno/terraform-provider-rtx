@@ -747,6 +747,26 @@ func (m *MockClientForRoutes) ResetSSHD(ctx context.Context) error {
 	panic("not implemented")
 }
 
+func (m *MockClientForRoutes) GetSSHDHostKey(ctx context.Context) (*client.SSHHostKeyInfo, error) {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) GenerateSSHDHostKey(ctx context.Context) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) GetSSHDAuthorizedKeys(ctx context.Context, username string) ([]client.SSHAuthorizedKey, error) {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) SetSSHDAuthorizedKeys(ctx context.Context, username string, keys []string) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) DeleteSSHDAuthorizedKeys(ctx context.Context, username string) error {
+	panic("not implemented")
+}
+
 func (m *MockClientForRoutes) GetSFTPD(ctx context.Context) (*client.SFTPDConfig, error) {
 	panic("not implemented")
 }

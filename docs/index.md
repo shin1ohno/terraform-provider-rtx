@@ -48,7 +48,6 @@ output "router_info" {
 ### Required
 
 - `host` (String) The hostname or IP address of the RTX router. Can be set with RTX_HOST environment variable.
-- `password` (String, Sensitive) Password for RTX router authentication. Can be set with RTX_PASSWORD environment variable.
 - `username` (String) Username for RTX router authentication. Can be set with RTX_USERNAME environment variable.
 
 ### Optional
@@ -56,7 +55,11 @@ output "router_info" {
 - `admin_password` (String, Sensitive) Administrator password for RTX router configuration changes. If not set, uses the same as password. Can be set with RTX_ADMIN_PASSWORD environment variable.
 - `known_hosts_file` (String) Path to known_hosts file for SSH host key verification. Defaults to ~/.ssh/known_hosts. Can be set with RTX_KNOWN_HOSTS_FILE environment variable.
 - `max_parallelism` (Number) Maximum number of concurrent operations. RTX routers support up to 8 simultaneous SSH connections, but lower values are more stable. Defaults to 4. Can be set with RTX_MAX_PARALLELISM environment variable.
+- `password` (String, Sensitive) Password for RTX router authentication. Can be set with RTX_PASSWORD environment variable.
 - `port` (Number) SSH port for RTX router connection. Defaults to 22.
+- `private_key` (String, Sensitive) SSH private key content (PEM format) for authentication. Can be set with RTX_PRIVATE_KEY environment variable.
+- `private_key_file` (String) Path to SSH private key file for authentication. Can be set with RTX_PRIVATE_KEY_FILE environment variable.
+- `private_key_passphrase` (String, Sensitive) Passphrase for encrypted private key. Can be set with RTX_PRIVATE_KEY_PASSPHRASE environment variable.
 - `sftp_config_path` (String) SFTP path to the configuration file (e.g., /system/config0). If empty, the path will be auto-detected. Can be set with RTX_SFTP_CONFIG_PATH environment variable.
 - `skip_host_key_check` (Boolean) Skip SSH host key verification. WARNING: This is insecure and should only be used for testing. Can be set with RTX_SKIP_HOST_KEY_CHECK environment variable.
 - `ssh_host_key` (String) SSH host public key for verification (base64 encoded). If unset, uses known_hosts_file. Can be set with RTX_SSH_HOST_KEY environment variable.

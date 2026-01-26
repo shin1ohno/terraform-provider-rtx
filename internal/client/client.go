@@ -3142,6 +3142,91 @@ func (c *rtxClient) ResetSSHD(ctx context.Context) error {
 	return serviceManager.ResetSSHD(ctx)
 }
 
+// GetSSHDHostKey retrieves the current SSHD host key information
+func (c *rtxClient) GetSSHDHostKey(ctx context.Context) (*SSHHostKeyInfo, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	serviceManager := c.serviceManager
+	c.mu.Unlock()
+
+	if serviceManager == nil {
+		return nil, fmt.Errorf("service manager not initialized")
+	}
+
+	return serviceManager.GetSSHDHostKey(ctx)
+}
+
+// GenerateSSHDHostKey generates a new SSHD host key
+func (c *rtxClient) GenerateSSHDHostKey(ctx context.Context) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	serviceManager := c.serviceManager
+	c.mu.Unlock()
+
+	if serviceManager == nil {
+		return fmt.Errorf("service manager not initialized")
+	}
+
+	return serviceManager.GenerateSSHDHostKey(ctx)
+}
+
+// GetSSHDAuthorizedKeys retrieves authorized keys for a user
+func (c *rtxClient) GetSSHDAuthorizedKeys(ctx context.Context, username string) ([]SSHAuthorizedKey, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	serviceManager := c.serviceManager
+	c.mu.Unlock()
+
+	if serviceManager == nil {
+		return nil, fmt.Errorf("service manager not initialized")
+	}
+
+	return serviceManager.GetSSHDAuthorizedKeys(ctx, username)
+}
+
+// SetSSHDAuthorizedKeys sets all authorized keys for a user (replaces existing)
+func (c *rtxClient) SetSSHDAuthorizedKeys(ctx context.Context, username string, keys []string) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	serviceManager := c.serviceManager
+	c.mu.Unlock()
+
+	if serviceManager == nil {
+		return fmt.Errorf("service manager not initialized")
+	}
+
+	return serviceManager.SetSSHDAuthorizedKeys(ctx, username, keys)
+}
+
+// DeleteSSHDAuthorizedKeys removes all authorized keys for a user
+func (c *rtxClient) DeleteSSHDAuthorizedKeys(ctx context.Context, username string) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	serviceManager := c.serviceManager
+	c.mu.Unlock()
+
+	if serviceManager == nil {
+		return fmt.Errorf("service manager not initialized")
+	}
+
+	return serviceManager.DeleteSSHDAuthorizedKeys(ctx, username)
+}
+
 // ========== SFTPD Methods ==========
 
 // GetSFTPD retrieves SFTPD configuration

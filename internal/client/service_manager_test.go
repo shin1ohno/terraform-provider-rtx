@@ -218,14 +218,170 @@ func TestServiceManager_ResetSSHD(t *testing.T) {
 	}
 
 	hasDeleteService := false
+	hasDeleteAuthMethod := false
 	for _, cmd := range commands {
 		if strings.Contains(cmd, "no sshd service") {
 			hasDeleteService = true
+		}
+		if strings.Contains(cmd, "no sshd auth method") {
+			hasDeleteAuthMethod = true
 		}
 	}
 
 	if !hasDeleteService {
 		t.Errorf("expected 'no sshd service' command")
+	}
+	if !hasDeleteAuthMethod {
+		t.Errorf("expected 'no sshd auth method' command")
+	}
+}
+
+func TestServiceManager_ConfigureSSHD_WithAuthMethod(t *testing.T) {
+	tests := []struct {
+		name            string
+		authMethod      string
+		expectedCmdPart string
+	}{
+		{
+			name:            "password auth",
+			authMethod:      "password",
+			expectedCmdPart: "sshd auth method password",
+		},
+		{
+			name:            "publickey auth",
+			authMethod:      "publickey",
+			expectedCmdPart: "sshd auth method publickey",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			executor := newMockServiceExecutor()
+			manager := NewServiceManager(executor, nil)
+
+			config := SSHDConfig{
+				Enabled:    true,
+				Hosts:      []string{"lan1"},
+				AuthMethod: tt.authMethod,
+			}
+
+			err := manager.ConfigureSSHD(context.Background(), config)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			commands := executor.getCommands()
+			hasAuthCmd := false
+			for _, cmd := range commands {
+				if strings.Contains(cmd, tt.expectedCmdPart) {
+					hasAuthCmd = true
+					break
+				}
+			}
+
+			if !hasAuthCmd {
+				t.Errorf("expected command containing '%s', got commands: %v", tt.expectedCmdPart, commands)
+			}
+		})
+	}
+}
+
+func TestServiceManager_ConfigureSSHD_AnyAuthMethod(t *testing.T) {
+	// When auth_method is "any" or empty, no auth method command should be sent
+	executor := newMockServiceExecutor()
+	manager := NewServiceManager(executor, nil)
+
+	config := SSHDConfig{
+		Enabled:    true,
+		Hosts:      []string{"lan1"},
+		AuthMethod: "any",
+	}
+
+	err := manager.ConfigureSSHD(context.Background(), config)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	commands := executor.getCommands()
+	for _, cmd := range commands {
+		if strings.Contains(cmd, "sshd auth method") {
+			t.Errorf("unexpected auth method command for 'any' auth: %s", cmd)
+		}
+	}
+}
+
+func TestServiceManager_UpdateSSHD_AuthMethodChange(t *testing.T) {
+	tests := []struct {
+		name            string
+		currentAuth     string
+		newAuth         string
+		expectedCmdPart string
+		expectAuthCmd   bool
+	}{
+		{
+			name:            "change from any to password",
+			currentAuth:     "any",
+			newAuth:         "password",
+			expectedCmdPart: "sshd auth method password",
+			expectAuthCmd:   true,
+		},
+		{
+			name:            "change from password to publickey",
+			currentAuth:     "password",
+			newAuth:         "publickey",
+			expectedCmdPart: "sshd auth method publickey",
+			expectAuthCmd:   true,
+		},
+		{
+			name:            "change from publickey to any",
+			currentAuth:     "publickey",
+			newAuth:         "any",
+			expectedCmdPart: "no sshd auth method",
+			expectAuthCmd:   true,
+		},
+		{
+			name:            "no change (same auth method)",
+			currentAuth:     "password",
+			newAuth:         "password",
+			expectedCmdPart: "",
+			expectAuthCmd:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			executor := newMockServiceExecutor()
+			// Mock GetSSHD response with current auth method
+			executor.setOutput("grep sshd", "sshd service on\nsshd host lan1\nsshd auth method "+tt.currentAuth)
+			manager := NewServiceManager(executor, nil)
+
+			config := SSHDConfig{
+				Enabled:    true,
+				Hosts:      []string{"lan1"},
+				AuthMethod: tt.newAuth,
+			}
+
+			err := manager.UpdateSSHD(context.Background(), config)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			commands := executor.getCommands()
+			hasAuthCmd := false
+			for _, cmd := range commands {
+				if tt.expectedCmdPart != "" && strings.Contains(cmd, tt.expectedCmdPart) {
+					hasAuthCmd = true
+					break
+				}
+			}
+
+			if tt.expectAuthCmd && !hasAuthCmd {
+				t.Errorf("expected auth method command containing '%s', got commands: %v", tt.expectedCmdPart, commands)
+			}
+			if !tt.expectAuthCmd && hasAuthCmd {
+				t.Errorf("did not expect auth method command, but got one in: %v", commands)
+			}
+		})
 	}
 }
 
@@ -346,6 +502,189 @@ func TestServiceManager_ValidateSFTPD_EmptyHosts(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "at least one host") {
 		t.Errorf("expected 'at least one host' error, got: %v", err)
+	}
+}
+
+func TestServiceManager_GetSSHDAuthorizedKeys(t *testing.T) {
+	tests := []struct {
+		name         string
+		output       string
+		expectedKeys int
+		expectedType string
+		expectedFP   string
+		expectedComm string
+		expectedErr  bool
+	}{
+		{
+			name:         "no keys",
+			output:       "",
+			expectedKeys: 0,
+		},
+		{
+			name:         "single key",
+			output:       "256 SHA256:abcdef123456 user@host (ED25519)\n",
+			expectedKeys: 1,
+			expectedType: "ED25519",
+			expectedFP:   "SHA256:abcdef123456",
+			expectedComm: "user@host",
+		},
+		{
+			name:         "multiple keys",
+			output:       "256 SHA256:abcdef123456 user@host (ED25519)\n2048 SHA256:xyz789 admin@pc (RSA)\n",
+			expectedKeys: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			executor := newMockServiceExecutor()
+			executor.setOutput("show sshd authorized-keys", tt.output)
+			manager := NewServiceManager(executor, nil)
+
+			keys, err := manager.GetSSHDAuthorizedKeys(context.Background(), "testuser")
+
+			if tt.expectedErr && err == nil {
+				t.Errorf("expected error but got nil")
+				return
+			}
+			if !tt.expectedErr && err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			if len(keys) != tt.expectedKeys {
+				t.Errorf("expected %d keys, got %d", tt.expectedKeys, len(keys))
+				return
+			}
+
+			if tt.expectedKeys > 0 && tt.expectedType != "" {
+				if keys[0].Type != tt.expectedType {
+					t.Errorf("expected type %s, got %s", tt.expectedType, keys[0].Type)
+				}
+				if keys[0].Fingerprint != tt.expectedFP {
+					t.Errorf("expected fingerprint %s, got %s", tt.expectedFP, keys[0].Fingerprint)
+				}
+				if keys[0].Comment != tt.expectedComm {
+					t.Errorf("expected comment %s, got %s", tt.expectedComm, keys[0].Comment)
+				}
+			}
+
+			// Verify command was executed
+			commands := executor.getCommands()
+			if len(commands) < 1 {
+				t.Errorf("expected at least 1 command to be executed")
+			}
+			if len(commands) > 0 && !strings.Contains(commands[0], "show sshd authorized-keys testuser") {
+				t.Errorf("expected show sshd authorized-keys command, got %s", commands[0])
+			}
+		})
+	}
+}
+
+func TestServiceManager_SetSSHDAuthorizedKeys(t *testing.T) {
+	executor := newMockServiceExecutor()
+	manager := NewServiceManager(executor, nil)
+
+	keys := []string{
+		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample user@host",
+		"ssh-rsa AAAAB3NzaC1yc2EAAAAExample admin@pc",
+	}
+
+	err := manager.SetSSHDAuthorizedKeys(context.Background(), "testuser", keys)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	commands := executor.getCommands()
+
+	// Should have: 1 delete + 2 keys * (import + key + empty line)
+	// But RunBatch may collapse commands
+	hasDelete := false
+	hasImport := false
+	for _, cmd := range commands {
+		if strings.Contains(cmd, "delete /ssh/authorized_keys/testuser") {
+			hasDelete = true
+		}
+		if strings.Contains(cmd, "import sshd authorized-keys testuser") {
+			hasImport = true
+		}
+	}
+
+	if !hasDelete {
+		t.Errorf("expected delete command to be executed")
+	}
+	if !hasImport {
+		t.Errorf("expected import command to be executed")
+	}
+}
+
+func TestServiceManager_SetSSHDAuthorizedKeys_Empty(t *testing.T) {
+	executor := newMockServiceExecutor()
+	manager := NewServiceManager(executor, nil)
+
+	// Setting empty keys should just delete existing keys
+	err := manager.SetSSHDAuthorizedKeys(context.Background(), "testuser", []string{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	commands := executor.getCommands()
+
+	// Should have delete command but no import
+	hasDelete := false
+	hasImport := false
+	for _, cmd := range commands {
+		if strings.Contains(cmd, "delete /ssh/authorized_keys/testuser") {
+			hasDelete = true
+		}
+		if strings.Contains(cmd, "import sshd authorized-keys") {
+			hasImport = true
+		}
+	}
+
+	if !hasDelete {
+		t.Errorf("expected delete command to be executed")
+	}
+	if hasImport {
+		t.Errorf("unexpected import command for empty keys")
+	}
+}
+
+func TestServiceManager_DeleteSSHDAuthorizedKeys(t *testing.T) {
+	executor := newMockServiceExecutor()
+	manager := NewServiceManager(executor, nil)
+
+	err := manager.DeleteSSHDAuthorizedKeys(context.Background(), "testuser")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	commands := executor.getCommands()
+	if len(commands) < 1 {
+		t.Fatalf("expected at least 1 command, got %d", len(commands))
+	}
+
+	hasDelete := false
+	for _, cmd := range commands {
+		if strings.Contains(cmd, "delete /ssh/authorized_keys/testuser") {
+			hasDelete = true
+		}
+	}
+
+	if !hasDelete {
+		t.Errorf("expected delete command")
+	}
+}
+
+func TestServiceManager_DeleteSSHDAuthorizedKeys_NotFound(t *testing.T) {
+	executor := newMockServiceExecutor()
+	executor.outputs["delete"] = "not found"
+	manager := NewServiceManager(executor, nil)
+
+	// Should not return error for "not found"
+	err := manager.DeleteSSHDAuthorizedKeys(context.Background(), "testuser")
+	if err != nil {
+		t.Fatalf("unexpected error for not found case: %v", err)
 	}
 }
 

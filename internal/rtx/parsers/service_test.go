@@ -97,45 +97,50 @@ func TestParseSSHDConfig(t *testing.T) {
 			name:  "empty config",
 			input: "",
 			expected: &SSHDConfig{
-				Enabled: false,
-				Hosts:   []string{},
-				HostKey: "",
+				Enabled:    false,
+				Hosts:      []string{},
+				HostKey:    "",
+				AuthMethod: "any",
 			},
 		},
 		{
 			name:  "service on",
 			input: "sshd service on",
 			expected: &SSHDConfig{
-				Enabled: true,
-				Hosts:   []string{},
-				HostKey: "",
+				Enabled:    true,
+				Hosts:      []string{},
+				HostKey:    "",
+				AuthMethod: "any",
 			},
 		},
 		{
 			name:  "service off",
 			input: "sshd service off",
 			expected: &SSHDConfig{
-				Enabled: false,
-				Hosts:   []string{},
-				HostKey: "",
+				Enabled:    false,
+				Hosts:      []string{},
+				HostKey:    "",
+				AuthMethod: "any",
 			},
 		},
 		{
 			name:  "single host",
 			input: "sshd host lan1",
 			expected: &SSHDConfig{
-				Enabled: false,
-				Hosts:   []string{"lan1"},
-				HostKey: "",
+				Enabled:    false,
+				Hosts:      []string{"lan1"},
+				HostKey:    "",
+				AuthMethod: "any",
 			},
 		},
 		{
 			name:  "multiple hosts",
 			input: "sshd host lan1 lan2 pp1",
 			expected: &SSHDConfig{
-				Enabled: false,
-				Hosts:   []string{"lan1", "lan2", "pp1"},
-				HostKey: "",
+				Enabled:    false,
+				Hosts:      []string{"lan1", "lan2", "pp1"},
+				HostKey:    "",
+				AuthMethod: "any",
 			},
 		},
 		{
@@ -143,9 +148,10 @@ func TestParseSSHDConfig(t *testing.T) {
 			input: `sshd service on
 sshd host lan1 lan2`,
 			expected: &SSHDConfig{
-				Enabled: true,
-				Hosts:   []string{"lan1", "lan2"},
-				HostKey: "",
+				Enabled:    true,
+				Hosts:      []string{"lan1", "lan2"},
+				HostKey:    "",
+				AuthMethod: "any",
 			},
 		},
 		{
@@ -154,9 +160,10 @@ sshd host lan1 lan2`,
 sshd host lan1
 sshd host key AAAAB3NzaC1yc2EAAAADAQABAAABgQC...`,
 			expected: &SSHDConfig{
-				Enabled: true,
-				Hosts:   []string{"lan1"},
-				HostKey: "AAAAB3NzaC1yc2EAAAADAQABAAABgQC...",
+				Enabled:    true,
+				Hosts:      []string{"lan1"},
+				HostKey:    "AAAAB3NzaC1yc2EAAAADAQABAAABgQC...",
+				AuthMethod: "any",
 			},
 		},
 		{
@@ -164,9 +171,52 @@ sshd host key AAAAB3NzaC1yc2EAAAADAQABAAABgQC...`,
 			input: `sshd service on
 sshd host key generate`,
 			expected: &SSHDConfig{
-				Enabled: true,
-				Hosts:   []string{},
-				HostKey: "",
+				Enabled:    true,
+				Hosts:      []string{},
+				HostKey:    "",
+				AuthMethod: "any",
+			},
+		},
+		{
+			name:  "auth method password",
+			input: "sshd auth method password",
+			expected: &SSHDConfig{
+				Enabled:    false,
+				Hosts:      []string{},
+				HostKey:    "",
+				AuthMethod: "password",
+			},
+		},
+		{
+			name:  "auth method publickey",
+			input: "sshd auth method publickey",
+			expected: &SSHDConfig{
+				Enabled:    false,
+				Hosts:      []string{},
+				HostKey:    "",
+				AuthMethod: "publickey",
+			},
+		},
+		{
+			name: "full configuration with auth method",
+			input: `sshd service on
+sshd host lan1
+sshd auth method publickey`,
+			expected: &SSHDConfig{
+				Enabled:    true,
+				Hosts:      []string{"lan1"},
+				HostKey:    "",
+				AuthMethod: "publickey",
+			},
+		},
+		{
+			name:  "auth method with whitespace",
+			input: `  sshd auth method password  `,
+			expected: &SSHDConfig{
+				Enabled:    false,
+				Hosts:      []string{},
+				HostKey:    "",
+				AuthMethod: "password",
 			},
 		},
 	}
@@ -529,6 +579,381 @@ func TestValidateSFTPDConfig(t *testing.T) {
 			err := ValidateSFTPDConfig(tt.config)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateSFTPDConfig() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestBuildShowSSHDStatusCommand(t *testing.T) {
+	result := BuildShowSSHDStatusCommand()
+	expected := "show status sshd"
+	if result != expected {
+		t.Errorf("got %q, want %q", result, expected)
+	}
+}
+
+func TestBuildSSHDAuthMethodCommand(t *testing.T) {
+	tests := []struct {
+		name     string
+		method   string
+		expected string
+	}{
+		{
+			name:     "password method",
+			method:   "password",
+			expected: "sshd auth method password",
+		},
+		{
+			name:     "publickey method",
+			method:   "publickey",
+			expected: "sshd auth method publickey",
+		},
+		{
+			name:     "any method",
+			method:   "any",
+			expected: "no sshd auth method",
+		},
+		{
+			name:     "empty method defaults to any",
+			method:   "",
+			expected: "no sshd auth method",
+		},
+		{
+			name:     "unknown method defaults to any",
+			method:   "unknown",
+			expected: "no sshd auth method",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := BuildSSHDAuthMethodCommand(tt.method)
+			if result != tt.expected {
+				t.Errorf("got %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestBuildDeleteSSHDAuthMethodCommand(t *testing.T) {
+	result := BuildDeleteSSHDAuthMethodCommand()
+	expected := "no sshd auth method"
+	if result != expected {
+		t.Errorf("got %q, want %q", result, expected)
+	}
+}
+
+func TestParseSSHDHostKeyInfo(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected *SSHHostKeyInfo
+	}{
+		{
+			name:  "empty output",
+			input: "",
+			expected: &SSHHostKeyInfo{
+				Fingerprint: "",
+				Algorithm:   "",
+			},
+		},
+		{
+			name:  "English format RSA key",
+			input: "SSH Host Key (RSA): aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99",
+			expected: &SSHHostKeyInfo{
+				Fingerprint: "aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99",
+				Algorithm:   "RSA",
+			},
+		},
+		{
+			name:  "English format ECDSA key",
+			input: "SSH Host Key (ECDSA): 11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff:00",
+			expected: &SSHHostKeyInfo{
+				Fingerprint: "11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff:00",
+				Algorithm:   "ECDSA",
+			},
+		},
+		{
+			name:  "English format ED25519 key",
+			input: "SSH Host Key (ED25519): ab:cd:ef:01:23:45:67:89:ab:cd:ef:01:23:45:67:89",
+			expected: &SSHHostKeyInfo{
+				Fingerprint: "ab:cd:ef:01:23:45:67:89:ab:cd:ef:01:23:45:67:89",
+				Algorithm:   "ED25519",
+			},
+		},
+		{
+			name:  "Japanese format with SHA256 prefix",
+			input: "ホストキーのフィンガープリント: SHA256:abcdefghijklmnopqrstuvwxyz1234567890ABCDEFG",
+			expected: &SSHHostKeyInfo{
+				Fingerprint: "SHA256:abcdefghijklmnopqrstuvwxyz1234567890ABCDEFG",
+				Algorithm:   "",
+			},
+		},
+		{
+			name:  "Japanese format with MD5 prefix",
+			input: "ホストキーのフィンガープリント: MD5:aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99",
+			expected: &SSHHostKeyInfo{
+				Fingerprint: "MD5:aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99",
+				Algorithm:   "",
+			},
+		},
+		{
+			name: "Japanese format with separate algorithm line",
+			input: `ホストキーのフィンガープリント: SHA256:abcdefghijklmnopqrstuvwxyz
+ホストキーのアルゴリズム: RSA`,
+			expected: &SSHHostKeyInfo{
+				Fingerprint: "SHA256:abcdefghijklmnopqrstuvwxyz",
+				Algorithm:   "RSA",
+			},
+		},
+		{
+			name: "Multi-line output with RSA key",
+			input: `SSHD Status
+SSH Host Key (RSA): aa:bb:cc:dd:ee:ff:00:11
+Other information`,
+			expected: &SSHHostKeyInfo{
+				Fingerprint: "aa:bb:cc:dd:ee:ff:00:11",
+				Algorithm:   "RSA",
+			},
+		},
+		{
+			name:  "with leading whitespace",
+			input: "  SSH Host Key (RSA): aa:bb:cc:dd",
+			expected: &SSHHostKeyInfo{
+				Fingerprint: "aa:bb:cc:dd",
+				Algorithm:   "RSA",
+			},
+		},
+		{
+			name: "no host key found",
+			input: `SSHD Status
+Service: running
+Connections: 0`,
+			expected: &SSHHostKeyInfo{
+				Fingerprint: "",
+				Algorithm:   "",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ParseSSHDHostKeyInfo(tt.input)
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("got %+v, want %+v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestBuildShowSSHDAuthorizedKeysCommand(t *testing.T) {
+	tests := []struct {
+		name     string
+		username string
+		expected string
+	}{
+		{
+			name:     "admin user",
+			username: "admin",
+			expected: "show sshd authorized-keys admin",
+		},
+		{
+			name:     "root user",
+			username: "root",
+			expected: "show sshd authorized-keys root",
+		},
+		{
+			name:     "user with numbers",
+			username: "user123",
+			expected: "show sshd authorized-keys user123",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := BuildShowSSHDAuthorizedKeysCommand(tt.username)
+			if result != tt.expected {
+				t.Errorf("got %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestBuildImportSSHDAuthorizedKeysCommand(t *testing.T) {
+	tests := []struct {
+		name     string
+		username string
+		expected string
+	}{
+		{
+			name:     "admin user",
+			username: "admin",
+			expected: "import sshd authorized-keys admin",
+		},
+		{
+			name:     "root user",
+			username: "root",
+			expected: "import sshd authorized-keys root",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := BuildImportSSHDAuthorizedKeysCommand(tt.username)
+			if result != tt.expected {
+				t.Errorf("got %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestBuildDeleteSSHDAuthorizedKeysCommand(t *testing.T) {
+	tests := []struct {
+		name     string
+		username string
+		expected string
+	}{
+		{
+			name:     "admin user",
+			username: "admin",
+			expected: "delete /ssh/authorized_keys/admin",
+		},
+		{
+			name:     "root user",
+			username: "root",
+			expected: "delete /ssh/authorized_keys/root",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := BuildDeleteSSHDAuthorizedKeysCommand(tt.username)
+			if result != tt.expected {
+				t.Errorf("got %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestParseSSHDAuthorizedKeys(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []SSHAuthorizedKey
+	}{
+		{
+			name:     "empty output",
+			input:    "",
+			expected: []SSHAuthorizedKey{},
+		},
+		{
+			name:     "no keys message",
+			input:    "No authorized keys found",
+			expected: []SSHAuthorizedKey{},
+		},
+		{
+			name:  "single ED25519 key",
+			input: "256 SHA256:abcdefghij1234567890ABCDEFGH user@host (ED25519)",
+			expected: []SSHAuthorizedKey{
+				{
+					Type:        "ED25519",
+					Fingerprint: "SHA256:abcdefghij1234567890ABCDEFGH",
+					Comment:     "user@host",
+				},
+			},
+		},
+		{
+			name:  "single RSA key",
+			input: "2048 SHA256:RSAfingerprint123456789 admin@pc (RSA)",
+			expected: []SSHAuthorizedKey{
+				{
+					Type:        "RSA",
+					Fingerprint: "SHA256:RSAfingerprint123456789",
+					Comment:     "admin@pc",
+				},
+			},
+		},
+		{
+			name: "multiple keys",
+			input: `256 SHA256:ed25519fingerprint user@host (ED25519)
+2048 SHA256:rsafingerprint admin@pc (RSA)
+384 SHA256:ecdsafingerprint test@server (ECDSA)`,
+			expected: []SSHAuthorizedKey{
+				{
+					Type:        "ED25519",
+					Fingerprint: "SHA256:ed25519fingerprint",
+					Comment:     "user@host",
+				},
+				{
+					Type:        "RSA",
+					Fingerprint: "SHA256:rsafingerprint",
+					Comment:     "admin@pc",
+				},
+				{
+					Type:        "ECDSA",
+					Fingerprint: "SHA256:ecdsafingerprint",
+					Comment:     "test@server",
+				},
+			},
+		},
+		{
+			name: "with leading/trailing whitespace",
+			input: `  256 SHA256:fingerprint1 user1@host1 (ED25519)
+  2048 SHA256:fingerprint2 user2@host2 (RSA)  `,
+			expected: []SSHAuthorizedKey{
+				{
+					Type:        "ED25519",
+					Fingerprint: "SHA256:fingerprint1",
+					Comment:     "user1@host1",
+				},
+				{
+					Type:        "RSA",
+					Fingerprint: "SHA256:fingerprint2",
+					Comment:     "user2@host2",
+				},
+			},
+		},
+		{
+			name: "with empty lines",
+			input: `
+256 SHA256:fingerprint user@host (ED25519)
+
+`,
+			expected: []SSHAuthorizedKey{
+				{
+					Type:        "ED25519",
+					Fingerprint: "SHA256:fingerprint",
+					Comment:     "user@host",
+				},
+			},
+		},
+		{
+			name:  "comment with spaces",
+			input: "256 SHA256:fp my key comment (ED25519)",
+			expected: []SSHAuthorizedKey{
+				{
+					Type:        "ED25519",
+					Fingerprint: "SHA256:fp",
+					Comment:     "my key comment",
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ParseSSHDAuthorizedKeys(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			// Handle nil vs empty slice comparison
+			if len(result) == 0 && len(tt.expected) == 0 {
+				return
+			}
+
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("got %+v, want %+v", result, tt.expected)
 			}
 		})
 	}

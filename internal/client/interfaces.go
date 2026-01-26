@@ -500,6 +500,21 @@ type Client interface {
 	// ResetSSHD removes SSHD configuration
 	ResetSSHD(ctx context.Context) error
 
+	// GetSSHDHostKey retrieves the current SSHD host key information
+	GetSSHDHostKey(ctx context.Context) (*SSHHostKeyInfo, error)
+
+	// GenerateSSHDHostKey generates a new SSHD host key
+	GenerateSSHDHostKey(ctx context.Context) error
+
+	// GetSSHDAuthorizedKeys retrieves authorized keys for a user
+	GetSSHDAuthorizedKeys(ctx context.Context, username string) ([]SSHAuthorizedKey, error)
+
+	// SetSSHDAuthorizedKeys sets all authorized keys for a user (replaces existing)
+	SetSSHDAuthorizedKeys(ctx context.Context, username string, keys []string) error
+
+	// DeleteSSHDAuthorizedKeys removes all authorized keys for a user
+	DeleteSSHDAuthorizedKeys(ctx context.Context, username string) error
+
 	// SFTPD methods (singleton resource)
 	// GetSFTPD retrieves SFTPD configuration
 	GetSFTPD(ctx context.Context) (*SFTPDConfig, error)
@@ -915,18 +930,21 @@ type ConnDialer interface {
 
 // Config holds the SSH connection configuration
 type Config struct {
-	Host             string
-	Port             int
-	Username         string
-	Password         string
-	AdminPassword    string // Administrator password for configuration changes
-	Timeout          int    // seconds
-	HostKey          string // Fixed host key for verification (base64 encoded)
-	KnownHostsFile   string // Path to known_hosts file
-	SkipHostKeyCheck bool   // Skip host key verification (insecure)
-	MaxParallelism   int    // Maximum number of concurrent operations (default: 6)
-	SFTPEnabled      bool   // Enable SFTP-based configuration reading for faster bulk operations
-	SFTPConfigPath   string // SFTP path to config file (e.g., "/system/config0"); empty for auto-detect
+	Host                 string
+	Port                 int
+	Username             string
+	Password             string
+	AdminPassword        string // Administrator password for configuration changes
+	Timeout              int    // seconds
+	HostKey              string // Fixed host key for verification (base64 encoded)
+	KnownHostsFile       string // Path to known_hosts file
+	SkipHostKeyCheck     bool   // Skip host key verification (insecure)
+	PrivateKey           string // PEM-encoded private key content for SSH authentication
+	PrivateKeyFile       string // Path to private key file for SSH authentication
+	PrivateKeyPassphrase string // Passphrase for encrypted private key
+	MaxParallelism       int    // Maximum number of concurrent operations (default: 6)
+	SFTPEnabled          bool   // Enable SFTP-based configuration reading for faster bulk operations
+	SFTPConfigPath       string // SFTP path to config file (e.g., "/system/config0"); empty for auto-detect
 
 	// SSH Session Pool configuration
 	SSHPoolEnabled     bool   // Enable SSH session pooling (default: true)
@@ -1425,9 +1443,23 @@ type HTTPDConfig struct {
 
 // SSHDConfig represents SSH daemon configuration on an RTX router
 type SSHDConfig struct {
-	Enabled bool     `json:"enabled"`            // sshd service on/off
-	Hosts   []string `json:"hosts,omitempty"`    // Interface list (e.g., ["lan1", "lan2"])
-	HostKey string   `json:"host_key,omitempty"` // RSA host key (sensitive)
+	Enabled    bool     `json:"enabled"`               // sshd service on/off
+	Hosts      []string `json:"hosts,omitempty"`       // Interface list (e.g., ["lan1", "lan2"])
+	HostKey    string   `json:"host_key,omitempty"`    // RSA host key (sensitive)
+	AuthMethod string   `json:"auth_method,omitempty"` // SSH authentication method: "password", "publickey", or "any" (default)
+}
+
+// SSHHostKeyInfo represents SSH host key information
+type SSHHostKeyInfo struct {
+	Fingerprint string // SHA256 fingerprint of the host key
+	Algorithm   string // Key algorithm (e.g., "ssh-rsa", "ecdsa-sha2-nistp256")
+}
+
+// SSHAuthorizedKey represents an SSH authorized key entry
+type SSHAuthorizedKey struct {
+	Type        string // Key type (e.g., "ssh-ed25519", "ssh-rsa")
+	Fingerprint string // SHA256 fingerprint
+	Comment     string // Key comment (e.g., "user@host")
 }
 
 // SFTPDConfig represents SFTP daemon configuration on an RTX router

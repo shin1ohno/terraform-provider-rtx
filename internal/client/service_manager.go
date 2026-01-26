@@ -176,9 +176,10 @@ func (s *ServiceManager) GetSSHD(ctx context.Context) (*SSHDConfig, error) {
 
 	// Convert parsers.SSHDConfig to client.SSHDConfig
 	config := &SSHDConfig{
-		Enabled: parserConfig.Enabled,
-		Hosts:   parserConfig.Hosts,
-		HostKey: parserConfig.HostKey,
+		Enabled:    parserConfig.Enabled,
+		Hosts:      parserConfig.Hosts,
+		HostKey:    parserConfig.HostKey,
+		AuthMethod: parserConfig.AuthMethod,
 	}
 
 	return config, nil
@@ -188,9 +189,10 @@ func (s *ServiceManager) GetSSHD(ctx context.Context) (*SSHDConfig, error) {
 func (s *ServiceManager) ConfigureSSHD(ctx context.Context, config SSHDConfig) error {
 	// Validate input
 	parserConfig := parsers.SSHDConfig{
-		Enabled: config.Enabled,
-		Hosts:   config.Hosts,
-		HostKey: config.HostKey,
+		Enabled:    config.Enabled,
+		Hosts:      config.Hosts,
+		HostKey:    config.HostKey,
+		AuthMethod: config.AuthMethod,
 	}
 	if err := parsers.ValidateSSHDConfig(parserConfig); err != nil {
 		return fmt.Errorf("invalid SSHD configuration: %w", err)
@@ -211,6 +213,21 @@ func (s *ServiceManager) ConfigureSSHD(ctx context.Context, config SSHDConfig) e
 		output, err := s.executor.Run(ctx, cmd)
 		if err != nil {
 			return fmt.Errorf("failed to set SSHD hosts: %w", err)
+		}
+
+		if len(output) > 0 && containsError(string(output)) {
+			return fmt.Errorf("command failed: %s", string(output))
+		}
+	}
+
+	// Set auth method if specified and not "any" (default)
+	if config.AuthMethod != "" && config.AuthMethod != "any" {
+		authCmd := parsers.BuildSSHDAuthMethodCommand(config.AuthMethod)
+		logging.FromContext(ctx).Debug().Str("component", "service-manager").Msgf("Setting SSHD auth method with command: %s", authCmd)
+
+		output, err := s.executor.Run(ctx, authCmd)
+		if err != nil {
+			return fmt.Errorf("failed to set SSHD auth method: %w", err)
 		}
 
 		if len(output) > 0 && containsError(string(output)) {
@@ -251,9 +268,10 @@ func (s *ServiceManager) UpdateSSHD(ctx context.Context, config SSHDConfig) erro
 
 	// Validate input
 	parserConfig := parsers.SSHDConfig{
-		Enabled: config.Enabled,
-		Hosts:   config.Hosts,
-		HostKey: config.HostKey,
+		Enabled:    config.Enabled,
+		Hosts:      config.Hosts,
+		HostKey:    config.HostKey,
+		AuthMethod: config.AuthMethod,
 	}
 	if err := parsers.ValidateSSHDConfig(parserConfig); err != nil {
 		return fmt.Errorf("invalid SSHD configuration: %w", err)
@@ -292,6 +310,37 @@ func (s *ServiceManager) UpdateSSHD(ctx context.Context, config SSHDConfig) erro
 		}
 	}
 
+	// Update auth method if changed
+	// Normalize empty auth method to "any" for comparison
+	currentAuthMethod := currentConfig.AuthMethod
+	if currentAuthMethod == "" {
+		currentAuthMethod = "any"
+	}
+	newAuthMethod := config.AuthMethod
+	if newAuthMethod == "" {
+		newAuthMethod = "any"
+	}
+
+	if currentAuthMethod != newAuthMethod {
+		var authCmd string
+		if newAuthMethod == "any" {
+			// Reset to default (any) by deleting the auth method configuration
+			authCmd = parsers.BuildDeleteSSHDAuthMethodCommand()
+		} else {
+			authCmd = parsers.BuildSSHDAuthMethodCommand(newAuthMethod)
+		}
+		logging.FromContext(ctx).Debug().Str("component", "service-manager").Msgf("Setting SSHD auth method with command: %s", authCmd)
+
+		output, err := s.executor.Run(ctx, authCmd)
+		if err != nil {
+			return fmt.Errorf("failed to set SSHD auth method: %w", err)
+		}
+
+		if len(output) > 0 && containsError(string(output)) {
+			return fmt.Errorf("command failed: %s", string(output))
+		}
+	}
+
 	// Update service state if changed
 	if currentConfig.Enabled != config.Enabled {
 		serviceCmd := parsers.BuildSSHDServiceCommand(config.Enabled)
@@ -311,6 +360,61 @@ func (s *ServiceManager) UpdateSSHD(ctx context.Context, config SSHDConfig) erro
 	if s.client != nil {
 		if err := s.client.SaveConfig(ctx); err != nil {
 			return fmt.Errorf("SSHD updated but failed to save configuration: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// GetSSHDHostKey retrieves the current SSHD host key information
+func (s *ServiceManager) GetSSHDHostKey(ctx context.Context) (*SSHHostKeyInfo, error) {
+	cmd := parsers.BuildShowSSHDStatusCommand()
+	logging.FromContext(ctx).Debug().Str("component", "service-manager").Msgf("Getting SSHD host key with command: %s", cmd)
+
+	output, err := s.executor.Run(ctx, cmd)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get SSHD status: %w", err)
+	}
+
+	logging.FromContext(ctx).Debug().Str("component", "service-manager").Msgf("SSHD status raw output: %q", string(output))
+
+	// Parse the host key info from status output
+	parserInfo := parsers.ParseSSHDHostKeyInfo(string(output))
+
+	// Convert parsers.SSHHostKeyInfo to client.SSHHostKeyInfo
+	info := &SSHHostKeyInfo{
+		Fingerprint: parserInfo.Fingerprint,
+		Algorithm:   parserInfo.Algorithm,
+	}
+
+	return info, nil
+}
+
+// GenerateSSHDHostKey generates a new SSHD host key
+func (s *ServiceManager) GenerateSSHDHostKey(ctx context.Context) error {
+	// Check context
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	cmd := parsers.BuildSSHDHostKeyGenerateCommand()
+	logging.FromContext(ctx).Debug().Str("component", "service-manager").Msgf("Generating SSHD host key with command: %s", cmd)
+
+	output, err := s.executor.Run(ctx, cmd)
+	if err != nil {
+		return fmt.Errorf("failed to generate SSHD host key: %w", err)
+	}
+
+	if len(output) > 0 && containsError(string(output)) {
+		return fmt.Errorf("command failed: %s", string(output))
+	}
+
+	// Save configuration
+	if s.client != nil {
+		if err := s.client.SaveConfig(ctx); err != nil {
+			return fmt.Errorf("SSHD host key generated but failed to save configuration: %w", err)
 		}
 	}
 
@@ -348,12 +452,218 @@ func (s *ServiceManager) ResetSSHD(ctx context.Context) error {
 
 	_, _ = s.executor.Run(ctx, hostCmd) // Ignore errors for cleanup
 
+	// Remove auth method configuration (reset to default "any")
+	authCmd := parsers.BuildDeleteSSHDAuthMethodCommand()
+	logging.FromContext(ctx).Debug().Str("component", "service-manager").Msgf("Removing SSHD auth method with command: %s", authCmd)
+
+	_, _ = s.executor.Run(ctx, authCmd) // Ignore errors for cleanup
+
 	// Save configuration
 	if s.client != nil {
 		if err := s.client.SaveConfig(ctx); err != nil {
 			return fmt.Errorf("SSHD reset but failed to save configuration: %w", err)
 		}
 	}
+
+	return nil
+}
+
+// ========== SSHD Authorized Keys Methods ==========
+
+// GetSSHDAuthorizedKeys retrieves authorized keys for a user
+func (s *ServiceManager) GetSSHDAuthorizedKeys(ctx context.Context, username string) ([]SSHAuthorizedKey, error) {
+	cmd := parsers.BuildShowSSHDAuthorizedKeysCommand(username)
+	logging.FromContext(ctx).Debug().
+		Str("component", "service-manager").
+		Str("username", username).
+		Msgf("Getting SSHD authorized keys with command: %s", cmd)
+
+	output, err := s.executor.Run(ctx, cmd)
+	if err != nil {
+		// Check if it's a "not found" error (user has no keys)
+		if strings.Contains(strings.ToLower(err.Error()), "not found") {
+			return []SSHAuthorizedKey{}, nil
+		}
+		return nil, fmt.Errorf("failed to get SSHD authorized keys: %w", err)
+	}
+
+	logging.FromContext(ctx).Debug().
+		Str("component", "service-manager").
+		Str("username", username).
+		Msgf("SSHD authorized keys raw output: %q", string(output))
+
+	parserKeys, err := parsers.ParseSSHDAuthorizedKeys(string(output))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse SSHD authorized keys: %w", err)
+	}
+
+	// Convert parsers.SSHAuthorizedKey to client.SSHAuthorizedKey
+	keys := make([]SSHAuthorizedKey, len(parserKeys))
+	for i, pk := range parserKeys {
+		keys[i] = SSHAuthorizedKey{
+			Type:        pk.Type,
+			Fingerprint: pk.Fingerprint,
+			Comment:     pk.Comment,
+		}
+	}
+
+	return keys, nil
+}
+
+// SetSSHDAuthorizedKeys sets all authorized keys for a user (replaces existing)
+// This deletes all existing keys and imports new ones
+func (s *ServiceManager) SetSSHDAuthorizedKeys(ctx context.Context, username string, keys []string) error {
+	logger := logging.FromContext(ctx)
+	logger.Debug().
+		Str("component", "service-manager").
+		Str("username", username).
+		Int("keyCount", len(keys)).
+		Msg("Setting SSHD authorized keys")
+
+	// Check context
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	// First, delete existing keys (ignore errors as they may not exist)
+	deleteCmd := parsers.BuildDeleteSSHDAuthorizedKeysCommand(username)
+	logger.Debug().
+		Str("component", "service-manager").
+		Str("username", username).
+		Msgf("Deleting existing authorized keys with command: %s", deleteCmd)
+
+	_, _ = s.executor.Run(ctx, deleteCmd) // Ignore errors (may not exist)
+
+	// Import each key
+	for i, key := range keys {
+		if err := s.importSSHDAuthorizedKey(ctx, username, key); err != nil {
+			return fmt.Errorf("failed to import key %d: %w", i+1, err)
+		}
+	}
+
+	// Save configuration
+	if s.client != nil {
+		if err := s.client.SaveConfig(ctx); err != nil {
+			return fmt.Errorf("SSHD authorized keys set but failed to save configuration: %w", err)
+		}
+	}
+
+	logger.Info().
+		Str("component", "service-manager").
+		Str("username", username).
+		Int("keyCount", len(keys)).
+		Msg("SSHD authorized keys set successfully")
+
+	return nil
+}
+
+// importSSHDAuthorizedKey imports a single authorized key for a user
+// The RTX import command is interactive: it waits for key content followed by newline
+func (s *ServiceManager) importSSHDAuthorizedKey(ctx context.Context, username, key string) error {
+	logger := logging.FromContext(ctx)
+
+	// Build the import command
+	importCmd := parsers.BuildImportSSHDAuthorizedKeysCommand(username)
+	logger.Debug().
+		Str("component", "service-manager").
+		Str("username", username).
+		Msgf("Importing authorized key with command: %s", importCmd)
+
+	// The import command is interactive.
+	// Send the import command followed by the key content and an empty line to terminate.
+	// RunBatch sends commands sequentially, each followed by prompt wait.
+	// For RTX, the key content is sent as the "response" to the import command prompt.
+	cmds := []string{
+		importCmd,
+		key,
+		"", // Empty line to terminate key input
+	}
+
+	output, err := s.executor.RunBatch(ctx, cmds)
+	if err != nil {
+		// Check if error is just about prompt detection (common with interactive commands)
+		if !strings.Contains(err.Error(), "prompt") {
+			return fmt.Errorf("failed to import authorized key: %w", err)
+		}
+		// Log but continue if it's a prompt detection issue
+		logger.Debug().
+			Str("component", "service-manager").
+			Err(err).
+			Msg("Prompt detection issue during key import, continuing")
+	}
+
+	if len(output) > 0 && containsError(string(output)) {
+		return fmt.Errorf("key import failed: %s", string(output))
+	}
+
+	logger.Debug().
+		Str("component", "service-manager").
+		Str("username", username).
+		Msg("Authorized key imported successfully")
+
+	return nil
+}
+
+// DeleteSSHDAuthorizedKeys removes all authorized keys for a user
+func (s *ServiceManager) DeleteSSHDAuthorizedKeys(ctx context.Context, username string) error {
+	logger := logging.FromContext(ctx)
+	logger.Debug().
+		Str("component", "service-manager").
+		Str("username", username).
+		Msg("Deleting SSHD authorized keys")
+
+	// Check context
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	// Execute delete command
+	cmd := parsers.BuildDeleteSSHDAuthorizedKeysCommand(username)
+	logger.Debug().
+		Str("component", "service-manager").
+		Str("username", username).
+		Msgf("Deleting authorized keys with command: %s", cmd)
+
+	output, err := s.executor.Run(ctx, cmd)
+	if err != nil {
+		// Ignore "not found" errors
+		if strings.Contains(strings.ToLower(err.Error()), "not found") {
+			logger.Debug().
+				Str("component", "service-manager").
+				Str("username", username).
+				Msg("Authorized keys not found (already deleted)")
+			return nil
+		}
+		return fmt.Errorf("failed to delete SSHD authorized keys: %w", err)
+	}
+
+	if len(output) > 0 && containsError(string(output)) {
+		// Ignore "not found" errors in output
+		if strings.Contains(strings.ToLower(string(output)), "not found") {
+			logger.Debug().
+				Str("component", "service-manager").
+				Str("username", username).
+				Msg("Authorized keys not found (already deleted)")
+			return nil
+		}
+		return fmt.Errorf("command failed: %s", string(output))
+	}
+
+	// Save configuration
+	if s.client != nil {
+		if err := s.client.SaveConfig(ctx); err != nil {
+			return fmt.Errorf("SSHD authorized keys deleted but failed to save configuration: %w", err)
+		}
+	}
+
+	logger.Info().
+		Str("component", "service-manager").
+		Str("username", username).
+		Msg("SSHD authorized keys deleted successfully")
 
 	return nil
 }

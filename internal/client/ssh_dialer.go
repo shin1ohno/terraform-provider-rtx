@@ -5,10 +5,12 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net"
+	"os"
 	"strings"
 	"time"
 
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/crypto/ssh/knownhosts"
 
 	"github.com/sh1/terraform-provider-rtx/internal/logging"
@@ -21,21 +23,11 @@ type sshDialer struct{}
 func (d *sshDialer) Dial(ctx context.Context, host string, config *Config) (Session, error) {
 	logger := logging.FromContext(ctx)
 	hostKeyCallback := d.getHostKeyCallback(config)
+	authMethods := d.buildAuthMethods(config)
 
 	sshConfig := &ssh.ClientConfig{
-		User: config.Username,
-		Auth: []ssh.AuthMethod{
-			ssh.Password(config.Password),
-			ssh.KeyboardInteractive(func(user, instruction string, questions []string, echos []bool) ([]string, error) {
-				// RTXルーターは通常パスワードプロンプトに対して単一の応答を期待
-				answers := make([]string, len(questions))
-				for i := range questions {
-					logger.Debug().Int("question_index", i).Str("question", questions[i]).Msg("Keyboard interactive question")
-					answers[i] = config.Password
-				}
-				return answers, nil
-			}),
-		},
+		User:            config.Username,
+		Auth:            authMethods,
 		HostKeyCallback: hostKeyCallback,
 		Timeout:         time.Duration(config.Timeout) * time.Second,
 	}
@@ -43,7 +35,7 @@ func (d *sshDialer) Dial(ctx context.Context, host string, config *Config) (Sess
 	addr := fmt.Sprintf("%s:%d", config.Host, config.Port)
 
 	// Use DialContext to prevent goroutine leaks
-	logger.Debug().Str("addr", addr).Msg("Dialing SSH")
+	logger.Debug().Str("addr", addr).Int("auth_methods_count", len(authMethods)).Msg("Dialing SSH")
 	client, err := DialContext(ctx, "tcp", addr, sshConfig)
 	if err != nil {
 		// Check if it's an authentication error by examining the error message
@@ -63,6 +55,126 @@ func (d *sshDialer) Dial(ctx context.Context, host string, config *Config) (Sess
 	}
 
 	return session, nil
+}
+
+// buildAuthMethods builds authentication methods in priority order.
+// Priority: 1) Explicit private key, 2) SSH agent (if no explicit key), 3) Password auth as fallback
+func (d *sshDialer) buildAuthMethods(config *Config) []ssh.AuthMethod {
+	logger := logging.Global()
+	var methods []ssh.AuthMethod
+
+	hasExplicitKey := config.PrivateKey != "" || config.PrivateKeyFile != ""
+
+	// If no explicit key is provided, try SSH agent first
+	if !hasExplicitKey {
+		if agentAuth := d.trySSHAgent(); agentAuth != nil {
+			logger.Debug().Msg("SSH agent authentication available")
+			methods = append(methods, agentAuth)
+		}
+	}
+
+	// If explicit private key is provided, use it
+	if hasExplicitKey {
+		if signer := d.loadPrivateKey(config); signer != nil {
+			logger.Debug().Msg("Private key authentication configured")
+			methods = append(methods, ssh.PublicKeys(signer))
+		}
+	}
+
+	// Always include password authentication as fallback if password is set
+	if config.Password != "" {
+		logger.Debug().Msg("Password authentication configured")
+		methods = append(methods, ssh.Password(config.Password))
+		// Also add keyboard-interactive for RTX router compatibility
+		methods = append(methods, ssh.KeyboardInteractive(func(user, instruction string, questions []string, echos []bool) ([]string, error) {
+			// RTX routers typically expect a single response to password prompts
+			answers := make([]string, len(questions))
+			for i := range questions {
+				logger.Debug().Int("question_index", i).Str("question", questions[i]).Msg("Keyboard interactive question")
+				answers[i] = config.Password
+			}
+			return answers, nil
+		}))
+	}
+
+	if len(methods) == 0 {
+		logger.Warn().Msg("No authentication methods available")
+	}
+
+	return methods
+}
+
+// loadPrivateKey loads a private key from configuration.
+// Returns nil if loading fails (auth will fall back to other methods).
+func (d *sshDialer) loadPrivateKey(config *Config) ssh.Signer {
+	logger := logging.Global()
+
+	var keyData []byte
+	var err error
+
+	if config.PrivateKey != "" {
+		// Use key content directly
+		keyData = []byte(config.PrivateKey)
+		logger.Debug().Msg("Using private key from content")
+	} else if config.PrivateKeyFile != "" {
+		// Read key from file, handling ~ expansion
+		keyPath := config.PrivateKeyFile
+		if strings.HasPrefix(keyPath, "~/") {
+			homeDir, homeErr := os.UserHomeDir()
+			if homeErr != nil {
+				logger.Error().Err(homeErr).Msg("Failed to get user home directory")
+				return nil
+			}
+			keyPath = homeDir + keyPath[1:]
+		}
+
+		keyData, err = os.ReadFile(keyPath)
+		if err != nil {
+			logger.Error().Err(err).Str("file", keyPath).Msg("Failed to read private key file")
+			return nil
+		}
+		logger.Debug().Str("file", keyPath).Msg("Using private key from file")
+	} else {
+		return nil
+	}
+
+	var signer ssh.Signer
+	if config.PrivateKeyPassphrase != "" {
+		signer, err = ssh.ParsePrivateKeyWithPassphrase(keyData, []byte(config.PrivateKeyPassphrase))
+		if err != nil {
+			logger.Error().Err(err).Msg("Failed to parse encrypted private key")
+			return nil
+		}
+	} else {
+		signer, err = ssh.ParsePrivateKey(keyData)
+		if err != nil {
+			logger.Error().Err(err).Msg("Failed to parse private key")
+			return nil
+		}
+	}
+
+	return signer
+}
+
+// trySSHAgent attempts to connect to SSH agent and returns an auth method.
+// Returns nil if SSH agent is not available.
+func (d *sshDialer) trySSHAgent() ssh.AuthMethod {
+	logger := logging.Global()
+
+	socketPath := os.Getenv("SSH_AUTH_SOCK")
+	if socketPath == "" {
+		logger.Debug().Msg("SSH_AUTH_SOCK not set, SSH agent not available")
+		return nil
+	}
+
+	conn, err := net.Dial("unix", socketPath)
+	if err != nil {
+		logger.Debug().Err(err).Str("socket", socketPath).Msg("Failed to connect to SSH agent")
+		return nil
+	}
+
+	agentClient := agent.NewClient(conn)
+	return ssh.PublicKeysCallback(agentClient.Signers)
 }
 
 // getHostKeyCallback returns the appropriate host key callback based on configuration

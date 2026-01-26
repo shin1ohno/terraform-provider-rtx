@@ -143,7 +143,7 @@
 
 ## Testing
 
-- [ ] 14. Unit tests for SSH key authentication
+- [x] 14. Unit tests for SSH key authentication
   - File: internal/client/ssh_dialer_test.go
   - Test loadPrivateKey with various key formats (RSA, ED25519, encrypted)
   - Test buildAuthMethods priority order
@@ -153,7 +153,7 @@
   - _Requirements: 1.1, 1.2, 1.3, 1.6_
   - _Prompt: Implement the task for spec sshd-public-key-auth, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Developer with testing expertise | Task: Add unit tests to internal/client/ssh_dialer_test.go for SSH key authentication. Test loadPrivateKey with RSA key, ED25519 key, encrypted key with passphrase, invalid key. Test buildAuthMethods returns correct priority order. Use test fixtures for sample keys. | Restrictions: Do not require actual SSH connections, mock external dependencies | Success: All key formats are tested, auth method priority is verified | After implementation: Mark task [-] as in progress in tasks.md before starting, use log-implementation tool to record artifacts, then mark [x] when complete._
 
-- [ ] 15. Unit tests for SSHD resources
+- [x] 15. Unit tests for SSHD resources
   - File: internal/provider/resource_rtx_sshd_test.go, resource_rtx_sshd_host_key_test.go, resource_rtx_sshd_authorized_keys_test.go
   - Test auth_method attribute in rtx_sshd
   - Test host key idempotent behavior

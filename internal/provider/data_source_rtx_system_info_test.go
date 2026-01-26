@@ -749,6 +749,26 @@ func (m *MockClient) ResetSSHD(ctx context.Context) error {
 	panic("not implemented")
 }
 
+func (m *MockClient) GetSSHDHostKey(ctx context.Context) (*client.SSHHostKeyInfo, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) GenerateSSHDHostKey(ctx context.Context) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) GetSSHDAuthorizedKeys(ctx context.Context, username string) ([]client.SSHAuthorizedKey, error) {
+	panic("not implemented")
+}
+
+func (m *MockClient) SetSSHDAuthorizedKeys(ctx context.Context, username string, keys []string) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) DeleteSSHDAuthorizedKeys(ctx context.Context, username string) error {
+	panic("not implemented")
+}
+
 func (m *MockClient) GetSFTPD(ctx context.Context) (*client.SFTPDConfig, error) {
 	panic("not implemented")
 }

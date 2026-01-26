@@ -14,14 +14,21 @@ type HTTPDConfig struct {
 
 // SSHDConfig represents SSH daemon configuration on an RTX router
 type SSHDConfig struct {
-	Enabled bool     `json:"enabled"`            // sshd service on/off
-	Hosts   []string `json:"hosts,omitempty"`    // Interface list (e.g., ["lan1", "lan2"])
-	HostKey string   `json:"host_key,omitempty"` // RSA host key (sensitive)
+	Enabled    bool     `json:"enabled"`               // sshd service on/off
+	Hosts      []string `json:"hosts,omitempty"`       // Interface list (e.g., ["lan1", "lan2"])
+	HostKey    string   `json:"host_key,omitempty"`    // RSA host key (sensitive)
+	AuthMethod string   `json:"auth_method,omitempty"` // SSH auth method: "password", "publickey", or "any" (default)
 }
 
 // SFTPDConfig represents SFTP daemon configuration on an RTX router
 type SFTPDConfig struct {
 	Hosts []string `json:"hosts,omitempty"` // Interface list
+}
+
+// SSHHostKeyInfo represents SSH host key information from "show status sshd"
+type SSHHostKeyInfo struct {
+	Fingerprint string `json:"fingerprint,omitempty"` // Host key fingerprint (e.g., SHA256:xxxxx or colon-separated hex)
+	Algorithm   string `json:"algorithm,omitempty"`   // Key algorithm (RSA, ECDSA, ED25519, etc.)
 }
 
 // ServiceParser parses service daemon configuration output
@@ -77,11 +84,13 @@ func (p *ServiceParser) ParseHTTPDConfig(raw string) (*HTTPDConfig, error) {
 //   - sshd service on
 //   - sshd host lan1 lan2
 //   - sshd host key generate
+//   - sshd auth method password|publickey
 func (p *ServiceParser) ParseSSHDConfig(raw string) (*SSHDConfig, error) {
 	config := &SSHDConfig{
-		Enabled: false,
-		Hosts:   []string{},
-		HostKey: "",
+		Enabled:    false,
+		Hosts:      []string{},
+		HostKey:    "",
+		AuthMethod: "any", // Default: "any" (both password and publickey allowed)
 	}
 
 	lines := strings.Split(raw, "\n")
@@ -92,6 +101,8 @@ func (p *ServiceParser) ParseSSHDConfig(raw string) (*SSHDConfig, error) {
 	hostPattern := regexp.MustCompile(`^\s*sshd\s+host\s+(.+)\s*$`)
 	// Pattern: sshd host key <key-data> (host key is on a single line)
 	keyPattern := regexp.MustCompile(`^\s*sshd\s+host\s+key\s+(.+)\s*$`)
+	// Pattern: sshd auth method password|publickey
+	authMethodPattern := regexp.MustCompile(`^\s*sshd\s+auth\s+method\s+(password|publickey)\s*$`)
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -102,6 +113,12 @@ func (p *ServiceParser) ParseSSHDConfig(raw string) (*SSHDConfig, error) {
 		// Try service pattern
 		if matches := servicePattern.FindStringSubmatch(line); len(matches) >= 2 {
 			config.Enabled = matches[1] == "on"
+			continue
+		}
+
+		// Try auth method pattern
+		if matches := authMethodPattern.FindStringSubmatch(line); len(matches) >= 2 {
+			config.AuthMethod = matches[1]
 			continue
 		}
 
@@ -246,6 +263,163 @@ func BuildDeleteSSHDHostCommand() string {
 // Command format: show config | grep sshd
 func BuildShowSSHDConfigCommand() string {
 	return "show config | grep sshd"
+}
+
+// BuildShowSSHDStatusCommand builds the command to show SSHD status
+// Command format: show status sshd
+func BuildShowSSHDStatusCommand() string {
+	return "show status sshd"
+}
+
+// BuildSSHDAuthMethodCommand builds the command to set SSHD authentication method
+// Command format:
+//   - sshd auth method password (password only)
+//   - sshd auth method publickey (public key only)
+//   - no sshd auth method (any - both allowed, default)
+func BuildSSHDAuthMethodCommand(method string) string {
+	switch method {
+	case "password":
+		return "sshd auth method password"
+	case "publickey":
+		return "sshd auth method publickey"
+	case "any", "":
+		return "no sshd auth method"
+	default:
+		return "no sshd auth method"
+	}
+}
+
+// BuildDeleteSSHDAuthMethodCommand builds the command to remove SSHD auth method configuration
+// Command format: no sshd auth method
+// This resets to default (any - both password and publickey allowed)
+func BuildDeleteSSHDAuthMethodCommand() string {
+	return "no sshd auth method"
+}
+
+// ParseSSHDHostKeyInfo parses host key information from "show status sshd" output
+// The output typically contains lines like:
+//   - SSH Host Key (RSA): XX:XX:XX:...
+//   - SSH Host Key (ECDSA): XX:XX:XX:...
+//   - ホストキーのフィンガープリント: SHA256:xxxxx
+//
+// Returns empty strings if no host key is found (not an error).
+func ParseSSHDHostKeyInfo(output string) *SSHHostKeyInfo {
+	info := &SSHHostKeyInfo{}
+
+	lines := strings.Split(output, "\n")
+
+	// Pattern 1: English format - "SSH Host Key (ALGORITHM): FINGERPRINT"
+	englishPattern := regexp.MustCompile(`^\s*SSH\s+Host\s+Key\s*\(([^)]+)\)\s*:\s*(.+)\s*$`)
+
+	// Pattern 2: Japanese format - "ホストキーのフィンガープリント: FINGERPRINT"
+	// This format may include algorithm prefix like "SHA256:"
+	japanesePattern := regexp.MustCompile(`^\s*ホストキーのフィンガープリント\s*:\s*(.+)\s*$`)
+
+	// Pattern 3: Algorithm line - "ホストキーのアルゴリズム: ALGORITHM" or "Key Algorithm: ALGORITHM"
+	algorithmPattern := regexp.MustCompile(`(?:ホストキーのアルゴリズム|Key\s+Algorithm)\s*:\s*(\S+)`)
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		// Try English pattern first
+		if matches := englishPattern.FindStringSubmatch(line); len(matches) >= 3 {
+			info.Algorithm = strings.TrimSpace(matches[1])
+			info.Fingerprint = strings.TrimSpace(matches[2])
+			continue
+		}
+
+		// Try Japanese fingerprint pattern
+		if matches := japanesePattern.FindStringSubmatch(line); len(matches) >= 2 {
+			fingerprint := strings.TrimSpace(matches[1])
+			// Check if fingerprint contains algorithm prefix (e.g., "SHA256:xxx")
+			if idx := strings.Index(fingerprint, ":"); idx > 0 && idx < 10 {
+				// Short prefix before colon suggests algorithm prefix
+				prefix := fingerprint[:idx]
+				if prefix == "SHA256" || prefix == "MD5" || prefix == "SHA1" {
+					// Keep full fingerprint including prefix
+					info.Fingerprint = fingerprint
+				} else {
+					info.Fingerprint = fingerprint
+				}
+			} else {
+				info.Fingerprint = fingerprint
+			}
+			continue
+		}
+
+		// Try algorithm pattern
+		if matches := algorithmPattern.FindStringSubmatch(line); len(matches) >= 2 {
+			info.Algorithm = strings.TrimSpace(matches[1])
+			continue
+		}
+	}
+
+	return info
+}
+
+// ========== SSHD Authorized Keys Command Builders ==========
+
+// SSHAuthorizedKey represents an SSH authorized key entry for parser output
+type SSHAuthorizedKey struct {
+	Type        string // Key type (e.g., "ED25519", "RSA")
+	Fingerprint string // SHA256 fingerprint
+	Comment     string // Key comment (e.g., "user@host")
+}
+
+// BuildShowSSHDAuthorizedKeysCommand builds the command to show SSH authorized keys for a user
+// Command format: show sshd authorized-keys <username>
+func BuildShowSSHDAuthorizedKeysCommand(username string) string {
+	return fmt.Sprintf("show sshd authorized-keys %s", username)
+}
+
+// BuildImportSSHDAuthorizedKeysCommand builds the command to import SSH authorized keys for a user
+// Command format: import sshd authorized-keys <username>
+func BuildImportSSHDAuthorizedKeysCommand(username string) string {
+	return fmt.Sprintf("import sshd authorized-keys %s", username)
+}
+
+// BuildDeleteSSHDAuthorizedKeysCommand builds the command to delete SSH authorized keys for a user
+// Command format: delete /ssh/authorized_keys/<username>
+func BuildDeleteSSHDAuthorizedKeysCommand(username string) string {
+	return fmt.Sprintf("delete /ssh/authorized_keys/%s", username)
+}
+
+// ParseSSHDAuthorizedKeys parses the output of "show sshd authorized-keys" command
+// Output format example:
+//
+//	256 SHA256:xxxx user@host (ED25519)
+//	2048 SHA256:yyyy admin@pc (RSA)
+//
+// Returns an empty slice if no keys are found
+func ParseSSHDAuthorizedKeys(output string) ([]SSHAuthorizedKey, error) {
+	var keys []SSHAuthorizedKey
+
+	lines := strings.Split(output, "\n")
+
+	// Pattern: <bits> <fingerprint> <comment> (<type>)
+	// e.g.: 256 SHA256:xxxx user@host (ED25519)
+	keyPattern := regexp.MustCompile(`^\s*\d+\s+(SHA256:\S+)\s+(.+?)\s+\((\w+)\)\s*$`)
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		if matches := keyPattern.FindStringSubmatch(line); len(matches) >= 4 {
+			key := SSHAuthorizedKey{
+				Fingerprint: matches[1],
+				Comment:     matches[2],
+				Type:        matches[3],
+			}
+			keys = append(keys, key)
+		}
+	}
+
+	return keys, nil
 }
 
 // ========== SFTPD Command Builders ==========
