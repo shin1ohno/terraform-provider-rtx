@@ -45,7 +45,7 @@
   - _Requirements: 1.4, 1.5, 1.6_
   - _Prompt: Implement the task for spec session-pool-state-drift-fix, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Developer specializing in Terraform providers | Task: Add DiffSuppressFunc to source_address and destination_address fields in internal/provider/resource_rtx_access_list_mac.go. The function should suppress diff when the corresponding *_any field is true. For example, if source_any=true in state, suppress diff for source_address regardless of its value. Also handle the case where source_address="*:*:*:*:*:*" should be treated as source_any=true. | Restrictions: Only modify source_address and destination_address schema fields, do not change the Read function | Success: terraform plan shows no diff when using *_any=true or wildcard address. Mark task as in-progress in tasks.md before starting, log implementation with log-implementation tool after completion, then mark as complete._
 
-- [-] 6. Verify fixes with terraform plan
+- [x] 6. Verify fixes with terraform plan
   - File: examples/import/main.tf (test with existing config)
   - Run terraform plan to verify all diffs are resolved
   - Test import flow: import -> plan shows no changes
