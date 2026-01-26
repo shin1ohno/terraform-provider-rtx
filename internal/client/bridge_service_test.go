@@ -41,6 +41,10 @@ func (m *mockBridgeExecutor) SetLoginPassword(ctx context.Context, password stri
 	return nil
 }
 
+func (m *mockBridgeExecutor) GenerateSSHDHostKey(ctx context.Context) error {
+	return nil
+}
+
 func TestBridgeService_CreateBridge(t *testing.T) {
 	tests := []struct {
 		name       string

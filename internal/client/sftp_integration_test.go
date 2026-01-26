@@ -81,6 +81,10 @@ func (m *integrationMockExecutor) SetLoginPassword(ctx context.Context, password
 	return nil
 }
 
+func (m *integrationMockExecutor) GenerateSSHDHostKey(ctx context.Context) error {
+	return nil
+}
+
 // ============================================================================
 // Mock SFTP Client for Integration Testing
 // ============================================================================

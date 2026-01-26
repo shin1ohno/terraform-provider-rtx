@@ -161,6 +161,7 @@ func (e *PooledExecutor) prepareConnection(ctx context.Context, conn *PooledConn
 }
 
 // authenticateAsAdmin authenticates as administrator on the given connection
+// Handles the case where the session is already in administrator mode
 func (e *PooledExecutor) authenticateAsAdmin(ctx context.Context, conn *PooledConnection) error {
 	logger := logging.FromContext(ctx)
 	logger.Debug().
@@ -180,11 +181,36 @@ func (e *PooledExecutor) authenticateAsAdmin(ctx context.Context, conn *PooledCo
 		return fmt.Errorf("failed to send administrator command: %w", err)
 	}
 
-	// Read until we get password prompt
-	_, err := ws.readUntilString("Password:", 10*time.Second)
+	// Read until we get password prompt or admin prompt (already administrator)
+	response, err := ws.readUntilPasswordPromptOrAdminMode(10 * time.Second)
 	if err != nil {
-		return fmt.Errorf("failed to get password prompt: %w", err)
+		return fmt.Errorf("failed to get response after administrator command: %w", err)
 	}
+
+	responseStr := string(response)
+	logger.Debug().Str("response", responseStr).Msg("PooledExecutor: Response after administrator command")
+
+	// Check if already in administrator mode
+	if strings.Contains(responseStr, "すでに管理レベル") || strings.Contains(strings.ToLower(responseStr), "already") {
+		logger.Debug().Msg("PooledExecutor: Already in administrator mode, skipping authentication")
+		return nil
+	}
+
+	// Check if we got admin prompt directly (# at end of line)
+	// This can happen if the session started in admin mode
+	if strings.Contains(responseStr, "# ") || strings.HasSuffix(strings.TrimSpace(responseStr), "#") {
+		// Check if this is NOT the password prompt case
+		if !strings.Contains(responseStr, "Password:") && !strings.Contains(responseStr, "password:") {
+			logger.Debug().Msg("PooledExecutor: Session appears to be in administrator mode already")
+			return nil
+		}
+	}
+
+	// We should have received Password: prompt
+	if !strings.Contains(responseStr, "Password:") && !strings.Contains(responseStr, "password:") {
+		return fmt.Errorf("unexpected response after administrator command: %s", responseStr)
+	}
+
 	logger.Debug().Msg("PooledExecutor: Password prompt received")
 
 	// Send password
@@ -193,12 +219,12 @@ func (e *PooledExecutor) authenticateAsAdmin(ctx context.Context, conn *PooledCo
 	}
 
 	// Read response after password - look for administrator prompt (# instead of >)
-	response, err := ws.readUntilPrompt(10 * time.Second)
+	response, err = ws.readUntilPrompt(10 * time.Second)
 	if err != nil {
 		return fmt.Errorf("failed to read password response: %w", err)
 	}
 
-	responseStr := string(response)
+	responseStr = string(response)
 	logger.Debug().Str("response", responseStr).Msg("PooledExecutor: Password authentication response received")
 
 	// Check for authentication failure
@@ -435,5 +461,86 @@ func (e *PooledExecutor) SetLoginPassword(ctx context.Context, newPassword strin
 	// Release connection back to pool
 	e.pool.Release(conn)
 	logger.Debug().Msg("PooledExecutor: Login password changed successfully")
+	return nil
+}
+
+// GenerateSSHDHostKey generates SSHD host key with interactive prompt handling
+// RTX may prompt for confirmation if a host key already exists
+func (e *PooledExecutor) GenerateSSHDHostKey(ctx context.Context) error {
+	logger := logging.FromContext(ctx)
+	logger.Debug().Msg("PooledExecutor: Generating SSHD host key")
+
+	// Acquire connection from pool
+	conn, err := e.pool.Acquire(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to acquire SSH connection: %w", err)
+	}
+
+	// Authenticate as administrator first (required for sshd commands)
+	if e.config != nil && e.config.AdminPassword != "" {
+		if err := e.authenticateAsAdmin(ctx, conn); err != nil {
+			e.pool.Discard(conn)
+			return fmt.Errorf("failed to authenticate as administrator: %w", err)
+		}
+		conn.SetAdminMode(true)
+	}
+
+	ws := conn.session
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+
+	// Send sshd host key generate command
+	logger.Debug().Msg("PooledExecutor: Sending sshd host key generate command")
+	if _, err := fmt.Fprintf(ws.stdin, "sshd host key generate\r"); err != nil {
+		e.pool.Discard(conn)
+		return fmt.Errorf("failed to send sshd host key generate command: %w", err)
+	}
+
+	// Key generation can take several minutes on RTX hardware
+	// Read response - either:
+	// 1. Confirmation prompt (Y/N) if host key already exists
+	// 2. Direct completion with prompt if no existing key
+	keyGenTimeout := 10 * time.Minute
+	response, err := ws.readUntilPromptOrConfirmation(keyGenTimeout)
+	if err != nil {
+		e.pool.Discard(conn)
+		return fmt.Errorf("failed to read sshd host key generate response: %w", err)
+	}
+
+	responseStr := string(response)
+	logger.Debug().Str("response", responseStr).Msg("PooledExecutor: Host key generate response received")
+
+	// Check if we got a confirmation prompt (existing key)
+	if ws.isHostKeyUpdatePrompt(responseStr) {
+		logger.Info().Msg("PooledExecutor: Host key update prompt detected, responding with 'N' to preserve existing key")
+		// Respond with 'N' to abort regeneration and preserve existing key
+		// This is a safety measure to prevent accidental host key regeneration
+		if _, err := fmt.Fprintf(ws.stdin, "N\r"); err != nil {
+			e.pool.Discard(conn)
+			return fmt.Errorf("failed to respond to host key update prompt: %w", err)
+		}
+
+		// Wait for prompt after aborting
+		_, err := ws.readUntilPrompt(keyGenTimeout)
+		if err != nil {
+			e.pool.Discard(conn)
+			return fmt.Errorf("failed to read response after aborting host key generation: %w", err)
+		}
+
+		// Release connection and return informational error
+		e.pool.Release(conn)
+		return fmt.Errorf("host key already exists; generation aborted to preserve existing key")
+	}
+
+	// Check for errors in response
+	if strings.Contains(strings.ToLower(responseStr), "error") ||
+		strings.Contains(strings.ToLower(responseStr), "failed") {
+		e.pool.Discard(conn)
+		return fmt.Errorf("sshd host key generation failed: %s", responseStr)
+	}
+
+	// Discard connection after key generation (connection state may be affected)
+	e.pool.Discard(conn)
+	logger.Debug().Msg("PooledExecutor: SSHD host key generated successfully")
 	return nil
 }

@@ -2,6 +2,8 @@ package provider
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -58,13 +60,24 @@ func resourceRTXSSHDHostKeyCreate(ctx context.Context, d *schema.ResourceData, m
 
 		err = apiClient.client.GenerateSSHDHostKey(ctx)
 		if err != nil {
-			return diag.Errorf("Failed to generate SSHD host key: %v", err)
-		}
-
-		// Get the new key info
-		keyInfo, err = apiClient.client.GetSSHDHostKey(ctx)
-		if err != nil {
-			return diag.Errorf("Failed to get newly generated SSHD host key info: %v", err)
+			// Check if error indicates key already exists (safety net triggered)
+			// This can happen if the parser failed to detect the existing key
+			if strings.Contains(err.Error(), "already exists") {
+				logger.Info().Str("resource", "rtx_sshd_host_key").Msg("Host key already exists on router (detected during generation), reading existing key info")
+				// Re-read to get the existing key info
+				keyInfo, err = apiClient.client.GetSSHDHostKey(ctx)
+				if err != nil {
+					return diag.Errorf("Failed to read existing SSHD host key info: %v", err)
+				}
+			} else {
+				return diag.Errorf("Failed to generate SSHD host key: %v", err)
+			}
+		} else {
+			// Get the new key info
+			keyInfo, err = apiClient.client.GetSSHDHostKey(ctx)
+			if err != nil {
+				return diag.Errorf("Failed to get newly generated SSHD host key info: %v", err)
+			}
 		}
 	}
 
@@ -149,7 +162,7 @@ func resourceRTXSSHDHostKeyImport(ctx context.Context, d *schema.ResourceData, m
 
 	// If no host key exists, return error
 	if keyInfo.Fingerprint == "" {
-		return nil, nil
+		return nil, fmt.Errorf("no SSHD host key found on router - generate one first or use 'terraform apply' to create")
 	}
 
 	// Set attributes

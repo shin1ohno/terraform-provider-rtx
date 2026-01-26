@@ -40,6 +40,11 @@ func (m *MockExecutor) SetLoginPassword(ctx context.Context, password string) er
 	return args.Error(0)
 }
 
+func (m *MockExecutor) GenerateSSHDHostKey(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+
 func TestDHCPService_CreateBinding(t *testing.T) {
 	tests := []struct {
 		name        string

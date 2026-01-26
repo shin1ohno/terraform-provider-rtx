@@ -52,6 +52,10 @@ func (m *mockDDNSExecutor) SetLoginPassword(ctx context.Context, password string
 	return nil
 }
 
+func (m *mockDDNSExecutor) GenerateSSHDHostKey(ctx context.Context) error {
+	return nil
+}
+
 func (m *mockDDNSExecutor) setResponse(cmd string, resp []byte) {
 	m.responses[cmd] = resp
 }

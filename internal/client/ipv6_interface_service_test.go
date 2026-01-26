@@ -41,6 +41,10 @@ func (m *mockIPv6InterfaceExecutor) SetLoginPassword(ctx context.Context, passwo
 	return nil
 }
 
+func (m *mockIPv6InterfaceExecutor) GenerateSSHDHostKey(ctx context.Context) error {
+	return nil
+}
+
 func TestIPv6InterfaceService_Configure(t *testing.T) {
 	tests := []struct {
 		name       string

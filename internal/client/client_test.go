@@ -740,6 +740,10 @@ func (m *MockExecutorForCache) SetLoginPassword(ctx context.Context, password st
 	return nil
 }
 
+func (m *MockExecutorForCache) GenerateSSHDHostKey(ctx context.Context) error {
+	return nil
+}
+
 func TestClient_GetCachedConfig_CacheHit(t *testing.T) {
 	// Setup client with valid cache
 	config := &Config{

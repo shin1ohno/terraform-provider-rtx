@@ -52,6 +52,10 @@ func (m *mockPPPExecutor) SetLoginPassword(ctx context.Context, password string)
 	return nil
 }
 
+func (m *mockPPPExecutor) GenerateSSHDHostKey(ctx context.Context) error {
+	return nil
+}
+
 func (m *mockPPPExecutor) setResponse(cmd string, resp []byte) {
 	m.responses[cmd] = resp
 }
@@ -447,20 +451,18 @@ func TestPPPService_PPIPConfigConversion(t *testing.T) {
 
 	// Test toParserPPIPConfig
 	config := PPIPConfig{
-		Address:         "ipcp",
-		MTU:             1454,
-		TCPMSSLimit:     1414,
-		NATDescriptor:   1,
-		AccessListIPIn:  "pp-secure-in",
-		AccessListIPOut: "pp-secure-out",
+		Address:       "ipcp",
+		MTU:           1454,
+		TCPMSSLimit:   1414,
+		NATDescriptor: 1,
 	}
 
 	parserConfig := service.toParserPPIPConfig(config)
 	if parserConfig.Address != "ipcp" {
 		t.Errorf("toParserPPIPConfig() Address = %q, want %q", parserConfig.Address, "ipcp")
 	}
-	if parserConfig.AccessListIPIn != "pp-secure-in" {
-		t.Errorf("toParserPPIPConfig() AccessListIPIn = %q, want %q", parserConfig.AccessListIPIn, "pp-secure-in")
+	if parserConfig.MTU != 1454 {
+		t.Errorf("toParserPPIPConfig() MTU = %d, want %d", parserConfig.MTU, 1454)
 	}
 
 	// Test fromParserPPIPConfig
@@ -474,6 +476,7 @@ func TestPPPService_PPIPConfigConversion(t *testing.T) {
 	if nilConfig.Address != "" {
 		t.Error("fromParserPPIPConfig(nil) should return empty config")
 	}
+	// NOTE: AccessListIPIn/AccessListIPOut tests removed - ACL management moved to ACL resources (Task 15)
 }
 
 // ============================================================================

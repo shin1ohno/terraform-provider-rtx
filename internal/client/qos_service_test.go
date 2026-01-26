@@ -43,6 +43,10 @@ func (m *mockQoSExecutor) SetLoginPassword(ctx context.Context, password string)
 	return nil
 }
 
+func (m *mockQoSExecutor) GenerateSSHDHostKey(ctx context.Context) error {
+	return nil
+}
+
 func TestQoSService_CreateClassMap(t *testing.T) {
 	tests := []struct {
 		name    string

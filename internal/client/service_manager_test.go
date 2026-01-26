@@ -61,6 +61,10 @@ func (m *mockServiceExecutor) SetLoginPassword(ctx context.Context, password str
 	return nil
 }
 
+func (m *mockServiceExecutor) GenerateSSHDHostKey(ctx context.Context) error {
+	return nil
+}
+
 func (m *mockServiceExecutor) setOutput(pattern, output string) {
 	m.outputs[pattern] = output
 }
@@ -521,17 +525,34 @@ func TestServiceManager_GetSSHDAuthorizedKeys(t *testing.T) {
 			expectedKeys: 0,
 		},
 		{
-			name:         "single key",
-			output:       "256 SHA256:abcdef123456 user@host (ED25519)\n",
+			name:         "single ed25519 key",
+			output:       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample user@host\n",
 			expectedKeys: 1,
-			expectedType: "ED25519",
-			expectedFP:   "SHA256:abcdef123456",
+			expectedType: "ssh-ed25519",
+			expectedFP:   "AAAAC3NzaC1lZDI1NTE5AAAAIExample",
 			expectedComm: "user@host",
 		},
 		{
 			name:         "multiple keys",
-			output:       "256 SHA256:abcdef123456 user@host (ED25519)\n2048 SHA256:xyz789 admin@pc (RSA)\n",
+			output:       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample user@host\nssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQExample admin@pc\n",
 			expectedKeys: 2,
+		},
+		{
+			name:         "key without comment",
+			output:       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINoComment\n",
+			expectedKeys: 1,
+			expectedType: "ssh-ed25519",
+			expectedFP:   "AAAAC3NzaC1lZDI1NTE5AAAAINoComment",
+			expectedComm: "",
+		},
+		{
+			name: "wrapped key (RTX line wrap)",
+			output: `ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDCmJ1iJqU/Vcd2orBBidRnzkt6v4hzVwNCCaUGtrQ
+YlhH7Tlx24Qom8w/V+pzOBFZiIbbYbBUHDNkmx8BDxV9WnvcgHtWoJYmDwjC user@host`,
+			expectedKeys: 1,
+			expectedType: "ssh-rsa",
+			expectedFP:   "AAAAB3NzaC1yc2EAAAADAQABAAABgQDCmJ1iJqU/Vcd2orBBidRnzkt6v4hzVwNCCaUGtrQYlhH7Tlx24Qom8w/V+pzOBFZiIbbYbBUHDNkmx8BDxV9WnvcgHtWoJYmDwjC",
+			expectedComm: "user@host",
 		},
 	}
 

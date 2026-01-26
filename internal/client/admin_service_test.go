@@ -45,6 +45,11 @@ func (m *mockExecutor) SetLoginPassword(ctx context.Context, newPassword string)
 	return nil
 }
 
+func (m *mockExecutor) GenerateSSHDHostKey(ctx context.Context) error {
+	m.executedCmds = append(m.executedCmds, "sshd host key generate")
+	return nil
+}
+
 // boolPtrAdmin returns a pointer to the given bool value
 func boolPtrAdmin(b bool) *bool {
 	return &b

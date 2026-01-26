@@ -171,3 +171,33 @@
   - _Leverage: existing acceptance test patterns, TF_ACC environment variable_
   - _Requirements: All_
   - _Prompt: Implement the task for spec sshd-public-key-auth, first run spec-workflow-guide to get the workflow guide then implement the task: Role: QA Engineer with Terraform testing expertise | Task: Create acceptance tests for SSHD resources. Test rtx_sshd with auth_method changes. Test rtx_sshd_host_key create/import on existing server. Test rtx_sshd_authorized_keys full lifecycle with multiple keys. All tests require TF_ACC=1 and real RTX router access. | Restrictions: Use build tags for acceptance tests, clean up resources after test | Success: All resources work correctly with real RTX router | After implementation: Mark task [-] as in progress in tasks.md before starting, use log-implementation tool to record artifacts, then mark [x] when complete._
+
+## Host Key Protection (Bug Fix)
+
+- [x] 17. Fix ParseSSHDHostKeyInfo to match actual RTX output format
+  - File: internal/rtx/parsers/service.go
+  - Update regex patterns in `ParseSSHDHostKeyInfo()` to correctly match actual RTX `show status sshd` output
+  - Verify parser works with multiple RTX firmware versions
+  - Purpose: Ensure existing host keys are correctly detected before attempting generation
+  - _Leverage: actual RTX output samples from testing_
+  - _Requirements: 2.2, 2.5_
+  - _Prompt: Implement the task for spec sshd-public-key-auth, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Developer specializing in CLI parsing | Task: Fix ParseSSHDHostKeyInfo() in internal/rtx/parsers/service.go. Capture actual "show status sshd" output from RTX router and update regex patterns to match. The parser must reliably extract fingerprint and algorithm when a host key exists. Test with multiple output variations. | Restrictions: Do not break existing parser tests, handle edge cases gracefully | Success: Parser correctly detects existing host key from actual RTX output | After implementation: Mark task [-] as in progress in tasks.md before starting, use log-implementation tool to record artifacts, then mark [x] when complete._
+
+- [x] 18. Fix GenerateSSHDHostKey to respond "N" to regeneration confirmation
+  - File: internal/client/service_manager.go
+  - Update `GenerateSSHDHostKey()` to detect Y/N confirmation prompt from RTX
+  - When confirmation prompt is detected, respond "N" to preserve existing key
+  - Return informational error that existing key was preserved
+  - Purpose: Safety net to prevent accidental host key regeneration
+  - _Leverage: existing interactive command patterns in executor_
+  - _Requirements: 2.2, 2.5_
+  - _Prompt: Implement the task for spec sshd-public-key-auth, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Developer with expertise in interactive CLI | Task: Update GenerateSSHDHostKey() in internal/client/service_manager.go. After sending "sshd host key generate", detect if RTX prompts "(Y/N)" or contains "キーはすでに存在" (key already exists). If so, respond "N" to abort regeneration and return error "host key already exists; generation aborted". The Create function should catch this error and proceed to read existing key info. | Restrictions: Do not respond "Y" under any circumstances, preserve existing key | Success: Host key is never regenerated when it already exists | After implementation: Mark task [-] as in progress in tasks.md before starting, use log-implementation tool to record artifacts, then mark [x] when complete._
+
+- [x] 19. Update rtx_sshd_host_key Create to handle existing key gracefully
+  - File: internal/provider/resource_rtx_sshd_host_key.go
+  - Update Create function to handle "host key already exists" error from GenerateSSHDHostKey
+  - When error indicates existing key, call GetSSHDHostKey and proceed normally
+  - Purpose: Seamless handling when parser missed existing key but generation caught it
+  - _Leverage: existing error handling patterns_
+  - _Requirements: 2.2, 2.5_
+  - _Prompt: Implement the task for spec sshd-public-key-auth, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Terraform Provider Developer | Task: Update resourceRTXSSHDHostKeyCreate() in internal/provider/resource_rtx_sshd_host_key.go. When GenerateSSHDHostKey() returns error containing "already exists", treat this as success case - call GetSSHDHostKey() to read key info and set state normally. Log info message that existing key was preserved. | Restrictions: Do not fail on "already exists" error, maintain idempotent behavior | Success: terraform apply succeeds whether key exists or not, never regenerates | After implementation: Mark task [-] as in progress in tasks.md before starting, use log-implementation tool to record artifacts, then mark [x] when complete._

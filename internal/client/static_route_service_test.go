@@ -37,6 +37,10 @@ func (m *mockStaticRouteExecutor) SetLoginPassword(ctx context.Context, password
 	return nil
 }
 
+func (m *mockStaticRouteExecutor) GenerateSSHDHostKey(ctx context.Context) error {
+	return nil
+}
+
 func TestStaticRouteService_GetRoute_MultiGateway(t *testing.T) {
 	// This test verifies that GetRoute correctly captures multiple gateways
 	// for the same prefix/mask when the grep command returns multiple lines.

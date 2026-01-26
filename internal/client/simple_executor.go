@@ -354,6 +354,7 @@ func (e *simpleExecutor) SetLoginPassword(ctx context.Context, newPassword strin
 }
 
 // authenticateAsAdminWithSession authenticates as administrator using the given session
+// Handles the case where the session is already in administrator mode
 func (e *simpleExecutor) authenticateAsAdminWithSession(ctx context.Context, ws *workingSession) error {
 	logger := logging.FromContext(ctx)
 	logger.Debug().Msg("SimpleExecutor: Authenticating as administrator")
@@ -370,11 +371,36 @@ func (e *simpleExecutor) authenticateAsAdminWithSession(ctx context.Context, ws 
 		return fmt.Errorf("failed to send administrator command: %w", err)
 	}
 
-	// Read until we get password prompt
-	_, err := ws.readUntilString("Password:", 10*time.Second)
+	// Read until we get password prompt or admin prompt (already administrator)
+	response, err := ws.readUntilPasswordPromptOrAdminMode(10 * time.Second)
 	if err != nil {
-		return fmt.Errorf("failed to get password prompt: %w", err)
+		return fmt.Errorf("failed to get response after administrator command: %w", err)
 	}
+
+	responseStr := string(response)
+	logger.Debug().Str("response", responseStr).Msg("SimpleExecutor: Response after administrator command")
+
+	// Check if already in administrator mode
+	if strings.Contains(responseStr, "すでに管理レベル") || strings.Contains(strings.ToLower(responseStr), "already") {
+		logger.Debug().Msg("SimpleExecutor: Already in administrator mode, skipping authentication")
+		return nil
+	}
+
+	// Check if we got admin prompt directly (# at end of line)
+	// This can happen if the session started in admin mode
+	if strings.Contains(responseStr, "# ") || strings.HasSuffix(strings.TrimSpace(responseStr), "#") {
+		// Check if this is NOT the password prompt case
+		if !strings.Contains(responseStr, "Password:") && !strings.Contains(responseStr, "password:") {
+			logger.Debug().Msg("SimpleExecutor: Session appears to be in administrator mode already")
+			return nil
+		}
+	}
+
+	// We should have received Password: prompt
+	if !strings.Contains(responseStr, "Password:") && !strings.Contains(responseStr, "password:") {
+		return fmt.Errorf("unexpected response after administrator command: %s", responseStr)
+	}
+
 	logger.Debug().Msg("SimpleExecutor: Password prompt received")
 
 	// Send password
@@ -383,12 +409,12 @@ func (e *simpleExecutor) authenticateAsAdminWithSession(ctx context.Context, ws 
 	}
 
 	// Read response after password - look for administrator prompt (# instead of >)
-	response, err := ws.readUntilPrompt(10 * time.Second)
+	response, err = ws.readUntilPrompt(10 * time.Second)
 	if err != nil {
 		return fmt.Errorf("failed to read password response: %w", err)
 	}
 
-	responseStr := string(response)
+	responseStr = string(response)
 
 	// Check for authentication success
 	if strings.Contains(responseStr, "incorrect") || strings.Contains(responseStr, "failed") || strings.Contains(responseStr, "Invalid") {
@@ -396,5 +422,83 @@ func (e *simpleExecutor) authenticateAsAdminWithSession(ctx context.Context, ws 
 	}
 
 	logger.Debug().Msg("SimpleExecutor: Administrator authentication successful")
+	return nil
+}
+
+// GenerateSSHDHostKey generates SSHD host key with interactive prompt handling
+// RTX may prompt for confirmation if a host key already exists
+func (e *simpleExecutor) GenerateSSHDHostKey(ctx context.Context) error {
+	logger := logging.FromContext(ctx)
+	logger.Debug().Msg("SimpleExecutor: Generating SSHD host key")
+
+	// Create a new SSH connection for the interactive command
+	client, err := ssh.Dial("tcp", e.addr, e.config)
+	if err != nil {
+		return fmt.Errorf("failed to dial: %w", err)
+	}
+	defer client.Close()
+
+	// Create a working session
+	ws, err := newWorkingSession(client)
+	if err != nil {
+		return fmt.Errorf("failed to create session: %w", err)
+	}
+	defer ws.Close()
+
+	// Authenticate as administrator first (required for sshd commands)
+	if e.rtxConfig != nil && e.rtxConfig.AdminPassword != "" {
+		if err := e.authenticateAsAdminWithSession(ctx, ws); err != nil {
+			return fmt.Errorf("failed to authenticate as administrator: %w", err)
+		}
+	}
+
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+
+	// Send sshd host key generate command
+	logger.Debug().Msg("SimpleExecutor: Sending sshd host key generate command")
+	if _, err := fmt.Fprintf(ws.stdin, "sshd host key generate\r"); err != nil {
+		return fmt.Errorf("failed to send sshd host key generate command: %w", err)
+	}
+
+	// Key generation can take several minutes on RTX hardware
+	// Read response - either:
+	// 1. Confirmation prompt (Y/N) if host key already exists
+	// 2. Direct completion with prompt if no existing key
+	keyGenTimeout := 10 * time.Minute
+	response, err := ws.readUntilPromptOrConfirmation(keyGenTimeout)
+	if err != nil {
+		return fmt.Errorf("failed to read sshd host key generate response: %w", err)
+	}
+
+	responseStr := string(response)
+	logger.Debug().Str("response", responseStr).Msg("SimpleExecutor: Host key generate response received")
+
+	// Check if we got a confirmation prompt (existing key)
+	if ws.isHostKeyUpdatePrompt(responseStr) {
+		logger.Info().Msg("SimpleExecutor: Host key update prompt detected, responding with 'N' to preserve existing key")
+		// Respond with 'N' to abort regeneration and preserve existing key
+		// This is a safety measure to prevent accidental host key regeneration
+		if _, err := fmt.Fprintf(ws.stdin, "N\r"); err != nil {
+			return fmt.Errorf("failed to respond to host key update prompt: %w", err)
+		}
+
+		// Wait for prompt after aborting
+		_, err := ws.readUntilPrompt(keyGenTimeout)
+		if err != nil {
+			return fmt.Errorf("failed to read response after aborting host key generation: %w", err)
+		}
+
+		// Return informational error
+		return fmt.Errorf("host key already exists; generation aborted to preserve existing key")
+	}
+
+	// Check for errors in response
+	if strings.Contains(strings.ToLower(responseStr), "error") ||
+		strings.Contains(strings.ToLower(responseStr), "failed") {
+		return fmt.Errorf("sshd host key generation failed: %s", responseStr)
+	}
+
+	logger.Debug().Msg("SimpleExecutor: SSHD host key generated successfully")
 	return nil
 }
