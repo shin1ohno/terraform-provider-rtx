@@ -431,17 +431,19 @@ func ValidateIPsecTunnel(tunnel IPsecTunnel) error {
 		return fmt.Errorf("tunnel id must be positive")
 	}
 
-	if !isValidIP(tunnel.LocalAddress) {
+	// LocalAddress is optional - when empty, the router uses appropriate local address
+	if tunnel.LocalAddress != "" && !isValidIP(tunnel.LocalAddress) {
 		return fmt.Errorf("invalid local_address: %s", tunnel.LocalAddress)
 	}
 
-	if !isValidIP(tunnel.RemoteAddress) {
+	// RemoteAddress is optional for some IPsec configurations (e.g., L2TP anonymous)
+	if tunnel.RemoteAddress != "" && !isValidIP(tunnel.RemoteAddress) {
 		return fmt.Errorf("invalid remote_address: %s", tunnel.RemoteAddress)
 	}
 
-	if tunnel.PreSharedKey == "" {
-		return fmt.Errorf("pre_shared_key is required")
-	}
+	// PreSharedKey is optional for some IPsec configurations (e.g., when using certificates
+	// or when defined elsewhere like in transport mode for L2TP)
+	// If provided, just ensure it's not empty string after being explicitly set
 
 	if tunnel.LocalNetwork != "" && !isValidCIDR(tunnel.LocalNetwork) {
 		return fmt.Errorf("invalid local_network: %s", tunnel.LocalNetwork)

@@ -310,23 +310,48 @@ func BuildShowIPFilterByNumberCommand(number int) string {
 	return fmt.Sprintf("show config | grep \"ip filter %d\"", number)
 }
 
-// ValidateIPFilterNumber validates that the filter number is in valid range (1-65535)
+// ValidateIPFilterNumber validates that the filter number is in valid range.
+// RTX routers support filter numbers up to 2147483647, but practical usage is typically under 1000000.
 func ValidateIPFilterNumber(n int) error {
-	if n < 1 || n > 65535 {
-		return fmt.Errorf("filter number must be between 1 and 65535, got %d", n)
+	if n < 1 || n > 2147483647 {
+		return fmt.Errorf("filter number must be between 1 and 2147483647, got %d", n)
 	}
 	return nil
 }
 
-// ValidateIPFilterProtocol validates that the protocol is a valid IP filter protocol
+// ValidateIPFilterProtocol validates that the protocol is a valid IP filter protocol.
+// RTX routers support compound protocols like "udp,tcp" where multiple protocols
+// are specified separated by commas.
 func ValidateIPFilterProtocol(proto string) error {
 	proto = strings.ToLower(proto)
-	for _, valid := range ValidIPFilterProtocols {
-		if proto == valid {
-			return nil
+
+	// Split by comma to handle compound protocols (e.g., "udp,tcp")
+	protocols := strings.Split(proto, ",")
+	validCount := 0
+	for _, p := range protocols {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		valid := false
+		for _, validProto := range ValidIPFilterProtocols {
+			if p == validProto {
+				valid = true
+				validCount++
+				break
+			}
+		}
+		if !valid {
+			return fmt.Errorf("invalid protocol: %s, must be one of: %s", p, strings.Join(ValidIPFilterProtocols, ", "))
 		}
 	}
-	return fmt.Errorf("invalid protocol: %s, must be one of: %s", proto, strings.Join(ValidIPFilterProtocols, ", "))
+
+	// Ensure at least one valid protocol was found
+	if validCount == 0 {
+		return fmt.Errorf("protocol is required")
+	}
+
+	return nil
 }
 
 // ValidateIPFilterAction validates that the action is a valid IP filter action

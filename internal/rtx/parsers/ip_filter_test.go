@@ -846,19 +846,23 @@ func TestValidateIPFilterNumber(t *testing.T) {
 			name:    "zero",
 			number:  0,
 			wantErr: true,
-			errMsg:  "filter number must be between 1 and 65535",
+			errMsg:  "filter number must be between 1 and 2147483647",
 		},
 		{
 			name:    "negative",
 			number:  -1,
 			wantErr: true,
-			errMsg:  "filter number must be between 1 and 65535",
+			errMsg:  "filter number must be between 1 and 2147483647",
 		},
 		{
-			name:    "too large",
-			number:  65536,
-			wantErr: true,
-			errMsg:  "filter number must be between 1 and 65535",
+			name:    "large valid (200000)",
+			number:  200000,
+			wantErr: false,
+		},
+		{
+			name:    "large valid (500000)",
+			number:  500000,
+			wantErr: false,
 		},
 	}
 
@@ -902,6 +906,14 @@ func TestValidateIPFilterProtocol(t *testing.T) {
 		{name: "uppercase TCP", protocol: "TCP", wantErr: false},
 		{name: "invalid protocol", protocol: "invalid", wantErr: true},
 		{name: "empty", protocol: "", wantErr: true},
+		// Compound protocol tests (RTX supports comma-separated protocols)
+		{name: "compound udp,tcp", protocol: "udp,tcp", wantErr: false},
+		{name: "compound tcp,udp", protocol: "tcp,udp", wantErr: false},
+		{name: "compound with spaces", protocol: "udp, tcp", wantErr: false},
+		{name: "compound uppercase", protocol: "UDP,TCP", wantErr: false},
+		{name: "compound three protocols", protocol: "tcp,udp,icmp", wantErr: false},
+		{name: "compound with invalid", protocol: "tcp,invalid", wantErr: true},
+		{name: "compound all invalid", protocol: "invalid1,invalid2", wantErr: true},
 	}
 
 	for _, tt := range tests {
@@ -993,7 +1005,7 @@ func TestValidateIPFilter(t *testing.T) {
 				Protocol:      "tcp",
 			},
 			wantErr: true,
-			errMsg:  "filter number must be between 1 and 65535",
+			errMsg:  "filter number must be between 1 and 2147483647",
 		},
 		{
 			name: "invalid action",
@@ -1113,7 +1125,7 @@ func TestValidateIPFilterDynamic(t *testing.T) {
 				Protocol: "ftp",
 			},
 			wantErr: true,
-			errMsg:  "filter number must be between 1 and 65535",
+			errMsg:  "filter number must be between 1 and 2147483647",
 		},
 		{
 			name: "empty source",

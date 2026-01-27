@@ -296,13 +296,13 @@ func TestValidateIPsecTunnel(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "missing pre-shared key",
+			name: "missing pre-shared key (optional)",
 			tunnel: IPsecTunnel{
 				ID:            1,
 				LocalAddress:  "10.0.0.1",
 				RemoteAddress: "10.0.0.2",
 			},
-			wantErr: true,
+			wantErr: false, // Pre-shared key is now optional (e.g., for L2TP transport mode)
 		},
 		{
 			name: "valid tunnel with networks",
