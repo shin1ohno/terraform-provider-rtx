@@ -17,12 +17,11 @@ Manages IPv6 extended access lists (ACLs) on RTX routers. Extended ACLs provide 
 
 ### Required
 
-- `entry` (Block List, Min: 1) List of ACL entries (see [below for nested schema](#nestedblock--entry))
 - `name` (String) The name of the access list (used as identifier)
 
-### Read-Only
+### Optional
 
-- `id` (String) The ID of this resource.
+- `entry` (Block List) List of ACL entries (see [below for nested schema](#nestedblock--entry))
 
 <a id="nestedblock--entry"></a>
 ### Nested Schema for `entry`
@@ -30,7 +29,7 @@ Manages IPv6 extended access lists (ACLs) on RTX routers. Extended ACLs provide 
 Required:
 
 - `ace_rule_action` (String) Action: 'permit' or 'deny'
-- `ace_rule_protocol` (String) Protocol: tcp, udp, icmpv6, ipv6, or *
+- `ace_rule_protocol` (String) Protocol: tcp, udp, icmpv6, ipv6, ip, or *
 - `sequence` (Number) Sequence number (determines order, typically 10, 20, 30...)
 
 Optional:

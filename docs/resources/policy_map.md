@@ -17,12 +17,11 @@ Manages QoS policy-map configurations on RTX routers. Policy-maps define actions
 
 ### Required
 
-- `class` (Block List, Min: 1) List of class definitions within this policy-map (see [below for nested schema](#nestedblock--class))
 - `name` (String) The policy-map name. Must start with a letter and contain only alphanumeric characters, underscores, and hyphens.
 
-### Read-Only
+### Optional
 
-- `id` (String) The ID of this resource.
+- `class` (Block List) List of class definitions within this policy-map (see [below for nested schema](#nestedblock--class))
 
 <a id="nestedblock--class"></a>
 ### Nested Schema for `class`

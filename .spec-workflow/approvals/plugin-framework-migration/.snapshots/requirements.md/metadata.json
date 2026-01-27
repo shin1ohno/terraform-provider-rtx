@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/plugin-framework-migration/requirements.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-27T07:17:05.596Z",
+      "trigger": "initial",
+      "approvalId": "approval_1769498225426_g39c3k3as",
+      "approvalTitle": "Requirements: Plugin Framework Migration"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-27T07:28:15.522Z",
+      "trigger": "approved",
+      "approvalId": "approval_1769498225426_g39c3k3as",
+      "approvalTitle": "Requirements: Plugin Framework Migration"
+    }
+  ]
+}

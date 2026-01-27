@@ -145,7 +145,7 @@ func (r *PolicyMapResource) ModifyPlan(ctx context.Context, req resource.ModifyP
 	// Validate total bandwidth_percent doesn't exceed 100%
 	if !data.Classes.IsNull() && !data.Classes.IsUnknown() {
 		elements := data.Classes.Elements()
-		var totalBandwidth int64 = 0
+		var totalBandwidth int64
 
 		for _, elem := range elements {
 			objVal := elem.(types.Object)

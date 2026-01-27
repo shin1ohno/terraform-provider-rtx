@@ -684,7 +684,7 @@ func (r *AccessListIPResource) readApplyBlocks(ctx context.Context, data *Access
 func (r *AccessListIPResource) extractFilterIDs(apply ApplyModel, data *AccessListIPModel) []int {
 	if !apply.FilterIDs.IsNull() && !apply.FilterIDs.IsUnknown() {
 		var filterIDs []int64
-		apply.FilterIDs.ElementsAs(nil, &filterIDs, false)
+		apply.FilterIDs.ElementsAs(context.TODO(), &filterIDs, false)
 		if len(filterIDs) > 0 {
 			ids := make([]int, len(filterIDs))
 			for i, id := range filterIDs {

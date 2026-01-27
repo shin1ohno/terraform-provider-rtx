@@ -23,8 +23,4 @@ Applies IPv6 access list filters to an interface. This resource manages the bind
 
 ### Optional
 
-- `filter_ids` (List of Number) List of filter IDs to apply in order. If not specified, filters must be applied via the associated access_list resource.
-
-### Read-Only
-
-- `id` (String) The ID of this resource.
+- `filter_ids` (List of Number) List of filter IDs to apply in order. At least one filter ID must be specified.

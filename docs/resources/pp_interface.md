@@ -28,5 +28,5 @@ Manages PP (Point-to-Point) interface IP configuration on RTX routers. This reso
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) The resource ID (same as pp_number as string).
 - `pp_interface` (String) The PP interface name (e.g., 'pp1'). Computed from pp_number.

@@ -17,10 +17,12 @@ Manages admin password configuration on RTX routers. This is a singleton resourc
 
 ### Optional
 
-- `admin_password` (String, Sensitive) Administrator password for the RTX router. This password is required for entering administrator mode to make configuration changes (write-only: value is sent to device but not read back)
-- `login_password` (String, Sensitive) Login password for the RTX router. This password is used for initial authentication when connecting to the router (write-only: value is sent to device but not read back)
+> **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
+
+- `admin_password` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Administrator password for the RTX router. This password is required for entering administrator mode to make configuration changes.
+- `login_password` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Login password for the RTX router. This password is used for initial authentication when connecting to the router.
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) Resource identifier (always 'admin' for this singleton resource).
 - `last_updated` (String) Timestamp of the last password update performed by Terraform (RFC3339 format).

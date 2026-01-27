@@ -17,28 +17,24 @@ Manages DHCP scopes on RTX routers. A DHCP scope defines the IP address range an
 
 ### Required
 
-- `network` (String) The network address in CIDR notation (e.g., '192.168.1.0/24')
-- `scope_id` (Number) The DHCP scope ID (positive integer)
+- `network` (String) The network address in CIDR notation (e.g., '192.168.1.0/24').
+- `scope_id` (Number) The DHCP scope ID (positive integer).
 
 ### Optional
 
-- `exclude_ranges` (Block List) IP address ranges to exclude from DHCP allocation (see [below for nested schema](#nestedblock--exclude_ranges))
-- `lease_time` (String) DHCP lease duration in Go duration format (e.g., '72h', '30m') or 'infinite'
-- `options` (Block List, Max: 1) DHCP options for client configuration (Cisco-compatible naming) (see [below for nested schema](#nestedblock--options))
-- `range_end` (String) End IP address of the DHCP allocation range (parsed from IP range format)
-- `range_start` (String) Start IP address of the DHCP allocation range (parsed from IP range format)
-
-### Read-Only
-
-- `id` (String) The ID of this resource.
+- `exclude_ranges` (Block List) IP address ranges to exclude from DHCP allocation. (see [below for nested schema](#nestedblock--exclude_ranges))
+- `lease_time` (String) DHCP lease duration in Go duration format (e.g., '72h', '30m') or 'infinite'.
+- `options` (Block, Optional) DHCP options for client configuration (Cisco-compatible naming). (see [below for nested schema](#nestedblock--options))
+- `range_end` (String) End IP address of the DHCP allocation range (parsed from IP range format).
+- `range_start` (String) Start IP address of the DHCP allocation range (parsed from IP range format).
 
 <a id="nestedblock--exclude_ranges"></a>
 ### Nested Schema for `exclude_ranges`
 
 Required:
 
-- `end` (String) End IP address of the exclusion range
-- `start` (String) Start IP address of the exclusion range
+- `end` (String) End IP address of the exclusion range.
+- `start` (String) Start IP address of the exclusion range.
 
 
 <a id="nestedblock--options"></a>
@@ -46,6 +42,6 @@ Required:
 
 Optional:
 
-- `dns_servers` (List of String) DNS server addresses for DHCP clients (maximum 3)
-- `domain_name` (String) Domain name for DHCP clients
-- `routers` (List of String) Default gateway addresses for DHCP clients (maximum 3)
+- `dns_servers` (List of String) DNS server addresses for DHCP clients (maximum 3).
+- `domain_name` (String) Domain name for DHCP clients.
+- `routers` (List of String) Default gateway addresses for DHCP clients (maximum 3).

@@ -17,14 +17,14 @@ Manages QoS traffic shaping configurations on RTX routers. Shaping limits the ra
 
 ### Required
 
-- `direction` (String) Direction for shaping: 'input' or 'output'
-- `interface` (String) The interface to apply traffic shaping to (e.g., 'lan1', 'wan1')
-- `shape_average` (Number) Average rate limit in bits per second (bps)
+- `direction` (String) Direction for shaping: 'input' or 'output'.
+- `interface` (String) The interface to apply traffic shaping to (e.g., 'lan1', 'wan1').
+- `shape_average` (Number) Average rate limit in bits per second (bps).
 
 ### Optional
 
-- `shape_burst` (Number) Burst size in bytes (optional)
+- `shape_burst` (Number) Burst size in bytes (optional).
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) Resource identifier in the format 'interface:direction'.

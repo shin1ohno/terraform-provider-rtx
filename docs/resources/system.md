@@ -17,23 +17,23 @@ Manages system-level settings on RTX routers. This is a singleton resource - the
 
 ### Optional
 
-- `console` (Block List, Max: 1) Console settings (see [below for nested schema](#nestedblock--console))
-- `packet_buffer` (Block List, Max: 3) Packet buffer tuning settings (small, middle, large) (see [below for nested schema](#nestedblock--packet_buffer))
-- `statistics` (Block List, Max: 1) Statistics collection settings (see [below for nested schema](#nestedblock--statistics))
-- `timezone` (String) Timezone as UTC offset (e.g., '+09:00' for JST, '-05:00' for EST)
+- `console` (Block List) Console settings. (see [below for nested schema](#nestedblock--console))
+- `packet_buffer` (Block List) Packet buffer tuning settings (small, middle, large). (see [below for nested schema](#nestedblock--packet_buffer))
+- `statistics` (Block List) Statistics collection settings. (see [below for nested schema](#nestedblock--statistics))
+- `timezone` (String) Timezone as UTC offset (e.g., '+09:00' for JST, '-05:00' for EST).
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) Resource identifier (always 'system' for this singleton resource).
 
 <a id="nestedblock--console"></a>
 ### Nested Schema for `console`
 
 Optional:
 
-- `character` (String) Character encoding (ja.utf8, ja.sjis, ascii, euc-jp)
-- `lines` (String) Lines per page (positive integer or 'infinity')
-- `prompt` (String) Custom prompt string
+- `character` (String) Character encoding (ja.utf8, ja.sjis, ascii, euc-jp).
+- `lines` (String) Lines per page (positive integer or 'infinity').
+- `prompt` (String) Custom prompt string.
 
 
 <a id="nestedblock--packet_buffer"></a>
@@ -41,9 +41,9 @@ Optional:
 
 Required:
 
-- `max_buffer` (Number) Maximum buffer count
-- `max_free` (Number) Maximum free buffer count
-- `size` (String) Buffer size category (small, middle, large)
+- `max_buffer` (Number) Maximum buffer count.
+- `max_free` (Number) Maximum free buffer count.
+- `size` (String) Buffer size category (small, middle, large).
 
 
 <a id="nestedblock--statistics"></a>
@@ -51,5 +51,5 @@ Required:
 
 Optional:
 
-- `nat` (Boolean) Enable NAT statistics collection
-- `traffic` (Boolean) Enable traffic statistics collection
+- `nat` (Boolean) Enable NAT statistics collection.
+- `traffic` (Boolean) Enable traffic statistics collection.

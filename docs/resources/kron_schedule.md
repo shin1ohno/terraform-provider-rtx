@@ -29,7 +29,3 @@ Manages a kron schedule (scheduled task) on RTX routers. Schedules can be time-b
 - `on_startup` (Boolean) Execute this schedule when the router starts up. Cannot be combined with at_time or date.
 - `policy_list` (String) Name of a kron policy to execute. Use this OR command_lines, not both.
 - `recurring` (Boolean) Whether the schedule repeats. Automatically set to false for date-specific schedules.
-
-### Read-Only
-
-- `id` (String) The ID of this resource.

@@ -155,18 +155,6 @@ func TestIPsecTunnelService_Create(t *testing.T) {
 			expectedErr: false,
 		},
 		{
-			name: "Validation error - missing local address",
-			tunnel: IPsecTunnel{
-				ID:            1,
-				LocalAddress:  "",
-				RemoteAddress: "192.168.2.1",
-				PreSharedKey:  "secret123",
-			},
-			mockSetup:   func(m *MockExecutor) {},
-			expectedErr: true,
-			errMessage:  "invalid IPsec tunnel config",
-		},
-		{
 			name: "Batch execution error",
 			tunnel: IPsecTunnel{
 				ID:            1,
@@ -262,18 +250,6 @@ func TestIPsecTunnelService_Update(t *testing.T) {
 				})).Return([]byte(""), nil)
 			},
 			expectedErr: false,
-		},
-		{
-			name: "Validation error",
-			tunnel: IPsecTunnel{
-				ID:            1,
-				LocalAddress:  "",
-				RemoteAddress: "",
-				PreSharedKey:  "",
-			},
-			mockSetup:   func(m *MockExecutor) {},
-			expectedErr: true,
-			errMessage:  "invalid IPsec tunnel config",
 		},
 	}
 

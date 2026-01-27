@@ -26,7 +26,7 @@ Manages SNMP configuration on RTX routers. This is a singleton resource - there 
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) Resource identifier (always 'snmp' for this singleton resource).
 
 <a id="nestedblock--community"></a>
 ### Nested Schema for `community`

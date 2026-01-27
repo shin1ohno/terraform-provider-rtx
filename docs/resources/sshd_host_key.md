@@ -17,6 +17,6 @@ Manages SSH host key on RTX routers. This is a singleton resource - only one ins
 
 ### Read-Only
 
-- `algorithm` (String) Host key algorithm (e.g., ssh-rsa)
-- `fingerprint` (String) SSH host key fingerprint
-- `id` (String) The ID of this resource.
+- `algorithm` (String) Host key algorithm (e.g., ssh-rsa).
+- `fingerprint` (String) SSH host key fingerprint.
+- `id` (String) Identifier for this singleton resource.

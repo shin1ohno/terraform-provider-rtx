@@ -25,4 +25,4 @@ Manages L2TP service configuration on RTX routers. This is a singleton resource 
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) Resource identifier. Always 'default' for this singleton resource.

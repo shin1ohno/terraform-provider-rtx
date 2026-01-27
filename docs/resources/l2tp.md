@@ -18,21 +18,23 @@ Manages L2TP/L2TPv3 tunnel configuration on RTX routers. Supports both L2TPv2 (L
 ### Required
 
 - `mode` (String) Operating mode: 'lns' (L2TPv2 server) or 'l2vpn' (L2TPv3 site-to-site).
-- `tunnel_id` (Number) Tunnel ID (1-65535).
+- `tunnel_id` (Number) Tunnel ID (1-6000).
 - `version` (String) L2TP version: 'l2tp' (v2) or 'l2tpv3' (v3).
 
 ### Optional
 
+> **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
+
 - `always_on` (Boolean) Enable always-on mode.
-- `authentication` (Block List, Max: 1) L2TPv2 authentication settings. (see [below for nested schema](#nestedblock--authentication))
+- `authentication` (Block, Optional) L2TP authentication settings. Required for L2TP LNS mode, not needed for L2TPv3. (see [below for nested schema](#nestedblock--authentication))
 - `disconnect_time` (Number) Idle disconnect time in seconds. 0 means no timeout.
 - `enabled` (Boolean) Enable the L2TP tunnel.
-- `ip_pool` (Block List, Max: 1) IP pool for L2TPv2 LNS clients. (see [below for nested schema](#nestedblock--ip_pool))
-- `ipsec_profile` (Block List, Max: 1) IPsec encryption settings for L2TP. (see [below for nested schema](#nestedblock--ipsec_profile))
+- `ip_pool` (Block, Optional) IP pool for L2TP LNS clients. Required for LNS mode, not needed for L2TPv3. (see [below for nested schema](#nestedblock--ip_pool))
+- `ipsec_profile` (Block, Optional) IPsec encryption settings for L2TP. (see [below for nested schema](#nestedblock--ipsec_profile))
 - `keepalive_enabled` (Boolean) Enable keepalive.
 - `keepalive_interval` (Number) Keepalive interval in seconds.
 - `keepalive_retry` (Number) Keepalive retry count.
-- `l2tpv3_config` (Block List, Max: 1) L2TPv3-specific configuration. (see [below for nested schema](#nestedblock--l2tpv3_config))
+- `l2tpv3_config` (Block, Optional) L2TPv3-specific configuration. (see [below for nested schema](#nestedblock--l2tpv3_config))
 - `name` (String) Tunnel description.
 - `shutdown` (Boolean) Administratively shut down the tunnel.
 - `tunnel_dest_type` (String) Destination type: 'ip' or 'fqdn'.
@@ -41,18 +43,14 @@ Manages L2TP/L2TPv3 tunnel configuration on RTX routers. Supports both L2TPv2 (L
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
 - `tunnel_interface` (String) The tunnel interface name (e.g., 'tunnel1'). Computed from tunnel_id.
 
 <a id="nestedblock--authentication"></a>
 ### Nested Schema for `authentication`
 
-Required:
-
-- `method` (String) Authentication method: 'pap', 'chap', 'mschap', or 'mschap-v2'.
-
 Optional:
 
+- `method` (String) Authentication method: 'pap', 'chap', 'mschap', or 'mschap-v2'.
 - `password` (String, Sensitive) Password for authentication.
 - `username` (String) Username for authentication.
 
@@ -60,7 +58,7 @@ Optional:
 <a id="nestedblock--ip_pool"></a>
 ### Nested Schema for `ip_pool`
 
-Required:
+Optional:
 
 - `end` (String) End IP address of the pool.
 - `start` (String) Start IP address of the pool.
@@ -81,11 +79,13 @@ Optional:
 
 Optional:
 
+> **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
+
 - `bridge_interface` (String) Bridge interface for L2VPN.
 - `cookie_size` (Number) Cookie size: 0, 4, or 8 bytes.
-- `local_router_id` (String) Local router ID. Required for L2TPv3, but optional for import compatibility.
+- `local_router_id` (String) Local router ID.
 - `remote_end_id` (String) Remote end ID (hostname).
-- `remote_router_id` (String) Remote router ID. Required for L2TPv3, but optional for import compatibility.
+- `remote_router_id` (String) Remote router ID.
 - `session_id` (Number) Session ID.
 - `tunnel_auth_enabled` (Boolean) Enable tunnel authentication.
-- `tunnel_auth_password` (String, Sensitive) Tunnel authentication password.
+- `tunnel_auth_password` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Tunnel authentication password. This value is write-only and will not be stored in state.

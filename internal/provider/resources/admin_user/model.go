@@ -1,9 +1,6 @@
 package admin_user
 
 import (
-	"context"
-
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
@@ -96,18 +93,4 @@ func getStringSetValues(set types.Set) []string {
 		}
 	}
 	return result
-}
-
-func stringSliceToSet(slice []string) types.Set {
-	elements := make([]attr.Value, len(slice))
-	for i, s := range slice {
-		elements[i] = types.StringValue(s)
-	}
-	setVal, _ := types.SetValue(types.StringType, elements)
-	return setVal
-}
-
-// Helper to convert set to string slice with context (for diagnostics if needed)
-func getStringSetValuesWithContext(ctx context.Context, set types.Set) []string {
-	return getStringSetValues(set)
 }

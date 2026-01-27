@@ -17,29 +17,29 @@ Manages NAT masquerade (PAT/NAPT) configurations on RTX routers. NAT masquerade 
 
 ### Required
 
-- `descriptor_id` (Number) NAT descriptor ID (1-65535)
-- `outer_address` (String) Outer (external) address: 'ipcp' for PPPoE-assigned address, interface name (e.g., 'pp1'), or specific IP address
+- `descriptor_id` (Number) NAT descriptor ID (1-65535).
+- `outer_address` (String) Outer (external) address: 'ipcp' for PPPoE-assigned address, interface name (e.g., 'pp1'), or specific IP address.
 
 ### Optional
 
-- `inner_network` (String) Inner (internal) network range in format 'start_ip-end_ip' (e.g., '192.168.1.0-192.168.1.255')
-- `static_entry` (Block List) Static port mapping entries for port forwarding (see [below for nested schema](#nestedblock--static_entry))
+- `inner_network` (String) Inner (internal) network range in format 'start_ip-end_ip' (e.g., '192.168.1.0-192.168.1.255').
+- `static_entry` (Block List) Static port mapping entries for port forwarding. (see [below for nested schema](#nestedblock--static_entry))
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) Resource identifier (same as descriptor_id).
 
 <a id="nestedblock--static_entry"></a>
 ### Nested Schema for `static_entry`
 
 Required:
 
-- `entry_number` (Number) Entry number for identification
-- `inside_local` (String) Internal IP address
+- `entry_number` (Number) Entry number for identification.
+- `inside_local` (String) Internal IP address.
 
 Optional:
 
-- `inside_local_port` (Number) Internal port number (1-65535). Required for tcp/udp, omit for protocol-only entries (esp, ah, gre, icmp)
-- `outside_global` (String) External IP address or 'ipcp' for PPPoE-assigned address
-- `outside_global_port` (Number) External port number (1-65535). Required for tcp/udp, omit for protocol-only entries (esp, ah, gre, icmp)
-- `protocol` (String) Protocol: 'tcp', 'udp' (require ports), or 'esp', 'ah', 'gre', 'icmp' (protocol-only, no ports)
+- `inside_local_port` (Number) Internal port number (1-65535). Required for tcp/udp, omit for protocol-only entries (esp, ah, gre, icmp).
+- `outside_global` (String) External IP address or 'ipcp' for PPPoE-assigned address.
+- `outside_global_port` (Number) External port number (1-65535). Required for tcp/udp, omit for protocol-only entries (esp, ah, gre, icmp).
+- `protocol` (String) Protocol: 'tcp', 'udp' (require ports), or 'esp', 'ah', 'gre', 'icmp' (protocol-only, no ports).

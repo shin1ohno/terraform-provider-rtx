@@ -17,26 +17,27 @@ Manages IPsec VPN tunnel configuration on RTX routers. Supports IKEv2 with pre-s
 
 ### Required
 
-- `tunnel_id` (Number) Tunnel ID (1-65535).
+- `tunnel_id` (Number) Tunnel ID (1-6000).
 
 ### Optional
+
+> **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
 
 - `dpd_enabled` (Boolean) Enable Dead Peer Detection.
 - `dpd_interval` (Number) DPD interval in seconds.
 - `dpd_retry` (Number) DPD retry count before declaring peer dead (0 means disabled).
 - `enabled` (Boolean) Enable the IPsec tunnel.
-- `ikev2_proposal` (Block List, Max: 1) IKE Phase 1 proposal settings. (see [below for nested schema](#nestedblock--ikev2_proposal))
-- `ipsec_transform` (Block List, Max: 1) IPsec Phase 2 transform settings. (see [below for nested schema](#nestedblock--ipsec_transform))
+- `ikev2_proposal` (Block, Optional) IKE Phase 1 proposal settings. (see [below for nested schema](#nestedblock--ikev2_proposal))
+- `ipsec_transform` (Block, Optional) IPsec Phase 2 transform settings. (see [below for nested schema](#nestedblock--ipsec_transform))
 - `local_address` (String) Local endpoint IP address.
 - `local_network` (String) Local network in CIDR notation (e.g., '192.168.1.0/24').
 - `name` (String) Tunnel description/name.
-- `pre_shared_key` (String, Sensitive) Pre-shared key for IKE authentication (write-only: value is sent to device but not read back)
+- `pre_shared_key` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Pre-shared key for IKE authentication. This value is write-only and will not be stored in state.
 - `remote_address` (String) Remote endpoint IP address or hostname (for dynamic DNS).
 - `remote_network` (String) Remote network in CIDR notation (e.g., '10.0.0.0/24').
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
 - `tunnel_interface` (String) The tunnel interface name (e.g., 'tunnel1'). Computed from tunnel_id.
 
 <a id="nestedblock--ikev2_proposal"></a>

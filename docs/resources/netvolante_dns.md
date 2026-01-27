@@ -26,7 +26,3 @@ Manages NetVolante DNS (Yamaha's free DDNS service) configuration on RTX routers
 - `ipv6_enabled` (Boolean) Enable IPv6 address registration with NetVolante DNS. Default is false.
 - `server` (Number) NetVolante DNS server number (1 or 2). Default is 1.
 - `timeout` (Number) Update timeout in seconds (1-3600). Default is 60.
-
-### Read-Only
-
-- `id` (String) The ID of this resource.

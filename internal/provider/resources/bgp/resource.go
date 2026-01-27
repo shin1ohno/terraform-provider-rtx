@@ -299,7 +299,7 @@ func preservePasswords(data *BGPModel, config *client.BGPConfig) {
 	}
 
 	var currentNeighbors []NeighborModel
-	data.Neighbors.ElementsAs(nil, &currentNeighbors, false)
+	data.Neighbors.ElementsAs(context.TODO(), &currentNeighbors, false)
 
 	// Build a map of passwords by index
 	passwordsByIndex := make(map[int]string)

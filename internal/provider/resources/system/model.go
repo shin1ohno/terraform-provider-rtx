@@ -102,7 +102,7 @@ func (m *SystemModel) ToClient() client.SystemConfig {
 	// Handle statistics block
 	if !m.Statistics.IsNull() && !m.Statistics.IsUnknown() && len(m.Statistics.Elements()) > 0 {
 		var statsModels []StatisticsModel
-		m.Statistics.ElementsAs(nil, &statsModels, false)
+		m.Statistics.ElementsAs(context.TODO(), &statsModels, false)
 		if len(statsModels) > 0 {
 			sm := statsModels[0]
 			config.Statistics = &client.StatisticsConfig{

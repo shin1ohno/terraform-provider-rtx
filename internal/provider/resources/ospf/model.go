@@ -1,6 +1,8 @@
 package ospf
 
 import (
+	"context"
+
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
@@ -85,7 +87,7 @@ func (m *OSPFModel) ToClient() client.OSPFConfig {
 	// Convert networks
 	if !m.Networks.IsNull() && !m.Networks.IsUnknown() {
 		var networks []NetworkModel
-		m.Networks.ElementsAs(nil, &networks, false)
+		m.Networks.ElementsAs(context.TODO(), &networks, false)
 		config.Networks = make([]client.OSPFNetwork, len(networks))
 		for i, n := range networks {
 			config.Networks[i] = client.OSPFNetwork{
@@ -99,7 +101,7 @@ func (m *OSPFModel) ToClient() client.OSPFConfig {
 	// Convert areas
 	if !m.Areas.IsNull() && !m.Areas.IsUnknown() {
 		var areas []AreaModel
-		m.Areas.ElementsAs(nil, &areas, false)
+		m.Areas.ElementsAs(context.TODO(), &areas, false)
 		config.Areas = make([]client.OSPFArea, len(areas))
 		for i, a := range areas {
 			config.Areas[i] = client.OSPFArea{
@@ -113,7 +115,7 @@ func (m *OSPFModel) ToClient() client.OSPFConfig {
 	// Convert neighbors
 	if !m.Neighbors.IsNull() && !m.Neighbors.IsUnknown() {
 		var neighbors []NeighborModel
-		m.Neighbors.ElementsAs(nil, &neighbors, false)
+		m.Neighbors.ElementsAs(context.TODO(), &neighbors, false)
 		config.Neighbors = make([]client.OSPFNeighbor, len(neighbors))
 		for i, n := range neighbors {
 			config.Neighbors[i] = client.OSPFNeighbor{

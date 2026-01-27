@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/plugin-framework-migration/tasks.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-27T07:32:28.130Z",
+      "trigger": "initial",
+      "approvalId": "approval_1769499147925_kk8h1inph",
+      "approvalTitle": "Tasks: Plugin Framework Migration"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-27T07:35:20.140Z",
+      "trigger": "approved",
+      "approvalId": "approval_1769499147925_kk8h1inph",
+      "approvalTitle": "Tasks: Plugin Framework Migration"
+    }
+  ]
+}

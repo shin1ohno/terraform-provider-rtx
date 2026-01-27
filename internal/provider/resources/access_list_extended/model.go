@@ -1,6 +1,8 @@
 package access_list_extended
 
 import (
+	"context"
+
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
@@ -104,7 +106,7 @@ func (m *AccessListExtendedModel) entriesToClient() []client.AccessListExtendedE
 	}
 
 	var entries []EntryModel
-	m.Entry.ElementsAs(nil, &entries, false)
+	m.Entry.ElementsAs(context.TODO(), &entries, false)
 
 	result := make([]client.AccessListExtendedEntry, 0, len(entries))
 	for i, entry := range entries {
@@ -148,7 +150,7 @@ func (m *AccessListExtendedModel) appliesToClient() []client.ExtendedApply {
 	}
 
 	var applies []ApplyModel
-	m.Apply.ElementsAs(nil, &applies, false)
+	m.Apply.ElementsAs(context.TODO(), &applies, false)
 
 	result := make([]client.ExtendedApply, 0, len(applies))
 	for _, apply := range applies {
@@ -160,7 +162,7 @@ func (m *AccessListExtendedModel) appliesToClient() []client.ExtendedApply {
 		// Extract filter_ids
 		if !apply.FilterIDs.IsNull() && !apply.FilterIDs.IsUnknown() {
 			var filterIDs []types.Int64
-			apply.FilterIDs.ElementsAs(nil, &filterIDs, false)
+			apply.FilterIDs.ElementsAs(context.TODO(), &filterIDs, false)
 			for _, id := range filterIDs {
 				clientApply.FilterIDs = append(clientApply.FilterIDs, int(id.ValueInt64()))
 			}

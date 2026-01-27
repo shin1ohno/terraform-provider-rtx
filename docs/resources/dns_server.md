@@ -27,7 +27,7 @@ Manages DNS server configuration on RTX routers. This is a singleton resource - 
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) Resource identifier (always 'dns' for this singleton resource)
 
 <a id="nestedblock--hosts"></a>
 ### Nested Schema for `hosts`
@@ -45,13 +45,13 @@ Required:
 
 - `priority` (Number) Priority for DNS server selection. Lower numbers have higher priority.
 - `query_pattern` (String) Domain pattern to match (e.g., '.', '*.example.com', 'internal.net')
-- `server` (Block List, Min: 1, Max: 2) DNS servers for this selector (1-2 servers with per-server EDNS settings) (see [below for nested schema](#nestedblock--server_select--server))
 
 Optional:
 
 - `original_sender` (String) Source IP/CIDR restriction for DNS queries
 - `record_type` (String) DNS record type to match: a, aaaa, ptr, mx, ns, cname, any
 - `restrict_pp` (Number) PP session restriction (0 = no restriction)
+- `server` (Block List) DNS servers for this selector (1-2 servers with per-server EDNS settings) (see [below for nested schema](#nestedblock--server_select--server))
 
 <a id="nestedblock--server_select--server"></a>
 ### Nested Schema for `server_select.server`

@@ -18,11 +18,10 @@ Manages static NAT (Network Address Translation) on RTX routers. Static NAT prov
 ### Required
 
 - `descriptor_id` (Number) The NAT descriptor ID (1-65535)
-- `entry` (Block List, Min: 1) List of static NAT mapping entries (see [below for nested schema](#nestedblock--entry))
 
-### Read-Only
+### Optional
 
-- `id` (String) The ID of this resource.
+- `entry` (Block List) List of static NAT mapping entries (see [below for nested schema](#nestedblock--entry))
 
 <a id="nestedblock--entry"></a>
 ### Nested Schema for `entry`

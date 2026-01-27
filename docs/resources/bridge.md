@@ -25,5 +25,4 @@ Manages Ethernet bridge configurations on RTX routers. Bridges combine multiple 
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
 - `interface_name` (String) The bridge interface name. Same as 'name', provided for consistency with other resources.

@@ -3,12 +3,12 @@
 page_title: "rtx_dhcp_binding Resource - terraform-provider-rtx"
 subcategory: ""
 description: |-
-  Manages DHCP static lease bindings on RTX routers
+  Manages DHCP static lease bindings on RTX routers.
 ---
 
 # rtx_dhcp_binding (Resource)
 
-Manages DHCP static lease bindings on RTX routers
+Manages DHCP static lease bindings on RTX routers.
 
 
 
@@ -17,17 +17,17 @@ Manages DHCP static lease bindings on RTX routers
 
 ### Required
 
-- `ip_address` (String) The IP address to assign
-- `scope_id` (Number) The DHCP scope ID
+- `ip_address` (String) The IP address to assign.
+- `scope_id` (Number) The DHCP scope ID.
 
 ### Optional
 
-- `client_identifier` (String) DHCP Client Identifier in hex format (e.g., '01:aa:bb:cc:dd:ee:ff' for MAC-based, '02:12:34:56:78' for custom)
-- `description` (String) Description of the DHCP binding (for documentation purposes)
-- `hostname` (String) Hostname for the device (for documentation purposes)
-- `mac_address` (String) The MAC address of the device (e.g., '00:11:22:33:44:55')
-- `use_mac_as_client_id` (Boolean) When true with mac_address, automatically generates '01:MAC' client identifier
+- `client_identifier` (String) DHCP Client Identifier in hex format (e.g., '01:aa:bb:cc:dd:ee:ff' for MAC-based, '02:12:34:56:78' for custom). Conflicts with mac_address.
+- `description` (String) Description of the DHCP binding (for documentation purposes).
+- `hostname` (String) Hostname for the device (for documentation purposes).
+- `mac_address` (String) The MAC address of the device (e.g., '00:11:22:33:44:55'). Conflicts with client_identifier.
+- `use_mac_as_client_id` (Boolean) When true with mac_address, automatically generates '01:MAC' client identifier.
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) Unique identifier for the resource in the format 'scope_id:mac_address'.

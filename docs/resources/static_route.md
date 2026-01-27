@@ -72,13 +72,16 @@ resource "rtx_static_route" "vpn" {
 
 ### Required
 
-- `mask` (String) The subnet mask in dotted decimal notation (e.g., '255.255.255.0')
-- `next_hop` (Block List, Min: 1) Next hop configuration for this route. Multiple next hops enable load balancing or failover. (see [below for nested schema](#nestedblock--next_hop))
-- `prefix` (String) The destination network prefix (e.g., '10.0.0.0' for a network, '0.0.0.0' for default route)
+- `mask` (String) The subnet mask in dotted decimal notation (e.g., '255.255.255.0').
+- `prefix` (String) The destination network prefix (e.g., '10.0.0.0' for a network, '0.0.0.0' for default route).
+
+### Optional
+
+- `next_hop` (Block List) Next hop configuration for this route. Multiple next hops enable load balancing or failover. (see [below for nested schema](#nestedblock--next_hop))
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) Resource identifier in the format 'prefix/mask'.
 
 <a id="nestedblock--next_hop"></a>
 ### Nested Schema for `next_hop`

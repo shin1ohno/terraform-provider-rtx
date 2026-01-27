@@ -46,7 +46,7 @@ func (m *SSHDModel) FromClient(config *client.SSHDConfig) {
 	}
 
 	// Handle hosts list
-	if config.Hosts != nil && len(config.Hosts) > 0 {
+	if len(config.Hosts) > 0 {
 		m.Hosts = stringSliceToList(config.Hosts)
 	} else {
 		m.Hosts = types.ListValueMust(types.StringType, []attr.Value{})

@@ -21,4 +21,4 @@ Manages SFTP daemon (sftpd) configuration on RTX routers. This is a singleton re
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) Resource identifier (always 'sftpd' for this singleton resource).

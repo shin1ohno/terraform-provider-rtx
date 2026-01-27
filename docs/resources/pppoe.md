@@ -17,8 +17,10 @@ Manages PPPoE connection configuration on RTX routers. This resource configures 
 
 ### Required
 
+> **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
+
 - `bind_interface` (String) Physical interface to bind for PPPoE (e.g., 'lan2').
-- `password` (String, Sensitive) PPPoE authentication password (write-only: value is sent to device but not read back)
+- `password` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) PPPoE authentication password. This value is write-only and will not be stored in state.
 - `pp_number` (Number) PP interface number (1-based). This identifies the PPPoE connection.
 - `username` (String) PPPoE authentication username.
 
@@ -36,5 +38,5 @@ Manages PPPoE connection configuration on RTX routers. This resource configures 
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) The resource identifier (PP number as string).
 - `pp_interface` (String) The PP interface name (e.g., 'pp1'). Computed from pp_number.

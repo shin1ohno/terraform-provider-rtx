@@ -46,19 +46,18 @@ resource "rtx_interface" "lan" {
 
 ### Required
 
-- `name` (String) Interface name (e.g., 'lan1', 'lan2', 'bridge1', 'pp1', 'tunnel1')
+- `name` (String) Interface name (e.g., 'lan1', 'lan2', 'bridge1', 'pp1', 'tunnel1').
 
 ### Optional
 
-- `description` (String) Interface description
-- `ip_address` (Block List, Max: 1) IP address configuration block. Either 'address' or 'dhcp' must be set, but not both. (see [below for nested schema](#nestedblock--ip_address))
+- `description` (String) Interface description.
+- `ip_address` (Block, Optional) IP address configuration block. Either 'address' or 'dhcp' must be set, but not both. (see [below for nested schema](#nestedblock--ip_address))
 - `mtu` (Number) Maximum Transmission Unit size. Set to 0 to use the default MTU.
 - `nat_descriptor` (Number) NAT descriptor ID to bind to this interface. Use rtx_nat_masquerade or rtx_nat_static to define the descriptor.
-- `proxyarp` (Boolean) Enable ProxyARP on this interface
+- `proxyarp` (Boolean) Enable ProxyARP on this interface.
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
 - `interface_name` (String) The interface name. Same as 'name', provided for consistency with other resources.
 
 <a id="nestedblock--ip_address"></a>
@@ -66,5 +65,5 @@ resource "rtx_interface" "lan" {
 
 Optional:
 
-- `address` (String) Static IP address in CIDR notation (e.g., '192.168.1.1/24')
-- `dhcp` (Boolean) Use DHCP for IP address assignment
+- `address` (String) Static IP address in CIDR notation (e.g., '192.168.1.1/24').
+- `dhcp` (Boolean) Use DHCP for IP address assignment.

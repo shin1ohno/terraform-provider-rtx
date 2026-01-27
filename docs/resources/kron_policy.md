@@ -19,7 +19,3 @@ Manages a kron policy (command list) on RTX routers. A kron policy defines a set
 
 - `command_lines` (List of String) List of commands to execute in order when the policy is triggered.
 - `name` (String) The name of the kron policy. Must start with a letter and contain only letters, numbers, underscores, and hyphens.
-
-### Read-Only
-
-- `id` (String) The ID of this resource.

@@ -31,7 +31,7 @@ Manages BGP (Border Gateway Protocol) configuration on RTX routers. BGP is a sin
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) Resource identifier. Always 'bgp' for this singleton resource.
 
 <a id="nestedblock--neighbor"></a>
 ### Nested Schema for `neighbor`
@@ -44,7 +44,7 @@ Required:
 
 Optional:
 
-- `hold_time` (Number) Hold time in seconds (3-65535). Default is 90.
+- `hold_time` (Number) Hold time in seconds (3-28800). Default is 90.
 - `keepalive` (Number) Keepalive interval in seconds (1-21845). Default is 30.
 - `local_address` (String) Local IP address for the BGP session.
 - `multihop` (Number) eBGP multihop TTL (1-255). Required for non-directly connected eBGP peers.

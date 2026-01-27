@@ -17,18 +17,14 @@ Manages IPv6 interface configuration on RTX routers. This includes IPv6 addresse
 
 ### Required
 
-- `interface` (String) Interface name (e.g., 'lan1', 'lan2', 'bridge1', 'pp1', 'tunnel1')
+- `interface` (String) Interface name (e.g., 'lan1', 'lan2', 'bridge1', 'pp1', 'tunnel1').
 
 ### Optional
 
 - `address` (Block List) IPv6 address configuration blocks. Multiple addresses can be configured on a single interface. (see [below for nested schema](#nestedblock--address))
 - `dhcpv6_service` (String) DHCPv6 service mode: 'server', 'client', or '' (disabled).
 - `mtu` (Number) IPv6 MTU size (minimum 1280 for IPv6). Set to 0 to use the default MTU.
-- `rtadv` (Block List, Max: 1) Router Advertisement (RTADV) configuration for this interface. (see [below for nested schema](#nestedblock--rtadv))
-
-### Read-Only
-
-- `id` (String) The ID of this resource.
+- `rtadv` (Block, Optional) Router Advertisement (RTADV) configuration for this interface. (see [below for nested schema](#nestedblock--rtadv))
 
 <a id="nestedblock--address"></a>
 ### Nested Schema for `address`

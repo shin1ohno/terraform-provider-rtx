@@ -17,19 +17,28 @@ Manages MAC address access lists on RTX routers. MAC ACLs filter traffic based o
 
 ### Required
 
-- `entry` (Block List, Min: 1) List of MAC ACL entries (see [below for nested schema](#nestedblock--entry))
 - `name` (String) Access list name (identifier)
 
 ### Optional
 
 - `apply` (Block List) List of interface bindings. Each apply block binds this ACL to an interface in a specific direction. Multiple apply blocks are supported. (see [below for nested schema](#nestedblock--apply))
+- `entry` (Block List) List of MAC ACL entries (see [below for nested schema](#nestedblock--entry))
 - `filter_id` (Number) Optional RTX filter ID to enable numeric ethernet filter mode. If not specified, derived from first entry.
 - `sequence_start` (Number) Starting sequence number for automatic sequence calculation. When set, sequence numbers are automatically assigned to entries based on their definition order. Mutually exclusive with entry-level sequence attributes.
 - `sequence_step` (Number) Increment value for automatic sequence calculation. Only used when sequence_start is set. Default is 10.
 
-### Read-Only
+<a id="nestedblock--apply"></a>
+### Nested Schema for `apply`
 
-- `id` (String) The ID of this resource.
+Required:
+
+- `direction` (String) Direction to apply filters (in or out)
+- `interface` (String) Interface to apply filters (e.g., lan1, bridge1). MAC ACLs cannot be applied to PP or Tunnel interfaces.
+
+Optional:
+
+- `filter_ids` (List of Number) Specific filter IDs (sequence numbers) to apply in order. If omitted, all entry sequences are applied in order.
+
 
 <a id="nestedblock--entry"></a>
 ### Nested Schema for `entry`
@@ -44,7 +53,7 @@ Optional:
 - `destination_address` (String) Destination MAC address (e.g., 00:00:00:00:00:00)
 - `destination_address_mask` (String) Destination MAC wildcard mask
 - `destination_any` (Boolean) Match any destination MAC address
-- `dhcp_match` (Block List, Max: 1) DHCP-based match settings (see [below for nested schema](#nestedblock--entry--dhcp_match))
+- `dhcp_match` (Block, Optional) DHCP-based match settings (see [below for nested schema](#nestedblock--entry--dhcp_match))
 - `ether_type` (String) Ethernet type (e.g., 0x0800 for IPv4, 0x0806 for ARP)
 - `filter_id` (Number) Explicit filter number for this entry (overrides sequence)
 - `log` (Boolean) Enable logging for this entry
@@ -58,24 +67,7 @@ Optional:
 <a id="nestedblock--entry--dhcp_match"></a>
 ### Nested Schema for `entry.dhcp_match`
 
-Required:
-
-- `type` (String) DHCP match type (dhcp-bind or dhcp-not-bind)
-
 Optional:
 
 - `scope` (Number) DHCP scope number
-
-
-
-<a id="nestedblock--apply"></a>
-### Nested Schema for `apply`
-
-Required:
-
-- `direction` (String) Direction to apply filters (in or out)
-- `interface` (String) Interface to apply filters (e.g., lan1, bridge1). MAC ACLs cannot be applied to PP or Tunnel interfaces.
-
-Optional:
-
-- `filter_ids` (List of Number) Specific filter IDs (sequence numbers) to apply in order. If omitted, all entry sequences are applied in order.
+- `type` (String) DHCP match type (dhcp-bind or dhcp-not-bind)

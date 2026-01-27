@@ -17,10 +17,10 @@ Attaches a QoS policy-map to an interface on RTX routers. Service policies contr
 
 ### Required
 
-- `direction` (String) Direction for the policy: 'input' or 'output'
-- `interface` (String) The interface to attach the policy to (e.g., 'lan1', 'wan1')
-- `policy_map` (String) The policy-map name or queue type to apply (e.g., 'priority', 'cbq', or a policy-map name)
+- `direction` (String) Direction for the policy: 'input' or 'output'.
+- `interface` (String) The interface to attach the policy to (e.g., 'lan1', 'wan1').
+- `policy_map` (String) The policy-map name or queue type to apply (e.g., 'priority', 'cbq', or a policy-map name).
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) The resource ID in format 'interface:direction'.

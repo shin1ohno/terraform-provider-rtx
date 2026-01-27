@@ -25,4 +25,4 @@ Manages HTTP daemon (httpd) configuration on RTX routers. This is a singleton re
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) Resource identifier. Always 'httpd' for this singleton resource.

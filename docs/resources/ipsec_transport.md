@@ -18,13 +18,9 @@ Manages IPsec transport mode configuration on RTX routers. Used for L2TP over IP
 ### Required
 
 - `port` (Number) Port number (1-65535). Common value is 1701 for L2TP.
-- `transport_id` (Number) Transport ID (1-65535).
-- `tunnel_id` (Number) Associated IPsec tunnel ID (1-65535).
+- `transport_id` (Number) Transport ID (1-6000).
+- `tunnel_id` (Number) Associated IPsec tunnel ID (1-6000).
 
 ### Optional
 
 - `protocol` (String) Transport protocol: 'udp' or 'tcp'.
-
-### Read-Only
-
-- `id` (String) The ID of this resource.

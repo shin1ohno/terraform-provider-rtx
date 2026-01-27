@@ -73,3 +73,13 @@ issues:
     - linters:
         - errcheck
       text: "Error return value of `fmt.Fprintln` is not checked"
+    # Ignore underscore in package names for resources (Terraform naming convention: access_list_ip, etc.)
+    - path: internal/provider/resources/
+      linters:
+        - revive
+      text: "var-naming: don't use an underscore in package name"
+    # Ignore stuttering type names in resources (BGPModel in bgp package is standard Terraform pattern)
+    - path: internal/provider/resources/
+      linters:
+        - revive
+      text: "exported: type name will be used as"

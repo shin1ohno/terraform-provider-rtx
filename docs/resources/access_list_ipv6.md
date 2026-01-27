@@ -17,18 +17,27 @@ Manages a group of IPv6 static filters (access list) on RTX routers. This resour
 
 ### Required
 
-- `entry` (Block List, Min: 1) List of IPv6 filter entries. Each entry defines a single filter rule. (see [below for nested schema](#nestedblock--entry))
 - `name` (String) ACL group identifier. This name is used to reference the ACL in other resources and for Terraform state management.
 
 ### Optional
 
 - `apply` (Block List) List of interface bindings. Each apply block binds this ACL to an interface in a specific direction. (see [below for nested schema](#nestedblock--apply))
+- `entry` (Block List) List of IPv6 filter entries. Each entry defines a single filter rule. (see [below for nested schema](#nestedblock--entry))
 - `sequence_start` (Number) Starting sequence number for automatic sequence calculation. When set, sequence numbers are automatically assigned to entries based on their definition order. Mutually exclusive with entry-level sequence attributes.
 - `sequence_step` (Number) Increment value for automatic sequence calculation. Only used when sequence_start is set. Default is 10.
 
-### Read-Only
+<a id="nestedblock--apply"></a>
+### Nested Schema for `apply`
 
-- `id` (String) The ID of this resource.
+Required:
+
+- `direction` (String) Direction to apply the ACL: 'in' for incoming traffic, 'out' for outgoing traffic.
+- `interface` (String) Interface to apply the ACL to (e.g., lan1, bridge1, pp1, tunnel1).
+
+Optional:
+
+- `filter_ids` (List of Number) Specific filter IDs (sequence numbers) to apply in order. If omitted, all entry sequences are applied in order.
+
 
 <a id="nestedblock--entry"></a>
 ### Nested Schema for `entry`
@@ -46,16 +55,3 @@ Optional:
 - `protocol` (String) Protocol: tcp, udp, icmp6, ip, gre, esp, ah, or * for any
 - `sequence` (Number) Sequence number determines the order of evaluation. Required when sequence_start is not set (manual mode). Auto-calculated when sequence_start is set (auto mode).
 - `source_port` (String) Source port number, range (e.g., '1024-65535'), or '*' for any. Only valid for TCP/UDP.
-
-
-<a id="nestedblock--apply"></a>
-### Nested Schema for `apply`
-
-Required:
-
-- `direction` (String) Direction to apply the ACL: 'in' for incoming traffic, 'out' for outgoing traffic.
-- `interface` (String) Interface to apply the ACL to (e.g., lan1, bridge1, pp1, tunnel1).
-
-Optional:
-
-- `filter_ids` (List of Number) Specific filter IDs (sequence numbers) to apply in order. If omitted, all entry sequences are applied in order.

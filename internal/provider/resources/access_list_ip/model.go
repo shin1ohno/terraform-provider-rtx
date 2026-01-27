@@ -1,6 +1,8 @@
 package access_list_ip
 
 import (
+	"context"
+
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
@@ -77,7 +79,7 @@ func (m *AccessListIPModel) ToClientFilters() []client.IPFilter {
 	}
 
 	var entries []EntryModel
-	m.Entry.ElementsAs(nil, &entries, false)
+	m.Entry.ElementsAs(context.TODO(), &entries, false)
 
 	result := make([]client.IPFilter, 0, len(entries))
 
@@ -121,7 +123,7 @@ func (m *AccessListIPModel) GetExpectedSequences() []int {
 	}
 
 	var entries []EntryModel
-	m.Entry.ElementsAs(nil, &entries, false)
+	m.Entry.ElementsAs(context.TODO(), &entries, false)
 
 	sequences := make([]int, 0, len(entries))
 
@@ -148,7 +150,7 @@ func (m *AccessListIPModel) GetApplies() []ApplyModel {
 	}
 
 	var applies []ApplyModel
-	m.Apply.ElementsAs(nil, &applies, false)
+	m.Apply.ElementsAs(context.TODO(), &applies, false)
 	return applies
 }
 

@@ -18,7 +18,7 @@ Manages VLAN interfaces on RTX routers. VLANs enable network segmentation using 
 ### Required
 
 - `interface` (String) The parent interface (e.g., 'lan1', 'lan2')
-- `vlan_id` (Number) The VLAN ID (1-4094)
+- `vlan_id` (Number) The VLAN ID (2-4094). VLAN 1 is reserved as the default native VLAN.
 
 ### Optional
 
@@ -29,5 +29,4 @@ Manages VLAN interfaces on RTX routers. VLANs enable network segmentation using 
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
 - `vlan_interface` (String) The computed VLAN interface name (e.g., 'lan1/1')

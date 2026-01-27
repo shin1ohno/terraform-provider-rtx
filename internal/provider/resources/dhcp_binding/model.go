@@ -112,8 +112,3 @@ func normalizeClientIdentifier(cid string) string {
 
 	return cleaned
 }
-
-// normalizeIPAddress normalizes IP address format.
-func normalizeIPAddress(ip string) string {
-	return strings.TrimSpace(ip)
-}

@@ -22,5 +22,4 @@ Manages SSH authorized keys for a user on RTX routers. This resource allows you 
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
 - `key_count` (Number) Number of authorized keys registered for this user.

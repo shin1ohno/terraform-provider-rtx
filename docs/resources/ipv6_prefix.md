@@ -54,7 +54,3 @@ resource "rtx_ipv6_prefix" "dhcpv6_pd_prefix" {
 
 - `interface` (String) Source interface name (required for 'ra' and 'dhcpv6-pd' sources, e.g., 'lan2', 'pp1')
 - `prefix` (String) Static IPv6 prefix value (e.g., '2001:db8::') - required when source is 'static'
-
-### Read-Only
-
-- `id` (String) The ID of this resource.

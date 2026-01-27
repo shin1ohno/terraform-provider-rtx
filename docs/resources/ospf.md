@@ -32,7 +32,7 @@ Manages OSPF (Open Shortest Path First) configuration on RTX routers. OSPF is a 
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) The ID of the OSPF resource (always 'ospf').
 
 <a id="nestedblock--area"></a>
 ### Nested Schema for `area`

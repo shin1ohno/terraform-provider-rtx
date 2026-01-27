@@ -21,12 +21,8 @@ Manages QoS class-map configurations on RTX routers. Class-maps classify traffic
 
 ### Optional
 
-- `match_destination_port` (List of Number) List of destination ports to match
-- `match_dscp` (String) DSCP value to match (e.g., 'ef', 'af11', '46')
-- `match_filter` (Number) IP filter number to reference for matching (1-65535)
-- `match_protocol` (String) Protocol to match (e.g., 'sip', 'http', 'ftp')
-- `match_source_port` (List of Number) List of source ports to match
-
-### Read-Only
-
-- `id` (String) The ID of this resource.
+- `match_destination_port` (List of Number) List of destination ports to match.
+- `match_dscp` (String) DSCP value to match (e.g., 'ef', 'af11', '46').
+- `match_filter` (Number) IP filter number to reference for matching (1-65535).
+- `match_protocol` (String) Protocol to match (e.g., 'sip', 'http', 'ftp').
+- `match_source_port` (List of Number) List of source ports to match.

@@ -1,6 +1,8 @@
 package snmp_server
 
 import (
+	"context"
+
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
@@ -66,7 +68,7 @@ func (m *SNMPServerModel) ToClient() client.SNMPConfig {
 	// Convert communities
 	if !m.Communities.IsNull() && !m.Communities.IsUnknown() {
 		var communities []CommunityModel
-		m.Communities.ElementsAs(nil, &communities, false)
+		m.Communities.ElementsAs(context.TODO(), &communities, false)
 		for _, c := range communities {
 			config.Communities = append(config.Communities, client.SNMPCommunity{
 				Name:       fwhelpers.GetStringValue(c.Name),
@@ -79,7 +81,7 @@ func (m *SNMPServerModel) ToClient() client.SNMPConfig {
 	// Convert hosts
 	if !m.Hosts.IsNull() && !m.Hosts.IsUnknown() {
 		var hosts []HostModel
-		m.Hosts.ElementsAs(nil, &hosts, false)
+		m.Hosts.ElementsAs(context.TODO(), &hosts, false)
 		for _, h := range hosts {
 			config.Hosts = append(config.Hosts, client.SNMPHost{
 				Address:   fwhelpers.GetStringValue(h.IPAddress),
@@ -92,7 +94,7 @@ func (m *SNMPServerModel) ToClient() client.SNMPConfig {
 	// Convert enable_traps
 	if !m.EnableTraps.IsNull() && !m.EnableTraps.IsUnknown() {
 		var traps []types.String
-		m.EnableTraps.ElementsAs(nil, &traps, false)
+		m.EnableTraps.ElementsAs(context.TODO(), &traps, false)
 		for _, t := range traps {
 			config.TrapEnable = append(config.TrapEnable, fwhelpers.GetStringValue(t))
 		}
