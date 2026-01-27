@@ -4,10 +4,11 @@
 # VLANs use 802.1Q tagging to segment network traffic on LAN interfaces.
 
 terraform {
+  required_version = ">= 1.11"
   required_providers {
     rtx = {
       source  = "shin1ohno/rtx"
-      version = "~> 0.6"
+      version = "~> 0.7"
     }
   }
 }

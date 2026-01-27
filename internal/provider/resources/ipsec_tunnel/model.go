@@ -11,20 +11,20 @@ import (
 
 // IPsecTunnelModel describes the resource data model.
 type IPsecTunnelModel struct {
-	TunnelID        types.Int64              `tfsdk:"tunnel_id"`
-	Name            types.String             `tfsdk:"name"`
-	LocalAddress    types.String             `tfsdk:"local_address"`
-	RemoteAddress   types.String             `tfsdk:"remote_address"`
-	PreSharedKey    types.String             `tfsdk:"pre_shared_key"`
-	LocalNetwork    types.String             `tfsdk:"local_network"`
-	RemoteNetwork   types.String             `tfsdk:"remote_network"`
-	DPDEnabled      types.Bool               `tfsdk:"dpd_enabled"`
-	DPDInterval     types.Int64              `tfsdk:"dpd_interval"`
-	DPDRetry        types.Int64              `tfsdk:"dpd_retry"`
-	Enabled         types.Bool               `tfsdk:"enabled"`
-	TunnelInterface types.String             `tfsdk:"tunnel_interface"`
-	IKEv2Proposal   *IKEv2ProposalModel      `tfsdk:"ikev2_proposal"`
-	IPsecTransform  *IPsecTransformModel     `tfsdk:"ipsec_transform"`
+	TunnelID        types.Int64          `tfsdk:"tunnel_id"`
+	Name            types.String         `tfsdk:"name"`
+	LocalAddress    types.String         `tfsdk:"local_address"`
+	RemoteAddress   types.String         `tfsdk:"remote_address"`
+	PreSharedKey    types.String         `tfsdk:"pre_shared_key"`
+	LocalNetwork    types.String         `tfsdk:"local_network"`
+	RemoteNetwork   types.String         `tfsdk:"remote_network"`
+	DPDEnabled      types.Bool           `tfsdk:"dpd_enabled"`
+	DPDInterval     types.Int64          `tfsdk:"dpd_interval"`
+	DPDRetry        types.Int64          `tfsdk:"dpd_retry"`
+	Enabled         types.Bool           `tfsdk:"enabled"`
+	TunnelInterface types.String         `tfsdk:"tunnel_interface"`
+	IKEv2Proposal   *IKEv2ProposalModel  `tfsdk:"ikev2_proposal"`
+	IPsecTransform  *IPsecTransformModel `tfsdk:"ipsec_transform"`
 }
 
 // IKEv2ProposalModel describes the IKEv2 proposal nested block.

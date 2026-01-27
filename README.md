@@ -4,9 +4,19 @@ Terraform provider for managing Yamaha RTX series routers - enterprise-grade net
 
 ## Requirements
 
-- [Terraform](https://www.terraform.io/downloads.html) >= 1.0
+- [Terraform](https://www.terraform.io/downloads.html) >= 1.11 (**required** for WriteOnly attribute support)
 - Go >= 1.22 (for building from source)
 - Yamaha RTX router with SSH access enabled
+
+> **Important:** This provider requires Terraform 1.11 or later. The WriteOnly attribute feature used for sensitive fields (passwords, pre-shared keys) is not available in earlier versions.
+
+## Migration Notes (v0.7+)
+
+Starting with version 0.7, this provider has been migrated from Terraform SDK v2 to the Terraform Plugin Framework:
+
+- **WriteOnly Attributes**: Sensitive fields (`password`, `admin_password`, `private_key`, `private_key_passphrase`, `pre_shared_key` in resources) now use WriteOnly attributes. These values are sent to the provider but never stored in Terraform state, improving security.
+- **No Breaking Changes**: Resource schemas remain unchanged. Existing configurations will continue to work.
+- **State File**: After upgrading, sensitive values will no longer appear in state files. This is expected behavior.
 
 ## Installation
 
@@ -17,7 +27,7 @@ terraform {
   required_providers {
     rtx = {
       source  = "shin1ohno/rtx"
-      version = "~> 0.6"
+      version = "~> 0.7"
     }
   }
 }
@@ -32,8 +42,8 @@ Then run `terraform init`.
 
 ```bash
 # Linux/macOS
-mkdir -p ~/.terraform.d/plugins/registry.terraform.io/shin1ohno/rtx/0.6.0/linux_amd64
-unzip terraform-provider-rtx_0.6.0_linux_amd64.zip -d ~/.terraform.d/plugins/registry.terraform.io/shin1ohno/rtx/0.6.0/linux_amd64
+mkdir -p ~/.terraform.d/plugins/registry.terraform.io/shin1ohno/rtx/0.7.0/linux_amd64
+unzip terraform-provider-rtx_0.7.0_linux_amd64.zip -d ~/.terraform.d/plugins/registry.terraform.io/shin1ohno/rtx/0.7.0/linux_amd64
 ```
 
 3. Configure Terraform to use the local provider:
@@ -43,7 +53,7 @@ terraform {
   required_providers {
     rtx = {
       source  = "shin1ohno/rtx"
-      version = "0.6.0"
+      version = "0.7.0"
     }
   }
 }
@@ -85,7 +95,7 @@ terraform {
   required_providers {
     rtx = {
       source  = "shin1ohno/rtx"
-      version = "~> 0.6"
+      version = "~> 0.7"
     }
   }
 }

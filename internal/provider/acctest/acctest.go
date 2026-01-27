@@ -4,22 +4,22 @@
 package acctest
 
 import (
+	"crypto/rand"
 	"fmt"
+	"math/big"
 	"os"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-framework/providerserver"
+	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 
 	"github.com/sh1/terraform-provider-rtx/internal/provider"
 )
 
-// ProviderFactories is a map of provider factory functions for use in acceptance tests.
-// It provides a configured "rtx" provider instance for Terraform test cases.
-var ProviderFactories = map[string]func() (*schema.Provider, error){
-	"rtx": func() (*schema.Provider, error) {
-		return provider.New("test"), nil
-	},
+// ProtoV6ProviderFactories is a map of provider factory functions for use in acceptance tests.
+// It provides a configured "rtx" provider instance for Terraform test cases using Plugin Framework.
+var ProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
+	"rtx": providerserver.NewProtocol6WithError(provider.NewFramework("test")()),
 }
 
 // RequiredEnvVars lists the environment variables required for acceptance tests.
@@ -91,24 +91,44 @@ func PreCheckFunc(t *testing.T) func() {
 	return func() { PreCheck(t) }
 }
 
+// randString generates a random alphanumeric string of the specified length.
+func randString(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
+	result := make([]byte, length)
+	for i := range result {
+		num, _ := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		result[i] = charset[num.Int64()]
+	}
+	return string(result)
+}
+
+// randIntRange generates a random integer in the range [min, max].
+func randIntRange(min, max int) int {
+	if min >= max {
+		return min
+	}
+	num, _ := rand.Int(rand.Reader, big.NewInt(int64(max-min+1)))
+	return min + int(num.Int64())
+}
+
 // RandomName generates a unique resource name with the given prefix.
 // The generated name is suitable for use in parallel tests to avoid resource conflicts.
 // The name format is: prefix-<random_suffix>
 // Example: RandomName("test") might return "test-abc123"
 func RandomName(prefix string) string {
-	return fmt.Sprintf("%s-%s", prefix, acctest.RandString(8))
+	return fmt.Sprintf("%s-%s", prefix, randString(8))
 }
 
 // RandomNameWithLength generates a unique resource name with a specified random suffix length.
 // Use this when you need more control over the name length.
 func RandomNameWithLength(prefix string, length int) string {
-	return fmt.Sprintf("%s-%s", prefix, acctest.RandString(length))
+	return fmt.Sprintf("%s-%s", prefix, randString(length))
 }
 
 // RandomInt generates a random integer suitable for test resource identifiers.
 // Returns an integer in the range [min, max].
 func RandomInt(min, max int) int {
-	return acctest.RandIntRange(min, max)
+	return randIntRange(min, max)
 }
 
 // RandomIP generates a random IP address in the specified subnet.

@@ -7,10 +7,11 @@
 # - Security filter configuration
 
 terraform {
+  required_version = ">= 1.11"
   required_providers {
     rtx = {
       source  = "shin1ohno/rtx"
-      version = "~> 0.6"
+      version = "~> 0.7"
     }
   }
 }

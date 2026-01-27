@@ -9,8 +9,15 @@ This is a Terraform provider for Yamaha RTX series routers - enterprise-grade in
 ## Development Setup
 
 Project structure:
-- `internal/provider/` - Provider, resources, and data sources
-- `internal/client/` - SSH client and RTX router communication
+- `internal/provider/` - Provider implementation (Plugin Framework)
+  - `provider_framework.go` - Main provider definition
+  - `resources/{name}/` - Resource implementations (resource.go + model.go)
+  - `datasources/` - Data source implementations
+  - `fwhelpers/` - Helper functions for Plugin Framework types
+  - `validation/` - Custom validators for schema attributes
+  - `planmodifiers/` - Custom plan modifiers
+  - `acctest/` - Acceptance test helpers
+- `internal/client/` - SSH client and RTX router communication (service layer)
 - `internal/rtx/` - RTX command parsers
 - `examples/` - Example Terraform configurations
 - `docs/` - Generated documentation
@@ -36,10 +43,50 @@ make install
 
 ## Architecture Notes
 
-- Terraform providers are typically structured around resources and data sources
-- RTX router integration would require SSH/Telnet access or API connectivity
-- Provider should handle RTX router configuration management
-- Resources might include network interfaces, routing tables, firewall rules, and VPN configurations
+This provider uses **Terraform Plugin Framework** (NOT the deprecated terraform-plugin-sdk/v2).
+
+### Provider Structure
+
+- `RTXFrameworkProvider` in `internal/provider/provider_framework.go` implements `provider.Provider`
+- Provider data is passed to resources via `fwhelpers.ProviderData` containing the `client.Client`
+
+### Resource Pattern
+
+Each resource follows the `resource.go` + `model.go` pattern in `internal/provider/resources/{name}/`:
+
+```
+internal/provider/resources/vlan/
+├── resource.go  # Resource implementation (CRUD, schema, validation)
+└── model.go     # Data model with ToClient/FromClient conversion
+```
+
+**resource.go** contains:
+- Resource struct implementing `resource.Resource` interface
+- `Metadata()` - Returns resource type name (e.g., `rtx_vlan`)
+- `Schema()` - Defines attributes with validators and plan modifiers
+- `Configure()` - Extracts `client.Client` from `fwhelpers.ProviderData`
+- `Create()`, `Read()`, `Update()`, `Delete()` - CRUD operations
+- `ImportState()` - Import existing resources (optional)
+
+**model.go** contains:
+- Model struct with `tfsdk` tags for Terraform state mapping
+- `ToClient()` - Converts Terraform model to client struct
+- `FromClient()` - Updates Terraform model from client struct
+- `ID()` - Returns resource identifier
+
+### Helper Packages
+
+- `fwhelpers.ProviderData` - Holds configured `client.Client` for resources
+- `fwhelpers.GetStringValue()`, `StringValueOrNull()` - Type conversion helpers
+- `validation.IPv4AddressValidator()`, etc. - Custom schema validators
+
+### Adding a New Resource
+
+1. Create `internal/provider/resources/{name}/` directory
+2. Create `model.go` with data model and conversion methods
+3. Create `resource.go` implementing the resource interface
+4. Register in `provider_framework.go` `Resources()` method
+5. Add client service in `internal/client/` if needed
 
 ## Logging
 

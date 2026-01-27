@@ -17,9 +17,54 @@ import (
 	"github.com/sh1/terraform-provider-rtx/internal/client"
 	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"github.com/sh1/terraform-provider-rtx/internal/provider/fwhelpers"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/access_list_extended"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/access_list_extended_ipv6"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/access_list_ip"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/access_list_ip_apply"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/access_list_ip_dynamic"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/access_list_ipv6"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/access_list_ipv6_apply"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/access_list_ipv6_dynamic"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/access_list_mac"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/access_list_mac_apply"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/admin"
 	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/admin_user"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/bgp"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/bridge"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/class_map"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/ddns"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/dhcp_binding"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/dhcp_scope"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/dns_server"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/httpd"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/interface_resource"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/ipsec_transport"
 	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/ipsec_tunnel"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/ipv6_interface"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/ipv6_prefix"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/kron_policy"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/kron_schedule"
 	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/l2tp"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/l2tp_service"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/nat_masquerade"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/nat_static"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/netvolante_dns"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/ospf"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/policy_map"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/pp_interface"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/pppoe"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/pptp"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/service_policy"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/sftpd"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/shape"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/snmp_server"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/sshd"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/sshd_authorized_keys"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/sshd_host_key"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/static_route"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/syslog"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/system"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/vlan"
 )
 
 // Ensure RTXFrameworkProvider satisfies various provider interfaces.
@@ -61,7 +106,6 @@ type SSHSessionPoolModel struct {
 	MaxSessions types.Int64  `tfsdk:"max_sessions"`
 	IdleTimeout types.String `tfsdk:"idle_timeout"`
 }
-
 
 // NewFramework creates a new Framework provider factory function.
 func NewFramework(version string) func() provider.Provider {
@@ -339,11 +383,75 @@ func (p *RTXFrameworkProvider) Configure(ctx context.Context, req provider.Confi
 // Resources defines the resources implemented in the provider.
 func (p *RTXFrameworkProvider) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
-		// Phase 2: High-priority sensitive resources
+		// Access Control Lists
+		access_list_extended.NewAccessListExtendedResource,
+		access_list_extended_ipv6.NewAccessListExtendedIPv6Resource,
+		access_list_ip.NewAccessListIPResource,
+		access_list_ip_apply.NewAccessListIPApplyResource,
+		access_list_ip_dynamic.NewAccessListIPDynamicResource,
+		access_list_ipv6.NewAccessListIPv6Resource,
+		access_list_ipv6_apply.NewAccessListIPv6ApplyResource,
+		access_list_ipv6_dynamic.NewAccessListIPv6DynamicResource,
+		access_list_mac.NewAccessListMACResource,
+		access_list_mac_apply.NewAccessListMACApplyResource,
+
+		// Administration
+		admin.NewAdminResource,
 		admin_user.NewAdminUserResource,
+
+		// Routing
+		bgp.NewBGPResource,
+		ospf.NewOSPFResource,
+		static_route.NewStaticRouteResource,
+
+		// Interfaces
+		bridge.NewBridgeResource,
+		interface_resource.NewInterfaceResource,
+		ipv6_interface.NewIPv6InterfaceResource,
+		ipv6_prefix.NewIPv6PrefixResource,
+		pp_interface.NewPPInterfaceResource,
+		vlan.NewVLANResource,
+
+		// VPN and Tunneling
+		ipsec_transport.NewIPsecTransportResource,
 		ipsec_tunnel.NewIPsecTunnelResource,
 		l2tp.NewL2TPResource,
-		// Phase 3: Normal resources (will be added)
+		l2tp_service.NewL2TPServiceResource,
+		pppoe.NewPPPoEResource,
+		pptp.NewPPTPResource,
+
+		// DHCP
+		dhcp_binding.NewDHCPBindingResource,
+		dhcp_scope.NewDHCPScopeResource,
+
+		// NAT
+		nat_masquerade.NewNATMasqueradeResource,
+		nat_static.NewNATStaticResource,
+
+		// QoS
+		class_map.NewClassMapResource,
+		policy_map.NewPolicyMapResource,
+		service_policy.NewServicePolicyResource,
+		shape.NewShapeResource,
+
+		// System Services
+		dns_server.NewDNSServerResource,
+		httpd.NewHTTPDResource,
+		sftpd.NewSFTPDResource,
+		snmp_server.NewSNMPServerResource,
+		sshd.NewSSHDResource,
+		sshd_authorized_keys.NewSSHDAuthorizedKeysResource,
+		sshd_host_key.NewSSHDHostKeyResource,
+		syslog.NewSyslogResource,
+		system.NewSystemResource,
+
+		// DNS
+		ddns.NewDDNSResource,
+		netvolante_dns.NewNetVolanteDNSResource,
+
+		// Scheduling
+		kron_policy.NewKronPolicyResource,
+		kron_schedule.NewKronScheduleResource,
 	}
 }
 
