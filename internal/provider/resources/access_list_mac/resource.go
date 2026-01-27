@@ -214,7 +214,7 @@ func (r *AccessListMACResource) Schema(ctx context.Context, req resource.SchemaR
 							Attributes: map[string]schema.Attribute{
 								"type": schema.StringAttribute{
 									Description: "DHCP match type (dhcp-bind or dhcp-not-bind)",
-									Required:    true,
+									Optional:    true,
 									Validators: []validator.String{
 										stringvalidator.OneOf("dhcp-bind", "dhcp-not-bind"),
 									},

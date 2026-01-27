@@ -179,10 +179,14 @@ func (r *DHCPBindingResource) ValidateConfig(ctx context.Context, req resource.V
 	}
 
 	// Validate that exactly one of mac_address or client_identifier is specified
-	macAddressSet := !data.MACAddress.IsNull() && data.MACAddress.ValueString() != ""
-	clientIdentifierSet := !data.ClientIdentifier.IsNull() && data.ClientIdentifier.ValueString() != ""
+	// Skip validation if values are unknown (e.g., from for_each expressions)
+	macAddressSet := !data.MACAddress.IsNull() && !data.MACAddress.IsUnknown() && data.MACAddress.ValueString() != ""
+	clientIdentifierSet := !data.ClientIdentifier.IsNull() && !data.ClientIdentifier.IsUnknown() && data.ClientIdentifier.ValueString() != ""
+	macAddressUnknown := data.MACAddress.IsUnknown()
+	clientIdentifierUnknown := data.ClientIdentifier.IsUnknown()
 
-	if !macAddressSet && !clientIdentifierSet {
+	// Only validate if both are known (or null)
+	if !macAddressUnknown && !clientIdentifierUnknown && !macAddressSet && !clientIdentifierSet {
 		resp.Diagnostics.AddError(
 			"Missing Client Identification",
 			"Exactly one of 'mac_address' or 'client_identifier' must be specified.",
