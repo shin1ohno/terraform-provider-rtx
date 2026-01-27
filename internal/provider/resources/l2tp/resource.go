@@ -158,11 +158,11 @@ func (r *L2TPResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 		},
 		Blocks: map[string]schema.Block{
 			"authentication": schema.SingleNestedBlock{
-				Description: "L2TPv2 authentication settings.",
+				Description: "L2TP authentication settings. Required for L2TP LNS mode, not needed for L2TPv3.",
 				Attributes: map[string]schema.Attribute{
 					"method": schema.StringAttribute{
 						Description: "Authentication method: 'pap', 'chap', 'mschap', or 'mschap-v2'.",
-						Required:    true,
+						Optional:    true,
 						Validators: []validator.String{
 							stringvalidator.OneOf("pap", "chap", "mschap", "mschap-v2"),
 						},
@@ -179,15 +179,15 @@ func (r *L2TPResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				},
 			},
 			"ip_pool": schema.SingleNestedBlock{
-				Description: "IP pool for L2TPv2 LNS clients.",
+				Description: "IP pool for L2TP LNS clients. Required for LNS mode, not needed for L2TPv3.",
 				Attributes: map[string]schema.Attribute{
 					"start": schema.StringAttribute{
 						Description: "Start IP address of the pool.",
-						Required:    true,
+						Optional:    true,
 					},
 					"end": schema.StringAttribute{
 						Description: "End IP address of the pool.",
-						Required:    true,
+						Optional:    true,
 					},
 				},
 			},

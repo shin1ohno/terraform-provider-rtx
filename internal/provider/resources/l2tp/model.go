@@ -148,7 +148,8 @@ func (m *L2TPModel) FromClient(config *client.L2TPConfig) {
 	m.TunnelDestination = fwhelpers.StringValueOrNull(config.TunnelDest)
 	m.TunnelDestType = fwhelpers.StringValueOrNull(config.TunnelDestType)
 	m.KeepaliveEnabled = types.BoolValue(config.KeepaliveEnabled)
-	m.DisconnectTime = fwhelpers.Int64ValueOrNull(config.DisconnectTime)
+	// DisconnectTime: 0 is a valid value (means no timeout), so always use Int64Value
+	m.DisconnectTime = types.Int64Value(int64(config.DisconnectTime))
 	m.AlwaysOn = types.BoolValue(config.AlwaysOn)
 	m.Enabled = types.BoolValue(config.Enabled)
 
@@ -204,5 +205,9 @@ func (m *L2TPModel) FromClient(config *client.L2TPConfig) {
 	if config.KeepaliveConfig != nil {
 		m.KeepaliveInterval = fwhelpers.Int64ValueOrNull(config.KeepaliveConfig.Interval)
 		m.KeepaliveRetry = fwhelpers.Int64ValueOrNull(config.KeepaliveConfig.Retry)
+	} else {
+		// When keepalive is not enabled, set to null
+		m.KeepaliveInterval = types.Int64Null()
+		m.KeepaliveRetry = types.Int64Null()
 	}
 }
