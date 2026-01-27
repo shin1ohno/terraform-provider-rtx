@@ -2,6 +2,7 @@ package parsers
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -644,103 +645,147 @@ func TestBuildDeleteSSHDAuthMethodCommand(t *testing.T) {
 }
 
 func TestParseSSHDHostKeyInfo(t *testing.T) {
+	// Test cases for "show sshd host key" output (OpenSSH public key format)
+	// Using valid base64 strings that represent actual SSH key data format
 	tests := []struct {
-		name     string
-		input    string
-		expected *SSHHostKeyInfo
+		name              string
+		input             string
+		expectAlgorithm   string
+		expectFingerprint bool // true if we expect a non-empty fingerprint starting with "SHA256:"
 	}{
 		{
-			name:  "empty output",
-			input: "",
-			expected: &SSHHostKeyInfo{
-				Fingerprint: "",
-				Algorithm:   "",
-			},
+			name:              "empty output",
+			input:             "",
+			expectAlgorithm:   "",
+			expectFingerprint: false,
 		},
 		{
-			name:  "English format RSA key",
-			input: "SSH Host Key (RSA): aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99",
-			expected: &SSHHostKeyInfo{
-				Fingerprint: "aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99",
-				Algorithm:   "RSA",
-			},
+			name:              "ssh-rsa key",
+			input:             "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQC7",
+			expectAlgorithm:   "ssh-rsa",
+			expectFingerprint: true,
 		},
 		{
-			name:  "English format ECDSA key",
-			input: "SSH Host Key (ECDSA): 11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff:00",
-			expected: &SSHHostKeyInfo{
-				Fingerprint: "11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff:00",
-				Algorithm:   "ECDSA",
-			},
+			name:              "ssh-dss key",
+			input:             "ssh-dss AAAAB3NzaC1kc3MAAACBAM0=",
+			expectAlgorithm:   "ssh-dss",
+			expectFingerprint: true,
 		},
 		{
-			name:  "English format ED25519 key",
-			input: "SSH Host Key (ED25519): ab:cd:ef:01:23:45:67:89:ab:cd:ef:01:23:45:67:89",
-			expected: &SSHHostKeyInfo{
-				Fingerprint: "ab:cd:ef:01:23:45:67:89:ab:cd:ef:01:23:45:67:89",
-				Algorithm:   "ED25519",
-			},
+			name:              "ssh-ed25519 key",
+			input:             "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA==",
+			expectAlgorithm:   "ssh-ed25519",
+			expectFingerprint: true,
 		},
 		{
-			name:  "Japanese format with SHA256 prefix",
-			input: "ホストキーのフィンガープリント: SHA256:abcdefghijklmnopqrstuvwxyz1234567890ABCDEFG",
-			expected: &SSHHostKeyInfo{
-				Fingerprint: "SHA256:abcdefghijklmnopqrstuvwxyz1234567890ABCDEFG",
-				Algorithm:   "",
-			},
+			name: "multiple keys prefers RSA",
+			input: `ssh-dss AAAAB3NzaC1kc3MAAACBAM0=
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQC7`,
+			expectAlgorithm:   "ssh-rsa",
+			expectFingerprint: true,
 		},
 		{
-			name:  "Japanese format with MD5 prefix",
-			input: "ホストキーのフィンガープリント: MD5:aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99",
-			expected: &SSHHostKeyInfo{
-				Fingerprint: "MD5:aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99",
-				Algorithm:   "",
-			},
+			name: "RTX actual output format with multiple lines",
+			input: `ssh-dss AAAAB3NzaC1kc3MAAACBAM0=
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQC7`,
+			expectAlgorithm:   "ssh-rsa",
+			expectFingerprint: true,
 		},
 		{
-			name: "Japanese format with separate algorithm line",
-			input: `ホストキーのフィンガープリント: SHA256:abcdefghijklmnopqrstuvwxyz
-ホストキーのアルゴリズム: RSA`,
-			expected: &SSHHostKeyInfo{
-				Fingerprint: "SHA256:abcdefghijklmnopqrstuvwxyz",
-				Algorithm:   "RSA",
-			},
+			name: "RTX wrapped key with line continuation",
+			input: `ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQDLGxJbUtgNvfAxr+kwHhfvGehvnm61nStY2DnXYzd
+tQe0fdGmPUewxLhQO68z2e0morNpwsu96EFU0R6gFftr1/zvSOan82FrXom8RyudM0WyUX5GHMvcCSR
+CZRSMw0nEqPXbOCaKr6596YJZxY6wXKzTghO6LwVW78jvhDTbs+Q==
+[RTX1210] >`,
+			expectAlgorithm:   "ssh-rsa",
+			expectFingerprint: true,
 		},
 		{
-			name: "Multi-line output with RSA key",
-			input: `SSHD Status
-SSH Host Key (RSA): aa:bb:cc:dd:ee:ff:00:11
-Other information`,
-			expected: &SSHHostKeyInfo{
-				Fingerprint: "aa:bb:cc:dd:ee:ff:00:11",
-				Algorithm:   "RSA",
-			},
+			name: "RTX output with both DSS and RSA wrapped keys",
+			input: `ssh-dss AAAAB3NzaC1kc3MAAACBAJnCmRWBNTPHkE8awFpxNEc8G7t9RNQAO9XDlQlCrK79qKZS3Yt
+Wtn4iMi3R5ppyfjOj/G2jXimj3+pUg+nXjQ0BCIqHUvUZlZhE8aw4BB7/YnbJPxonrBe2PXgx7b7ynp
+cDvDEvrH/I1NwWCaFyCswugPC/V6CZSStrYrnpQ+FvAAAAFQDTus3D+g==
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQDLGxJbUtgNvfAxr+kwHhfvGehvnm61nStY2DnXYzd
+tQe0fdGmPUewxLhQO68z2e0morNpwsu96EFU0R6gFftr1/zvSOan82FrXom8RyudM0WyUX5GHMvcCSR
+CZRSMw0nEqPXbOCaKr6596YJZxY6wXKzTghO6LwVW78jvhDTbs+Q==
+[RTX1210] >`,
+			expectAlgorithm:   "ssh-rsa",
+			expectFingerprint: true,
 		},
 		{
-			name:  "with leading whitespace",
-			input: "  SSH Host Key (RSA): aa:bb:cc:dd",
-			expected: &SSHHostKeyInfo{
-				Fingerprint: "aa:bb:cc:dd",
-				Algorithm:   "RSA",
-			},
+			name:              "with leading whitespace",
+			input:             "  ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQC7",
+			expectAlgorithm:   "ssh-rsa",
+			expectFingerprint: true,
 		},
 		{
-			name: "no host key found",
+			name: "no host key (other output)",
 			input: `SSHD Status
 Service: running
 Connections: 0`,
-			expected: &SSHHostKeyInfo{
-				Fingerprint: "",
-				Algorithm:   "",
-			},
+			expectAlgorithm:   "",
+			expectFingerprint: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := ParseSSHDHostKeyInfo(tt.input)
-			if !reflect.DeepEqual(result, tt.expected) {
-				t.Errorf("got %+v, want %+v", result, tt.expected)
+			if result.Algorithm != tt.expectAlgorithm {
+				t.Errorf("algorithm: got %q, want %q", result.Algorithm, tt.expectAlgorithm)
+			}
+			if tt.expectFingerprint {
+				if result.Fingerprint == "" {
+					t.Errorf("expected non-empty fingerprint, got empty")
+				} else if !strings.HasPrefix(result.Fingerprint, "SHA256:") {
+					t.Errorf("fingerprint should start with 'SHA256:', got %q", result.Fingerprint)
+				}
+			} else {
+				if result.Fingerprint != "" {
+					t.Errorf("expected empty fingerprint, got %q", result.Fingerprint)
+				}
+			}
+		})
+	}
+}
+
+func TestComputeSSHFingerprint(t *testing.T) {
+	tests := []struct {
+		name        string
+		keyData     string
+		expectEmpty bool
+	}{
+		{
+			name:        "valid base64",
+			keyData:     "AAAAB3NzaC1yc2EAAAADAQABAAAAgQDLGxJb",
+			expectEmpty: false,
+		},
+		{
+			name:        "invalid base64",
+			keyData:     "!!!not-base64!!!",
+			expectEmpty: true,
+		},
+		{
+			name:        "empty input",
+			keyData:     "",
+			expectEmpty: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := computeSSHFingerprint(tt.keyData)
+			if tt.expectEmpty {
+				if result != "" {
+					t.Errorf("expected empty fingerprint, got %q", result)
+				}
+			} else {
+				if result == "" {
+					t.Errorf("expected non-empty fingerprint")
+				}
+				if !strings.HasPrefix(result, "SHA256:") {
+					t.Errorf("fingerprint should start with 'SHA256:', got %q", result)
+				}
 			}
 		})
 	}

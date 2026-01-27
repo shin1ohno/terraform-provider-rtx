@@ -1,6 +1,8 @@
 package parsers
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"regexp"
 	"strings"
@@ -265,10 +267,11 @@ func BuildShowSSHDConfigCommand() string {
 	return "show config | grep sshd"
 }
 
-// BuildShowSSHDStatusCommand builds the command to show SSHD status
-// Command format: show status sshd
+// BuildShowSSHDStatusCommand builds the command to show SSHD host key
+// Command format: show sshd host key
+// Note: "show status sshd" is not supported on RTX routers
 func BuildShowSSHDStatusCommand() string {
-	return "show status sshd"
+	return "show sshd host key"
 }
 
 // BuildSSHDAuthMethodCommand builds the command to set SSHD authentication method
@@ -296,68 +299,116 @@ func BuildDeleteSSHDAuthMethodCommand() string {
 	return "no sshd auth method"
 }
 
-// ParseSSHDHostKeyInfo parses host key information from "show status sshd" output
-// The output typically contains lines like:
-//   - SSH Host Key (RSA): XX:XX:XX:...
-//   - SSH Host Key (ECDSA): XX:XX:XX:...
-//   - ホストキーのフィンガープリント: SHA256:xxxxx
+// ParseSSHDHostKeyInfo parses host key information from "show sshd host key" output
+// The output contains public keys in OpenSSH format:
+//   - ssh-rsa AAAAB3NzaC1yc2E...
+//   - ssh-dss AAAAB3NzaC1kc3M...
 //
 // Returns empty strings if no host key is found (not an error).
 func ParseSSHDHostKeyInfo(output string) *SSHHostKeyInfo {
 	info := &SSHHostKeyInfo{}
 
+	// RTX router wraps long keys across multiple lines
+	// We need to join continuation lines that are part of the key data
 	lines := strings.Split(output, "\n")
 
-	// Pattern 1: English format - "SSH Host Key (ALGORITHM): FINGERPRINT"
-	englishPattern := regexp.MustCompile(`^\s*SSH\s+Host\s+Key\s*\(([^)]+)\)\s*:\s*(.+)\s*$`)
+	// Pattern for OpenSSH public key start: "ssh-rsa AAAA..." or "ssh-dss AAAA..."
+	publicKeyStartPattern := regexp.MustCompile(`^(ssh-rsa|ssh-dss|ssh-ed25519|ecdsa-sha2-nistp\d+)\s+([A-Za-z0-9+/=]+)`)
 
-	// Pattern 2: Japanese format - "ホストキーのフィンガープリント: FINGERPRINT"
-	// This format may include algorithm prefix like "SHA256:"
-	japanesePattern := regexp.MustCompile(`^\s*ホストキーのフィンガープリント\s*:\s*(.+)\s*$`)
+	// Pattern for continuation lines (base64 characters only, may end with =)
+	continuationPattern := regexp.MustCompile(`^[A-Za-z0-9+/=]+$`)
 
-	// Pattern 3: Algorithm line - "ホストキーのアルゴリズム: ALGORITHM" or "Key Algorithm: ALGORITHM"
-	algorithmPattern := regexp.MustCompile(`(?:ホストキーのアルゴリズム|Key\s+Algorithm)\s*:\s*(\S+)`)
+	// Pattern for prompt (indicates end of key data)
+	promptPattern := regexp.MustCompile(`\[RTX\d+\]`)
+
+	var currentAlgorithm string
+	var currentKeyData strings.Builder
+
+	flushCurrentKey := func() {
+		if currentAlgorithm != "" && currentKeyData.Len() > 0 {
+			keyData := currentKeyData.String()
+			// Prefer RSA over DSS if we find multiple keys
+			if info.Algorithm == "" || currentAlgorithm == "ssh-rsa" {
+				info.Algorithm = currentAlgorithm
+				info.Fingerprint = computeSSHFingerprint(keyData)
+			}
+		}
+		currentAlgorithm = ""
+		currentKeyData.Reset()
+	}
 
 	for _, line := range lines {
-		line = strings.TrimSpace(line)
+		// Normalize line endings and trim
+		line = strings.TrimSpace(strings.ReplaceAll(line, "\r", ""))
 		if line == "" {
 			continue
 		}
 
-		// Try English pattern first
-		if matches := englishPattern.FindStringSubmatch(line); len(matches) >= 3 {
-			info.Algorithm = strings.TrimSpace(matches[1])
-			info.Fingerprint = strings.TrimSpace(matches[2])
+		// Check for prompt (end of output)
+		if promptPattern.MatchString(line) {
+			flushCurrentKey()
+			break
+		}
+
+		// Try to match start of a new public key
+		if matches := publicKeyStartPattern.FindStringSubmatch(line); len(matches) >= 3 {
+			// Flush previous key if any
+			flushCurrentKey()
+
+			// Start new key
+			currentAlgorithm = matches[1]
+			currentKeyData.WriteString(matches[2])
 			continue
 		}
 
-		// Try Japanese fingerprint pattern
-		if matches := japanesePattern.FindStringSubmatch(line); len(matches) >= 2 {
-			fingerprint := strings.TrimSpace(matches[1])
-			// Check if fingerprint contains algorithm prefix (e.g., "SHA256:xxx")
-			if idx := strings.Index(fingerprint, ":"); idx > 0 && idx < 10 {
-				// Short prefix before colon suggests algorithm prefix
-				prefix := fingerprint[:idx]
-				if prefix == "SHA256" || prefix == "MD5" || prefix == "SHA1" {
-					// Keep full fingerprint including prefix
-					info.Fingerprint = fingerprint
-				} else {
-					info.Fingerprint = fingerprint
-				}
-			} else {
-				info.Fingerprint = fingerprint
-			}
+		// If we're collecting key data, check for continuation line
+		if currentAlgorithm != "" && continuationPattern.MatchString(line) {
+			currentKeyData.WriteString(line)
 			continue
 		}
 
-		// Try algorithm pattern
-		if matches := algorithmPattern.FindStringSubmatch(line); len(matches) >= 2 {
-			info.Algorithm = strings.TrimSpace(matches[1])
-			continue
+		// Non-matching line while collecting - flush and reset
+		if currentAlgorithm != "" {
+			flushCurrentKey()
 		}
 	}
 
+	// Flush any remaining key
+	flushCurrentKey()
+
 	return info
+}
+
+// computeSSHFingerprint computes the SHA256 fingerprint of an SSH public key
+// Input: base64-encoded public key data (the middle part of "ssh-rsa AAAA... comment")
+// Output: "SHA256:base64hash" format matching OpenSSH standard
+func computeSSHFingerprint(keyDataBase64 string) string {
+	// Empty input returns empty fingerprint
+	if keyDataBase64 == "" {
+		return ""
+	}
+
+	// Decode the base64 key data
+	keyBytes, err := base64.StdEncoding.DecodeString(keyDataBase64)
+	if err != nil {
+		// If decoding fails, return empty string
+		return ""
+	}
+
+	// Empty decoded bytes returns empty fingerprint
+	if len(keyBytes) == 0 {
+		return ""
+	}
+
+	// Compute SHA256 hash
+	hash := sha256.Sum256(keyBytes)
+
+	// Encode hash as base64 (OpenSSH uses base64, not hex)
+	// Remove trailing '=' padding to match OpenSSH format
+	fingerprint := base64.StdEncoding.EncodeToString(hash[:])
+	fingerprint = strings.TrimRight(fingerprint, "=")
+
+	return "SHA256:" + fingerprint
 }
 
 // ========== SSHD Authorized Keys Command Builders ==========
@@ -388,38 +439,156 @@ func BuildDeleteSSHDAuthorizedKeysCommand(username string) string {
 }
 
 // ParseSSHDAuthorizedKeys parses the output of "show sshd authorized-keys" command
-// Output format example:
+// RTX returns public keys in OpenSSH format, potentially wrapped across lines:
 //
-//	256 SHA256:xxxx user@host (ED25519)
-//	2048 SHA256:yyyy admin@pc (RSA)
+//	ssh-rsa AAAAB3NzaC1yc2E...
+//	...continuation (base64)...
+//	...= (end of base64)
+//	user@host.local (comment on separate line)
+//	ssh-ed25519 AAAAC3NzaC1lZDI1NTE5...
 //
+// Keys may be wrapped across multiple lines, and comments may be on separate lines.
 // Returns an empty slice if no keys are found
 func ParseSSHDAuthorizedKeys(output string) ([]SSHAuthorizedKey, error) {
 	var keys []SSHAuthorizedKey
 
 	lines := strings.Split(output, "\n")
 
-	// Pattern: <bits> <fingerprint> <comment> (<type>)
-	// e.g.: 256 SHA256:xxxx user@host (ED25519)
-	keyPattern := regexp.MustCompile(`^\s*\d+\s+(SHA256:\S+)\s+(.+?)\s+\((\w+)\)\s*$`)
+	// RTX returns public keys in OpenSSH format, potentially wrapped across lines
+	// Format: <type> <base64-key> <comment>
+	// Keys may be wrapped across multiple lines, so we need to join them
 
+	var currentKey strings.Builder
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
 
-		if matches := keyPattern.FindStringSubmatch(line); len(matches) >= 4 {
-			key := SSHAuthorizedKey{
-				Fingerprint: matches[1],
-				Comment:     matches[2],
-				Type:        matches[3],
+		// Skip RTX prompts like "[RTX1210] #"
+		if strings.HasPrefix(line, "[") {
+			continue
+		}
+
+		// Check if this line starts a new key (starts with ssh- or ecdsa-)
+		if strings.HasPrefix(line, "ssh-") || strings.HasPrefix(line, "ecdsa-") {
+			// If we have a previous key being built, parse it first
+			if currentKey.Len() > 0 {
+				if key := parseOpenSSHKey(currentKey.String()); key != nil {
+					keys = append(keys, *key)
+				}
+				currentKey.Reset()
 			}
-			keys = append(keys, key)
+			currentKey.WriteString(line)
+		} else if currentKey.Len() > 0 {
+			// This is a continuation of the previous key (wrapped line)
+			// Possible formats:
+			// 1. Pure base64 continuation: "YlhH7Tlx24Q..."
+			// 2. Pure comment: "user@host" (first char usually not base64-ish in context)
+			// 3. Mixed: "l user@host" (last base64 char + space + comment)
+
+			if strings.Contains(line, "@") {
+				// Line contains @ - could be pure comment or mixed format
+				spaceIdx := strings.Index(line, " ")
+				if spaceIdx > 0 && spaceIdx < 10 {
+					// Short prefix before space - likely "l user@host" format
+					// The part before space is last base64 char(s), rest is comment
+					// Join without extra space (space is already in the line)
+					currentKey.WriteString(line)
+				} else if isBase64Char(rune(line[0])) && spaceIdx == -1 {
+					// Starts with base64 char but no space - might be weird email like "abc@def"
+					// Add with space to be safe
+					currentKey.WriteString(" ")
+					currentKey.WriteString(line)
+				} else {
+					// Pure comment line - add with space
+					currentKey.WriteString(" ")
+					currentKey.WriteString(line)
+				}
+			} else {
+				// No @ in line - this is pure base64 continuation
+				currentKey.WriteString(line)
+			}
+		}
+	}
+
+	// Don't forget the last key
+	if currentKey.Len() > 0 {
+		if key := parseOpenSSHKey(currentKey.String()); key != nil {
+			keys = append(keys, *key)
 		}
 	}
 
 	return keys, nil
+}
+
+// parseOpenSSHKey parses a single OpenSSH format public key
+// Format: <type> <base64-key> <comment>
+// The base64 key ends with one of: A-Za-z0-9+/= and comment follows after space
+func parseOpenSSHKey(keyLine string) *SSHAuthorizedKey {
+	// First, extract the key type
+	parts := strings.SplitN(keyLine, " ", 2)
+	if len(parts) < 2 {
+		return nil
+	}
+
+	keyType := parts[0]
+	if !isValidSSHKeyType(keyType) {
+		return nil
+	}
+
+	rest := strings.TrimSpace(parts[1])
+	if rest == "" {
+		return nil
+	}
+
+	// Find the boundary between base64 key and comment
+	// The comment usually starts with something like "user@host" or similar
+	// We look for the pattern: base64 followed by space followed by comment (containing @)
+	var base64Key, comment string
+
+	// Find the last occurrence of a pattern that looks like "= comment" or "key comment"
+	// where comment contains @
+	lastSpaceBeforeComment := -1
+	for i := len(rest) - 1; i >= 0; i-- {
+		if rest[i] == ' ' {
+			remainingPart := rest[i+1:]
+			if strings.Contains(remainingPart, "@") {
+				lastSpaceBeforeComment = i
+				break
+			}
+		}
+	}
+
+	if lastSpaceBeforeComment > 0 {
+		base64Key = strings.TrimSpace(rest[:lastSpaceBeforeComment])
+		comment = strings.TrimSpace(rest[lastSpaceBeforeComment+1:])
+	} else {
+		// No comment found, entire rest is the key
+		base64Key = strings.TrimSpace(rest)
+	}
+
+	return &SSHAuthorizedKey{
+		Type:        keyType,
+		Fingerprint: base64Key,
+		Comment:     comment,
+	}
+}
+
+// isValidSSHKeyType checks if the string is a valid SSH key type
+func isValidSSHKeyType(s string) bool {
+	validTypes := []string{"ssh-rsa", "ssh-ed25519", "ssh-dss", "ecdsa-sha2-nistp256", "ecdsa-sha2-nistp384", "ecdsa-sha2-nistp521"}
+	for _, t := range validTypes {
+		if s == t {
+			return true
+		}
+	}
+	return false
+}
+
+// isBase64Char checks if a character is a valid base64 character
+func isBase64Char(c rune) bool {
+	return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '+' || c == '/' || c == '='
 }
 
 // ========== SFTPD Command Builders ==========

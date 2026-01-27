@@ -201,3 +201,11 @@
   - _Leverage: existing error handling patterns_
   - _Requirements: 2.2, 2.5_
   - _Prompt: Implement the task for spec sshd-public-key-auth, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Terraform Provider Developer | Task: Update resourceRTXSSHDHostKeyCreate() in internal/provider/resource_rtx_sshd_host_key.go. When GenerateSSHDHostKey() returns error containing "already exists", treat this as success case - call GetSSHDHostKey() to read key info and set state normally. Log info message that existing key was preserved. | Restrictions: Do not fail on "already exists" error, maintain idempotent behavior | Success: terraform apply succeeds whether key exists or not, never regenerates | After implementation: Mark task [-] as in progress in tasks.md before starting, use log-implementation tool to record artifacts, then mark [x] when complete._
+
+- [x] 20. Compute real SHA256 fingerprint for rtx_sshd_host_key
+  - File: internal/rtx/parsers/service.go
+  - Update `ParseSSHDHostKeyInfo()` to compute SHA256 hash from base64-encoded public key data
+  - Return fingerprint in OpenSSH standard format: `SHA256:base64hash`
+  - Purpose: Provide proper SSH fingerprint that matches `ssh-keygen -lf` output
+  - _Leverage: crypto/sha256, encoding/base64 standard libraries_
+  - _Requirements: 2.2_
