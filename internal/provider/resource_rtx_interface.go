@@ -88,56 +88,6 @@ func resourceRTXInterface() *schema.Resource {
 				Description:  "Maximum Transmission Unit size. Set to 0 to use the default MTU.",
 				ValidateFunc: validation.IntBetween(0, 65535),
 			},
-			"access_list_ip_in": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Description: "Inbound IP access list name",
-			},
-			"access_list_ip_out": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Description: "Outbound IP access list name",
-			},
-			"access_list_ipv6_in": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Description: "Inbound IPv6 access list name",
-			},
-			"access_list_ipv6_out": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Description: "Outbound IPv6 access list name",
-			},
-			"access_list_ip_dynamic_in": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Description: "Inbound dynamic IP access list name",
-			},
-			"access_list_ip_dynamic_out": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Description: "Outbound dynamic IP access list name",
-			},
-			"access_list_ipv6_dynamic_in": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Description: "Inbound dynamic IPv6 access list name",
-			},
-			"access_list_ipv6_dynamic_out": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Description: "Outbound dynamic IPv6 access list name",
-			},
-			"access_list_mac_in": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Description: "Inbound MAC access list name",
-			},
-			"access_list_mac_out": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Description: "Outbound MAC access list name",
-			},
 		},
 	}
 }
@@ -161,40 +111,6 @@ func resourceRTXInterfaceCreate(ctx context.Context, d *schema.ResourceData, met
 
 	// Set interface_name (computed attribute) to match name
 	if err := d.Set("interface_name", config.Name); err != nil {
-		return diag.FromErr(err)
-	}
-
-	// Explicitly set access list values to match the config.
-	// The RTX router stores filter numbers, not access list names.
-	// We must set these values explicitly to ensure the state matches the config.
-	if err := d.Set("access_list_ip_in", config.AccessListIPIn); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("access_list_ip_out", config.AccessListIPOut); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("access_list_ipv6_in", config.AccessListIPv6In); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("access_list_ipv6_out", config.AccessListIPv6Out); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("access_list_ip_dynamic_in", config.AccessListIPDynamicIn); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("access_list_ip_dynamic_out", config.AccessListIPDynamicOut); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("access_list_ipv6_dynamic_in", config.AccessListIPv6DynamicIn); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("access_list_ipv6_dynamic_out", config.AccessListIPv6DynamicOut); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("access_list_mac_in", config.AccessListMACIn); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("access_list_mac_out", config.AccessListMACOut); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -274,71 +190,6 @@ func resourceRTXInterfaceRead(ctx context.Context, d *schema.ResourceData, meta 
 		}
 	}
 
-	// Set access list attributes - preserve values when service returns empty.
-	// RTX router stores filter numbers, not access list names. The service layer cannot
-	// reverse-lookup names from numbers, so it returns empty values.
-	//
-	// We use a fallback chain:
-	// 1. Service value (if not empty)
-	// 2. Config value via GetRawConfig() (if available)
-	// 3. Prior state value via d.Get()
-	//
-	// This preserves access list names across plan/apply cycles.
-	rawConfig := d.GetRawConfig()
-	preserveOrSet := func(attrName, serviceValue string) error {
-		value := serviceValue
-		if value == "" {
-			// Try to get from raw config (Terraform configuration)
-			if !rawConfig.IsNull() {
-				configVal := rawConfig.GetAttr(attrName)
-				if !configVal.IsNull() && !configVal.IsKnown() {
-					// Value is unknown (being computed) - use prior state
-					value = d.Get(attrName).(string)
-				} else if !configVal.IsNull() && configVal.AsString() != "" {
-					value = configVal.AsString()
-				} else {
-					// Config is empty or null, use prior state
-					value = d.Get(attrName).(string)
-				}
-			} else {
-				// No raw config available, use prior state
-				value = d.Get(attrName).(string)
-			}
-		}
-		return d.Set(attrName, value)
-	}
-
-	if err := preserveOrSet("access_list_ip_in", config.AccessListIPIn); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := preserveOrSet("access_list_ip_out", config.AccessListIPOut); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := preserveOrSet("access_list_ipv6_in", config.AccessListIPv6In); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := preserveOrSet("access_list_ipv6_out", config.AccessListIPv6Out); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := preserveOrSet("access_list_ip_dynamic_in", config.AccessListIPDynamicIn); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := preserveOrSet("access_list_ip_dynamic_out", config.AccessListIPDynamicOut); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := preserveOrSet("access_list_ipv6_dynamic_in", config.AccessListIPv6DynamicIn); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := preserveOrSet("access_list_ipv6_dynamic_out", config.AccessListIPv6DynamicOut); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := preserveOrSet("access_list_mac_in", config.AccessListMACIn); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := preserveOrSet("access_list_mac_out", config.AccessListMACOut); err != nil {
-		return diag.FromErr(err)
-	}
-
 	if err := d.Set("nat_descriptor", config.NATDescriptor); err != nil {
 		return diag.FromErr(err)
 	}
@@ -364,40 +215,6 @@ func resourceRTXInterfaceUpdate(ctx context.Context, d *schema.ResourceData, met
 	err := apiClient.client.UpdateInterfaceConfig(ctx, config)
 	if err != nil {
 		return diag.Errorf("Failed to update interface configuration: %v", err)
-	}
-
-	// Explicitly set access list values to match the config.
-	// The RTX router stores filter numbers, not access list names.
-	// We must set these values explicitly to ensure the state matches the config.
-	if err := d.Set("access_list_ip_in", config.AccessListIPIn); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("access_list_ip_out", config.AccessListIPOut); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("access_list_ipv6_in", config.AccessListIPv6In); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("access_list_ipv6_out", config.AccessListIPv6Out); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("access_list_ip_dynamic_in", config.AccessListIPDynamicIn); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("access_list_ip_dynamic_out", config.AccessListIPDynamicOut); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("access_list_ipv6_dynamic_in", config.AccessListIPv6DynamicIn); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("access_list_ipv6_dynamic_out", config.AccessListIPv6DynamicOut); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("access_list_mac_in", config.AccessListMACIn); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("access_list_mac_out", config.AccessListMACOut); err != nil {
-		return diag.FromErr(err)
 	}
 
 	return nil
@@ -458,16 +275,6 @@ func resourceRTXInterfaceImport(ctx context.Context, d *schema.ResourceData, met
 		d.Set("ip_address", ipAddress)
 	}
 
-	d.Set("access_list_ip_in", config.AccessListIPIn)
-	d.Set("access_list_ip_out", config.AccessListIPOut)
-	d.Set("access_list_ipv6_in", config.AccessListIPv6In)
-	d.Set("access_list_ipv6_out", config.AccessListIPv6Out)
-	d.Set("access_list_ip_dynamic_in", config.AccessListIPDynamicIn)
-	d.Set("access_list_ip_dynamic_out", config.AccessListIPDynamicOut)
-	d.Set("access_list_ipv6_dynamic_in", config.AccessListIPv6DynamicIn)
-	d.Set("access_list_ipv6_dynamic_out", config.AccessListIPv6DynamicOut)
-	d.Set("access_list_mac_in", config.AccessListMACIn)
-	d.Set("access_list_mac_out", config.AccessListMACOut)
 	d.Set("nat_descriptor", config.NATDescriptor)
 	d.Set("proxyarp", config.ProxyARP)
 	d.Set("mtu", config.MTU)
@@ -478,21 +285,11 @@ func resourceRTXInterfaceImport(ctx context.Context, d *schema.ResourceData, met
 // buildInterfaceConfigFromResourceData creates an InterfaceConfig from Terraform resource data
 func buildInterfaceConfigFromResourceData(d *schema.ResourceData) client.InterfaceConfig {
 	config := client.InterfaceConfig{
-		Name:                     d.Get("name").(string),
-		Description:              d.Get("description").(string),
-		NATDescriptor:            d.Get("nat_descriptor").(int),
-		ProxyARP:                 d.Get("proxyarp").(bool),
-		MTU:                      d.Get("mtu").(int),
-		AccessListIPIn:           d.Get("access_list_ip_in").(string),
-		AccessListIPOut:          d.Get("access_list_ip_out").(string),
-		AccessListIPv6In:         d.Get("access_list_ipv6_in").(string),
-		AccessListIPv6Out:        d.Get("access_list_ipv6_out").(string),
-		AccessListIPDynamicIn:    d.Get("access_list_ip_dynamic_in").(string),
-		AccessListIPDynamicOut:   d.Get("access_list_ip_dynamic_out").(string),
-		AccessListIPv6DynamicIn:  d.Get("access_list_ipv6_dynamic_in").(string),
-		AccessListIPv6DynamicOut: d.Get("access_list_ipv6_dynamic_out").(string),
-		AccessListMACIn:          d.Get("access_list_mac_in").(string),
-		AccessListMACOut:         d.Get("access_list_mac_out").(string),
+		Name:          d.Get("name").(string),
+		Description:   d.Get("description").(string),
+		NATDescriptor: d.Get("nat_descriptor").(int),
+		ProxyARP:      d.Get("proxyarp").(bool),
+		MTU:           d.Get("mtu").(int),
 	}
 
 	// Handle ip_address block

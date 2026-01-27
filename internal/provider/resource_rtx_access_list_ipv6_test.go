@@ -4,200 +4,151 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestResourceRTXAccessListIPv6_Schema(t *testing.T) {
+func TestResourceRTXAccessListIPv6Schema(t *testing.T) {
 	resource := resourceRTXAccessListIPv6()
 
-	// Test required fields
-	requiredFields := []string{"sequence", "action", "source", "destination", "protocol"}
-	for _, field := range requiredFields {
-		if resource.Schema[field].Required != true {
-			t.Errorf("%s should be required", field)
-		}
-	}
-
-	// Test sequence is ForceNew
-	if resource.Schema["sequence"].ForceNew != true {
-		t.Error("sequence should force new")
-	}
-
-	// Test optional fields
-	optionalFields := []string{"source_port", "dest_port"}
-	for _, field := range optionalFields {
-		if resource.Schema[field].Optional != true {
-			t.Errorf("%s should be optional", field)
-		}
-	}
-
-	// Test Computed (for import compatibility)
-	if resource.Schema["source_port"].Computed != true {
-		t.Errorf("source_port should be computed, got %v", resource.Schema["source_port"].Computed)
-	}
-	if resource.Schema["dest_port"].Computed != true {
-		t.Errorf("dest_port should be computed, got %v", resource.Schema["dest_port"].Computed)
-	}
-}
-
-func TestResourceRTXAccessListIPv6_ValidProtocols(t *testing.T) {
-	// Verify icmp6 is in the valid protocols list
-	found := false
-	for _, proto := range ValidIPv6FilterProtocols {
-		if proto == "icmp6" {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Error("icmp6 should be in ValidIPv6FilterProtocols")
-	}
-
-	// Verify common protocols are present
-	expectedProtocols := []string{"tcp", "udp", "icmp6", "ip", "*"}
-	for _, expected := range expectedProtocols {
-		found := false
-		for _, proto := range ValidIPv6FilterProtocols {
-			if proto == expected {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("%s should be in ValidIPv6FilterProtocols", expected)
-		}
-	}
-}
-
-func TestBuildIPv6FilterFromResourceData(t *testing.T) {
-	resource := resourceRTXAccessListIPv6()
-	d := schema.TestResourceDataRaw(t, resource.Schema, map[string]interface{}{
-		"sequence":    101000,
-		"action":      "pass",
-		"source":      "*",
-		"destination": "*",
-		"protocol":    "icmp6",
-		"source_port": "*",
-		"dest_port":   "*",
+	t.Run("name is required and forces new", func(t *testing.T) {
+		assert.True(t, resource.Schema["name"].Required)
+		assert.True(t, resource.Schema["name"].ForceNew)
 	})
 
-	filter := buildIPv6FilterFromResourceData(d)
-
-	if filter.Number != 101000 {
-		t.Errorf("Number = %d, want 101000", filter.Number)
-	}
-	if filter.Action != "pass" {
-		t.Errorf("Action = %s, want pass", filter.Action)
-	}
-	if filter.SourceAddress != "*" {
-		t.Errorf("SourceAddress = %s, want *", filter.SourceAddress)
-	}
-	if filter.DestAddress != "*" {
-		t.Errorf("DestAddress = %s, want *", filter.DestAddress)
-	}
-	if filter.Protocol != "icmp6" {
-		t.Errorf("Protocol = %s, want icmp6", filter.Protocol)
-	}
-}
-
-func TestBuildIPv6FilterFromResourceData_WithPorts(t *testing.T) {
-	resource := resourceRTXAccessListIPv6()
-	d := schema.TestResourceDataRaw(t, resource.Schema, map[string]interface{}{
-		"sequence":    101001,
-		"action":      "reject",
-		"source":      "2001:db8::/32",
-		"destination": "*",
-		"protocol":    "tcp",
-		"source_port": "1024-65535",
-		"dest_port":   "80",
+	t.Run("sequence_start is optional", func(t *testing.T) {
+		assert.True(t, resource.Schema["sequence_start"].Optional)
 	})
 
-	filter := buildIPv6FilterFromResourceData(d)
+	t.Run("sequence_step is optional with default", func(t *testing.T) {
+		assert.True(t, resource.Schema["sequence_step"].Optional)
+		assert.Equal(t, DefaultSequenceStep, resource.Schema["sequence_step"].Default)
+	})
 
-	if filter.Number != 101001 {
-		t.Errorf("Number = %d, want 101001", filter.Number)
-	}
-	if filter.Action != "reject" {
-		t.Errorf("Action = %s, want reject", filter.Action)
-	}
-	if filter.SourceAddress != "2001:db8::/32" {
-		t.Errorf("SourceAddress = %s, want 2001:db8::/32", filter.SourceAddress)
-	}
-	if filter.Protocol != "tcp" {
-		t.Errorf("Protocol = %s, want tcp", filter.Protocol)
-	}
-	if filter.SourcePort != "1024-65535" {
-		t.Errorf("SourcePort = %s, want 1024-65535", filter.SourcePort)
-	}
-	if filter.DestPort != "80" {
-		t.Errorf("DestPort = %s, want 80", filter.DestPort)
-	}
+	t.Run("entry is required list", func(t *testing.T) {
+		assert.True(t, resource.Schema["entry"].Required)
+		assert.Equal(t, 1, resource.Schema["entry"].MinItems)
+	})
+
+	t.Run("apply is optional list", func(t *testing.T) {
+		assert.True(t, resource.Schema["apply"].Optional)
+	})
 }
 
-func TestResourceRTXAccessListIPv6_ActionValidation(t *testing.T) {
+func TestResourceRTXAccessListIPv6EntrySchema(t *testing.T) {
 	resource := resourceRTXAccessListIPv6()
-	actionSchema := resource.Schema["action"]
+	entrySchema := resource.Schema["entry"].Elem.(*schema.Resource).Schema
 
-	if actionSchema.ValidateFunc == nil {
-		t.Error("action should have validation function")
-	}
+	t.Run("sequence is optional and computed", func(t *testing.T) {
+		assert.True(t, entrySchema["sequence"].Optional)
+		assert.True(t, entrySchema["sequence"].Computed)
+	})
 
-	// Test valid actions
-	validActions := []string{"pass", "reject", "restrict", "restrict-log"}
-	for _, action := range validActions {
-		_, errs := actionSchema.ValidateFunc(action, "action")
-		if len(errs) > 0 {
-			t.Errorf("action %s should be valid, got errors: %v", action, errs)
-		}
-	}
+	t.Run("action is required", func(t *testing.T) {
+		assert.True(t, entrySchema["action"].Required)
+	})
+
+	t.Run("source is required", func(t *testing.T) {
+		assert.True(t, entrySchema["source"].Required)
+	})
+
+	t.Run("destination is required", func(t *testing.T) {
+		assert.True(t, entrySchema["destination"].Required)
+	})
+
+	t.Run("protocol is optional with default", func(t *testing.T) {
+		assert.True(t, entrySchema["protocol"].Optional)
+		assert.Equal(t, "*", entrySchema["protocol"].Default)
+	})
+
+	t.Run("source_port is optional with default", func(t *testing.T) {
+		assert.True(t, entrySchema["source_port"].Optional)
+		assert.Equal(t, "*", entrySchema["source_port"].Default)
+	})
+
+	t.Run("dest_port is optional with default", func(t *testing.T) {
+		assert.True(t, entrySchema["dest_port"].Optional)
+		assert.Equal(t, "*", entrySchema["dest_port"].Default)
+	})
+
+	t.Run("log is optional with default false", func(t *testing.T) {
+		assert.True(t, entrySchema["log"].Optional)
+		assert.Equal(t, false, entrySchema["log"].Default)
+	})
 }
 
-func TestResourceRTXAccessListIPv6_ProtocolValidation(t *testing.T) {
+func TestResourceRTXAccessListIPv6SchemaValidation(t *testing.T) {
 	resource := resourceRTXAccessListIPv6()
-	protocolSchema := resource.Schema["protocol"]
+	entrySchema := resource.Schema["entry"].Elem.(*schema.Resource).Schema
 
-	if protocolSchema.ValidateFunc == nil {
-		t.Error("protocol should have validation function")
-	}
-
-	// Test valid protocols including IPv6-specific icmp6
-	validProtocols := []string{"tcp", "udp", "icmp6", "ip", "*"}
-	for _, proto := range validProtocols {
-		_, errs := protocolSchema.ValidateFunc(proto, "protocol")
-		if len(errs) > 0 {
-			t.Errorf("protocol %s should be valid, got errors: %v", proto, errs)
+	t.Run("action validation", func(t *testing.T) {
+		validActions := []string{"pass", "reject", "restrict", "restrict-log"}
+		for _, action := range validActions {
+			_, errs := entrySchema["action"].ValidateFunc(action, "action")
+			assert.Empty(t, errs, "action '%s' should be valid", action)
 		}
-	}
+
+		_, errs := entrySchema["action"].ValidateFunc("invalid", "action")
+		assert.NotEmpty(t, errs, "action 'invalid' should be invalid")
+	})
+
+	t.Run("protocol validation includes icmp6", func(t *testing.T) {
+		// IPv6-specific: icmp6 instead of icmp
+		validProtocols := []string{"tcp", "udp", "icmp6", "ip", "gre", "esp", "ah", "*"}
+		for _, proto := range validProtocols {
+			_, errs := entrySchema["protocol"].ValidateFunc(proto, "protocol")
+			assert.Empty(t, errs, "protocol '%s' should be valid", proto)
+		}
+
+		_, errs := entrySchema["protocol"].ValidateFunc("icmp", "protocol")
+		assert.NotEmpty(t, errs, "protocol 'icmp' should be invalid for IPv6")
+
+		_, errs = entrySchema["protocol"].ValidateFunc("invalid", "protocol")
+		assert.NotEmpty(t, errs, "protocol 'invalid' should be invalid")
+	})
+
+	t.Run("sequence validation allows large values", func(t *testing.T) {
+		// Valid range: 1-2147483647
+		_, errs := entrySchema["sequence"].ValidateFunc(1, "sequence")
+		assert.Empty(t, errs, "sequence 1 should be valid")
+
+		_, errs = entrySchema["sequence"].ValidateFunc(65535, "sequence")
+		assert.Empty(t, errs, "sequence 65535 should be valid")
+
+		_, errs = entrySchema["sequence"].ValidateFunc(101000, "sequence")
+		assert.Empty(t, errs, "sequence 101000 should be valid")
+
+		_, errs = entrySchema["sequence"].ValidateFunc(402100, "sequence")
+		assert.Empty(t, errs, "sequence 402100 should be valid")
+
+		_, errs = entrySchema["sequence"].ValidateFunc(0, "sequence")
+		assert.NotEmpty(t, errs, "sequence 0 should be invalid")
+	})
 }
 
-func TestResourceRTXAccessListIPv6_FilterIDValidation(t *testing.T) {
+func TestResourceRTXAccessListIPv6Importer(t *testing.T) {
 	resource := resourceRTXAccessListIPv6()
-	filterIDSchema := resource.Schema["sequence"]
 
-	if filterIDSchema.ValidateFunc == nil {
-		t.Error("sequence should have validation function")
-	}
+	t.Run("importer is configured", func(t *testing.T) {
+		assert.NotNil(t, resource.Importer)
+		assert.NotNil(t, resource.Importer.StateContext)
+	})
+}
 
-	// Test valid filter IDs
-	validIDs := []int{1, 100, 65535}
-	for _, id := range validIDs {
-		_, errs := filterIDSchema.ValidateFunc(id, "sequence")
-		if len(errs) > 0 {
-			t.Errorf("sequence %d should be valid, got errors: %v", id, errs)
-		}
-	}
+func TestResourceRTXAccessListIPv6CRUDFunctions(t *testing.T) {
+	resource := resourceRTXAccessListIPv6()
 
-	// Test invalid filter IDs (0 and -1 are invalid, 65536 is valid since range is 1-2147483647)
-	invalidIDs := []int{0, -1}
-	for _, id := range invalidIDs {
-		_, errs := filterIDSchema.ValidateFunc(id, "sequence")
-		if len(errs) == 0 {
-			t.Errorf("sequence %d should be invalid", id)
-		}
-	}
+	t.Run("CRUD functions are configured", func(t *testing.T) {
+		assert.NotNil(t, resource.CreateContext)
+		assert.NotNil(t, resource.ReadContext)
+		assert.NotNil(t, resource.UpdateContext)
+		assert.NotNil(t, resource.DeleteContext)
+	})
+}
 
-	// 65536 is valid since range is 1-2147483647
-	_, errs := filterIDSchema.ValidateFunc(65536, "sequence")
-	if len(errs) > 0 {
-		t.Errorf("sequence 65536 should be valid, got errors: %v", errs)
-	}
+func TestResourceRTXAccessListIPv6CustomizeDiff(t *testing.T) {
+	resource := resourceRTXAccessListIPv6()
+
+	t.Run("customize diff is configured", func(t *testing.T) {
+		assert.NotNil(t, resource.CustomizeDiff)
+	})
 }

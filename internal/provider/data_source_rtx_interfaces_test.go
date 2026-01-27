@@ -1122,6 +1122,58 @@ func (m *MockClientForInterfaces) MarkCacheDirty() {
 	m.Called()
 }
 
+// IP Filter Apply methods
+func (m *MockClientForInterfaces) ApplyIPFiltersToInterface(ctx context.Context, iface, direction string, filterIDs []int) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForInterfaces) RemoveIPFiltersFromInterface(ctx context.Context, iface, direction string) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForInterfaces) GetIPInterfaceFilters(ctx context.Context, iface, direction string) ([]int, error) {
+	panic("not implemented")
+}
+
+// IPv6 Filter Apply methods
+func (m *MockClientForInterfaces) ApplyIPv6FiltersToInterface(ctx context.Context, iface, direction string, filterIDs []int) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForInterfaces) RemoveIPv6FiltersFromInterface(ctx context.Context, iface, direction string) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForInterfaces) GetIPv6InterfaceFilters(ctx context.Context, iface, direction string) ([]int, error) {
+	panic("not implemented")
+}
+
+// Extended ACL Apply methods
+func (m *MockClientForInterfaces) ApplyExtendedFiltersToInterface(ctx context.Context, iface, direction string, filterIDs []int) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForInterfaces) RemoveExtendedFiltersFromInterface(ctx context.Context, iface, direction string) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForInterfaces) GetExtendedInterfaceFilters(ctx context.Context) (map[string]map[string][]int, error) {
+	panic("not implemented")
+}
+
+// MAC Filter Apply methods
+func (m *MockClientForInterfaces) ApplyMACFiltersToInterface(ctx context.Context, iface, direction string, filterIDs []int) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForInterfaces) RemoveMACFiltersFromInterface(ctx context.Context, iface, direction string) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForInterfaces) GetMACInterfaceFilters(ctx context.Context, iface, direction string) ([]int, error) {
+	panic("not implemented")
+}
+
 func TestRTXInterfacesDataSourceSchema(t *testing.T) {
 	dataSource := dataSourceRTXInterfaces()
 

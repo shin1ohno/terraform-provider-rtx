@@ -34,12 +34,10 @@ type PPPAuth struct {
 
 // PPIPConfig represents PP interface IP configuration
 type PPIPConfig struct {
-	Address         string `json:"address"`                      // ip pp address <ip>/<mask> or "dhcp"
-	MTU             int    `json:"mtu"`                          // ip pp mtu <size>
-	TCPMSSLimit     int    `json:"tcp_mss_limit"`                // ip pp tcp mss limit <size>
-	NATDescriptor   int    `json:"nat_descriptor"`               // ip pp nat descriptor <id>
-	AccessListIPIn  string `json:"access_list_ip_in,omitempty"`  // Inbound IP access list name
-	AccessListIPOut string `json:"access_list_ip_out,omitempty"` // Outbound IP access list name
+	Address       string `json:"address"`        // ip pp address <ip>/<mask> or "dhcp"
+	MTU           int    `json:"mtu"`            // ip pp mtu <size>
+	TCPMSSLimit   int    `json:"tcp_mss_limit"`  // ip pp tcp mss limit <size>
+	NATDescriptor int    `json:"nat_descriptor"` // ip pp nat descriptor <id>
 }
 
 // LCPEchoConfig represents LCP echo (keepalive) configuration
@@ -95,8 +93,6 @@ func (p *PPPParser) ParsePPPoEConfig(raw string) ([]PPPoEConfig, error) {
 	ipPPMTUPattern := regexp.MustCompile(`^\s*ip\s+pp\s+mtu\s+(\d+)\s*$`)
 	ipPPTCPMSSPattern := regexp.MustCompile(`^\s*ip\s+pp\s+tcp\s+mss\s+limit\s+(\d+)\s*$`)
 	ipPPNATDescriptorPattern := regexp.MustCompile(`^\s*ip\s+pp\s+nat\s+descriptor\s+(\d+)\s*$`)
-	ipPPSecureFilterInPattern := regexp.MustCompile(`^\s*ip\s+pp\s+secure\s+filter\s+in\s+(.+)\s*$`)
-	ipPPSecureFilterOutPattern := regexp.MustCompile(`^\s*ip\s+pp\s+secure\s+filter\s+out\s+(.+)\s*$`)
 
 	// LCP echo patterns
 	pppLcpMruPattern := regexp.MustCompile(`^\s*ppp\s+lcp\s+mru\s+on\s+(\d+)\s*$`)
@@ -244,24 +240,6 @@ func (p *PPPParser) ParsePPPoEConfig(raw string) ([]PPPoEConfig, error) {
 			continue
 		}
 
-		// IP PP secure filter in (access list name)
-		if matches := ipPPSecureFilterInPattern.FindStringSubmatch(line); len(matches) >= 2 {
-			if currentConfig.IPConfig == nil {
-				currentConfig.IPConfig = &PPIPConfig{}
-			}
-			currentConfig.IPConfig.AccessListIPIn = strings.TrimSpace(matches[1])
-			continue
-		}
-
-		// IP PP secure filter out (access list name)
-		if matches := ipPPSecureFilterOutPattern.FindStringSubmatch(line); len(matches) >= 2 {
-			if currentConfig.IPConfig == nil {
-				currentConfig.IPConfig = &PPIPConfig{}
-			}
-			currentConfig.IPConfig.AccessListIPOut = strings.TrimSpace(matches[1])
-			continue
-		}
-
 		// Ignore other ppp settings for now (lcp mru, ipcp, ccp)
 		_ = pppLcpMruPattern
 		_ = pppIpcpIPAddressPattern
@@ -306,8 +284,6 @@ func (p *PPPParser) ParsePPInterfaceConfig(raw string, ppNum int) (*PPIPConfig, 
 	ipPPMTUPattern := regexp.MustCompile(`^\s*ip\s+pp\s+mtu\s+(\d+)\s*$`)
 	ipPPTCPMSSPattern := regexp.MustCompile(`^\s*ip\s+pp\s+tcp\s+mss\s+limit\s+(\d+)\s*$`)
 	ipPPNATDescriptorPattern := regexp.MustCompile(`^\s*ip\s+pp\s+nat\s+descriptor\s+(\d+)\s*$`)
-	ipPPSecureFilterInPattern := regexp.MustCompile(`^\s*ip\s+pp\s+secure\s+filter\s+in\s+(.+)\s*$`)
-	ipPPSecureFilterOutPattern := regexp.MustCompile(`^\s*ip\s+pp\s+secure\s+filter\s+out\s+(.+)\s*$`)
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -348,16 +324,6 @@ func (p *PPPParser) ParsePPInterfaceConfig(raw string, ppNum int) (*PPIPConfig, 
 
 		if matches := ipPPNATDescriptorPattern.FindStringSubmatch(line); len(matches) >= 2 {
 			config.NATDescriptor, _ = strconv.Atoi(matches[1])
-			continue
-		}
-
-		if matches := ipPPSecureFilterInPattern.FindStringSubmatch(line); len(matches) >= 2 {
-			config.AccessListIPIn = strings.TrimSpace(matches[1])
-			continue
-		}
-
-		if matches := ipPPSecureFilterOutPattern.FindStringSubmatch(line); len(matches) >= 2 {
-			config.AccessListIPOut = strings.TrimSpace(matches[1])
 			continue
 		}
 	}
@@ -620,15 +586,7 @@ func BuildPPPoECommand(config PPPoEConfig) []string {
 			commands = append(commands, cmd)
 		}
 
-		// ip pp secure filter in
-		if cmd := BuildIPPPSecureFilterInCommand(config.IPConfig.AccessListIPIn); cmd != "" {
-			commands = append(commands, cmd)
-		}
-
-		// ip pp secure filter out
-		if cmd := BuildIPPPSecureFilterOutCommand(config.IPConfig.AccessListIPOut); cmd != "" {
-			commands = append(commands, cmd)
-		}
+		// NOTE: ip pp secure filter in/out commands removed - ACL management moved to ACL resources
 	}
 
 	// pp enable

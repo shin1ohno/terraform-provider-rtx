@@ -3,12 +3,12 @@
 page_title: "rtx_access_list_ipv6 Resource - terraform-provider-rtx"
 subcategory: ""
 description: |-
-  Manages static IPv6 filters on RTX routers. Static IPv6 filters provide packet filtering based on source/destination addresses, protocols, and ports for IPv6 traffic.
+  Manages a group of IPv6 static filters (access list) on RTX routers. This resource manages multiple IPv6 filter rules as a single group using the RTX native 'ipv6 filter' command. Supports automatic sequence numbering or manual sequence assignment.
 ---
 
 # rtx_access_list_ipv6 (Resource)
 
-Manages static IPv6 filters on RTX routers. Static IPv6 filters provide packet filtering based on source/destination addresses, protocols, and ports for IPv6 traffic.
+Manages a group of IPv6 static filters (access list) on RTX routers. This resource manages multiple IPv6 filter rules as a single group using the RTX native 'ipv6 filter' command. Supports automatic sequence numbering or manual sequence assignment.
 
 
 
@@ -17,17 +17,45 @@ Manages static IPv6 filters on RTX routers. Static IPv6 filters provide packet f
 
 ### Required
 
-- `action` (String) Filter action: pass, reject, restrict, or restrict-log
-- `destination` (String) Destination IPv6 address/prefix or '*' for any
-- `protocol` (String) Protocol: tcp, udp, icmp6, ip, *, gre, esp, ah
-- `sequence` (Number) Sequence number determining evaluation order. Lower numbers are evaluated first (1-2147483647).
-- `source` (String) Source IPv6 address/prefix or '*' for any
+- `entry` (Block List, Min: 1) List of IPv6 filter entries. Each entry defines a single filter rule. (see [below for nested schema](#nestedblock--entry))
+- `name` (String) ACL group identifier. This name is used to reference the ACL in other resources and for Terraform state management.
 
 ### Optional
 
-- `dest_port` (String) Destination port(s) or '*' for any. Only applicable for tcp/udp protocols.
-- `source_port` (String) Source port(s) or '*' for any. Only applicable for tcp/udp protocols.
+- `apply` (Block List) List of interface bindings. Each apply block binds this ACL to an interface in a specific direction. (see [below for nested schema](#nestedblock--apply))
+- `sequence_start` (Number) Starting sequence number for automatic sequence calculation. When set, sequence numbers are automatically assigned to entries based on their definition order. Mutually exclusive with entry-level sequence attributes.
+- `sequence_step` (Number) Increment value for automatic sequence calculation. Only used when sequence_start is set. Default is 10.
 
 ### Read-Only
 
 - `id` (String) The ID of this resource.
+
+<a id="nestedblock--entry"></a>
+### Nested Schema for `entry`
+
+Required:
+
+- `action` (String) Filter action: pass, reject, restrict, or restrict-log
+- `destination` (String) Destination IPv6 address/prefix (e.g., '2001:db8::1/128') or '*' for any
+- `source` (String) Source IPv6 address/prefix (e.g., '2001:db8::/32') or '*' for any
+
+Optional:
+
+- `dest_port` (String) Destination port number, range (e.g., '80'), or '*' for any. Only valid for TCP/UDP.
+- `log` (Boolean) Enable logging when this entry matches traffic.
+- `protocol` (String) Protocol: tcp, udp, icmp6, ip, gre, esp, ah, or * for any
+- `sequence` (Number) Sequence number determines the order of evaluation. Required when sequence_start is not set (manual mode). Auto-calculated when sequence_start is set (auto mode).
+- `source_port` (String) Source port number, range (e.g., '1024-65535'), or '*' for any. Only valid for TCP/UDP.
+
+
+<a id="nestedblock--apply"></a>
+### Nested Schema for `apply`
+
+Required:
+
+- `direction` (String) Direction to apply the ACL: 'in' for incoming traffic, 'out' for outgoing traffic.
+- `interface` (String) Interface to apply the ACL to (e.g., lan1, bridge1, pp1, tunnel1).
+
+Optional:
+
+- `filter_ids` (List of Number) Specific filter IDs (sequence numbers) to apply in order. If omitted, all entry sequences are applied in order.

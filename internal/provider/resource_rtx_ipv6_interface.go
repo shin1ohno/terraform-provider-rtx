@@ -117,26 +117,6 @@ func resourceRTXIPv6Interface() *schema.Resource {
 				Description:  "IPv6 MTU size (minimum 1280 for IPv6). Set to 0 to use the default MTU.",
 				ValidateFunc: validation.IntBetween(0, 65535),
 			},
-			"access_list_ipv6_in": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Description: "Inbound IPv6 access list name",
-			},
-			"access_list_ipv6_out": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Description: "Outbound IPv6 access list name",
-			},
-			"access_list_ipv6_dynamic_in": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Description: "Inbound dynamic IPv6 access list name",
-			},
-			"access_list_ipv6_dynamic_out": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Description: "Outbound dynamic IPv6 access list name",
-			},
 		},
 	}
 }
@@ -157,22 +137,6 @@ func resourceRTXIPv6InterfaceCreate(ctx context.Context, d *schema.ResourceData,
 
 	// Use interface name as the resource ID
 	d.SetId(config.Interface)
-
-	// Explicitly set access list values to match the config.
-	// The RTX router stores filter numbers, not access list names.
-	// We must set these values explicitly to ensure the state matches the config.
-	if err := d.Set("access_list_ipv6_in", config.AccessListIPv6In); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("access_list_ipv6_out", config.AccessListIPv6Out); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("access_list_ipv6_dynamic_in", config.AccessListIPv6DynamicIn); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("access_list_ipv6_dynamic_out", config.AccessListIPv6DynamicOut); err != nil {
-		return diag.FromErr(err)
-	}
 
 	return nil
 }
@@ -267,52 +231,6 @@ func resourceRTXIPv6InterfaceRead(ctx context.Context, d *schema.ResourceData, m
 	if err := d.Set("mtu", config.MTU); err != nil {
 		return diag.FromErr(err)
 	}
-	// Set access list attributes - preserve values when service returns empty.
-	// RTX router stores filter numbers, not access list names. The service layer cannot
-	// reverse-lookup names from numbers, so it returns empty values.
-	//
-	// We use a fallback chain:
-	// 1. Service value (if not empty)
-	// 2. Config value via GetRawConfig() (if available)
-	// 3. Prior state value via d.Get()
-	//
-	// This preserves access list names across plan/apply cycles.
-	rawConfig := d.GetRawConfig()
-	preserveOrSet := func(attrName, serviceValue string) error {
-		value := serviceValue
-		if value == "" {
-			// Try to get from raw config (Terraform configuration)
-			if !rawConfig.IsNull() {
-				configVal := rawConfig.GetAttr(attrName)
-				if !configVal.IsNull() && !configVal.IsKnown() {
-					// Value is unknown (being computed) - use prior state
-					value = d.Get(attrName).(string)
-				} else if !configVal.IsNull() && configVal.AsString() != "" {
-					value = configVal.AsString()
-				} else {
-					// Config is empty or null, use prior state
-					value = d.Get(attrName).(string)
-				}
-			} else {
-				// No raw config available, use prior state
-				value = d.Get(attrName).(string)
-			}
-		}
-		return d.Set(attrName, value)
-	}
-
-	if err := preserveOrSet("access_list_ipv6_in", config.AccessListIPv6In); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := preserveOrSet("access_list_ipv6_out", config.AccessListIPv6Out); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := preserveOrSet("access_list_ipv6_dynamic_in", config.AccessListIPv6DynamicIn); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := preserveOrSet("access_list_ipv6_dynamic_out", config.AccessListIPv6DynamicOut); err != nil {
-		return diag.FromErr(err)
-	}
 
 	return nil
 }
@@ -329,22 +247,6 @@ func resourceRTXIPv6InterfaceUpdate(ctx context.Context, d *schema.ResourceData,
 	err := apiClient.client.UpdateIPv6InterfaceConfig(ctx, config)
 	if err != nil {
 		return diag.Errorf("Failed to update IPv6 interface configuration: %v", err)
-	}
-
-	// Explicitly set access list values to match the config.
-	// The RTX router stores filter numbers, not access list names.
-	// We must set these values explicitly to ensure the state matches the config.
-	if err := d.Set("access_list_ipv6_in", config.AccessListIPv6In); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("access_list_ipv6_out", config.AccessListIPv6Out); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("access_list_ipv6_dynamic_in", config.AccessListIPv6DynamicIn); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("access_list_ipv6_dynamic_out", config.AccessListIPv6DynamicOut); err != nil {
-		return diag.FromErr(err)
 	}
 
 	return nil
@@ -419,10 +321,6 @@ func resourceRTXIPv6InterfaceImport(ctx context.Context, d *schema.ResourceData,
 
 	d.Set("dhcpv6_service", config.DHCPv6Service)
 	d.Set("mtu", config.MTU)
-	d.Set("access_list_ipv6_in", config.AccessListIPv6In)
-	d.Set("access_list_ipv6_out", config.AccessListIPv6Out)
-	d.Set("access_list_ipv6_dynamic_in", config.AccessListIPv6DynamicIn)
-	d.Set("access_list_ipv6_dynamic_out", config.AccessListIPv6DynamicOut)
 
 	return []*schema.ResourceData{d}, nil
 }
@@ -430,13 +328,9 @@ func resourceRTXIPv6InterfaceImport(ctx context.Context, d *schema.ResourceData,
 // buildIPv6InterfaceConfigFromResourceData creates an IPv6InterfaceConfig from Terraform resource data
 func buildIPv6InterfaceConfigFromResourceData(d *schema.ResourceData) client.IPv6InterfaceConfig {
 	config := client.IPv6InterfaceConfig{
-		Interface:                d.Get("interface").(string),
-		DHCPv6Service:            d.Get("dhcpv6_service").(string),
-		MTU:                      d.Get("mtu").(int),
-		AccessListIPv6In:         d.Get("access_list_ipv6_in").(string),
-		AccessListIPv6Out:        d.Get("access_list_ipv6_out").(string),
-		AccessListIPv6DynamicIn:  d.Get("access_list_ipv6_dynamic_in").(string),
-		AccessListIPv6DynamicOut: d.Get("access_list_ipv6_dynamic_out").(string),
+		Interface:     d.Get("interface").(string),
+		DHCPv6Service: d.Get("dhcpv6_service").(string),
+		MTU:           d.Get("mtu").(int),
 	}
 
 	// Handle address blocks

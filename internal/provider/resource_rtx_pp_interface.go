@@ -62,16 +62,6 @@ func resourceRTXPPInterface() *schema.Resource {
 				Description:  "NAT descriptor ID to bind to this PP interface. Use rtx_nat_masquerade or rtx_nat_static to define the descriptor.",
 				ValidateFunc: validation.IntAtLeast(0),
 			},
-			"access_list_ip_in": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Description: "Inbound IP access list name. Reference an rtx_access_list_ip resource by name.",
-			},
-			"access_list_ip_out": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Description: "Outbound IP access list name. Reference an rtx_access_list_ip resource by name.",
-			},
 			"pp_interface": {
 				Type:        schema.TypeString,
 				Computed:    true,
@@ -101,15 +91,6 @@ func resourceRTXPPInterfaceCreate(ctx context.Context, d *schema.ResourceData, m
 
 	// Set computed fields
 	if err := d.Set("pp_interface", fmt.Sprintf("pp%d", ppNum)); err != nil {
-		return diag.FromErr(err)
-	}
-
-	// Explicitly set access list values to match the config.
-	// The RTX router stores filter numbers, not access list names.
-	if err := d.Set("access_list_ip_in", config.AccessListIPIn); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("access_list_ip_out", config.AccessListIPOut); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -155,12 +136,6 @@ func resourceRTXPPInterfaceRead(ctx context.Context, d *schema.ResourceData, met
 	if err := d.Set("nat_descriptor", config.NATDescriptor); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set("access_list_ip_in", config.AccessListIPIn); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("access_list_ip_out", config.AccessListIPOut); err != nil {
-		return diag.FromErr(err)
-	}
 	if err := d.Set("pp_interface", fmt.Sprintf("pp%d", ppNum)); err != nil {
 		return diag.FromErr(err)
 	}
@@ -185,15 +160,6 @@ func resourceRTXPPInterfaceUpdate(ctx context.Context, d *schema.ResourceData, m
 	err = apiClient.client.UpdatePPInterfaceConfig(ctx, ppNum, config)
 	if err != nil {
 		return diag.Errorf("Failed to update PP interface configuration: %v", err)
-	}
-
-	// Explicitly set access list values to match the config.
-	// The RTX router stores filter numbers, not access list names.
-	if err := d.Set("access_list_ip_in", config.AccessListIPIn); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("access_list_ip_out", config.AccessListIPOut); err != nil {
-		return diag.FromErr(err)
 	}
 
 	return nil
@@ -254,8 +220,6 @@ func resourceRTXPPInterfaceImport(ctx context.Context, d *schema.ResourceData, m
 	d.Set("mtu", config.MTU)
 	d.Set("tcp_mss", config.TCPMSSLimit)
 	d.Set("nat_descriptor", config.NATDescriptor)
-	d.Set("access_list_ip_in", config.AccessListIPIn)
-	d.Set("access_list_ip_out", config.AccessListIPOut)
 	d.Set("pp_interface", fmt.Sprintf("pp%d", ppNum))
 
 	return []*schema.ResourceData{d}, nil
@@ -264,12 +228,10 @@ func resourceRTXPPInterfaceImport(ctx context.Context, d *schema.ResourceData, m
 // buildPPIPConfigFromResourceData creates a PPIPConfig from Terraform resource data
 func buildPPIPConfigFromResourceData(d *schema.ResourceData) client.PPIPConfig {
 	config := client.PPIPConfig{
-		Address:         GetStringValue(d, "ip_address"),
-		MTU:             GetIntValue(d, "mtu"),
-		TCPMSSLimit:     GetIntValue(d, "tcp_mss"),
-		NATDescriptor:   GetIntValue(d, "nat_descriptor"),
-		AccessListIPIn:  d.Get("access_list_ip_in").(string),
-		AccessListIPOut: d.Get("access_list_ip_out").(string),
+		Address:       GetStringValue(d, "ip_address"),
+		MTU:           GetIntValue(d, "mtu"),
+		TCPMSSLimit:   GetIntValue(d, "tcp_mss"),
+		NATDescriptor: GetIntValue(d, "nat_descriptor"),
 	}
 
 	return config

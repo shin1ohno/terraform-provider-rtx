@@ -3,12 +3,12 @@
 page_title: "rtx_access_list_extended Resource - terraform-provider-rtx"
 subcategory: ""
 description: |-
-  Manages IPv4 extended access lists (ACLs) on RTX routers. Extended ACLs provide granular control over packet filtering based on source/destination addresses, protocols, and ports.
+  Manages IPv4 extended access lists (ACLs) on RTX routers. Extended ACLs provide granular control over packet filtering based on source/destination addresses, protocols, and ports. Supports both manual sequence mode (explicit sequence on each entry) and auto sequence mode (sequence_start + sequence_step). Optional apply blocks bind the ACL to interfaces.
 ---
 
 # rtx_access_list_extended (Resource)
 
-Manages IPv4 extended access lists (ACLs) on RTX routers. Extended ACLs provide granular control over packet filtering based on source/destination addresses, protocols, and ports.
+Manages IPv4 extended access lists (ACLs) on RTX routers. Extended ACLs provide granular control over packet filtering based on source/destination addresses, protocols, and ports. Supports both manual sequence mode (explicit sequence on each entry) and auto sequence mode (sequence_start + sequence_step). Optional apply blocks bind the ACL to interfaces.
 
 
 
@@ -19,6 +19,12 @@ Manages IPv4 extended access lists (ACLs) on RTX routers. Extended ACLs provide 
 
 - `entry` (Block List, Min: 1) List of ACL entries (see [below for nested schema](#nestedblock--entry))
 - `name` (String) The name of the access list (used as identifier)
+
+### Optional
+
+- `apply` (Block List) List of interface bindings. Each apply block binds this ACL to an interface in a specific direction. (see [below for nested schema](#nestedblock--apply))
+- `sequence_start` (Number) Starting sequence number for automatic sequence calculation. When set, sequence numbers are automatically assigned to entries based on their definition order. Mutually exclusive with entry-level sequence attributes.
+- `sequence_step` (Number) Increment value for automatic sequence calculation. Only used when sequence_start is set. Default is 10.
 
 ### Read-Only
 
@@ -31,7 +37,6 @@ Required:
 
 - `ace_rule_action` (String) Action: 'permit' or 'deny'
 - `ace_rule_protocol` (String) Protocol: tcp, udp, icmp, ip, gre, esp, ah, or *
-- `sequence` (Number) Sequence number (determines order, typically 10, 20, 30...)
 
 Optional:
 
@@ -42,8 +47,22 @@ Optional:
 - `destination_prefix_mask` (String) Destination wildcard mask (e.g., '0.0.0.255')
 - `established` (Boolean) Match established TCP connections (ACK or RST flag set)
 - `log` (Boolean) Enable logging for this entry
+- `sequence` (Number) Sequence number (determines order). Required in manual mode (when sequence_start is not set). Auto-calculated in auto mode.
 - `source_any` (Boolean) Match any source address
 - `source_port_equal` (String) Source port equals (e.g., '80', '443')
 - `source_port_range` (String) Source port range (e.g., '1024-65535')
 - `source_prefix` (String) Source IP address (e.g., '192.168.1.0')
 - `source_prefix_mask` (String) Source wildcard mask (e.g., '0.0.0.255')
+
+
+<a id="nestedblock--apply"></a>
+### Nested Schema for `apply`
+
+Required:
+
+- `direction` (String) Direction to apply the ACL: 'in' for incoming traffic, 'out' for outgoing traffic.
+- `interface` (String) Interface to apply the ACL to (e.g., lan1, bridge1, pp1, tunnel1).
+
+Optional:
+
+- `filter_ids` (List of Number) Specific filter IDs (sequence numbers) to apply in order. If omitted, all entry sequences are applied in order.

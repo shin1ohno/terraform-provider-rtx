@@ -21,6 +21,7 @@ Manages SSH daemon (sshd) configuration on RTX routers. This is a singleton reso
 
 ### Optional
 
+- `auth_method` (String) SSH authentication method: password, publickey, or any (default)
 - `hosts` (List of String) List of interfaces to listen on. If empty, listens on all interfaces when enabled.
 
 ### Read-Only

@@ -176,26 +176,48 @@ func (s *workingSession) executeCommandRaw(cmd string, timeout time.Duration) ([
 }
 
 // readUntilPrompt reads until we see a prompt character
+// Uses goroutine + channel pattern to ensure timeout works even with blocking I/O
 func (s *workingSession) readUntilPrompt(timeout time.Duration) ([]byte, error) {
 	logger := logging.Global()
 	var buffer bytes.Buffer
-	deadline := time.Now().Add(timeout)
-	buf := make([]byte, 1)
+
+	// Channel for read results
+	type readResult struct {
+		b   byte
+		err error
+	}
+	readCh := make(chan readResult, 1)
+
+	// Goroutine for blocking reads
+	go func() {
+		buf := make([]byte, 1)
+		for {
+			n, err := s.stdout.Read(buf)
+			if err != nil && err != io.EOF {
+				readCh <- readResult{err: err}
+				return
+			}
+			if n > 0 {
+				readCh <- readResult{b: buf[0]}
+			}
+		}
+	}()
+
+	// Read with timeout
+	timeoutTimer := time.NewTimer(timeout)
+	defer timeoutTimer.Stop()
 
 	for {
-		if time.Now().After(deadline) {
+		select {
+		case <-timeoutTimer.C:
 			logger.Debug().Str("buffer", buffer.String()).Msg("readUntilPrompt: Timeout waiting for prompt")
 			return buffer.Bytes(), fmt.Errorf("timeout waiting for prompt")
-		}
+		case result := <-readCh:
+			if result.err != nil {
+				return buffer.Bytes(), fmt.Errorf("read error: %w", result.err)
+			}
 
-		// Read one byte at a time
-		n, err := s.stdout.Read(buf)
-		if err != nil && err != io.EOF {
-			return buffer.Bytes(), fmt.Errorf("read error: %w", err)
-		}
-
-		if n > 0 {
-			buffer.WriteByte(buf[0])
+			buffer.WriteByte(result.b)
 
 			// Check if we have a prompt
 			content := buffer.String()
@@ -235,49 +257,62 @@ func (s *workingSession) readUntilPrompt(timeout time.Duration) ([]byte, error) 
 				}
 			}
 		}
-
-		// Small delay to avoid busy loop
-		time.Sleep(10 * time.Millisecond)
 	}
 }
 
 // readUntilString reads from stdout until the specified string appears
+// Uses goroutine + channel pattern to ensure timeout works even with blocking I/O
 func (s *workingSession) readUntilString(target string, timeout time.Duration) ([]byte, error) {
+	logger := logging.Global()
 	var buffer bytes.Buffer
-	start := time.Now()
 
-	for time.Since(start) < timeout {
-		// Read some data
-		chunk := make([]byte, 1024)
+	// Channel for read results
+	type readResult struct {
+		b   byte
+		err error
+	}
+	readCh := make(chan readResult, 1)
 
-		// Set read deadline if possible
-		if conn, ok := s.stdout.(interface{ SetReadDeadline(time.Time) error }); ok {
-			_ = conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
-		}
-
-		n, err := s.stdout.Read(chunk)
-		if err != nil && err != io.EOF {
-			// Timeout is expected, continue
-			if strings.Contains(err.Error(), "timeout") || strings.Contains(err.Error(), "deadline") {
-				time.Sleep(10 * time.Millisecond)
-				continue
+	// Goroutine for blocking reads
+	go func() {
+		buf := make([]byte, 1)
+		for {
+			n, err := s.stdout.Read(buf)
+			if err != nil && err != io.EOF {
+				readCh <- readResult{err: err}
+				return
 			}
-			return buffer.Bytes(), fmt.Errorf("read error: %w", err)
+			if n > 0 {
+				readCh <- readResult{b: buf[0]}
+			}
 		}
+	}()
 
-		if n > 0 {
-			buffer.Write(chunk[:n])
+	// Read with timeout
+	timeoutTimer := time.NewTimer(timeout)
+	defer timeoutTimer.Stop()
+
+	for {
+		select {
+		case <-timeoutTimer.C:
+			logger.Debug().
+				Str("target", target).
+				Str("buffer", buffer.String()).
+				Msg("readUntilString: Timeout")
+			return buffer.Bytes(), fmt.Errorf("timeout waiting for %q (got: %q)", target, buffer.String())
+		case result := <-readCh:
+			if result.err != nil {
+				return buffer.Bytes(), fmt.Errorf("read error: %w", result.err)
+			}
+
+			buffer.WriteByte(result.b)
+
 			// Check if target string appears in buffer
 			if strings.Contains(buffer.String(), target) {
 				return buffer.Bytes(), nil
 			}
 		}
-
-		// Small delay to avoid busy loop
-		time.Sleep(10 * time.Millisecond)
 	}
-
-	return buffer.Bytes(), fmt.Errorf("timeout waiting for %q (got: %q)", target, buffer.String())
 }
 
 // cleanOutput removes command echo and prompt from output
@@ -408,26 +443,48 @@ func (s *workingSession) exitAdminMode() error {
 }
 
 // readUntilPromptOrSaveConfirmation reads until we see a prompt or save confirmation
+// Uses goroutine + channel pattern to ensure timeout works even with blocking I/O
 func (s *workingSession) readUntilPromptOrSaveConfirmation(timeout time.Duration) ([]byte, error) {
 	logger := logging.Global()
 	var buffer bytes.Buffer
-	deadline := time.Now().Add(timeout)
-	buf := make([]byte, 1)
+
+	// Channel for read results
+	type readResult struct {
+		b   byte
+		err error
+	}
+	readCh := make(chan readResult, 1)
+
+	// Goroutine for blocking reads
+	go func() {
+		buf := make([]byte, 1)
+		for {
+			n, err := s.stdout.Read(buf)
+			if err != nil && err != io.EOF {
+				readCh <- readResult{err: err}
+				return
+			}
+			if n > 0 {
+				readCh <- readResult{b: buf[0]}
+			}
+		}
+	}()
+
+	// Read with timeout
+	timeoutTimer := time.NewTimer(timeout)
+	defer timeoutTimer.Stop()
 
 	for {
-		if time.Now().After(deadline) {
+		select {
+		case <-timeoutTimer.C:
 			logger.Debug().Str("buffer", buffer.String()).Msg("readUntilPromptOrSaveConfirmation: Timeout")
 			return buffer.Bytes(), fmt.Errorf("timeout waiting for prompt or save confirmation")
-		}
+		case result := <-readCh:
+			if result.err != nil {
+				return buffer.Bytes(), fmt.Errorf("read error: %w", result.err)
+			}
 
-		// Read one byte at a time
-		n, err := s.stdout.Read(buf)
-		if err != nil && err != io.EOF {
-			return buffer.Bytes(), fmt.Errorf("read error: %w", err)
-		}
-
-		if n > 0 {
-			buffer.WriteByte(buf[0])
+			buffer.WriteByte(result.b)
 
 			content := buffer.String()
 
@@ -457,9 +514,6 @@ func (s *workingSession) readUntilPromptOrSaveConfirmation(timeout time.Duration
 				}
 			}
 		}
-
-		// Small delay to avoid busy loop
-		time.Sleep(10 * time.Millisecond)
 	}
 }
 
@@ -480,6 +534,190 @@ func (s *workingSession) isSaveConfigurationPrompt(text string) bool {
 	}
 
 	for _, prompt := range savePrompts {
+		if strings.Contains(lowerText, prompt) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// readUntilPromptOrConfirmation reads until we see a prompt or confirmation prompt (Y/N)
+// Uses goroutine + channel pattern to ensure timeout works even with blocking I/O
+func (s *workingSession) readUntilPromptOrConfirmation(timeout time.Duration) ([]byte, error) {
+	logger := logging.Global()
+	var buffer bytes.Buffer
+
+	// Channel for read results
+	type readResult struct {
+		b   byte
+		err error
+	}
+	readCh := make(chan readResult, 1)
+
+	// Goroutine for blocking reads
+	go func() {
+		buf := make([]byte, 1)
+		for {
+			n, err := s.stdout.Read(buf)
+			if err != nil && err != io.EOF {
+				readCh <- readResult{err: err}
+				return
+			}
+			if n > 0 {
+				readCh <- readResult{b: buf[0]}
+			}
+		}
+	}()
+
+	// Read with timeout
+	timeoutTimer := time.NewTimer(timeout)
+	defer timeoutTimer.Stop()
+
+	for {
+		select {
+		case <-timeoutTimer.C:
+			logger.Debug().Str("buffer", buffer.String()).Msg("readUntilPromptOrConfirmation: Timeout")
+			return buffer.Bytes(), fmt.Errorf("timeout waiting for prompt or confirmation")
+		case result := <-readCh:
+			if result.err != nil {
+				return buffer.Bytes(), fmt.Errorf("read error: %w", result.err)
+			}
+
+			buffer.WriteByte(result.b)
+			content := buffer.String()
+
+			// Check for host key update confirmation prompt
+			if s.isHostKeyUpdatePrompt(content) {
+				return buffer.Bytes(), nil
+			}
+
+			// Check for normal prompt (user mode or admin mode)
+			lines := strings.Split(content, "\n")
+			if len(lines) > 0 {
+				lastLine := lines[len(lines)-1]
+				if len(lastLine) > 0 {
+					trimmed := strings.TrimSpace(lastLine)
+					// Check for user mode prompt: "[RTX1210] >"
+					if strings.Contains(lastLine, "] >") || strings.HasSuffix(lastLine, "> ") {
+						return buffer.Bytes(), nil
+					}
+					// Check for admin mode prompt: "[RTX1210] # "
+					if strings.Contains(lastLine, "] # ") || strings.HasSuffix(lastLine, "# ") {
+						return buffer.Bytes(), nil
+					}
+					// Fallback: check if line ends with > or # (with possible trailing spaces)
+					if strings.HasSuffix(trimmed, ">") || strings.HasSuffix(trimmed, "#") {
+						return buffer.Bytes(), nil
+					}
+				}
+			}
+		}
+	}
+}
+
+// readUntilPasswordPromptOrAdminMode reads until we see either:
+// - "Password:" prompt (need to enter password)
+// - Admin prompt with "already administrator" message (already in admin mode)
+// - Admin prompt (# ending) indicating we're already in admin mode
+// Uses goroutine + channel pattern to ensure timeout works even with blocking I/O
+func (s *workingSession) readUntilPasswordPromptOrAdminMode(timeout time.Duration) ([]byte, error) {
+	logger := logging.Global()
+	var buffer bytes.Buffer
+
+	// Channel for read results
+	type readResult struct {
+		b   byte
+		err error
+	}
+	readCh := make(chan readResult, 1)
+
+	// Goroutine for blocking reads
+	go func() {
+		buf := make([]byte, 1)
+		for {
+			n, err := s.stdout.Read(buf)
+			if err != nil && err != io.EOF {
+				readCh <- readResult{err: err}
+				return
+			}
+			if n > 0 {
+				readCh <- readResult{b: buf[0]}
+			}
+		}
+	}()
+
+	// Read with timeout
+	timeoutTimer := time.NewTimer(timeout)
+	defer timeoutTimer.Stop()
+
+	for {
+		select {
+		case <-timeoutTimer.C:
+			logger.Debug().Str("buffer", buffer.String()).Msg("readUntilPasswordPromptOrAdminMode: Timeout")
+			return buffer.Bytes(), fmt.Errorf("timeout waiting for password prompt or admin mode")
+		case result := <-readCh:
+			if result.err != nil {
+				return buffer.Bytes(), fmt.Errorf("read error: %w", result.err)
+			}
+
+			buffer.WriteByte(result.b)
+			content := buffer.String()
+
+			// Check for password prompt
+			if strings.Contains(content, "Password:") || strings.Contains(content, "password:") {
+				return buffer.Bytes(), nil
+			}
+
+			// Check for "already administrator" message (Japanese and English)
+			if strings.Contains(content, "すでに管理レベル") || strings.Contains(strings.ToLower(content), "already") {
+				// Wait for prompt to appear
+				lines := strings.Split(content, "\n")
+				if len(lines) > 0 {
+					lastLine := lines[len(lines)-1]
+					if strings.HasSuffix(lastLine, "# ") || strings.HasSuffix(strings.TrimSpace(lastLine), "#") {
+						return buffer.Bytes(), nil
+					}
+				}
+			}
+
+			// Check for admin mode prompt ending (# instead of >)
+			// This catches the case where session starts in admin mode
+			lines := strings.Split(content, "\n")
+			if len(lines) > 0 {
+				lastLine := lines[len(lines)-1]
+				// Only match if we have enough content (to avoid premature matches)
+				if len(content) > 20 {
+					if strings.HasSuffix(lastLine, "# ") {
+						return buffer.Bytes(), nil
+					}
+				}
+			}
+		}
+	}
+}
+
+// isHostKeyUpdatePrompt checks if the text contains a host key update confirmation prompt
+func (s *workingSession) isHostKeyUpdatePrompt(text string) bool {
+	lowerText := strings.ToLower(text)
+
+	// RTX router host key update prompts
+	updatePrompts := []string{
+		// Japanese
+		"ホスト鍵を更新",
+		"更新しますか",
+		// English
+		"update host key",
+		"update the host key",
+		"overwrite",
+		// Generic Y/N confirmation at end
+		"(y/n)",
+		"(y/n):",
+		"[y/n]",
+		"[y/n]:",
+	}
+
+	for _, prompt := range updatePrompts {
 		if strings.Contains(lowerText, prompt) {
 			return true
 		}

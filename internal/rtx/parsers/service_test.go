@@ -587,7 +587,7 @@ func TestValidateSFTPDConfig(t *testing.T) {
 
 func TestBuildShowSSHDStatusCommand(t *testing.T) {
 	result := BuildShowSSHDStatusCommand()
-	expected := "show status sshd"
+	expected := "show sshd host key"
 	if result != expected {
 		t.Errorf("got %q, want %q", result, expected)
 	}
@@ -881,6 +881,8 @@ func TestBuildDeleteSSHDAuthorizedKeysCommand(t *testing.T) {
 }
 
 func TestParseSSHDAuthorizedKeys(t *testing.T) {
+	// ParseSSHDAuthorizedKeys parses OpenSSH format public keys from RTX router
+	// Format: <type> <base64-key> <comment>
 	tests := []struct {
 		name     string
 		input    string
@@ -898,62 +900,62 @@ func TestParseSSHDAuthorizedKeys(t *testing.T) {
 		},
 		{
 			name:  "single ED25519 key",
-			input: "256 SHA256:abcdefghij1234567890ABCDEFGH user@host (ED25519)",
+			input: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBtest user@host",
 			expected: []SSHAuthorizedKey{
 				{
-					Type:        "ED25519",
-					Fingerprint: "SHA256:abcdefghij1234567890ABCDEFGH",
+					Type:        "ssh-ed25519",
+					Fingerprint: "AAAAC3NzaC1lZDI1NTE5AAAAIBtest",
 					Comment:     "user@host",
 				},
 			},
 		},
 		{
 			name:  "single RSA key",
-			input: "2048 SHA256:RSAfingerprint123456789 admin@pc (RSA)",
+			input: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQC7 admin@pc",
 			expected: []SSHAuthorizedKey{
 				{
-					Type:        "RSA",
-					Fingerprint: "SHA256:RSAfingerprint123456789",
+					Type:        "ssh-rsa",
+					Fingerprint: "AAAAB3NzaC1yc2EAAAADAQABAAAAgQC7",
 					Comment:     "admin@pc",
 				},
 			},
 		},
 		{
 			name: "multiple keys",
-			input: `256 SHA256:ed25519fingerprint user@host (ED25519)
-2048 SHA256:rsafingerprint admin@pc (RSA)
-384 SHA256:ecdsafingerprint test@server (ECDSA)`,
+			input: `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBtest user@host
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQC7 admin@pc
+ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTY= test@server`,
 			expected: []SSHAuthorizedKey{
 				{
-					Type:        "ED25519",
-					Fingerprint: "SHA256:ed25519fingerprint",
+					Type:        "ssh-ed25519",
+					Fingerprint: "AAAAC3NzaC1lZDI1NTE5AAAAIBtest",
 					Comment:     "user@host",
 				},
 				{
-					Type:        "RSA",
-					Fingerprint: "SHA256:rsafingerprint",
+					Type:        "ssh-rsa",
+					Fingerprint: "AAAAB3NzaC1yc2EAAAADAQABAAAAgQC7",
 					Comment:     "admin@pc",
 				},
 				{
-					Type:        "ECDSA",
-					Fingerprint: "SHA256:ecdsafingerprint",
+					Type:        "ecdsa-sha2-nistp256",
+					Fingerprint: "AAAAE2VjZHNhLXNoYTItbmlzdHAyNTY=",
 					Comment:     "test@server",
 				},
 			},
 		},
 		{
 			name: "with leading/trailing whitespace",
-			input: `  256 SHA256:fingerprint1 user1@host1 (ED25519)
-  2048 SHA256:fingerprint2 user2@host2 (RSA)  `,
+			input: `  ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBtest1 user1@host1
+  ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQC7 user2@host2  `,
 			expected: []SSHAuthorizedKey{
 				{
-					Type:        "ED25519",
-					Fingerprint: "SHA256:fingerprint1",
+					Type:        "ssh-ed25519",
+					Fingerprint: "AAAAC3NzaC1lZDI1NTE5AAAAIBtest1",
 					Comment:     "user1@host1",
 				},
 				{
-					Type:        "RSA",
-					Fingerprint: "SHA256:fingerprint2",
+					Type:        "ssh-rsa",
+					Fingerprint: "AAAAB3NzaC1yc2EAAAADAQABAAAAgQC7",
 					Comment:     "user2@host2",
 				},
 			},
@@ -961,25 +963,38 @@ func TestParseSSHDAuthorizedKeys(t *testing.T) {
 		{
 			name: "with empty lines",
 			input: `
-256 SHA256:fingerprint user@host (ED25519)
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBtest user@host
 
 `,
 			expected: []SSHAuthorizedKey{
 				{
-					Type:        "ED25519",
-					Fingerprint: "SHA256:fingerprint",
+					Type:        "ssh-ed25519",
+					Fingerprint: "AAAAC3NzaC1lZDI1NTE5AAAAIBtest",
 					Comment:     "user@host",
 				},
 			},
 		},
 		{
-			name:  "comment with spaces",
-			input: "256 SHA256:fp my key comment (ED25519)",
+			name:  "key without comment",
+			input: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBtest",
 			expected: []SSHAuthorizedKey{
 				{
-					Type:        "ED25519",
-					Fingerprint: "SHA256:fp",
-					Comment:     "my key comment",
+					Type:        "ssh-ed25519",
+					Fingerprint: "AAAAC3NzaC1lZDI1NTE5AAAAIBtest",
+					Comment:     "",
+				},
+			},
+		},
+		{
+			name: "RTX prompt lines ignored",
+			input: `[RTX1210] # show sshd authorized-keys admin
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBtest user@host
+[RTX1210] #`,
+			expected: []SSHAuthorizedKey{
+				{
+					Type:        "ssh-ed25519",
+					Fingerprint: "AAAAC3NzaC1lZDI1NTE5AAAAIBtest",
+					Comment:     "user@host",
 				},
 			},
 		},

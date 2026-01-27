@@ -3,12 +3,12 @@
 page_title: "rtx_sshd_authorized_keys Resource - terraform-provider-rtx"
 subcategory: ""
 description: |-
-  Manages SSH authorized keys for a user on RTX routers. This resource allows you to configure SSH public key authentication for admin users. Note: The router only returns fingerprints when reading keys, not the original key content. After importing, you must provide the actual keys in your configuration.
+  Manages SSH authorized keys for a user on RTX routers. This resource allows you to configure SSH public key authentication for admin users. The router returns full public keys, allowing import and drift detection.
 ---
 
 # rtx_sshd_authorized_keys (Resource)
 
-Manages SSH authorized keys for a user on RTX routers. This resource allows you to configure SSH public key authentication for admin users. Note: The router only returns fingerprints when reading keys, not the original key content. After importing, you must provide the actual keys in your configuration.
+Manages SSH authorized keys for a user on RTX routers. This resource allows you to configure SSH public key authentication for admin users. The router returns full public keys, allowing import and drift detection.
 
 
 

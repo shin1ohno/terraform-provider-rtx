@@ -63,6 +63,7 @@ type rtxClient struct {
 	ipv6InterfaceService  *IPv6InterfaceService
 	ddnsService           *DDNSService
 	pppService            *PPPService
+	aclApplyService       *ACLApplyService
 }
 
 // NewClient creates a new RTX client instance
@@ -246,6 +247,7 @@ func (c *rtxClient) Dial(ctx context.Context) error {
 	c.ipv6InterfaceService = NewIPv6InterfaceService(c.executor, c)
 	c.ddnsService = NewDDNSService(c.executor, c)
 	c.pppService = NewPPPService(c.executor, c)
+	c.aclApplyService = NewACLApplyService(c.executor, c)
 
 	// Note: SFTP client is created lazily on first use in downloadConfigViaSFTP()
 	// to avoid idle connection timeout issues with RTX routers
@@ -311,6 +313,7 @@ func (c *rtxClient) Close() error {
 	c.serviceManager = nil
 	c.bridgeService = nil
 	c.ipv6InterfaceService = nil
+	c.aclApplyService = nil
 
 	if err != nil {
 		return fmt.Errorf("failed to close session: %w", err)
@@ -4467,4 +4470,208 @@ func (c *rtxClient) SFTPEnabled() bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.config != nil && c.config.SFTPEnabled
+}
+
+// ApplyIPFiltersToInterface applies IP filters to an interface for a specific direction
+func (c *rtxClient) ApplyIPFiltersToInterface(ctx context.Context, iface, direction string, filterIDs []int) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	aclApplyService := c.aclApplyService
+	c.mu.Unlock()
+
+	if aclApplyService == nil {
+		return fmt.Errorf("ACL apply service not initialized")
+	}
+
+	return aclApplyService.ApplyFiltersToInterface(ctx, iface, direction, ACLTypeIP, filterIDs)
+}
+
+// RemoveIPFiltersFromInterface removes IP filter bindings from an interface
+func (c *rtxClient) RemoveIPFiltersFromInterface(ctx context.Context, iface, direction string) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	aclApplyService := c.aclApplyService
+	c.mu.Unlock()
+
+	if aclApplyService == nil {
+		return fmt.Errorf("ACL apply service not initialized")
+	}
+
+	return aclApplyService.RemoveFiltersFromInterface(ctx, iface, direction, ACLTypeIP)
+}
+
+// GetIPInterfaceFilters returns the current IP filter IDs applied to an interface
+func (c *rtxClient) GetIPInterfaceFilters(ctx context.Context, iface, direction string) ([]int, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	aclApplyService := c.aclApplyService
+	c.mu.Unlock()
+
+	if aclApplyService == nil {
+		return nil, fmt.Errorf("ACL apply service not initialized")
+	}
+
+	return aclApplyService.GetInterfaceFilters(ctx, iface, direction, ACLTypeIP)
+}
+
+// ApplyExtendedFiltersToInterface applies extended ACL filters to an interface
+func (c *rtxClient) ApplyExtendedFiltersToInterface(ctx context.Context, iface, direction string, filterIDs []int) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	aclApplyService := c.aclApplyService
+	c.mu.Unlock()
+
+	if aclApplyService == nil {
+		return fmt.Errorf("ACL apply service not initialized")
+	}
+
+	return aclApplyService.ApplyFiltersToInterface(ctx, iface, direction, ACLTypeExtended, filterIDs)
+}
+
+// RemoveExtendedFiltersFromInterface removes extended ACL filter bindings from an interface
+func (c *rtxClient) RemoveExtendedFiltersFromInterface(ctx context.Context, iface, direction string) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	aclApplyService := c.aclApplyService
+	c.mu.Unlock()
+
+	if aclApplyService == nil {
+		return fmt.Errorf("ACL apply service not initialized")
+	}
+
+	return aclApplyService.RemoveFiltersFromInterface(ctx, iface, direction, ACLTypeExtended)
+}
+
+// GetExtendedInterfaceFilters returns all extended ACL filter bindings for all interfaces
+func (c *rtxClient) GetExtendedInterfaceFilters(ctx context.Context) (map[string]map[string][]int, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	aclApplyService := c.aclApplyService
+	c.mu.Unlock()
+
+	if aclApplyService == nil {
+		return nil, fmt.Errorf("ACL apply service not initialized")
+	}
+
+	return aclApplyService.GetAllInterfaceFiltersForType(ctx, ACLTypeExtended)
+}
+
+// ApplyIPv6FiltersToInterface applies IPv6 filters to an interface for a specific direction
+func (c *rtxClient) ApplyIPv6FiltersToInterface(ctx context.Context, iface, direction string, filterIDs []int) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	aclApplyService := c.aclApplyService
+	c.mu.Unlock()
+
+	if aclApplyService == nil {
+		return fmt.Errorf("ACL apply service not initialized")
+	}
+
+	return aclApplyService.ApplyFiltersToInterface(ctx, iface, direction, ACLTypeIPv6, filterIDs)
+}
+
+// RemoveIPv6FiltersFromInterface removes IPv6 filter bindings from an interface
+func (c *rtxClient) RemoveIPv6FiltersFromInterface(ctx context.Context, iface, direction string) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	aclApplyService := c.aclApplyService
+	c.mu.Unlock()
+
+	if aclApplyService == nil {
+		return fmt.Errorf("ACL apply service not initialized")
+	}
+
+	return aclApplyService.RemoveFiltersFromInterface(ctx, iface, direction, ACLTypeIPv6)
+}
+
+// GetIPv6InterfaceFilters returns the current IPv6 filter IDs applied to an interface
+func (c *rtxClient) GetIPv6InterfaceFilters(ctx context.Context, iface, direction string) ([]int, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	aclApplyService := c.aclApplyService
+	c.mu.Unlock()
+
+	if aclApplyService == nil {
+		return nil, fmt.Errorf("ACL apply service not initialized")
+	}
+
+	return aclApplyService.GetInterfaceFilters(ctx, iface, direction, ACLTypeIPv6)
+}
+
+// ApplyMACFiltersToInterface applies MAC filters to an interface for a specific direction
+func (c *rtxClient) ApplyMACFiltersToInterface(ctx context.Context, iface, direction string, filterIDs []int) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	aclApplyService := c.aclApplyService
+	c.mu.Unlock()
+
+	if aclApplyService == nil {
+		return fmt.Errorf("ACL apply service not initialized")
+	}
+
+	return aclApplyService.ApplyFiltersToInterface(ctx, iface, direction, ACLTypeMAC, filterIDs)
+}
+
+// RemoveMACFiltersFromInterface removes MAC filter bindings from an interface
+func (c *rtxClient) RemoveMACFiltersFromInterface(ctx context.Context, iface, direction string) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	aclApplyService := c.aclApplyService
+	c.mu.Unlock()
+
+	if aclApplyService == nil {
+		return fmt.Errorf("ACL apply service not initialized")
+	}
+
+	return aclApplyService.RemoveFiltersFromInterface(ctx, iface, direction, ACLTypeMAC)
+}
+
+// GetMACInterfaceFilters returns the current MAC filter IDs applied to an interface
+func (c *rtxClient) GetMACInterfaceFilters(ctx context.Context, iface, direction string) ([]int, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	aclApplyService := c.aclApplyService
+	c.mu.Unlock()
+
+	if aclApplyService == nil {
+		return nil, fmt.Errorf("ACL apply service not initialized")
+	}
+
+	return aclApplyService.GetInterfaceFilters(ctx, iface, direction, ACLTypeMAC)
 }

@@ -18,6 +18,10 @@ type Executor interface {
 	// SetLoginPassword sets the login password using interactive prompts
 	// oldPassword: current password (empty if not set), newPassword: new password to set
 	SetLoginPassword(ctx context.Context, newPassword string) error
+	// GenerateSSHDHostKey generates SSHD host key with interactive prompt handling
+	// Handles confirmation prompt if host key already exists
+	// Timeout: up to 10 minutes for key generation on slower hardware
+	GenerateSSHDHostKey(ctx context.Context) error
 }
 
 // sshExecutor implements Executor using SSH session
@@ -121,4 +125,10 @@ func (e *sshExecutor) SetAdministratorPassword(ctx context.Context, oldPassword,
 // Use simpleExecutor for interactive password commands
 func (e *sshExecutor) SetLoginPassword(ctx context.Context, newPassword string) error {
 	return fmt.Errorf("SetLoginPassword is not supported by sshExecutor, use simpleExecutor")
+}
+
+// GenerateSSHDHostKey is not supported by sshExecutor
+// Use simpleExecutor or pooledExecutor for interactive commands
+func (e *sshExecutor) GenerateSSHDHostKey(ctx context.Context) error {
+	return fmt.Errorf("GenerateSSHDHostKey is not supported by sshExecutor, use simpleExecutor or pooledExecutor")
 }

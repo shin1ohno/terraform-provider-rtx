@@ -21,8 +21,6 @@ Manages PP (Point-to-Point) interface IP configuration on RTX routers. This reso
 
 ### Optional
 
-- `access_list_ip_in` (String) Inbound IP access list name. Reference an rtx_access_list_ip resource by name.
-- `access_list_ip_out` (String) Outbound IP access list name. Reference an rtx_access_list_ip resource by name.
 - `ip_address` (String) IP address for the PP interface. Use 'ipcp' for dynamic IP assignment from the ISP, or specify a static IP address in CIDR notation.
 - `mtu` (Number) Maximum Transmission Unit size for the PP interface. Valid range: 64-1500. 0 means use default.
 - `nat_descriptor` (Number) NAT descriptor ID to bind to this PP interface. Use rtx_nat_masquerade or rtx_nat_static to define the descriptor.

@@ -354,21 +354,7 @@ func (s *PPPService) ConfigureIPConfig(ctx context.Context, ppNum int, config PP
 		}
 	}
 
-	// Configure access list bindings
-	if config.AccessListIPIn != "" {
-		cmd := parsers.BuildIPPPSecureFilterInCommand(config.AccessListIPIn)
-		logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Setting access list in: %s", cmd)
-		if _, err := s.executor.Run(ctx, cmd); err != nil {
-			return fmt.Errorf("failed to set access list in: %w", err)
-		}
-	}
-	if config.AccessListIPOut != "" {
-		cmd := parsers.BuildIPPPSecureFilterOutCommand(config.AccessListIPOut)
-		logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Setting access list out: %s", cmd)
-		if _, err := s.executor.Run(ctx, cmd); err != nil {
-			return fmt.Errorf("failed to set access list out: %w", err)
-		}
-	}
+	// NOTE: Access list bindings removed - ACL management moved to ACL resources
 
 	// Save configuration
 	if err := s.client.SaveConfig(ctx); err != nil {
@@ -460,21 +446,7 @@ func (s *PPPService) ConfigureIPForPP(ctx context.Context, ppNum int, config PPI
 		}
 	}
 
-	// Configure access list bindings
-	if config.AccessListIPIn != "" {
-		cmd := parsers.BuildIPPPSecureFilterInCommand(config.AccessListIPIn)
-		logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Setting access list in: %s", cmd)
-		if _, err := s.executor.Run(ctx, cmd); err != nil {
-			return fmt.Errorf("failed to set access list in: %w", err)
-		}
-	}
-	if config.AccessListIPOut != "" {
-		cmd := parsers.BuildIPPPSecureFilterOutCommand(config.AccessListIPOut)
-		logging.FromContext(ctx).Debug().Str("service", "UpppService").Msgf("Setting access list out: %s", cmd)
-		if _, err := s.executor.Run(ctx, cmd); err != nil {
-			return fmt.Errorf("failed to set access list out: %w", err)
-		}
-	}
+	// NOTE: Access list bindings removed - ACL management moved to ACL resources
 
 	// Save configuration
 	if err := s.client.SaveConfig(ctx); err != nil {
@@ -597,12 +569,10 @@ func (s *PPPService) toParserPPPoEConfig(config PPPoEConfig) parsers.PPPoEConfig
 
 	if config.IPConfig != nil {
 		parserConfig.IPConfig = &parsers.PPIPConfig{
-			Address:         config.IPConfig.Address,
-			MTU:             config.IPConfig.MTU,
-			TCPMSSLimit:     config.IPConfig.TCPMSSLimit,
-			NATDescriptor:   config.IPConfig.NATDescriptor,
-			AccessListIPIn:  config.IPConfig.AccessListIPIn,
-			AccessListIPOut: config.IPConfig.AccessListIPOut,
+			Address:       config.IPConfig.Address,
+			MTU:           config.IPConfig.MTU,
+			TCPMSSLimit:   config.IPConfig.TCPMSSLimit,
+			NATDescriptor: config.IPConfig.NATDescriptor,
 		}
 	}
 
@@ -639,12 +609,10 @@ func (s *PPPService) fromParserPPPoEConfig(config parsers.PPPoEConfig) PPPoEConf
 
 	if config.IPConfig != nil {
 		clientConfig.IPConfig = &PPIPConfig{
-			Address:         config.IPConfig.Address,
-			MTU:             config.IPConfig.MTU,
-			TCPMSSLimit:     config.IPConfig.TCPMSSLimit,
-			NATDescriptor:   config.IPConfig.NATDescriptor,
-			AccessListIPIn:  config.IPConfig.AccessListIPIn,
-			AccessListIPOut: config.IPConfig.AccessListIPOut,
+			Address:       config.IPConfig.Address,
+			MTU:           config.IPConfig.MTU,
+			TCPMSSLimit:   config.IPConfig.TCPMSSLimit,
+			NATDescriptor: config.IPConfig.NATDescriptor,
 		}
 	}
 
@@ -660,12 +628,10 @@ func (s *PPPService) fromParserPPPoEConfig(config parsers.PPPoEConfig) PPPoEConf
 
 func (s *PPPService) toParserPPIPConfig(config PPIPConfig) parsers.PPIPConfig {
 	return parsers.PPIPConfig{
-		Address:         config.Address,
-		MTU:             config.MTU,
-		TCPMSSLimit:     config.TCPMSSLimit,
-		NATDescriptor:   config.NATDescriptor,
-		AccessListIPIn:  config.AccessListIPIn,
-		AccessListIPOut: config.AccessListIPOut,
+		Address:       config.Address,
+		MTU:           config.MTU,
+		TCPMSSLimit:   config.TCPMSSLimit,
+		NATDescriptor: config.NATDescriptor,
 	}
 }
 
@@ -674,12 +640,10 @@ func (s *PPPService) fromParserPPIPConfig(config *parsers.PPIPConfig) PPIPConfig
 		return PPIPConfig{}
 	}
 	return PPIPConfig{
-		Address:         config.Address,
-		MTU:             config.MTU,
-		TCPMSSLimit:     config.TCPMSSLimit,
-		NATDescriptor:   config.NATDescriptor,
-		AccessListIPIn:  config.AccessListIPIn,
-		AccessListIPOut: config.AccessListIPOut,
+		Address:       config.Address,
+		MTU:           config.MTU,
+		TCPMSSLimit:   config.TCPMSSLimit,
+		NATDescriptor: config.NATDescriptor,
 	}
 }
 

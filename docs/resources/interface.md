@@ -50,16 +50,6 @@ resource "rtx_interface" "lan" {
 
 ### Optional
 
-- `access_list_ip_dynamic_in` (String) Inbound dynamic IP access list name
-- `access_list_ip_dynamic_out` (String) Outbound dynamic IP access list name
-- `access_list_ip_in` (String) Inbound IP access list name
-- `access_list_ip_out` (String) Outbound IP access list name
-- `access_list_ipv6_dynamic_in` (String) Inbound dynamic IPv6 access list name
-- `access_list_ipv6_dynamic_out` (String) Outbound dynamic IPv6 access list name
-- `access_list_ipv6_in` (String) Inbound IPv6 access list name
-- `access_list_ipv6_out` (String) Outbound IPv6 access list name
-- `access_list_mac_in` (String) Inbound MAC access list name
-- `access_list_mac_out` (String) Outbound MAC access list name
 - `description` (String) Interface description
 - `ip_address` (Block List, Max: 1) IP address configuration block. Either 'address' or 'dhcp' must be set, but not both. (see [below for nested schema](#nestedblock--ip_address))
 - `mtu` (Number) Maximum Transmission Unit size. Set to 0 to use the default MTU.

@@ -15,8 +15,7 @@ func resourceRTXSSHDAuthorizedKeys() *schema.Resource {
 	return &schema.Resource{
 		Description: "Manages SSH authorized keys for a user on RTX routers. " +
 			"This resource allows you to configure SSH public key authentication for admin users. " +
-			"Note: The router only returns fingerprints when reading keys, not the original key content. " +
-			"After importing, you must provide the actual keys in your configuration.",
+			"The router returns full public keys, allowing import and drift detection.",
 		CreateContext: resourceRTXSSHDAuthorizedKeysCreate,
 		ReadContext:   resourceRTXSSHDAuthorizedKeysRead,
 		UpdateContext: resourceRTXSSHDAuthorizedKeysUpdate,
@@ -132,12 +131,21 @@ func resourceRTXSSHDAuthorizedKeysRead(ctx context.Context, d *schema.ResourceDa
 		return diag.FromErr(err)
 	}
 
-	// Note: We can't read back the original key content, only fingerprints.
-	// We keep the keys from state as-is (they were validated on create/update).
-	// This is acceptable because:
-	// 1. The keys in state were successfully applied during create/update
-	// 2. The key_count matches, confirming the correct number of keys are registered
-	// 3. If someone manually changes keys on the router, the count will differ
+	// Reconstruct full key strings from parsed keys
+	// Format: <type> <base64-key> [comment]
+	keyStrings := make([]string, len(keys))
+	for i, key := range keys {
+		if key.Comment != "" {
+			keyStrings[i] = fmt.Sprintf("%s %s %s", key.Type, key.Fingerprint, key.Comment)
+		} else {
+			keyStrings[i] = fmt.Sprintf("%s %s", key.Type, key.Fingerprint)
+		}
+	}
+
+	// Set the keys from the router
+	if err := d.Set("keys", keyStrings); err != nil {
+		return diag.FromErr(err)
+	}
 
 	logger.Debug().
 		Str("resource", "rtx_sshd_authorized_keys").
@@ -228,17 +236,23 @@ func resourceRTXSSHDAuthorizedKeysImport(ctx context.Context, d *schema.Resource
 	d.Set("username", username)
 	d.Set("key_count", len(keys))
 
-	// Note: We can't recover the original key content, only fingerprints.
-	// User will need to provide keys in config after import.
-	// We set an empty list to avoid nil issues, but user MUST update config
-	// with actual keys before applying.
-	d.Set("keys", []string{})
+	// Reconstruct full key strings from parsed keys
+	// Format: <type> <base64-key> [comment]
+	keyStrings := make([]string, len(keys))
+	for i, key := range keys {
+		if key.Comment != "" {
+			keyStrings[i] = fmt.Sprintf("%s %s %s", key.Type, key.Fingerprint, key.Comment)
+		} else {
+			keyStrings[i] = fmt.Sprintf("%s %s", key.Type, key.Fingerprint)
+		}
+	}
+	d.Set("keys", keyStrings)
 
 	logger.Info().
 		Str("resource", "rtx_sshd_authorized_keys").
 		Str("username", username).
 		Int("keyCount", len(keys)).
-		Msg("SSHD authorized keys imported. Note: You must provide the actual public keys in your configuration as they cannot be read from the router.")
+		Msg("SSHD authorized keys imported successfully")
 
 	return []*schema.ResourceData{d}, nil
 }

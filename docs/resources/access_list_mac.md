@@ -3,12 +3,12 @@
 page_title: "rtx_access_list_mac Resource - terraform-provider-rtx"
 subcategory: ""
 description: |-
-  Manages MAC address access lists on RTX routers. MAC ACLs filter traffic based on source and destination MAC addresses.
+  Manages MAC address access lists on RTX routers. MAC ACLs filter traffic based on source and destination MAC addresses. Supports automatic sequence numbering (auto mode) or manual sequence assignment.
 ---
 
 # rtx_access_list_mac (Resource)
 
-Manages MAC address access lists on RTX routers. MAC ACLs filter traffic based on source and destination MAC addresses.
+Manages MAC address access lists on RTX routers. MAC ACLs filter traffic based on source and destination MAC addresses. Supports automatic sequence numbering (auto mode) or manual sequence assignment.
 
 
 
@@ -22,8 +22,10 @@ Manages MAC address access lists on RTX routers. MAC ACLs filter traffic based o
 
 ### Optional
 
-- `apply` (Block List, Max: 1) Optional application of ethernet filters to an interface. Read from router configuration. (see [below for nested schema](#nestedblock--apply))
+- `apply` (Block List) List of interface bindings. Each apply block binds this ACL to an interface in a specific direction. Multiple apply blocks are supported. (see [below for nested schema](#nestedblock--apply))
 - `filter_id` (Number) Optional RTX filter ID to enable numeric ethernet filter mode. If not specified, derived from first entry.
+- `sequence_start` (Number) Starting sequence number for automatic sequence calculation. When set, sequence numbers are automatically assigned to entries based on their definition order. Mutually exclusive with entry-level sequence attributes.
+- `sequence_step` (Number) Increment value for automatic sequence calculation. Only used when sequence_start is set. Default is 10.
 
 ### Read-Only
 
@@ -35,7 +37,6 @@ Manages MAC address access lists on RTX routers. MAC ACLs filter traffic based o
 Required:
 
 - `ace_action` (String) Action to take (permit/deny or RTX pass/reject with log/nolog)
-- `sequence` (Number) Sequence number (determines order of evaluation)
 
 Optional:
 
@@ -48,6 +49,7 @@ Optional:
 - `filter_id` (Number) Explicit filter number for this entry (overrides sequence)
 - `log` (Boolean) Enable logging for this entry
 - `offset` (Number) Offset for byte matching
+- `sequence` (Number) Sequence number (determines order of evaluation). Required in manual mode (when sequence_start is not set). Auto-calculated in auto mode (when sequence_start is set).
 - `source_address` (String) Source MAC address (e.g., 00:00:00:00:00:00)
 - `source_address_mask` (String) Source MAC wildcard mask
 - `source_any` (Boolean) Match any source MAC address
@@ -72,5 +74,8 @@ Optional:
 Required:
 
 - `direction` (String) Direction to apply filters (in or out)
-- `filter_ids` (List of Number) List of filter IDs to apply in order
-- `interface` (String) Interface to apply filters (e.g., lan1)
+- `interface` (String) Interface to apply filters (e.g., lan1, bridge1). MAC ACLs cannot be applied to PP or Tunnel interfaces.
+
+Optional:
+
+- `filter_ids` (List of Number) Specific filter IDs (sequence numbers) to apply in order. If omitted, all entry sequences are applied in order.

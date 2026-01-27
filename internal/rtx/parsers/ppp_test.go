@@ -198,37 +198,7 @@ pp enable 1
 	}
 }
 
-func TestParsePPPoEConfig_WithAccessLists(t *testing.T) {
-	raw := `
-pp select 1
- pppoe use lan2
- pp auth accept chap
- pp auth myname user pass
- ip pp secure filter in pp-secure-in
- ip pp secure filter out pp-secure-out
- pp always-on on
-pp enable 1
-`
-	parser := NewPPPParser()
-	configs, err := parser.ParsePPPoEConfig(raw)
-	if err != nil {
-		t.Fatalf("Failed to parse: %v", err)
-	}
-
-	if len(configs) != 1 {
-		t.Fatalf("Expected 1 config, got %d", len(configs))
-	}
-
-	if configs[0].IPConfig == nil {
-		t.Fatal("IPConfig should not be nil")
-	}
-	if configs[0].IPConfig.AccessListIPIn != "pp-secure-in" {
-		t.Errorf("AccessListIPIn: expected 'pp-secure-in', got '%s'", configs[0].IPConfig.AccessListIPIn)
-	}
-	if configs[0].IPConfig.AccessListIPOut != "pp-secure-out" {
-		t.Errorf("AccessListIPOut: expected 'pp-secure-out', got '%s'", configs[0].IPConfig.AccessListIPOut)
-	}
-}
+// NOTE: TestParsePPPoEConfig_WithAccessLists removed - ACL management moved to ACL resources (Task 15)
 
 func TestParsePPPoEConfig_DisconnectTime(t *testing.T) {
 	raw := `
@@ -379,8 +349,6 @@ pp select 1
  ip pp mtu 1454
  ip pp tcp mss limit 1414
  ip pp nat descriptor 1
- ip pp secure filter in pp-in-acl
- ip pp secure filter out pp-out-acl
  pp always-on on
 pp enable 1
 
@@ -407,12 +375,7 @@ pp select 2
 	if config.NATDescriptor != 1 {
 		t.Errorf("NATDescriptor: expected 1, got %d", config.NATDescriptor)
 	}
-	if config.AccessListIPIn != "pp-in-acl" {
-		t.Errorf("AccessListIPIn: expected 'pp-in-acl', got '%s'", config.AccessListIPIn)
-	}
-	if config.AccessListIPOut != "pp-out-acl" {
-		t.Errorf("AccessListIPOut: expected 'pp-out-acl', got '%s'", config.AccessListIPOut)
-	}
+	// NOTE: AccessListIPIn/AccessListIPOut tests removed - ACL management moved to ACL resources (Task 15)
 }
 
 // ============================================================================

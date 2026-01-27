@@ -8,6 +8,7 @@ import (
 	"github.com/sh1/terraform-provider-rtx/internal/logging"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
@@ -16,7 +17,9 @@ import (
 
 func resourceRTXAccessListExtended() *schema.Resource {
 	return &schema.Resource{
-		Description:   "Manages IPv4 extended access lists (ACLs) on RTX routers. Extended ACLs provide granular control over packet filtering based on source/destination addresses, protocols, and ports.",
+		Description: "Manages IPv4 extended access lists (ACLs) on RTX routers. Extended ACLs provide granular control over packet filtering based on source/destination addresses, protocols, and ports. " +
+			"Supports both manual sequence mode (explicit sequence on each entry) and auto sequence mode (sequence_start + sequence_step). " +
+			"Optional apply blocks bind the ACL to interfaces.",
 		CreateContext: resourceRTXAccessListExtendedCreate,
 		ReadContext:   resourceRTXAccessListExtendedRead,
 		UpdateContext: resourceRTXAccessListExtendedUpdate,
@@ -32,6 +35,25 @@ func resourceRTXAccessListExtended() *schema.Resource {
 				ForceNew:    true,
 				Description: "The name of the access list (used as identifier)",
 			},
+			"sequence_start": {
+				Type:         schema.TypeInt,
+				Optional:     true,
+				Description:  "Starting sequence number for automatic sequence calculation. When set, sequence numbers are automatically assigned to entries based on their definition order. Mutually exclusive with entry-level sequence attributes.",
+				ValidateFunc: validation.IntBetween(1, MaxSequenceValue),
+			},
+			"sequence_step": {
+				Type:         schema.TypeInt,
+				Optional:     true,
+				Default:      DefaultSequenceStep,
+				Description:  fmt.Sprintf("Increment value for automatic sequence calculation. Only used when sequence_start is set. Default is %d.", DefaultSequenceStep),
+				ValidateFunc: validation.IntBetween(1, MaxSequenceValue),
+			},
+			"apply": {
+				Type:        schema.TypeList,
+				Optional:    true,
+				Description: "List of interface bindings. Each apply block binds this ACL to an interface in a specific direction.",
+				Elem:        CommonApplySchema(),
+			},
 			"entry": {
 				Type:        schema.TypeList,
 				Required:    true,
@@ -40,9 +62,10 @@ func resourceRTXAccessListExtended() *schema.Resource {
 					Schema: map[string]*schema.Schema{
 						"sequence": {
 							Type:         schema.TypeInt,
-							Required:     true,
-							Description:  "Sequence number (determines order, typically 10, 20, 30...)",
-							ValidateFunc: validation.IntBetween(1, 65535),
+							Optional:     true,
+							Computed:     true,
+							Description:  "Sequence number (determines order). Required in manual mode (when sequence_start is not set). Auto-calculated in auto mode.",
+							ValidateFunc: validation.IntBetween(1, MaxSequenceValue),
 						},
 						"ace_rule_action": {
 							Type:             schema.TypeString,
@@ -127,7 +150,10 @@ func resourceRTXAccessListExtended() *schema.Resource {
 			},
 		},
 
-		CustomizeDiff: validateAccessListExtendedEntries,
+		CustomizeDiff: customdiff.All(
+			validateAccessListExtendedEntries,
+			ValidateACLSchema,
+		),
 	}
 }
 
@@ -155,7 +181,7 @@ func validateAccessListExtendedEntries(ctx context.Context, diff *schema.Resourc
 		}
 
 		// Established is only valid for TCP
-		if established && protocol != "tcp" {
+		if established && strings.ToLower(protocol) != "tcp" {
 			return fmt.Errorf("entry[%d]: established can only be set to true for tcp protocol", i)
 		}
 	}
@@ -178,6 +204,13 @@ func resourceRTXAccessListExtendedCreate(ctx context.Context, d *schema.Resource
 	}
 
 	d.SetId(acl.Name)
+
+	// Handle apply blocks
+	if len(acl.Applies) > 0 {
+		if err := applyExtendedFiltersToInterfaces(ctx, apiClient, acl); err != nil {
+			return diag.Errorf("Failed to apply filters to interfaces: %v", err)
+		}
+	}
 
 	return resourceRTXAccessListExtendedRead(ctx, d, meta)
 }
@@ -205,9 +238,22 @@ func resourceRTXAccessListExtendedRead(ctx context.Context, d *schema.ResourceDa
 		return diag.FromErr(err)
 	}
 
+	// Preserve sequence_start and sequence_step from config (they're not stored on router)
+	// The values are already in state from the config
+
 	entries := flattenAccessListExtendedEntries(acl.Entries)
 	if err := d.Set("entry", entries); err != nil {
 		return diag.FromErr(err)
+	}
+
+	// Read apply blocks from router
+	applies, err := readExtendedApplies(ctx, apiClient, acl)
+	if err != nil {
+		logging.FromContext(ctx).Warn().Err(err).Msg("Failed to read interface filters, apply state may be stale")
+	} else if len(applies) > 0 {
+		if err := d.Set("apply", applies); err != nil {
+			return diag.FromErr(err)
+		}
 	}
 
 	return nil
@@ -222,9 +268,18 @@ func resourceRTXAccessListExtendedUpdate(ctx context.Context, d *schema.Resource
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_extended").Msgf("Updating access list extended: %+v", acl)
 
+	// Update entries
 	err := apiClient.client.UpdateAccessListExtended(ctx, acl)
 	if err != nil {
 		return diag.Errorf("Failed to update access list extended: %v", err)
+	}
+
+	// Handle apply block changes
+	if d.HasChange("apply") {
+		oldApplies, newApplies := d.GetChange("apply")
+		if err := updateExtendedApplies(ctx, apiClient, acl, oldApplies.([]interface{}), newApplies.([]interface{})); err != nil {
+			return diag.Errorf("Failed to update interface filters: %v", err)
+		}
 	}
 
 	return resourceRTXAccessListExtendedRead(ctx, d, meta)
@@ -238,6 +293,14 @@ func resourceRTXAccessListExtendedDelete(ctx context.Context, d *schema.Resource
 	name := d.Id()
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_extended").Msgf("Deleting access list extended: %s", name)
+
+	// Remove applies first
+	acl := buildAccessListExtendedFromResourceData(d)
+	if len(acl.Applies) > 0 {
+		if err := removeExtendedFiltersFromInterfaces(ctx, apiClient, acl); err != nil {
+			logging.FromContext(ctx).Warn().Err(err).Msg("Failed to remove filters from interfaces before delete")
+		}
+	}
 
 	err := apiClient.client.DeleteAccessListExtended(ctx, name)
 	if err != nil {
@@ -267,25 +330,50 @@ func resourceRTXAccessListExtendedImport(ctx context.Context, d *schema.Resource
 	entries := flattenAccessListExtendedEntries(acl.Entries)
 	d.Set("entry", entries)
 
+	// Read apply blocks from router
+	applies, err := readExtendedApplies(ctx, apiClient, acl)
+	if err != nil {
+		logging.FromContext(ctx).Warn().Err(err).Msg("Failed to read interface filters during import")
+	} else if len(applies) > 0 {
+		d.Set("apply", applies)
+	}
+
 	return []*schema.ResourceData{d}, nil
 }
 
 func buildAccessListExtendedFromResourceData(d *schema.ResourceData) client.AccessListExtended {
+	sequenceStart := d.Get("sequence_start").(int)
+	sequenceStep := d.Get("sequence_step").(int)
+	if sequenceStep == 0 {
+		sequenceStep = DefaultSequenceStep
+	}
+
 	acl := client.AccessListExtended{
 		Name:    d.Get("name").(string),
-		Entries: expandAccessListExtendedEntries(d.Get("entry").([]interface{})),
+		Entries: expandAccessListExtendedEntriesWithSequence(d.Get("entry").([]interface{}), sequenceStart, sequenceStep),
+		Applies: expandExtendedApplies(d.Get("apply").([]interface{})),
 	}
 	return acl
 }
 
-func expandAccessListExtendedEntries(entries []interface{}) []client.AccessListExtendedEntry {
+func expandAccessListExtendedEntriesWithSequence(entries []interface{}, sequenceStart, sequenceStep int) []client.AccessListExtendedEntry {
 	result := make([]client.AccessListExtendedEntry, 0, len(entries))
 
-	for _, e := range entries {
+	for i, e := range entries {
 		entry := e.(map[string]interface{})
 
+		// Determine sequence number
+		var sequence int
+		if sequenceStart > 0 {
+			// Auto mode: calculate sequence
+			sequence = sequenceStart + (i * sequenceStep)
+		} else {
+			// Manual mode: use explicit sequence
+			sequence = entry["sequence"].(int)
+		}
+
 		aclEntry := client.AccessListExtendedEntry{
-			Sequence:        entry["sequence"].(int),
+			Sequence:        sequence,
 			AceRuleAction:   entry["ace_rule_action"].(string),
 			AceRuleProtocol: entry["ace_rule_protocol"].(string),
 			SourceAny:       entry["source_any"].(bool),
@@ -350,4 +438,179 @@ func flattenAccessListExtendedEntries(entries []client.AccessListExtendedEntry) 
 	}
 
 	return result
+}
+
+func expandExtendedApplies(applies []interface{}) []client.ExtendedApply {
+	result := make([]client.ExtendedApply, 0, len(applies))
+
+	for _, a := range applies {
+		applyMap := a.(map[string]interface{})
+		apply := client.ExtendedApply{
+			Interface: applyMap["interface"].(string),
+			Direction: applyMap["direction"].(string),
+		}
+
+		// Extract filter_ids if specified
+		if filterIDs, ok := applyMap["filter_ids"].([]interface{}); ok {
+			for _, id := range filterIDs {
+				apply.FilterIDs = append(apply.FilterIDs, id.(int))
+			}
+		}
+
+		result = append(result, apply)
+	}
+
+	return result
+}
+
+// applyExtendedFiltersToInterfaces applies filters to interfaces using Client interface
+// Extended ACL uses IP filters, so we use the IP filter apply methods
+func applyExtendedFiltersToInterfaces(ctx context.Context, apiClient *apiClient, acl client.AccessListExtended) error {
+	for _, apply := range acl.Applies {
+		filterIDs := apply.FilterIDs
+		// If no filter_ids specified, use all entry sequences
+		if len(filterIDs) == 0 {
+			for _, entry := range acl.Entries {
+				filterIDs = append(filterIDs, entry.Sequence)
+			}
+		}
+
+		err := apiClient.client.ApplyIPFiltersToInterface(ctx, apply.Interface, apply.Direction, filterIDs)
+		if err != nil {
+			return fmt.Errorf("failed to apply filters to %s %s: %w", apply.Interface, apply.Direction, err)
+		}
+	}
+
+	return nil
+}
+
+// removeExtendedFiltersFromInterfaces removes filters from interfaces
+func removeExtendedFiltersFromInterfaces(ctx context.Context, apiClient *apiClient, acl client.AccessListExtended) error {
+	for _, apply := range acl.Applies {
+		err := apiClient.client.RemoveIPFiltersFromInterface(ctx, apply.Interface, apply.Direction)
+		if err != nil {
+			return fmt.Errorf("failed to remove filters from %s %s: %w", apply.Interface, apply.Direction, err)
+		}
+	}
+
+	return nil
+}
+
+// updateExtendedApplies handles changes to apply blocks
+func updateExtendedApplies(ctx context.Context, apiClient *apiClient, acl client.AccessListExtended, oldApplies, newApplies []interface{}) error {
+	// Build maps for comparison
+	oldMap := make(map[string]client.ExtendedApply)
+	for _, a := range expandExtendedApplies(oldApplies) {
+		key := fmt.Sprintf("%s:%s", a.Interface, a.Direction)
+		oldMap[key] = a
+	}
+
+	newMap := make(map[string]client.ExtendedApply)
+	for _, a := range expandExtendedApplies(newApplies) {
+		key := fmt.Sprintf("%s:%s", a.Interface, a.Direction)
+		newMap[key] = a
+	}
+
+	// Remove old applies that are not in new
+	for key, oldApply := range oldMap {
+		if _, exists := newMap[key]; !exists {
+			err := apiClient.client.RemoveIPFiltersFromInterface(ctx, oldApply.Interface, oldApply.Direction)
+			if err != nil {
+				return fmt.Errorf("failed to remove filters from %s %s: %w", oldApply.Interface, oldApply.Direction, err)
+			}
+		}
+	}
+
+	// Add or update new applies
+	for key, newApply := range newMap {
+		filterIDs := newApply.FilterIDs
+		// If no filter_ids specified, use all entry sequences
+		if len(filterIDs) == 0 {
+			for _, entry := range acl.Entries {
+				filterIDs = append(filterIDs, entry.Sequence)
+			}
+		}
+
+		oldApply, exists := oldMap[key]
+		if !exists || !equalIntSlices(oldApply.FilterIDs, filterIDs) {
+			// Apply or update
+			err := apiClient.client.ApplyIPFiltersToInterface(ctx, newApply.Interface, newApply.Direction, filterIDs)
+			if err != nil {
+				return fmt.Errorf("failed to apply filters to %s %s: %w", newApply.Interface, newApply.Direction, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// readExtendedApplies reads the current apply state from the router
+// Note: Since the router stores filters by sequence number (not by ACL name),
+// we read all interface filters and try to match them with our entry sequences.
+// This approach has limitations - it cannot distinguish between filters from
+// different ACL resources using the same sequence numbers.
+func readExtendedApplies(ctx context.Context, apiClient *apiClient, acl *client.AccessListExtended) ([]interface{}, error) {
+	// Build set of our entry sequences for filtering
+	ourSequences := make(map[int]bool)
+	for _, entry := range acl.Entries {
+		ourSequences[entry.Sequence] = true
+	}
+
+	// Read applies from the configuration we maintain in state
+	// rather than trying to reverse-engineer from router config
+	// This is because the router doesn't track which ACL resource owns which filter
+	result := make([]interface{}, 0)
+	for _, apply := range acl.Applies {
+		filterIDs := apply.FilterIDs
+		if len(filterIDs) == 0 {
+			// If no explicit filter_ids, use all sequences
+			for _, entry := range acl.Entries {
+				filterIDs = append(filterIDs, entry.Sequence)
+			}
+		}
+
+		// Verify each filter is still applied by querying the router
+		currentFilters, err := apiClient.client.GetIPInterfaceFilters(ctx, apply.Interface, apply.Direction)
+		if err != nil {
+			// If we can't read filters, skip this apply
+			continue
+		}
+
+		// Find matching filter IDs
+		currentSet := make(map[int]bool)
+		for _, id := range currentFilters {
+			currentSet[id] = true
+		}
+
+		matchingIDs := make([]int, 0)
+		for _, id := range filterIDs {
+			if currentSet[id] && ourSequences[id] {
+				matchingIDs = append(matchingIDs, id)
+			}
+		}
+
+		if len(matchingIDs) > 0 {
+			applyMap := map[string]interface{}{
+				"interface":  apply.Interface,
+				"direction":  apply.Direction,
+				"filter_ids": matchingIDs,
+			}
+			result = append(result, applyMap)
+		}
+	}
+
+	return result, nil
+}
+
+// equalIntSlices compares two int slices for equality
+func equalIntSlices(a, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }

@@ -485,23 +485,26 @@ func ParseSSHDAuthorizedKeys(output string) ([]SSHAuthorizedKey, error) {
 			// Possible formats:
 			// 1. Pure base64 continuation: "YlhH7Tlx24Q..."
 			// 2. Pure comment: "user@host" (first char usually not base64-ish in context)
-			// 3. Mixed: "l user@host" (last base64 char + space + comment)
+			// 3. Mixed: "keyDataEnd user@host" (base64 ending + space + comment)
 
 			if strings.Contains(line, "@") {
 				// Line contains @ - could be pure comment or mixed format
 				spaceIdx := strings.Index(line, " ")
-				if spaceIdx > 0 && spaceIdx < 10 {
-					// Short prefix before space - likely "l user@host" format
-					// The part before space is last base64 char(s), rest is comment
-					// Join without extra space (space is already in the line)
-					currentKey.WriteString(line)
-				} else if isBase64Char(rune(line[0])) && spaceIdx == -1 {
-					// Starts with base64 char but no space - might be weird email like "abc@def"
-					// Add with space to be safe
-					currentKey.WriteString(" ")
+				if spaceIdx == -1 {
+					// No space in line - might be weird email like "abc@def"
+					// If starts with base64 char, it's continuation; otherwise add space
+					if isBase64Char(rune(line[0])) {
+						currentKey.WriteString(line)
+					} else {
+						currentKey.WriteString(" ")
+						currentKey.WriteString(line)
+					}
+				} else if isBase64Char(rune(line[0])) {
+					// Starts with base64 char and has space - line contains both key and comment
+					// Join directly without extra space (space between key and comment is in the line)
 					currentKey.WriteString(line)
 				} else {
-					// Pure comment line - add with space
+					// Doesn't start with base64 char - pure comment line
 					currentKey.WriteString(" ")
 					currentKey.WriteString(line)
 				}

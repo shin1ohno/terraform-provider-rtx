@@ -391,6 +391,7 @@ func (s *ServiceManager) GetSSHDHostKey(ctx context.Context) (*SSHHostKeyInfo, e
 }
 
 // GenerateSSHDHostKey generates a new SSHD host key
+// This command handles interactive confirmation prompts and can take several minutes
 func (s *ServiceManager) GenerateSSHDHostKey(ctx context.Context) error {
 	// Check context
 	select {
@@ -399,16 +400,12 @@ func (s *ServiceManager) GenerateSSHDHostKey(ctx context.Context) error {
 	default:
 	}
 
-	cmd := parsers.BuildSSHDHostKeyGenerateCommand()
-	logging.FromContext(ctx).Debug().Str("component", "service-manager").Msgf("Generating SSHD host key with command: %s", cmd)
+	logging.FromContext(ctx).Debug().Str("component", "service-manager").Msg("Generating SSHD host key via executor")
 
-	output, err := s.executor.Run(ctx, cmd)
-	if err != nil {
+	// Use executor's interactive GenerateSSHDHostKey method
+	// This handles confirmation prompts and long timeouts
+	if err := s.executor.GenerateSSHDHostKey(ctx); err != nil {
 		return fmt.Errorf("failed to generate SSHD host key: %w", err)
-	}
-
-	if len(output) > 0 && containsError(string(output)) {
-		return fmt.Errorf("command failed: %s", string(output))
 	}
 
 	// Save configuration

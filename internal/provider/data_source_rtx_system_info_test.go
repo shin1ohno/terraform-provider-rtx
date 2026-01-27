@@ -1123,6 +1123,58 @@ func (m *MockClient) MarkCacheDirty() {
 	m.Called()
 }
 
+// IP Filter Apply methods
+func (m *MockClient) ApplyIPFiltersToInterface(ctx context.Context, iface, direction string, filterIDs []int) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) RemoveIPFiltersFromInterface(ctx context.Context, iface, direction string) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) GetIPInterfaceFilters(ctx context.Context, iface, direction string) ([]int, error) {
+	panic("not implemented")
+}
+
+// IPv6 Filter Apply methods
+func (m *MockClient) ApplyIPv6FiltersToInterface(ctx context.Context, iface, direction string, filterIDs []int) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) RemoveIPv6FiltersFromInterface(ctx context.Context, iface, direction string) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) GetIPv6InterfaceFilters(ctx context.Context, iface, direction string) ([]int, error) {
+	panic("not implemented")
+}
+
+// Extended ACL Apply methods
+func (m *MockClient) ApplyExtendedFiltersToInterface(ctx context.Context, iface, direction string, filterIDs []int) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) RemoveExtendedFiltersFromInterface(ctx context.Context, iface, direction string) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) GetExtendedInterfaceFilters(ctx context.Context) (map[string]map[string][]int, error) {
+	panic("not implemented")
+}
+
+// MAC Filter Apply methods
+func (m *MockClient) ApplyMACFiltersToInterface(ctx context.Context, iface, direction string, filterIDs []int) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) RemoveMACFiltersFromInterface(ctx context.Context, iface, direction string) error {
+	panic("not implemented")
+}
+
+func (m *MockClient) GetMACInterfaceFilters(ctx context.Context, iface, direction string) ([]int, error) {
+	panic("not implemented")
+}
+
 func TestRTXSystemInfoDataSourceSchema(t *testing.T) {
 	dataSource := dataSourceRTXSystemInfo()
 

@@ -1121,6 +1121,58 @@ func (m *MockClientForRoutes) MarkCacheDirty() {
 	m.Called()
 }
 
+// IP Filter Apply methods
+func (m *MockClientForRoutes) ApplyIPFiltersToInterface(ctx context.Context, iface, direction string, filterIDs []int) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) RemoveIPFiltersFromInterface(ctx context.Context, iface, direction string) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) GetIPInterfaceFilters(ctx context.Context, iface, direction string) ([]int, error) {
+	panic("not implemented")
+}
+
+// IPv6 Filter Apply methods
+func (m *MockClientForRoutes) ApplyIPv6FiltersToInterface(ctx context.Context, iface, direction string, filterIDs []int) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) RemoveIPv6FiltersFromInterface(ctx context.Context, iface, direction string) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) GetIPv6InterfaceFilters(ctx context.Context, iface, direction string) ([]int, error) {
+	panic("not implemented")
+}
+
+// Extended ACL Apply methods
+func (m *MockClientForRoutes) ApplyExtendedFiltersToInterface(ctx context.Context, iface, direction string, filterIDs []int) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) RemoveExtendedFiltersFromInterface(ctx context.Context, iface, direction string) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) GetExtendedInterfaceFilters(ctx context.Context) (map[string]map[string][]int, error) {
+	panic("not implemented")
+}
+
+// MAC Filter Apply methods
+func (m *MockClientForRoutes) ApplyMACFiltersToInterface(ctx context.Context, iface, direction string, filterIDs []int) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) RemoveMACFiltersFromInterface(ctx context.Context, iface, direction string) error {
+	panic("not implemented")
+}
+
+func (m *MockClientForRoutes) GetMACInterfaceFilters(ctx context.Context, iface, direction string) ([]int, error) {
+	panic("not implemented")
+}
+
 func TestRTXRoutesDataSourceSchema(t *testing.T) {
 	dataSource := dataSourceRTXRoutes()
 

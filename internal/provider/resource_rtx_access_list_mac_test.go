@@ -355,15 +355,14 @@ func TestResourceRTXAccessListMACSchema(t *testing.T) {
 		assert.True(t, resource.Schema["filter_id"].Optional)
 	})
 
-	t.Run("apply is optional with MaxItems 1", func(t *testing.T) {
+	t.Run("apply is optional", func(t *testing.T) {
 		assert.True(t, resource.Schema["apply"].Optional)
-		assert.Equal(t, 1, resource.Schema["apply"].MaxItems)
 	})
 
 	t.Run("entry has correct nested schema", func(t *testing.T) {
 		entrySchema := resource.Schema["entry"].Elem.(*schema.Resource).Schema
 
-		assert.True(t, entrySchema["sequence"].Required)
+		assert.True(t, entrySchema["sequence"].Optional)
 		assert.True(t, entrySchema["ace_action"].Required)
 
 		assert.True(t, entrySchema["source_any"].Optional)
@@ -401,14 +400,14 @@ func TestResourceRTXAccessListMACSchemaValidation(t *testing.T) {
 		_, errs := entrySchema["sequence"].ValidateFunc(1, "sequence")
 		assert.Empty(t, errs, "sequence 1 should be valid")
 
-		_, errs = entrySchema["sequence"].ValidateFunc(99999, "sequence")
-		assert.Empty(t, errs, "sequence 99999 should be valid")
+		_, errs = entrySchema["sequence"].ValidateFunc(2147483647, "sequence")
+		assert.Empty(t, errs, "sequence 2147483647 should be valid")
 
 		_, errs = entrySchema["sequence"].ValidateFunc(0, "sequence")
 		assert.NotEmpty(t, errs, "sequence 0 should be invalid")
 
-		_, errs = entrySchema["sequence"].ValidateFunc(100000, "sequence")
-		assert.NotEmpty(t, errs, "sequence 100000 should be invalid")
+		_, errs = entrySchema["sequence"].ValidateFunc(2147483648, "sequence")
+		assert.NotEmpty(t, errs, "sequence 2147483648 should be invalid")
 	})
 
 	t.Run("vlan_id validation", func(t *testing.T) {
@@ -457,8 +456,9 @@ func TestResourceRTXAccessListMACApplySchemaValidation(t *testing.T) {
 		assert.NotEmpty(t, errs, "direction 'invalid' should be invalid")
 	})
 
-	t.Run("apply filter_ids is required", func(t *testing.T) {
-		assert.True(t, applySchema["filter_ids"].Required)
+	t.Run("apply filter_ids is optional and computed", func(t *testing.T) {
+		assert.True(t, applySchema["filter_ids"].Optional)
+		assert.True(t, applySchema["filter_ids"].Computed)
 	})
 }
 

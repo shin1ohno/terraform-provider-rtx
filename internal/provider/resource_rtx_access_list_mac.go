@@ -8,6 +8,7 @@ import (
 	"github.com/sh1/terraform-provider-rtx/internal/logging"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
@@ -18,7 +19,8 @@ import (
 func resourceRTXAccessListMAC() *schema.Resource {
 	return &schema.Resource{
 		Description: "Manages MAC address access lists on RTX routers. " +
-			"MAC ACLs filter traffic based on source and destination MAC addresses.",
+			"MAC ACLs filter traffic based on source and destination MAC addresses. " +
+			"Supports automatic sequence numbering (auto mode) or manual sequence assignment.",
 
 		CreateContext: resourceRTXAccessListMACCreate,
 		ReadContext:   resourceRTXAccessListMACRead,
@@ -28,6 +30,10 @@ func resourceRTXAccessListMAC() *schema.Resource {
 		Importer: &schema.ResourceImporter{
 			StateContext: resourceRTXAccessListMACImport,
 		},
+
+		CustomizeDiff: customdiff.All(
+			validateMACACLSchema,
+		),
 
 		Schema: map[string]*schema.Schema{
 			"name": {
@@ -43,30 +49,43 @@ func resourceRTXAccessListMAC() *schema.Resource {
 				Description:  "Optional RTX filter ID to enable numeric ethernet filter mode. If not specified, derived from first entry.",
 				ValidateFunc: validation.IntAtLeast(1),
 			},
+			"sequence_start": {
+				Type:         schema.TypeInt,
+				Optional:     true,
+				Description:  "Starting sequence number for automatic sequence calculation. When set, sequence numbers are automatically assigned to entries based on their definition order. Mutually exclusive with entry-level sequence attributes.",
+				ValidateFunc: validation.IntBetween(1, MaxSequenceValue),
+			},
+			"sequence_step": {
+				Type:         schema.TypeInt,
+				Optional:     true,
+				Default:      DefaultSequenceStep,
+				Description:  fmt.Sprintf("Increment value for automatic sequence calculation. Only used when sequence_start is set. Default is %d.", DefaultSequenceStep),
+				ValidateFunc: validation.IntBetween(1, MaxSequenceValue),
+			},
 			"apply": {
 				Type:        schema.TypeList,
 				Optional:    true,
 				Computed:    true,
-				MaxItems:    1,
-				Description: "Optional application of ethernet filters to an interface. Read from router configuration.",
+				Description: "List of interface bindings. Each apply block binds this ACL to an interface in a specific direction. Multiple apply blocks are supported.",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"interface": {
 							Type:        schema.TypeString,
 							Required:    true,
-							Description: "Interface to apply filters (e.g., lan1)",
+							Description: "Interface to apply filters (e.g., lan1, bridge1). MAC ACLs cannot be applied to PP or Tunnel interfaces.",
 						},
 						"direction": {
 							Type:             schema.TypeString,
 							Required:         true,
 							Description:      "Direction to apply filters (in or out)",
 							ValidateFunc:     validation.StringInSlice([]string{"in", "out"}, true),
-							DiffSuppressFunc: SuppressCaseDiff, // Direction values are case-insensitive
+							DiffSuppressFunc: SuppressCaseDiff,
 						},
 						"filter_ids": {
 							Type:        schema.TypeList,
-							Required:    true,
-							Description: "List of filter IDs to apply in order",
+							Optional:    true,
+							Computed:    true,
+							Description: "Specific filter IDs (sequence numbers) to apply in order. If omitted, all entry sequences are applied in order.",
 							Elem: &schema.Schema{
 								Type:         schema.TypeInt,
 								ValidateFunc: validation.IntAtLeast(1),
@@ -83,16 +102,17 @@ func resourceRTXAccessListMAC() *schema.Resource {
 					Schema: map[string]*schema.Schema{
 						"sequence": {
 							Type:         schema.TypeInt,
-							Required:     true,
-							Description:  "Sequence number (determines order of evaluation)",
-							ValidateFunc: validation.IntBetween(1, 99999),
+							Optional:     true,
+							Computed:     true,
+							Description:  "Sequence number (determines order of evaluation). Required in manual mode (when sequence_start is not set). Auto-calculated in auto mode (when sequence_start is set).",
+							ValidateFunc: validation.IntBetween(1, MaxSequence),
 						},
 						"ace_action": {
 							Type:             schema.TypeString,
 							Required:         true,
 							Description:      "Action to take (permit/deny or RTX pass/reject with log/nolog)",
 							ValidateFunc:     validation.StringInSlice([]string{"permit", "deny", "pass-log", "pass-nolog", "reject-log", "reject-nolog", "pass", "reject"}, true),
-							DiffSuppressFunc: SuppressEquivalentACLActionDiff, // Treat equivalent actions as equal (permit=pass=pass-nolog, deny=reject=reject-nolog)
+							DiffSuppressFunc: SuppressEquivalentACLActionDiff,
 						},
 						"source_any": {
 							Type:        schema.TypeBool,
@@ -104,7 +124,7 @@ func resourceRTXAccessListMAC() *schema.Resource {
 							Type:             schema.TypeString,
 							Optional:         true,
 							Description:      "Source MAC address (e.g., 00:00:00:00:00:00)",
-							DiffSuppressFunc: SuppressMACAddressWhenAnyIsTrue, // Suppress diff when source_any=true
+							DiffSuppressFunc: SuppressMACAddressWhenAnyIsTrue,
 						},
 						"source_address_mask": {
 							Type:        schema.TypeString,
@@ -121,7 +141,7 @@ func resourceRTXAccessListMAC() *schema.Resource {
 							Type:             schema.TypeString,
 							Optional:         true,
 							Description:      "Destination MAC address (e.g., 00:00:00:00:00:00)",
-							DiffSuppressFunc: SuppressMACAddressWhenAnyIsTrue, // Suppress diff when destination_any=true
+							DiffSuppressFunc: SuppressMACAddressWhenAnyIsTrue,
 						},
 						"destination_address_mask": {
 							Type:        schema.TypeString,
@@ -194,6 +214,105 @@ func resourceRTXAccessListMAC() *schema.Resource {
 	}
 }
 
+// validateMACACLSchema validates the MAC ACL schema for auto/manual mode consistency
+// and validates apply block interface compatibility.
+func validateMACACLSchema(ctx context.Context, diff *schema.ResourceDiff, meta interface{}) error {
+	// Validate sequence mode consistency
+	sequenceStart, hasSequenceStart := diff.GetOk("sequence_start")
+	sequenceStep := diff.Get("sequence_step").(int)
+	if sequenceStep == 0 {
+		sequenceStep = DefaultSequenceStep
+	}
+
+	entries := diff.Get("entry").([]interface{})
+	autoMode := hasSequenceStart && sequenceStart.(int) > 0
+
+	// Track sequences for duplicate detection
+	usedSequences := make(map[int]int)
+
+	for i, e := range entries {
+		entry := e.(map[string]interface{})
+		entrySeq, hasEntrySeq := entry["sequence"]
+		entrySeqVal := 0
+		if hasEntrySeq {
+			if seq, ok := entrySeq.(int); ok {
+				entrySeqVal = seq
+			}
+		}
+
+		if autoMode {
+			// Auto mode: entry-level sequence should not be specified
+			if entrySeqVal > 0 {
+				return fmt.Errorf("entry[%d]: sequence cannot be specified when sequence_start is set (auto mode). Remove the sequence attribute or use manual mode by removing sequence_start", i)
+			}
+
+			// Calculate the sequence for overflow check
+			calculatedSeq := sequenceStart.(int) + (i * sequenceStep)
+			if calculatedSeq > MaxSequenceValue {
+				return fmt.Errorf("entry[%d]: calculated sequence %d exceeds maximum value %d. Reduce sequence_start or sequence_step, or reduce number of entries", i, calculatedSeq, MaxSequenceValue)
+			}
+
+			// Check for duplicates
+			if prevIdx, exists := usedSequences[calculatedSeq]; exists {
+				return fmt.Errorf("entry[%d]: calculated sequence %d conflicts with entry[%d]. Increase sequence_step to avoid collisions", i, calculatedSeq, prevIdx)
+			}
+			usedSequences[calculatedSeq] = i
+		} else {
+			// Manual mode: entry-level sequence is required
+			if entrySeqVal <= 0 {
+				return fmt.Errorf("entry[%d]: sequence must be specified when sequence_start is not set (manual mode). Add a sequence attribute to each entry or use auto mode by setting sequence_start", i)
+			}
+
+			// Check for duplicates in manual mode
+			if prevIdx, exists := usedSequences[entrySeqVal]; exists {
+				return fmt.Errorf("entry[%d]: sequence %d is already used by entry[%d]. Each entry must have a unique sequence number", i, entrySeqVal, prevIdx)
+			}
+			usedSequences[entrySeqVal] = i
+		}
+	}
+
+	// Validate apply blocks
+	applies, hasApplies := diff.GetOk("apply")
+	if !hasApplies {
+		return nil
+	}
+
+	applyList := applies.([]interface{})
+	appliedTo := make(map[string]int)
+
+	for i, a := range applyList {
+		applyMap := a.(map[string]interface{})
+		iface := applyMap["interface"].(string)
+		direction := applyMap["direction"].(string)
+
+		// Validate interface compatibility for MAC ACLs
+		if err := InterfaceSupportsACLType(iface, ACLTypeMAC); err != nil {
+			return fmt.Errorf("apply[%d]: %v", i, err)
+		}
+
+		// Check for duplicate interface+direction
+		key := fmt.Sprintf("%s:%s", iface, strings.ToLower(direction))
+		if prevIdx, exists := appliedTo[key]; exists {
+			return fmt.Errorf("apply[%d]: interface %s direction %s is already specified in apply[%d]. Remove the duplicate apply block", i, iface, direction, prevIdx)
+		}
+		appliedTo[key] = i
+
+		// Validate filter_ids if specified
+		if filterIDs, ok := applyMap["filter_ids"].([]interface{}); ok && len(filterIDs) > 0 {
+			seenIDs := make(map[int]bool)
+			for j, id := range filterIDs {
+				filterID := id.(int)
+				if seenIDs[filterID] {
+					return fmt.Errorf("apply[%d].filter_ids[%d]: filter ID %d is duplicated. Remove duplicate filter IDs", i, j, filterID)
+				}
+				seenIDs[filterID] = true
+			}
+		}
+	}
+
+	return nil
+}
+
 func resourceRTXAccessListMACCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	apiClient := meta.(*apiClient)
 
@@ -235,11 +354,18 @@ func resourceRTXAccessListMACRead(ctx context.Context, d *schema.ResourceData, m
 	d.Set("name", acl.Name)
 	d.Set("filter_id", acl.FilterID)
 
+	// Set sequence_start and sequence_step if they were in the config
+	if acl.SequenceStart > 0 {
+		d.Set("sequence_start", acl.SequenceStart)
+		if acl.SequenceStep > 0 {
+			d.Set("sequence_step", acl.SequenceStep)
+		}
+	}
+
 	entries := make([]map[string]interface{}, 0, len(acl.Entries))
 	wildcardMAC := "*:*:*:*:*:*"
 	for _, entry := range acl.Entries {
 		// Detect wildcard addresses and set *_any fields accordingly
-		// The router returns "*:*:*:*:*:*" for "any" addresses
 		sourceAny := entry.SourceAny || entry.SourceAddress == wildcardMAC
 		destinationAny := entry.DestinationAny || entry.DestinationAddress == wildcardMAC
 
@@ -283,7 +409,19 @@ func resourceRTXAccessListMACRead(ctx context.Context, d *schema.ResourceData, m
 	}
 	d.Set("entry", entries)
 
-	if acl.Apply != nil {
+	// Handle multiple applies (prefer Applies over legacy Apply)
+	if len(acl.Applies) > 0 {
+		applyList := make([]map[string]interface{}, 0, len(acl.Applies))
+		for _, apply := range acl.Applies {
+			applyList = append(applyList, map[string]interface{}{
+				"interface":  apply.Interface,
+				"direction":  apply.Direction,
+				"filter_ids": apply.FilterIDs,
+			})
+		}
+		d.Set("apply", applyList)
+	} else if acl.Apply != nil {
+		// Legacy single apply support
 		d.Set("apply", []map[string]interface{}{
 			{
 				"interface":  acl.Apply.Interface,
@@ -324,15 +462,31 @@ func resourceRTXAccessListMACDelete(ctx context.Context, d *schema.ResourceData,
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_mac").Msgf("Deleting MAC access list: %s", name)
 
-	// Collect filter numbers to delete (filter_id overrides sequence)
+	// Collect filter numbers to delete
 	var filterNums []int
+	sequenceStart := d.Get("sequence_start").(int)
+	sequenceStep := d.Get("sequence_step").(int)
+	if sequenceStep == 0 {
+		sequenceStep = DefaultSequenceStep
+	}
+
 	entries := d.Get("entry").([]interface{})
-	for _, e := range entries {
+	for i, e := range entries {
 		entry := e.(map[string]interface{})
-		num := entry["filter_id"].(int)
-		if num == 0 {
-			num = entry["sequence"].(int)
+		var num int
+
+		// Determine filter number based on mode
+		if sequenceStart > 0 {
+			// Auto mode: calculate sequence
+			num = sequenceStart + (i * sequenceStep)
+		} else {
+			// Manual mode: use explicit filter_id or sequence
+			num = entry["filter_id"].(int)
+			if num == 0 {
+				num = entry["sequence"].(int)
+			}
 		}
+
 		if num > 0 {
 			filterNums = append(filterNums, num)
 		}
@@ -364,6 +518,14 @@ func resourceRTXAccessListMACImport(ctx context.Context, d *schema.ResourceData,
 	d.Set("name", acl.Name)
 	d.Set("filter_id", acl.FilterID)
 
+	// Import sequence_start and sequence_step if present
+	if acl.SequenceStart > 0 {
+		d.Set("sequence_start", acl.SequenceStart)
+		if acl.SequenceStep > 0 {
+			d.Set("sequence_step", acl.SequenceStep)
+		}
+	}
+
 	entries := make([]map[string]interface{}, 0, len(acl.Entries))
 	for _, entry := range acl.Entries {
 		e := map[string]interface{}{
@@ -394,7 +556,18 @@ func resourceRTXAccessListMACImport(ctx context.Context, d *schema.ResourceData,
 	}
 	d.Set("entry", entries)
 
-	if acl.Apply != nil {
+	// Import multiple applies
+	if len(acl.Applies) > 0 {
+		applyList := make([]map[string]interface{}, 0, len(acl.Applies))
+		for _, apply := range acl.Applies {
+			applyList = append(applyList, map[string]interface{}{
+				"interface":  apply.Interface,
+				"direction":  apply.Direction,
+				"filter_ids": apply.FilterIDs,
+			})
+		}
+		d.Set("apply", applyList)
+	} else if acl.Apply != nil {
 		d.Set("apply", []map[string]interface{}{
 			{
 				"interface":  acl.Apply.Interface,
@@ -410,17 +583,37 @@ func resourceRTXAccessListMACImport(ctx context.Context, d *schema.ResourceData,
 }
 
 func buildAccessListMACFromResourceData(d *schema.ResourceData) client.AccessListMAC {
+	sequenceStart := d.Get("sequence_start").(int)
+	sequenceStep := d.Get("sequence_step").(int)
+	if sequenceStep == 0 {
+		sequenceStep = DefaultSequenceStep
+	}
+
 	acl := client.AccessListMAC{
-		Name:     d.Get("name").(string),
-		FilterID: d.Get("filter_id").(int),
-		Entries:  make([]client.AccessListMACEntry, 0),
+		Name:          d.Get("name").(string),
+		FilterID:      d.Get("filter_id").(int),
+		SequenceStart: sequenceStart,
+		SequenceStep:  sequenceStep,
+		Entries:       make([]client.AccessListMACEntry, 0),
+		Applies:       make([]client.MACApply, 0),
 	}
 
 	entries := d.Get("entry").([]interface{})
-	for _, e := range entries {
+	for i, e := range entries {
 		entry := e.(map[string]interface{})
+
+		// Determine sequence based on mode
+		var entrySequence int
+		if sequenceStart > 0 {
+			// Auto mode: calculate sequence
+			entrySequence = sequenceStart + (i * sequenceStep)
+		} else {
+			// Manual mode: use explicit sequence
+			entrySequence = entry["sequence"].(int)
+		}
+
 		aclEntry := client.AccessListMACEntry{
-			Sequence:               entry["sequence"].(int),
+			Sequence:               entrySequence,
 			AceAction:              entry["ace_action"].(string),
 			SourceAny:              entry["source_any"].(bool),
 			SourceAddress:          entry["source_address"].(string),
@@ -454,21 +647,36 @@ func buildAccessListMACFromResourceData(d *schema.ResourceData) client.AccessLis
 		acl.Entries = append(acl.Entries, aclEntry)
 	}
 
+	// Build applies list
 	if v, ok := d.GetOk("apply"); ok {
 		applyList := v.([]interface{})
-		if len(applyList) > 0 {
-			m := applyList[0].(map[string]interface{})
+		for _, a := range applyList {
+			m := a.(map[string]interface{})
 			var ids []int
 			if rawIDs, ok := m["filter_ids"].([]interface{}); ok {
 				for _, id := range rawIDs {
 					ids = append(ids, id.(int))
 				}
 			}
-			acl.Apply = &client.MACApply{
+
+			// If filter_ids is empty, populate with all entry sequences
+			if len(ids) == 0 {
+				for _, entry := range acl.Entries {
+					ids = append(ids, entry.Sequence)
+				}
+			}
+
+			apply := client.MACApply{
 				Interface: m["interface"].(string),
-				Direction: m["direction"].(string),
+				Direction: strings.ToLower(m["direction"].(string)),
 				FilterIDs: ids,
 			}
+			acl.Applies = append(acl.Applies, apply)
+		}
+
+		// Also set legacy Apply field for backward compatibility with client layer
+		if len(acl.Applies) > 0 {
+			acl.Apply = &acl.Applies[0]
 		}
 	}
 

@@ -1,9 +1,12 @@
 package provider
 
 import (
+	"fmt"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
@@ -372,7 +375,9 @@ func TestResourceRTXAccessListExtendedSchema(t *testing.T) {
 	t.Run("entry has correct nested schema", func(t *testing.T) {
 		entrySchema := resource.Schema["entry"].Elem.(*schema.Resource).Schema
 
-		assert.True(t, entrySchema["sequence"].Required)
+		// sequence is Optional (computed in auto mode)
+		assert.True(t, entrySchema["sequence"].Optional)
+		assert.True(t, entrySchema["sequence"].Computed)
 		assert.True(t, entrySchema["ace_rule_action"].Required)
 		assert.True(t, entrySchema["ace_rule_protocol"].Required)
 
@@ -417,14 +422,14 @@ func TestResourceRTXAccessListExtendedSchemaValidation(t *testing.T) {
 		_, errs := entrySchema["sequence"].ValidateFunc(1, "sequence")
 		assert.Empty(t, errs, "sequence 1 should be valid")
 
-		_, errs = entrySchema["sequence"].ValidateFunc(65535, "sequence")
-		assert.Empty(t, errs, "sequence 65535 should be valid")
+		_, errs = entrySchema["sequence"].ValidateFunc(2147483647, "sequence")
+		assert.Empty(t, errs, "sequence 2147483647 should be valid")
 
 		_, errs = entrySchema["sequence"].ValidateFunc(0, "sequence")
 		assert.NotEmpty(t, errs, "sequence 0 should be invalid")
 
-		_, errs = entrySchema["sequence"].ValidateFunc(65536, "sequence")
-		assert.NotEmpty(t, errs, "sequence 65536 should be invalid")
+		_, errs = entrySchema["sequence"].ValidateFunc(2147483648, "sequence")
+		assert.NotEmpty(t, errs, "sequence 2147483648 should be invalid")
 	})
 }
 
@@ -454,4 +459,353 @@ func TestResourceRTXAccessListExtendedCustomizeDiff(t *testing.T) {
 	t.Run("CustomizeDiff is configured", func(t *testing.T) {
 		assert.NotNil(t, resource.CustomizeDiff)
 	})
+}
+
+// Acceptance Tests
+// These tests require a real RTX router and TF_ACC=1 environment variable
+
+func TestAccRTXAccessListExtended_AutoSequence(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck: func() {
+			testAccPreCheck(t)
+		},
+		ProviderFactories: testAccProviderFactories,
+		CheckDestroy:      testAccCheckRTXAccessListExtendedDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccRTXAccessListExtendedConfig_autoSequence(),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccCheckRTXAccessListExtendedExists("rtx_access_list_extended.auto_seq"),
+					resource.TestCheckResourceAttr("rtx_access_list_extended.auto_seq", "name", "auto-seq-acl"),
+					resource.TestCheckResourceAttr("rtx_access_list_extended.auto_seq", "sequence_start", "100"),
+					resource.TestCheckResourceAttr("rtx_access_list_extended.auto_seq", "sequence_step", "10"),
+					resource.TestCheckResourceAttr("rtx_access_list_extended.auto_seq", "entry.#", "3"),
+					// Auto-calculated sequences: 100, 110, 120
+					resource.TestCheckResourceAttr("rtx_access_list_extended.auto_seq", "entry.0.sequence", "100"),
+					resource.TestCheckResourceAttr("rtx_access_list_extended.auto_seq", "entry.1.sequence", "110"),
+					resource.TestCheckResourceAttr("rtx_access_list_extended.auto_seq", "entry.2.sequence", "120"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccRTXAccessListExtended_MultipleApply(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck: func() {
+			testAccPreCheck(t)
+		},
+		ProviderFactories: testAccProviderFactories,
+		CheckDestroy:      testAccCheckRTXAccessListExtendedDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccRTXAccessListExtendedConfig_multipleApply(),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccCheckRTXAccessListExtendedExists("rtx_access_list_extended.multi_apply"),
+					resource.TestCheckResourceAttr("rtx_access_list_extended.multi_apply", "name", "multi-apply-acl"),
+					resource.TestCheckResourceAttr("rtx_access_list_extended.multi_apply", "apply.#", "2"),
+					resource.TestCheckResourceAttr("rtx_access_list_extended.multi_apply", "apply.0.interface", "lan1"),
+					resource.TestCheckResourceAttr("rtx_access_list_extended.multi_apply", "apply.0.direction", "in"),
+					resource.TestCheckResourceAttr("rtx_access_list_extended.multi_apply", "apply.1.interface", "lan1"),
+					resource.TestCheckResourceAttr("rtx_access_list_extended.multi_apply", "apply.1.direction", "out"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccRTXAccessListExtended_UpdateAddEntry(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck: func() {
+			testAccPreCheck(t)
+		},
+		ProviderFactories: testAccProviderFactories,
+		CheckDestroy:      testAccCheckRTXAccessListExtendedDestroy,
+		Steps: []resource.TestStep{
+			// Initial creation with 2 entries
+			{
+				Config: testAccRTXAccessListExtendedConfig_updateInitial(),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccCheckRTXAccessListExtendedExists("rtx_access_list_extended.update_test"),
+					resource.TestCheckResourceAttr("rtx_access_list_extended.update_test", "name", "update-test-acl"),
+					resource.TestCheckResourceAttr("rtx_access_list_extended.update_test", "entry.#", "2"),
+				),
+			},
+			// Update: add a third entry
+			{
+				Config: testAccRTXAccessListExtendedConfig_updateAddEntry(),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccCheckRTXAccessListExtendedExists("rtx_access_list_extended.update_test"),
+					resource.TestCheckResourceAttr("rtx_access_list_extended.update_test", "name", "update-test-acl"),
+					resource.TestCheckResourceAttr("rtx_access_list_extended.update_test", "entry.#", "3"),
+					resource.TestCheckResourceAttr("rtx_access_list_extended.update_test", "entry.2.ace_rule_action", "deny"),
+					resource.TestCheckResourceAttr("rtx_access_list_extended.update_test", "entry.2.ace_rule_protocol", "ip"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccRTXAccessListExtended_Import(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck: func() {
+			testAccPreCheck(t)
+		},
+		ProviderFactories: testAccProviderFactories,
+		CheckDestroy:      testAccCheckRTXAccessListExtendedDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccRTXAccessListExtendedConfig_import(),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccCheckRTXAccessListExtendedExists("rtx_access_list_extended.import_test"),
+					resource.TestCheckResourceAttr("rtx_access_list_extended.import_test", "name", "import-test-acl"),
+				),
+			},
+			{
+				ResourceName:      "rtx_access_list_extended.import_test",
+				ImportState:       true,
+				ImportStateVerify: true,
+				ImportStateId:     "import-test-acl",
+				// sequence_start and sequence_step are not stored on router, so skip verification
+				ImportStateVerifyIgnore: []string{"sequence_start", "sequence_step"},
+			},
+		},
+	})
+}
+
+// Helper functions for acceptance tests
+
+func testAccCheckRTXAccessListExtendedExists(resourceName string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		rs, ok := s.RootModule().Resources[resourceName]
+		if !ok {
+			return fmt.Errorf("Not found: %s", resourceName)
+		}
+
+		if rs.Primary.ID == "" {
+			return fmt.Errorf("No Access List Extended ID is set")
+		}
+
+		return nil
+	}
+}
+
+func testAccCheckRTXAccessListExtendedDestroy(s *terraform.State) error {
+	for _, rs := range s.RootModule().Resources {
+		if rs.Type != "rtx_access_list_extended" {
+			continue
+		}
+
+		// Resource should be deleted. If we had client access, we could verify.
+	}
+
+	return nil
+}
+
+// Test configuration generators
+
+func testAccRTXAccessListExtendedConfig_autoSequence() string {
+	return `
+provider "rtx" {
+  host                 = "localhost"
+  port                 = 2222
+  username             = "testuser"
+  password             = "testpass"
+  skip_host_key_check  = true
+}
+
+resource "rtx_access_list_extended" "auto_seq" {
+  name           = "auto-seq-acl"
+  sequence_start = 100
+  sequence_step  = 10
+
+  entry {
+    ace_rule_action   = "permit"
+    ace_rule_protocol = "tcp"
+    source_any        = true
+    destination_any   = false
+    destination_prefix      = "192.168.1.0"
+    destination_prefix_mask = "0.0.0.255"
+    destination_port_equal  = "80"
+  }
+
+  entry {
+    ace_rule_action   = "permit"
+    ace_rule_protocol = "tcp"
+    source_any        = true
+    destination_any   = false
+    destination_prefix      = "192.168.1.0"
+    destination_prefix_mask = "0.0.0.255"
+    destination_port_equal  = "443"
+  }
+
+  entry {
+    ace_rule_action   = "deny"
+    ace_rule_protocol = "ip"
+    source_any        = true
+    destination_any   = true
+    log               = true
+  }
+}
+`
+}
+
+func testAccRTXAccessListExtendedConfig_multipleApply() string {
+	return `
+provider "rtx" {
+  host                 = "localhost"
+  port                 = 2222
+  username             = "testuser"
+  password             = "testpass"
+  skip_host_key_check  = true
+}
+
+resource "rtx_access_list_extended" "multi_apply" {
+  name           = "multi-apply-acl"
+  sequence_start = 100
+  sequence_step  = 10
+
+  entry {
+    ace_rule_action   = "permit"
+    ace_rule_protocol = "tcp"
+    source_any        = true
+    destination_any   = false
+    destination_prefix      = "10.0.0.0"
+    destination_prefix_mask = "0.255.255.255"
+    destination_port_equal  = "22"
+  }
+
+  entry {
+    ace_rule_action   = "deny"
+    ace_rule_protocol = "ip"
+    source_any        = true
+    destination_any   = true
+  }
+
+  apply {
+    interface  = "lan1"
+    direction  = "in"
+    filter_ids = [100, 110]
+  }
+
+  apply {
+    interface  = "lan1"
+    direction  = "out"
+    filter_ids = [100, 110]
+  }
+}
+`
+}
+
+func testAccRTXAccessListExtendedConfig_updateInitial() string {
+	return `
+provider "rtx" {
+  host                 = "localhost"
+  port                 = 2222
+  username             = "testuser"
+  password             = "testpass"
+  skip_host_key_check  = true
+}
+
+resource "rtx_access_list_extended" "update_test" {
+  name           = "update-test-acl"
+  sequence_start = 100
+  sequence_step  = 10
+
+  entry {
+    ace_rule_action   = "permit"
+    ace_rule_protocol = "icmp"
+    source_any        = true
+    destination_any   = true
+  }
+
+  entry {
+    ace_rule_action   = "permit"
+    ace_rule_protocol = "tcp"
+    source_any        = true
+    destination_any   = false
+    destination_prefix      = "192.168.0.0"
+    destination_prefix_mask = "0.0.255.255"
+    established       = true
+  }
+}
+`
+}
+
+func testAccRTXAccessListExtendedConfig_updateAddEntry() string {
+	return `
+provider "rtx" {
+  host                 = "localhost"
+  port                 = 2222
+  username             = "testuser"
+  password             = "testpass"
+  skip_host_key_check  = true
+}
+
+resource "rtx_access_list_extended" "update_test" {
+  name           = "update-test-acl"
+  sequence_start = 100
+  sequence_step  = 10
+
+  entry {
+    ace_rule_action   = "permit"
+    ace_rule_protocol = "icmp"
+    source_any        = true
+    destination_any   = true
+  }
+
+  entry {
+    ace_rule_action   = "permit"
+    ace_rule_protocol = "tcp"
+    source_any        = true
+    destination_any   = false
+    destination_prefix      = "192.168.0.0"
+    destination_prefix_mask = "0.0.255.255"
+    established       = true
+  }
+
+  entry {
+    ace_rule_action   = "deny"
+    ace_rule_protocol = "ip"
+    source_any        = true
+    destination_any   = true
+    log               = true
+  }
+}
+`
+}
+
+func testAccRTXAccessListExtendedConfig_import() string {
+	return `
+provider "rtx" {
+  host                 = "localhost"
+  port                 = 2222
+  username             = "testuser"
+  password             = "testpass"
+  skip_host_key_check  = true
+}
+
+resource "rtx_access_list_extended" "import_test" {
+  name           = "import-test-acl"
+  sequence_start = 100
+  sequence_step  = 10
+
+  entry {
+    ace_rule_action   = "permit"
+    ace_rule_protocol = "tcp"
+    source_any        = true
+    destination_any   = false
+    destination_prefix      = "172.16.0.0"
+    destination_prefix_mask = "0.15.255.255"
+    destination_port_equal  = "8080"
+  }
+
+  entry {
+    ace_rule_action   = "deny"
+    ace_rule_protocol = "ip"
+    source_any        = true
+    destination_any   = true
+  }
+}
+`
 }

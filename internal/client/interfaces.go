@@ -783,6 +783,47 @@ type Client interface {
 
 	// MarkCacheDirty marks the cached configuration as potentially stale
 	MarkCacheDirty()
+
+	// IP Filter Apply methods
+	// ApplyIPFiltersToInterface applies IP filters to an interface for a specific direction
+	ApplyIPFiltersToInterface(ctx context.Context, iface, direction string, filterIDs []int) error
+
+	// RemoveIPFiltersFromInterface removes IP filter bindings from an interface
+	RemoveIPFiltersFromInterface(ctx context.Context, iface, direction string) error
+
+	// GetIPInterfaceFilters returns the current IP filter IDs applied to an interface
+	GetIPInterfaceFilters(ctx context.Context, iface, direction string) ([]int, error)
+
+	// IPv6 Filter Apply methods
+	// ApplyIPv6FiltersToInterface applies IPv6 filters to an interface for a specific direction
+	ApplyIPv6FiltersToInterface(ctx context.Context, iface, direction string, filterIDs []int) error
+
+	// RemoveIPv6FiltersFromInterface removes IPv6 filter bindings from an interface
+	RemoveIPv6FiltersFromInterface(ctx context.Context, iface, direction string) error
+
+	// GetIPv6InterfaceFilters returns the current IPv6 filter IDs applied to an interface
+	GetIPv6InterfaceFilters(ctx context.Context, iface, direction string) ([]int, error)
+
+	// MAC Filter Apply methods
+	// ApplyMACFiltersToInterface applies MAC filters to an interface for a specific direction
+	// Note: MAC filters are only supported on Ethernet interfaces (lan, bridge), not on PP or Tunnel interfaces
+	ApplyMACFiltersToInterface(ctx context.Context, iface, direction string, filterIDs []int) error
+
+	// RemoveMACFiltersFromInterface removes MAC filter bindings from an interface
+	RemoveMACFiltersFromInterface(ctx context.Context, iface, direction string) error
+
+	// GetMACInterfaceFilters returns the current MAC filter IDs applied to an interface
+	GetMACInterfaceFilters(ctx context.Context, iface, direction string) ([]int, error)
+
+	// Extended ACL Apply methods
+	// ApplyExtendedFiltersToInterface applies extended ACL filters to an interface
+	ApplyExtendedFiltersToInterface(ctx context.Context, iface, direction string, filterIDs []int) error
+
+	// RemoveExtendedFiltersFromInterface removes extended ACL filter bindings from an interface
+	RemoveExtendedFiltersFromInterface(ctx context.Context, iface, direction string) error
+
+	// GetExtendedInterfaceFilters returns all extended ACL filter bindings for all interfaces
+	GetExtendedInterfaceFilters(ctx context.Context) (map[string]map[string][]int, error)
 }
 
 // Interface represents a network interface on an RTX router
@@ -1506,6 +1547,14 @@ type RTADVConfig struct {
 type AccessListExtended struct {
 	Name    string                    `json:"name"`    // ACL name (identifier)
 	Entries []AccessListExtendedEntry `json:"entries"` // List of ACL entries
+	Applies []ExtendedApply           `json:"applies"` // Interface bindings
+}
+
+// ExtendedApply represents an interface binding for extended ACLs
+type ExtendedApply struct {
+	Interface string `json:"interface"` // e.g., "lan1", "pp1"
+	Direction string `json:"direction"` // "in" or "out"
+	FilterIDs []int  `json:"filter_ids"`
 }
 
 // AccessListExtendedEntry represents a single entry in an IPv4 extended access list
@@ -1599,10 +1648,13 @@ type InterfaceACL struct {
 
 // AccessListMAC represents a MAC address access list
 type AccessListMAC struct {
-	Name     string               `json:"name"`                // ACL name (identifier)
-	FilterID int                  `json:"filter_id,omitempty"` // Optional RTX filter number mode (enables numeric filters)
-	Entries  []AccessListMACEntry `json:"entries"`             // List of MAC ACL entries
-	Apply    *MACApply            `json:"apply,omitempty"`     // Optional apply settings for interface/direction
+	Name          string               `json:"name"`                     // ACL name (identifier)
+	FilterID      int                  `json:"filter_id,omitempty"`      // Optional RTX filter number mode (enables numeric filters)
+	SequenceStart int                  `json:"sequence_start,omitempty"` // Starting sequence for auto mode (0 = manual mode)
+	SequenceStep  int                  `json:"sequence_step,omitempty"`  // Sequence step for auto mode (default: 10)
+	Entries       []AccessListMACEntry `json:"entries"`                  // List of MAC ACL entries
+	Apply         *MACApply            `json:"apply,omitempty"`          // Optional apply settings (deprecated, use Applies)
+	Applies       []MACApply           `json:"applies,omitempty"`        // Multiple apply settings for interface/direction
 }
 
 // AccessListMACEntry represents a single entry in a MAC access list
@@ -1749,12 +1801,10 @@ type LCPReconnectConfig struct {
 
 // PPIPConfig represents PP interface IP configuration
 type PPIPConfig struct {
-	Address         string `json:"address,omitempty"`            // IP address or "ipcp" for dynamic
-	MTU             int    `json:"mtu,omitempty"`                // MTU size
-	TCPMSSLimit     int    `json:"tcp_mss_limit,omitempty"`      // TCP MSS limit value
-	NATDescriptor   int    `json:"nat_descriptor,omitempty"`     // NAT descriptor number
-	AccessListIPIn  string `json:"access_list_ip_in,omitempty"`  // Inbound IP access list name
-	AccessListIPOut string `json:"access_list_ip_out,omitempty"` // Outbound IP access list name
+	Address       string `json:"address,omitempty"`        // IP address or "ipcp" for dynamic
+	MTU           int    `json:"mtu,omitempty"`            // MTU size
+	TCPMSSLimit   int    `json:"tcp_mss_limit,omitempty"`  // TCP MSS limit value
+	NATDescriptor int    `json:"nat_descriptor,omitempty"` // NAT descriptor number
 }
 
 // PPConnectionStatus represents PPPoE connection status
