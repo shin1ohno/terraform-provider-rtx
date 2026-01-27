@@ -477,10 +477,8 @@ func (s *ServiceManager) GetSSHDAuthorizedKeys(ctx context.Context, username str
 
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
-		// Check if it's a "not found" error (user has no keys)
-		if strings.Contains(strings.ToLower(err.Error()), "not found") {
-			return []SSHAuthorizedKey{}, nil
-		}
+		// Return the error so the resource layer can determine how to handle it
+		// (e.g., distinguish between "user not found" vs "no keys" vs network errors)
 		return nil, fmt.Errorf("failed to get SSHD authorized keys: %w", err)
 	}
 

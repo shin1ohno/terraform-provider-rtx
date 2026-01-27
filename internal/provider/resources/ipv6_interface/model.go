@@ -90,16 +90,45 @@ func (m *IPv6InterfaceModel) FromClient(ctx context.Context, config *client.IPv6
 	}
 
 	// Convert RTADV
-	if config.RTADV != nil && config.RTADV.Enabled {
+	// Preserve the rtadv block structure if it was configured, even if not enabled
+	if config.RTADV != nil {
 		if m.RTADV == nil {
 			m.RTADV = &RTADVModel{}
 		}
 		m.RTADV.Enabled = types.BoolValue(config.RTADV.Enabled)
-		m.RTADV.PrefixID = types.Int64Value(int64(config.RTADV.PrefixID))
+		// Only update PrefixID if router returned a non-zero value
+		// Router may not return this consistently, so preserve existing if zero
+		if config.RTADV.PrefixID != 0 {
+			m.RTADV.PrefixID = types.Int64Value(int64(config.RTADV.PrefixID))
+		} else if m.RTADV.PrefixID.IsUnknown() {
+			// If existing value is unknown, set to null to avoid unknown after apply
+			m.RTADV.PrefixID = types.Int64Null()
+		}
+		// else: preserve existing m.RTADV.PrefixID (known value)
 		m.RTADV.OFlag = types.BoolValue(config.RTADV.OFlag)
 		m.RTADV.MFlag = types.BoolValue(config.RTADV.MFlag)
-		m.RTADV.Lifetime = fwhelpers.Int64ValueOrNull(config.RTADV.Lifetime)
-	} else {
-		m.RTADV = nil
+		// Only update Lifetime if router returned a non-zero value
+		if config.RTADV.Lifetime != 0 {
+			m.RTADV.Lifetime = types.Int64Value(int64(config.RTADV.Lifetime))
+		} else if m.RTADV.Lifetime.IsUnknown() {
+			// If existing value is unknown, set to null to avoid unknown after apply
+			m.RTADV.Lifetime = types.Int64Null()
+		}
+		// else: preserve existing m.RTADV.Lifetime (known value)
+	} else if m.RTADV != nil {
+		// If rtadv was configured but not returned by router, preserve existing values
+		// Only set enabled to false since router confirmed it's not enabled
+		m.RTADV.Enabled = types.BoolValue(false)
+		m.RTADV.OFlag = types.BoolValue(false)
+		m.RTADV.MFlag = types.BoolValue(false)
+		// Preserve PrefixID and Lifetime - don't clear them
+		// But if they're unknown, set to null
+		if m.RTADV.PrefixID.IsUnknown() {
+			m.RTADV.PrefixID = types.Int64Null()
+		}
+		if m.RTADV.Lifetime.IsUnknown() {
+			m.RTADV.Lifetime = types.Int64Null()
+		}
 	}
+	// If both config.RTADV is nil and m.RTADV is nil, leave it as nil
 }

@@ -117,9 +117,25 @@ func (m *IPsecTunnelModel) FromClient(tunnel *client.IPsecTunnel) {
 	// Note: pre_shared_key is WriteOnly, so we don't read it back
 	m.LocalNetwork = fwhelpers.StringValueOrNull(tunnel.LocalNetwork)
 	m.RemoteNetwork = fwhelpers.StringValueOrNull(tunnel.RemoteNetwork)
-	m.DPDEnabled = types.BoolValue(tunnel.DPDEnabled)
-	m.DPDInterval = fwhelpers.Int64ValueOrNull(tunnel.DPDInterval)
-	m.DPDRetry = fwhelpers.Int64ValueOrNull(tunnel.DPDRetry)
+
+	// DPD values: config-only attributes
+	// Router may not return correct values (DPD keepalive status parsing is unreliable),
+	// so always preserve existing state values. Only set initial values if currently unknown/null.
+	if m.DPDEnabled.IsUnknown() || m.DPDEnabled.IsNull() {
+		m.DPDEnabled = types.BoolValue(tunnel.DPDEnabled)
+	}
+	// else: preserve existing m.DPDEnabled
+
+	if m.DPDInterval.IsUnknown() || m.DPDInterval.IsNull() {
+		m.DPDInterval = fwhelpers.Int64ValueOrNull(tunnel.DPDInterval)
+	}
+	// else: preserve existing m.DPDInterval
+
+	if m.DPDRetry.IsUnknown() || m.DPDRetry.IsNull() {
+		m.DPDRetry = fwhelpers.Int64ValueOrNull(tunnel.DPDRetry)
+	}
+	// else: preserve existing m.DPDRetry
+
 	m.Enabled = types.BoolValue(tunnel.Enabled)
 	m.TunnelInterface = types.StringValue(fmt.Sprintf("tunnel%d", tunnel.ID))
 

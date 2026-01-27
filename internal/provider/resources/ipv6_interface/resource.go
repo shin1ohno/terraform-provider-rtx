@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -132,6 +133,9 @@ func (r *IPv6InterfaceResource) Schema(ctx context.Context, req resource.SchemaR
 						Description: "Router lifetime in seconds. Set to 0 to use the default value.",
 						Optional:    true,
 						Computed:    true,
+						PlanModifiers: []planmodifier.Int64{
+							int64planmodifier.UseStateForUnknown(),
+						},
 						Validators: []validator.Int64{
 							int64validator.AtLeast(0),
 						},
@@ -311,6 +315,18 @@ func (r *IPv6InterfaceResource) Update(ctx context.Context, req resource.UpdateR
 	ctx = logging.WithResource(ctx, "rtx_ipv6_interface", interfaceName)
 	logger := logging.FromContext(ctx)
 
+	// Deep copy planned RTADV block since router may not return it consistently
+	var plannedRTADV *RTADVModel
+	if data.RTADV != nil {
+		plannedRTADV = &RTADVModel{
+			Enabled:  data.RTADV.Enabled,
+			PrefixID: data.RTADV.PrefixID,
+			OFlag:    data.RTADV.OFlag,
+			MFlag:    data.RTADV.MFlag,
+			Lifetime: data.RTADV.Lifetime,
+		}
+	}
+
 	config := data.ToClient(ctx, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
@@ -330,6 +346,29 @@ func (r *IPv6InterfaceResource) Update(ctx context.Context, req resource.UpdateR
 	r.read(ctx, &data, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	// Restore planned RTADV values, but only for known (not unknown) attributes
+	// Unknown attributes should get their value from the router
+	if plannedRTADV != nil {
+		if data.RTADV == nil {
+			data.RTADV = &RTADVModel{}
+		}
+		if !plannedRTADV.Enabled.IsUnknown() {
+			data.RTADV.Enabled = plannedRTADV.Enabled
+		}
+		if !plannedRTADV.PrefixID.IsUnknown() {
+			data.RTADV.PrefixID = plannedRTADV.PrefixID
+		}
+		if !plannedRTADV.OFlag.IsUnknown() {
+			data.RTADV.OFlag = plannedRTADV.OFlag
+		}
+		if !plannedRTADV.MFlag.IsUnknown() {
+			data.RTADV.MFlag = plannedRTADV.MFlag
+		}
+		if !plannedRTADV.Lifetime.IsUnknown() {
+			data.RTADV.Lifetime = plannedRTADV.Lifetime
+		}
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

@@ -216,6 +216,12 @@ func (r *AdminUserResource) Update(ctx context.Context, req resource.UpdateReque
 	ctx = logging.WithResource(ctx, "rtx_admin_user", data.Username.ValueString())
 	logger := logging.FromContext(ctx)
 
+	// Preserve planned values that may not be returned by router
+	plannedConnectionMethods := data.ConnectionMethods
+	plannedGUIPages := data.GUIPages
+	plannedLoginTimer := data.LoginTimer
+	plannedEncrypted := data.Encrypted
+
 	user := data.ToClient()
 	logger.Debug().Str("resource", "rtx_admin_user").Msgf("Updating admin user: %s", user.Username)
 
@@ -231,6 +237,13 @@ func (r *AdminUserResource) Update(ctx context.Context, req resource.UpdateReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	// Always preserve planned values for config-only attributes that router doesn't properly return
+	// These are "write-only" in the sense that the router doesn't echo them back consistently
+	data.ConnectionMethods = plannedConnectionMethods
+	data.GUIPages = plannedGUIPages
+	data.LoginTimer = plannedLoginTimer
+	data.Encrypted = plannedEncrypted
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

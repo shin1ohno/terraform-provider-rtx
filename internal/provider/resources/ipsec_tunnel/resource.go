@@ -96,11 +96,17 @@ func (r *IPsecTunnelResource) Schema(ctx context.Context, req resource.SchemaReq
 				Description: "DPD interval in seconds.",
 				Optional:    true,
 				Computed:    true,
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"dpd_retry": schema.Int64Attribute{
 				Description: "DPD retry count before declaring peer dead (0 means disabled).",
 				Optional:    true,
 				Computed:    true,
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"enabled": schema.BoolAttribute{
 				Description: "Enable the IPsec tunnel.",
@@ -371,6 +377,11 @@ func (r *IPsecTunnelResource) Update(ctx context.Context, req resource.UpdateReq
 	ctx = logging.WithResource(ctx, "rtx_ipsec_tunnel", strconv.FormatInt(data.TunnelID.ValueInt64(), 10))
 	logger := logging.FromContext(ctx)
 
+	// Preserve planned values that router may not return consistently
+	plannedDPDEnabled := data.DPDEnabled
+	plannedDPDInterval := data.DPDInterval
+	plannedDPDRetry := data.DPDRetry
+
 	tunnel := data.ToClient()
 	logger.Debug().Str("resource", "rtx_ipsec_tunnel").Msgf("Updating IPsec tunnel: %+v", tunnel)
 
@@ -386,6 +397,18 @@ func (r *IPsecTunnelResource) Update(ctx context.Context, req resource.UpdateReq
 	r.read(ctx, &data, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	// Restore planned DPD values - router may return different defaults
+	// Only restore if planned values are known (not unknown)
+	if !plannedDPDEnabled.IsUnknown() {
+		data.DPDEnabled = plannedDPDEnabled
+	}
+	if !plannedDPDInterval.IsUnknown() {
+		data.DPDInterval = plannedDPDInterval
+	}
+	if !plannedDPDRetry.IsUnknown() {
+		data.DPDRetry = plannedDPDRetry
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

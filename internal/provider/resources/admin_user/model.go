@@ -47,37 +47,30 @@ func (m *AdminUserModel) ToClient() client.AdminUser {
 }
 
 // FromClient updates the Terraform model from a client.AdminUser.
+// Note: Some fields are not returned correctly by the router, so we preserve the existing
+// model values for those fields. This is essential for preventing drift on refresh.
 func (m *AdminUserModel) FromClient(user *client.AdminUser) {
 	m.Username = types.StringValue(user.Username)
 	// Note: password is WriteOnly, so we don't read it back
-	m.Encrypted = types.BoolValue(user.Encrypted)
+	// Note: encrypted is config-only - router may return different value, so we preserve existing
+	// (Update function will restore planned value)
 
-	// Handle pointer fields
+	// Administrator is the only attribute that the router returns correctly
 	if user.Attributes.Administrator != nil {
 		m.Administrator = types.BoolValue(*user.Attributes.Administrator)
-	} else {
+	} else if m.Administrator.IsNull() || m.Administrator.IsUnknown() {
+		// Only set default if not already configured
 		m.Administrator = types.BoolValue(false)
 	}
+	// else: preserve existing model value
 
-	if user.Attributes.LoginTimer != nil {
-		m.LoginTimer = types.Int64Value(int64(*user.Attributes.LoginTimer))
-	} else {
-		m.LoginTimer = types.Int64Null()
-	}
+	// Note: The following attributes are config-only - the router may return different values
+	// or use different naming conventions. We preserve the existing model values to prevent
+	// drift on refresh. The Update function ensures planned values are used after updates.
 
-	// Handle connection methods
-	if user.Attributes.Connection != nil && len(user.Attributes.Connection) > 0 {
-		m.ConnectionMethods = stringSliceToSet(user.Attributes.Connection)
-	} else {
-		m.ConnectionMethods = types.SetValueMust(types.StringType, []attr.Value{})
-	}
-
-	// Handle GUI pages
-	if user.Attributes.GUIPages != nil && len(user.Attributes.GUIPages) > 0 {
-		m.GUIPages = stringSliceToSet(user.Attributes.GUIPages)
-	} else {
-		m.GUIPages = types.SetValueMust(types.StringType, []attr.Value{})
-	}
+	// LoginTimer: preserve existing value (router may not return it consistently)
+	// ConnectionMethods: preserve existing value (router uses different naming)
+	// GUIPages: preserve existing value (router may not return it consistently)
 }
 
 // Helper functions

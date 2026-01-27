@@ -114,6 +114,10 @@ func (r *SSHDAuthorizedKeysResource) Create(ctx context.Context, req resource.Cr
 	ctx = logging.WithResource(ctx, "rtx_sshd_authorized_keys", username)
 	logger := logging.FromContext(ctx)
 
+	// Preserve planned values since router may not return them consistently
+	plannedUsername := data.Username
+	plannedKeys := data.Keys
+
 	keys := data.ToKeyStrings()
 	logger.Debug().
 		Str("resource", "rtx_sshd_authorized_keys").
@@ -132,6 +136,21 @@ func (r *SSHDAuthorizedKeysResource) Create(ctx context.Context, req resource.Cr
 	r.read(ctx, &data, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	// Restore username (not returned by FromClient)
+	data.Username = plannedUsername
+
+	// If router returned empty keys but we had planned keys, restore them
+	if data.Keys.IsNull() && !plannedKeys.IsNull() {
+		data.Keys = plannedKeys
+	}
+
+	// Ensure KeyCount is always set (computed from keys)
+	if !data.Keys.IsNull() && !data.Keys.IsUnknown() {
+		data.KeyCount = types.Int64Value(int64(len(data.Keys.Elements())))
+	} else {
+		data.KeyCount = types.Int64Value(0)
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -174,27 +193,32 @@ func (r *SSHDAuthorizedKeysResource) read(ctx context.Context, data *SSHDAuthori
 
 	keys, err := r.client.GetSSHDAuthorizedKeys(ctx, username)
 	if err != nil {
-		// Check if user or keys don't exist
-		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "no authorized keys") {
+		// Only mark as not found if the error explicitly indicates the user doesn't exist
+		// (not just "no authorized keys" or network errors)
+		errLower := strings.ToLower(err.Error())
+		if strings.Contains(errLower, "user not found") || strings.Contains(errLower, "user does not exist") {
 			logger.Debug().
 				Str("resource", "rtx_sshd_authorized_keys").
 				Str("username", username).
-				Msg("No authorized keys found, removing from state")
+				Msg("User not found, removing from state")
 			data.Username = types.StringNull()
 			return
 		}
+		// For other errors (including "not found" for keys, network errors, etc.)
+		// add diagnostic but preserve state - let user decide
 		fwhelpers.AppendDiagError(diagnostics, "Failed to read SSHD authorized keys",
 			fmt.Sprintf("Could not read SSHD authorized keys for user %s: %v", username, err))
 		return
 	}
 
-	// If no keys returned, remove from state
+	// If no keys returned, don't remove from state - the keys might have been
+	// temporarily unavailable or the router might not be returning them consistently
 	if len(keys) == 0 {
 		logger.Debug().
 			Str("resource", "rtx_sshd_authorized_keys").
 			Str("username", username).
-			Msg("No authorized keys returned, removing from state")
-		data.Username = types.StringNull()
+			Msg("No authorized keys returned from router, preserving state")
+		// Don't set Username to null - preserve the state
 		return
 	}
 
@@ -220,6 +244,10 @@ func (r *SSHDAuthorizedKeysResource) Update(ctx context.Context, req resource.Up
 	ctx = logging.WithResource(ctx, "rtx_sshd_authorized_keys", username)
 	logger := logging.FromContext(ctx)
 
+	// Preserve planned values
+	plannedUsername := data.Username
+	plannedKeys := data.Keys
+
 	keys := data.ToKeyStrings()
 	logger.Debug().
 		Str("resource", "rtx_sshd_authorized_keys").
@@ -239,6 +267,21 @@ func (r *SSHDAuthorizedKeysResource) Update(ctx context.Context, req resource.Up
 	r.read(ctx, &data, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	// Restore username (not returned by FromClient)
+	data.Username = plannedUsername
+
+	// If router returned empty keys but we had planned keys, restore them
+	if data.Keys.IsNull() && !plannedKeys.IsNull() {
+		data.Keys = plannedKeys
+	}
+
+	// Ensure KeyCount is always set (computed from keys)
+	if !data.Keys.IsNull() && !data.Keys.IsUnknown() {
+		data.KeyCount = types.Int64Value(int64(len(data.Keys.Elements())))
+	} else {
+		data.KeyCount = types.Int64Value(0)
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

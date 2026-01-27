@@ -30,12 +30,14 @@ func (m *L2TPServiceModel) FromClient(state *client.L2TPServiceState) {
 	m.ID = types.StringValue("default")
 	m.Enabled = types.BoolValue(state.Enabled)
 
+	// Only update protocols if the router returned a non-empty list
+	// If the router returns empty, preserve the existing state value
+	// (router may not return protocols consistently)
 	if len(state.Protocols) > 0 {
 		m.Protocols = make([]types.String, len(state.Protocols))
 		for i, p := range state.Protocols {
 			m.Protocols[i] = types.StringValue(p)
 		}
-	} else {
-		m.Protocols = nil
 	}
+	// If state.Protocols is empty, leave m.Protocols unchanged
 }

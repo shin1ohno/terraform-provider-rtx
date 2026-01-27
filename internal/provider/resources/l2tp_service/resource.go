@@ -262,10 +262,18 @@ func (r *L2TPServiceResource) Update(ctx context.Context, req resource.UpdateReq
 		return
 	}
 
+	// Preserve planned protocols since router may not return them
+	plannedProtocols := data.Protocols
+
 	// Read back to ensure consistency
 	r.read(ctx, &data, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	// Always restore planned protocols - router doesn't return this consistently
+	if len(plannedProtocols) > 0 {
+		data.Protocols = plannedProtocols
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
