@@ -530,11 +530,9 @@ func (v boolConflictValidator) ValidateBool(ctx context.Context, req validator.B
 	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
 		return
 	}
-	if !req.ConfigValue.ValueBool() {
-		return
-	}
 
 	// ConflictsWith is handled by the string validators on the conflicting attributes
 	// This validator is kept for completeness but the actual conflict checking
 	// is done by stringvalidator.ConflictsWith on at_time, date, and day_of_week
+	_ = req.ConfigValue.ValueBool() // Check value but conflicts handled elsewhere
 }
