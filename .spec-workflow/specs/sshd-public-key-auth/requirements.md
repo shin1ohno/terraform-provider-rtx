@@ -64,6 +64,23 @@ provider "rtx" {
 2. IF host key already exists THEN the system SHALL read the existing key without regenerating (idempotent behavior)
 3. WHEN resource is deleted THEN the system SHALL NOT delete the host key (host keys should persist for security continuity)
 4. WHEN resource is imported THEN the system SHALL read the existing host key fingerprint
+5. WHEN RTX prompts for confirmation to regenerate existing key (Y/N) THEN the system SHALL respond "N" and preserve the existing key
+6. IF explicit regeneration is required THEN the user SHALL manually delete the host key and re-run Terraform apply
+
+#### Host Key Protection Rationale
+
+RTX routers prompt for Y/N confirmation when attempting to generate a key that already exists:
+```
+sshd host key generate
+キーはすでに存在します。新しいキーを作成しますか? (Y/N)
+```
+
+Regenerating the host key causes:
+- SSH client trust breakage (known_hosts mismatch)
+- Loss of existing SSH sessions
+- Potential security implications
+
+Therefore, the provider MUST never respond "Y" to this prompt. If the `GetSSHDHostKey` check incorrectly reports no key exists (parser mismatch with actual RTX output), the `GenerateSSHDHostKey` function serves as a safety net by detecting the confirmation prompt and aborting.
 
 ### Requirement 3: SSH Authorized Keys Management
 

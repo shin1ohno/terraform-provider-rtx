@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/sshd-public-key-auth/requirements.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-26T14:27:35.399Z",
+      "trigger": "initial",
+      "approvalId": "approval_1769437655035_coeh3hgma",
+      "approvalTitle": "SSHD Public Key Authentication Requirements"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-26T14:38:59.515Z",
+      "trigger": "approved",
+      "approvalId": "approval_1769438275295_igp3obygy",
+      "approvalTitle": "SSHD Public Key Auth Requirements - Key Update Behavior Clarified"
+    }
+  ]
+}

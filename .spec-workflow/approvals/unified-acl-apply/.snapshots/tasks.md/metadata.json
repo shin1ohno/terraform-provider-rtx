@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/unified-acl-apply/tasks.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-26T15:39:48.536Z",
+      "trigger": "initial",
+      "approvalId": "approval_1769441988294_o16bfhh31",
+      "approvalTitle": "Tasks: Unified ACL Apply Design"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-26T15:41:02.776Z",
+      "trigger": "approved",
+      "approvalId": "approval_1769441988294_o16bfhh31",
+      "approvalTitle": "Tasks: Unified ACL Apply Design"
+    }
+  ]
+}

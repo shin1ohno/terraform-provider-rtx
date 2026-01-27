@@ -310,6 +310,43 @@ func resourceRTXSSHDHostKeyCreate(ctx context.Context, d *schema.ResourceData, m
 - Maintains SSH client trust (known_hosts won't break)
 - Idempotent: running apply multiple times has no side effects
 
+**Host Key Generation Safety (RTX Confirmation Handling):**
+
+When `sshd host key generate` is executed on an RTX router that already has a host key, the router prompts for confirmation:
+
+```
+sshd host key generate
+キーはすでに存在します。新しいキーを作成しますか? (Y/N)
+```
+
+The `GenerateSSHDHostKey()` function MUST detect this prompt and respond "N" to abort:
+
+```go
+func (s *ServiceManager) GenerateSSHDHostKey(ctx context.Context) error {
+    // Execute command with interactive confirmation handling
+    output, err := s.executor.RunWithInteraction(ctx, "sshd host key generate", func(prompt string) string {
+        // If RTX asks for confirmation (key already exists), respond "N"
+        if strings.Contains(prompt, "(Y/N)") || strings.Contains(prompt, "新しいキーを作成") {
+            return "N"
+        }
+        return ""  // No response needed for other prompts
+    })
+
+    // Check if operation was aborted due to existing key
+    if strings.Contains(output, "N") && (strings.Contains(output, "キーはすでに存在") || strings.Contains(output, "key already exists")) {
+        return fmt.Errorf("host key already exists on router; generation was aborted to preserve existing key")
+    }
+
+    return err
+}
+```
+
+This provides defense-in-depth:
+1. **First check:** `GetSSHDHostKey()` returns non-empty fingerprint → skip generation
+2. **Safety net:** If parser fails to detect existing key, `GenerateSSHDHostKey()` detects Y/N prompt and aborts
+
+The error returned when key already exists is informational; the Create function catches this and proceeds with reading the existing key info instead.
+
 ### Component 4: rtx_sshd_authorized_keys Resource
 
 **Purpose:** Manage SSH authorized keys for RTX router users

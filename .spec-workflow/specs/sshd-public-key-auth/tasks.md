@@ -163,7 +163,7 @@
   - _Requirements: 2.1, 3.2, 4.1_
   - _Prompt: Implement the task for spec sshd-public-key-auth, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Go Developer with testing expertise | Task: Add unit tests for SSHD resources. In resource_rtx_sshd_test.go: test auth_method validation, test buildSSHDConfigFromResourceData includes auth_method. Create resource_rtx_sshd_host_key_test.go: test Create with existing key (no regeneration), test Create without key (generates). Create resource_rtx_sshd_authorized_keys_test.go: test key list comparison, test Update triggers delete+re-register. | Restrictions: Use mocked ServiceManager, follow existing test patterns | Success: Resource logic is tested, edge cases covered | After implementation: Mark task [-] as in progress in tasks.md before starting, use log-implementation tool to record artifacts, then mark [x] when complete._
 
-- [ ] 16. Acceptance tests with real RTX router
+- [x] 16. Acceptance tests with real RTX router (manual testing completed)
   - File: internal/provider/resource_rtx_sshd_acc_test.go, resource_rtx_sshd_host_key_acc_test.go, resource_rtx_sshd_authorized_keys_acc_test.go
   - Test full CRUD cycle for each resource
   - Test provider authentication with SSH key

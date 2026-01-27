@@ -1,0 +1,96 @@
+# Tasks Document: SSH Connection Pool Redesign
+
+- [x] 1. Rename PooledSSHSession to PooledConnection with new fields
+  - File: internal/client/ssh_session_pool.go
+  - Rename `PooledSSHSession` struct to `PooledConnection`
+  - Add `client *ssh.Client` field to hold the SSH connection
+  - Change embedding of `*workingSession` to explicit `session *workingSession` field
+  - Keep existing fields: `poolID`, `lastUsed`, `useCount`, `adminMode`
+  - Update all references in the same file
+  - Purpose: Establish new data structure for connection-based pooling
+  - _Leverage: Current PooledSSHSession structure at line 31_
+  - _Requirements: 1.1_
+  - _Prompt: Implement the task for spec ssh-connection-pool-redesign: Role: Go Developer | Task: Rename PooledSSHSession to PooledConnection, add client *ssh.Client field, change workingSession from embedded to explicit session field. Update all references within ssh_session_pool.go | Restrictions: Do not modify other files yet, maintain method signatures | Success: Code compiles, all PooledSSHSession references renamed to PooledConnection_
+
+- [x] 2. Rename SSHSessionPool to SSHConnectionPool with connection factory
+  - File: internal/client/ssh_session_pool.go
+  - Rename `SSHSessionPool` struct to `SSHConnectionPool`
+  - Remove `sshClient *ssh.Client` field (single connection)
+  - Add `sshConfig *ssh.ClientConfig` field for creating new connections
+  - Add `address string` field for dial target
+  - Rename `SessionFactory` to `ConnectionFactory`
+  - Update constructor to accept sshConfig and address instead of sshClient
+  - Update all method receivers and references
+  - Purpose: Transform pool from session-based to connection-based
+  - _Leverage: Current SSHSessionPool structure at line 44_
+  - _Requirements: 1.1, 1.2_
+  - _Prompt: Implement the task for spec ssh-connection-pool-redesign: Role: Go Developer | Task: Rename SSHSessionPool to SSHConnectionPool, replace sshClient with sshConfig and address fields, rename SessionFactory to ConnectionFactory. Update constructors NewSSHSessionPool and NewSSHSessionPoolWithOptions | Restrictions: Keep SSHPoolConfig unchanged, maintain functional options pattern | Success: Pool struct holds connection config instead of single client_
+
+- [x] 3. Update createConnection to dial new SSH connections
+  - File: internal/client/ssh_session_pool.go
+  - Rename `createSSHSession` to `createConnection`
+  - Implement `ssh.Dial("tcp", p.address, p.sshConfig)` for new connections
+  - Create `workingSession` on the new client
+  - Return `*PooledConnection` with both client and session
+  - Handle errors: close client if session creation fails
+  - Purpose: Each pooled connection has its own SSH connection
+  - _Leverage: Current createSSHSession at line 323_
+  - _Requirements: 1.1, 2.1_
+  - _Prompt: Implement the task for spec ssh-connection-pool-redesign: Role: Go Developer | Task: Rename createSSHSession to createConnection, implement ssh.Dial to create new TCP+SSH connection, then create workingSession on that connection. Wrap in PooledConnection with both client and session | Restrictions: Must close client if session creation fails, use Zerolog for logging | Success: Each call creates independent SSH connection with its own session_
+
+- [x] 4. Update Acquire/Release/Discard/Close for connection model
+  - File: internal/client/ssh_session_pool.go
+  - Update `Acquire`: return `*PooledConnection` instead of `*PooledSSHSession`
+  - Update `Release`: close nothing (session stays open), return connection to pool
+  - Update `Discard`: close both session AND client, don't return to pool
+  - Update `Close`: close both session and client for all connections
+  - Update `idleCleanup`: close both session and client for idle connections
+  - Purpose: Proper lifecycle management for connection+session pairs
+  - _Leverage: Current Acquire at line 114, Release at line 211, Discard at line 251, Close at line 280_
+  - _Requirements: 1.3, 1.4, 2.2, 2.3, 2.4_
+  - _Prompt: Implement the task for spec ssh-connection-pool-redesign: Role: Go Developer | Task: Update Acquire to return *PooledConnection, Release to keep session open, Discard to close both session and client, Close to clean up all connections | Restrictions: Maintain mutex locking patterns, signal cond on release | Success: Connection lifecycle properly manages both ssh.Client and workingSession_
+
+- [x] 5. Update PooledExecutor to use PooledConnection
+  - File: internal/client/pooled_executor.go
+  - Update pool field type: `*SSHSessionPool` → `*SSHConnectionPool`
+  - Update all method parameters: `*PooledSSHSession` → `*PooledConnection`
+  - Update session access: `session.workingSession` → `conn.session`
+  - Update adminMode access: `session.adminMode` → `conn.adminMode`
+  - Update constructor: `NewPooledExecutor(pool *SSHConnectionPool, ...)`
+  - Purpose: Adapt executor to new connection-based pool
+  - _Leverage: Current PooledExecutor at line 19_
+  - _Requirements: 3.1, 3.2, 3.3, 4.1_
+  - _Prompt: Implement the task for spec ssh-connection-pool-redesign: Role: Go Developer | Task: Update PooledExecutor to use SSHConnectionPool and PooledConnection types. Change all session access to conn.session, adminMode to conn.adminMode | Restrictions: Do not change Executor interface, maintain retry logic | Success: PooledExecutor works with new connection pool types_
+
+- [x] 6. Update client.go to pass sshConfig and address to pool
+  - File: internal/client/client.go
+  - Update pool creation: pass `sshConfig` and `address` instead of `sshClient`
+  - Remove early SSH client creation for pool case
+  - Keep SSH client creation for simpleExecutor fallback
+  - Update NewPooledExecutor call with new pool type
+  - Purpose: Wire new connection pool into client initialization
+  - _Leverage: Current pool creation around line 200-230_
+  - _Requirements: 4.1, 4.2_
+  - _Prompt: Implement the task for spec ssh-connection-pool-redesign: Role: Go Developer | Task: Update rtxClient.Connect to pass sshConfig and address to NewSSHConnectionPool instead of sshClient. Pool will create its own connections | Restrictions: Keep simpleExecutor path unchanged, maintain error handling | Success: Client initializes pool with config, pool creates connections on demand_
+
+- [x] 7. Update unit tests for new connection model
+  - File: internal/client/ssh_session_pool_test.go, internal/client/pooled_executor_test.go
+  - Update mock factory to return `*PooledConnection` with nil client (for tests)
+  - Update type assertions and references
+  - Test connection creation includes client field
+  - Test Discard closes both session and client
+  - Purpose: Ensure tests pass with new structure
+  - _Leverage: Current test files_
+  - _Requirements: Testing requirements_
+  - _Prompt: Implement the task for spec ssh-connection-pool-redesign: Role: Go Developer | Task: Update unit tests for SSHConnectionPool and PooledConnection types. Mock ConnectionFactory returns PooledConnection with nil client for test isolation | Restrictions: Maintain test coverage, use existing test patterns | Success: All unit tests pass with new types_
+
+- [x] 8. Integration test with real RTX router
+  - File: internal/client/pooled_executor_integration_test.go
+  - Update integration tests for new pool constructor
+  - Test multiple concurrent commands use different connections
+  - Verify connection reuse via pool stats
+  - Verify no "ssh: rejected" errors
+  - Purpose: Confirm RTX router compatibility
+  - _Leverage: Current integration test file_
+  - _Requirements: Performance requirements_
+  - _Prompt: Implement the task for spec ssh-connection-pool-redesign: Role: Go Developer | Task: Update integration tests to use new SSHConnectionPool constructor. Test concurrent command execution uses multiple connections without rejection | Restrictions: Use build tags for integration tests | Success: Multiple commands execute in parallel without SSH rejection errors_

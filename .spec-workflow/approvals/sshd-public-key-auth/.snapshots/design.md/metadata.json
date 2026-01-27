@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/sshd-public-key-auth/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-26T14:40:46.434Z",
+      "trigger": "initial",
+      "approvalId": "approval_1769438446195_v934zsvgr",
+      "approvalTitle": "SSHD Public Key Authentication Design"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-26T14:45:10.156Z",
+      "trigger": "approved",
+      "approvalId": "approval_1769438689905_ayvwtjiac",
+      "approvalTitle": "SSHD Public Key Auth Design - Host Key Existing Server Handling"
+    }
+  ]
+}

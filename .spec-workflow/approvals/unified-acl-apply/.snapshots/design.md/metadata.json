@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/unified-acl-apply/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-26T15:35:51.048Z",
+      "trigger": "initial",
+      "approvalId": "approval_1769441750828_tvsetskoh",
+      "approvalTitle": "Design: Unified ACL Apply Design"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-01-26T15:37:36.986Z",
+      "trigger": "approved",
+      "approvalId": "approval_1769441750828_tvsetskoh",
+      "approvalTitle": "Design: Unified ACL Apply Design"
+    }
+  ]
+}
