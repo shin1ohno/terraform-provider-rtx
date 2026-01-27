@@ -133,15 +133,19 @@ func (p *IPsecTunnelParser) ParseIPsecTunnelConfig(raw string) ([]IPsecTunnel, e
 		}
 
 		// IPsec SA policy
+		// Format: ipsec sa policy <policy_num> <sa_num> <protocol> <algorithms>
+		// The policy_num corresponds to the ipsec tunnel ID (e.g., ipsec tunnel 101 uses ipsec sa policy 101)
 		if matches := ipsecSAPolicyPattern.FindStringSubmatch(line); len(matches) >= 5 {
 			policyNum, _ := strconv.Atoi(matches[1])
-			tunnelID, _ := strconv.Atoi(matches[2])
+			// matches[2] is the SA number (not tunnel ID)
 			protocol := matches[3]
-			// algorithms := matches[4]
+			algorithms := matches[4]
 
-			if tunnel, exists := tunnels[tunnelID]; exists {
+			// Use policy number to find the matching tunnel (ipsec tunnel ID = SA policy number)
+			if tunnel, exists := tunnels[policyNum]; exists {
 				tunnel.SAPolicy = policyNum
 				tunnel.IPsecTransform.Protocol = protocol
+				parseIPsecSAAlgorithms(algorithms, &tunnel.IPsecTransform)
 			}
 			continue
 		}
@@ -280,6 +284,34 @@ func parseIKEGroup(group string, proposal *IKEv2Proposal) {
 	}
 	if strings.Contains(group, "modp1024") || strings.Contains(group, "2") {
 		proposal.GroupTwo = true
+	}
+}
+
+// parseIPsecSAAlgorithms parses IPsec SA policy algorithm string
+// Format: "aes-cbc sha-hmac" or "aes-cbc-256 sha256-hmac" etc.
+func parseIPsecSAAlgorithms(algs string, transform *IPsecTransform) {
+	algs = strings.ToLower(algs)
+
+	// Parse encryption algorithm
+	if strings.Contains(algs, "aes-cbc-256") || strings.Contains(algs, "aes256") {
+		transform.EncryptionAES256 = true
+	} else if strings.Contains(algs, "aes-cbc") || strings.Contains(algs, "aes128") || strings.Contains(algs, "aes") {
+		// aes-cbc without 256 suffix means 128-bit
+		transform.EncryptionAES128 = true
+	}
+	if strings.Contains(algs, "3des") {
+		transform.Encryption3DES = true
+	}
+
+	// Parse integrity/hash algorithm
+	if strings.Contains(algs, "sha256-hmac") || strings.Contains(algs, "sha2-256-hmac") {
+		transform.IntegritySHA256 = true
+	} else if strings.Contains(algs, "sha-hmac") {
+		// sha-hmac without 256 means SHA-1
+		transform.IntegritySHA1 = true
+	}
+	if strings.Contains(algs, "md5-hmac") {
+		transform.IntegrityMD5 = true
 	}
 }
 
