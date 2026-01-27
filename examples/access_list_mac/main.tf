@@ -1,4 +1,12 @@
 # RTX MAC Access List (Ethernet Filter) Configuration Examples
+#
+# This example demonstrates the group-based MAC ACL architecture where:
+# - Multiple filter entries are defined in a single resource
+# - Filters can be applied to interfaces using the `apply` block
+# - Sequence numbers can be manually specified or auto-calculated
+#
+# Note: MAC filters are only supported on Ethernet interfaces (lan, bridge).
+# PP and Tunnel interfaces are NOT supported for MAC filtering.
 
 terraform {
   required_providers {
@@ -15,19 +23,19 @@ provider "rtx" {
   password = var.rtx_password
 }
 
-# Basic MAC access list - permit specific MAC addresses
+# Example 1: Auto sequence mode - permit specific MAC addresses
 resource "rtx_access_list_mac" "allow_known_devices" {
-  name = "allowed_macs"
+  name           = "allowed-macs"
+  sequence_start = 10
+  sequence_step  = 10
 
   entry {
-    sequence        = 10
     ace_action      = "permit"
     source_address  = "00:11:22:33:44:55"
     destination_any = true
   }
 
   entry {
-    sequence        = 20
     ace_action      = "permit"
     source_address  = "00:11:22:33:44:66"
     destination_any = true
@@ -35,17 +43,23 @@ resource "rtx_access_list_mac" "allow_known_devices" {
 
   # Deny all other traffic (implicit deny at end)
   entry {
-    sequence        = 100
     ace_action      = "deny"
     source_any      = true
     destination_any = true
+    log             = true
+  }
+
+  # Apply to LAN interface for incoming traffic
+  apply {
+    interface = "lan1"
+    direction = "in"
   }
 }
 
-# MAC access list with EtherType filtering
+# Example 2: Manual sequence mode with EtherType filtering
 # Filter by protocol type (IPv4, IPv6, ARP, etc.)
 resource "rtx_access_list_mac" "protocol_filter" {
-  name = "protocol_filter"
+  name = "protocol-filter"
 
   # Allow IPv4 traffic (EtherType 0x0800)
   entry {
@@ -53,7 +67,7 @@ resource "rtx_access_list_mac" "protocol_filter" {
     ace_action      = "permit"
     source_any      = true
     destination_any = true
-    ethertype       = "0x0800"
+    ether_type      = "0x0800"
   }
 
   # Allow ARP traffic (EtherType 0x0806)
@@ -62,7 +76,7 @@ resource "rtx_access_list_mac" "protocol_filter" {
     ace_action      = "permit"
     source_any      = true
     destination_any = true
-    ethertype       = "0x0806"
+    ether_type      = "0x0806"
   }
 
   # Allow IPv6 traffic (EtherType 0x86DD)
@@ -71,7 +85,7 @@ resource "rtx_access_list_mac" "protocol_filter" {
     ace_action      = "permit"
     source_any      = true
     destination_any = true
-    ethertype       = "0x86DD"
+    ether_type      = "0x86DD"
   }
 
   # Deny all other protocols
@@ -80,16 +94,24 @@ resource "rtx_access_list_mac" "protocol_filter" {
     ace_action      = "deny"
     source_any      = true
     destination_any = true
+    log             = true
+  }
+
+  # Apply to bridge interface
+  apply {
+    interface = "bridge1"
+    direction = "in"
   }
 }
 
-# MAC access list with VLAN filtering
+# Example 3: VLAN filtering
 resource "rtx_access_list_mac" "vlan_filter" {
-  name = "vlan_filter"
+  name           = "vlan-filter"
+  sequence_start = 10
+  sequence_step  = 10
 
   # Allow traffic from VLAN 10
   entry {
-    sequence        = 10
     ace_action      = "permit"
     source_any      = true
     destination_any = true
@@ -98,7 +120,6 @@ resource "rtx_access_list_mac" "vlan_filter" {
 
   # Allow traffic from VLAN 20
   entry {
-    sequence        = 20
     ace_action      = "permit"
     source_any      = true
     destination_any = true
@@ -107,19 +128,82 @@ resource "rtx_access_list_mac" "vlan_filter" {
 
   # Deny all other VLAN traffic
   entry {
-    sequence        = 100
+    ace_action      = "deny"
+    source_any      = true
+    destination_any = true
+  }
+
+  apply {
+    interface = "lan1"
+    direction = "in"
+  }
+}
+
+# Example 4: DHCP-based filtering
+resource "rtx_access_list_mac" "dhcp_binding" {
+  name           = "dhcp-binding"
+  sequence_start = 100
+  sequence_step  = 10
+
+  # Allow traffic from DHCP-bound clients
+  entry {
+    ace_action      = "permit"
+    source_any      = true
+    destination_any = true
+    dhcp_match {
+      type  = "dhcp-bind"
+      scope = 1
+    }
+  }
+
+  # Deny non-DHCP-bound traffic
+  entry {
+    ace_action      = "deny"
+    source_any      = true
+    destination_any = true
+    log             = true
+  }
+
+  apply {
+    interface = "lan1"
+    direction = "in"
+  }
+}
+
+# Example 5: ACL without apply block
+# Use rtx_access_list_mac_apply to bind to multiple interfaces
+resource "rtx_access_list_mac" "shared_mac_filters" {
+  name           = "shared-mac-filters"
+  sequence_start = 1000
+  sequence_step  = 100
+
+  entry {
+    ace_action      = "permit"
+    source_any      = true
+    destination_any = true
+    ether_type      = "0x0800"
+  }
+
+  entry {
     ace_action      = "deny"
     source_any      = true
     destination_any = true
   }
 }
 
-# Apply MAC access list to interface using rtx_interface
-resource "rtx_interface" "lan1" {
-  name = "lan1"
+# Apply shared filters to lan2
+resource "rtx_access_list_mac_apply" "shared_to_lan2" {
+  access_list = rtx_access_list_mac.shared_mac_filters.name
+  interface   = "lan2"
+  direction   = "in"
+}
 
-  # Reference the MAC access list by name
-  access_list_mac_in = rtx_access_list_mac.allow_known_devices.name
+# Apply shared filters to lan3 with specific filter order
+resource "rtx_access_list_mac_apply" "shared_to_lan3" {
+  access_list = rtx_access_list_mac.shared_mac_filters.name
+  interface   = "lan3"
+  direction   = "out"
+  filter_ids  = [1100, 1000]
 }
 
 variable "rtx_host" {
