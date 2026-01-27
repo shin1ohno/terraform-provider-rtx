@@ -129,12 +129,32 @@ func (e *PooledExecutor) executeOnConnection(ctx context.Context, conn *PooledCo
 }
 
 // requiresAdminPrivileges checks if a command requires administrator privileges.
-// If admin password is configured, always use administrator mode since RTX routers
-// provide more complete information in administrator mode.
+// Read-only commands (show, console) do not require admin privileges.
+// Configuration commands require admin authentication when password is configured.
 func (e *PooledExecutor) requiresAdminPrivileges(cmd string) bool {
 	hasConfig := e.config != nil
 	hasPassword := hasConfig && e.config.AdminPassword != ""
-	return hasPassword
+	if !hasPassword {
+		return false
+	}
+
+	// Normalize command for checking
+	cmdLower := strings.ToLower(strings.TrimSpace(cmd))
+
+	// Read-only commands do not require admin privileges
+	readOnlyPrefixes := []string{
+		"show ",    // show commands (show config, show status, show sshd host key, etc.)
+		"console ", // console display commands
+		"less ",    // pager commands
+	}
+	for _, prefix := range readOnlyPrefixes {
+		if strings.HasPrefix(cmdLower, prefix) {
+			return false
+		}
+	}
+
+	// All other commands require admin when password is configured
+	return true
 }
 
 // prepareConnection prepares a connection for command execution, including admin authentication if needed

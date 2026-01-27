@@ -86,17 +86,38 @@ func (e *simpleExecutor) Run(ctx context.Context, cmd string) ([]byte, error) {
 }
 
 // requiresAdminPrivileges checks if a command requires administrator privileges.
-// If admin password is configured, always use administrator mode since RTX routers
-// provide more complete information (e.g., show config) in administrator mode.
+// Read-only commands (show, console) do not require admin privileges.
+// Configuration commands require admin authentication when password is configured.
 func (e *simpleExecutor) requiresAdminPrivileges(cmd string) bool {
-	// If admin password is configured, always use administrator mode
 	hasConfig := e.rtxConfig != nil
 	hasPassword := hasConfig && e.rtxConfig.AdminPassword != ""
+	if !hasPassword {
+		return false
+	}
+
+	// Normalize command for checking
+	cmdLower := strings.ToLower(strings.TrimSpace(cmd))
+
+	// Read-only commands do not require admin privileges
+	readOnlyPrefixes := []string{
+		"show ",    // show commands (show config, show status, show sshd host key, etc.)
+		"console ", // console display commands
+		"less ",    // pager commands
+	}
+	for _, prefix := range readOnlyPrefixes {
+		if strings.HasPrefix(cmdLower, prefix) {
+			logging.Global().Debug().
+				Str("command", cmd).
+				Msg("SimpleExecutor: read-only command, no admin required")
+			return false
+		}
+	}
+
+	// All other commands require admin when password is configured
 	logging.Global().Debug().
-		Bool("hasConfig", hasConfig).
-		Bool("hasPassword", hasPassword).
-		Msg("SimpleExecutor: requiresAdminPrivileges check")
-	return hasPassword
+		Str("command", cmd).
+		Msg("SimpleExecutor: admin required for this command")
+	return true
 }
 
 // authenticateAsAdmin authenticates as administrator using the administrator command

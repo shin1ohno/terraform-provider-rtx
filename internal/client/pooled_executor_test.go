@@ -69,22 +69,50 @@ func TestPooledExecutor_RequiresAdminPrivileges(t *testing.T) {
 	tests := []struct {
 		name     string
 		config   *Config
+		command  string
 		expected bool
 	}{
 		{
-			name:     "nil config",
+			name:     "nil config - show command",
 			config:   nil,
+			command:  "show config",
 			expected: false,
 		},
 		{
-			name:     "empty admin password",
+			name:     "empty admin password - show command",
 			config:   &Config{AdminPassword: ""},
+			command:  "show config",
 			expected: false,
 		},
 		{
-			name:     "with admin password",
+			name:     "with admin password - show command (read-only)",
 			config:   &Config{AdminPassword: "example!PASS123"},
-			expected: true,
+			command:  "show config",
+			expected: false, // show commands don't require admin
+		},
+		{
+			name:     "with admin password - show sshd host key (read-only)",
+			config:   &Config{AdminPassword: "example!PASS123"},
+			command:  "show sshd host key",
+			expected: false, // show commands don't require admin
+		},
+		{
+			name:     "with admin password - config command",
+			config:   &Config{AdminPassword: "example!PASS123"},
+			command:  "ip routing on",
+			expected: true, // config commands require admin
+		},
+		{
+			name:     "with admin password - sshd config command",
+			config:   &Config{AdminPassword: "example!PASS123"},
+			command:  "sshd host key generate",
+			expected: true, // config commands require admin
+		},
+		{
+			name:     "nil config - config command",
+			config:   nil,
+			command:  "ip routing on",
+			expected: false, // no password configured
 		},
 	}
 
@@ -104,7 +132,7 @@ func TestPooledExecutor_RequiresAdminPrivileges(t *testing.T) {
 				config:         tt.config,
 			}
 
-			result := executor.requiresAdminPrivileges("show config")
+			result := executor.requiresAdminPrivileges(tt.command)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
