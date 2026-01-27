@@ -233,14 +233,14 @@ func TestResourceRTXIPsecTunnelSchemaValidation(t *testing.T) {
 		_, errs := resource.Schema["tunnel_id"].ValidateFunc(1, "tunnel_id")
 		assert.Empty(t, errs, "tunnel_id 1 should be valid")
 
-		_, errs = resource.Schema["tunnel_id"].ValidateFunc(65535, "tunnel_id")
-		assert.Empty(t, errs, "tunnel_id 65535 should be valid")
+		_, errs = resource.Schema["tunnel_id"].ValidateFunc(6000, "tunnel_id")
+		assert.Empty(t, errs, "tunnel_id 6000 should be valid")
 
 		_, errs = resource.Schema["tunnel_id"].ValidateFunc(0, "tunnel_id")
 		assert.NotEmpty(t, errs, "tunnel_id 0 should be invalid")
 
-		_, errs = resource.Schema["tunnel_id"].ValidateFunc(65536, "tunnel_id")
-		assert.NotEmpty(t, errs, "tunnel_id 65536 should be invalid")
+		_, errs = resource.Schema["tunnel_id"].ValidateFunc(6001, "tunnel_id")
+		assert.NotEmpty(t, errs, "tunnel_id 6001 should be invalid")
 	})
 
 	t.Run("local_address validation", func(t *testing.T) {

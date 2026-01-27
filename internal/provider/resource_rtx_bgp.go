@@ -80,8 +80,8 @@ func resourceRTXBGP() *schema.Resource {
 						"hold_time": {
 							Type:         schema.TypeInt,
 							Optional:     true,
-							Description:  "Hold time in seconds (3-65535). Default is 90.",
-							ValidateFunc: validation.IntBetween(3, 65535),
+							Description:  "Hold time in seconds (3-28800). Default is 90.",
+							ValidateFunc: validation.IntBetween(3, 28800),
 						},
 						"keepalive": {
 							Type:         schema.TypeInt,

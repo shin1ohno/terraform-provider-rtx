@@ -386,14 +386,14 @@ func TestResourceRTXBGPSchemaValidation(t *testing.T) {
 		_, errs := neighborSchema["hold_time"].ValidateFunc(3, "hold_time")
 		assert.Empty(t, errs, "hold_time 3 should be valid")
 
-		_, errs = neighborSchema["hold_time"].ValidateFunc(65535, "hold_time")
-		assert.Empty(t, errs, "hold_time 65535 should be valid")
+		_, errs = neighborSchema["hold_time"].ValidateFunc(28800, "hold_time")
+		assert.Empty(t, errs, "hold_time 28800 should be valid")
 
 		_, errs = neighborSchema["hold_time"].ValidateFunc(2, "hold_time")
 		assert.NotEmpty(t, errs, "hold_time 2 should be invalid")
 
-		_, errs = neighborSchema["hold_time"].ValidateFunc(65536, "hold_time")
-		assert.NotEmpty(t, errs, "hold_time 65536 should be invalid")
+		_, errs = neighborSchema["hold_time"].ValidateFunc(28801, "hold_time")
+		assert.NotEmpty(t, errs, "hold_time 28801 should be invalid")
 	})
 
 	t.Run("neighbor keepalive validation", func(t *testing.T) {

@@ -32,8 +32,8 @@ func resourceRTXL2TP() *schema.Resource {
 				Type:         schema.TypeInt,
 				Required:     true,
 				ForceNew:     true,
-				Description:  "Tunnel ID (1-65535).",
-				ValidateFunc: validation.IntBetween(1, 65535),
+				Description:  "Tunnel ID (1-6000).",
+				ValidateFunc: validation.IntBetween(1, 6000),
 			},
 			"tunnel_interface": {
 				Type:        schema.TypeString,

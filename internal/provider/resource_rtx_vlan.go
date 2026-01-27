@@ -31,8 +31,8 @@ func resourceRTXVLAN() *schema.Resource {
 				Type:         schema.TypeInt,
 				Required:     true,
 				ForceNew:     true,
-				Description:  "The VLAN ID (1-4094)",
-				ValidateFunc: validation.IntBetween(1, 4094),
+				Description:  "The VLAN ID (2-4094). VLAN 1 is reserved as the default native VLAN.",
+				ValidateFunc: validation.IntBetween(2, 4094),
 			},
 			"interface": {
 				Type:         schema.TypeString,
