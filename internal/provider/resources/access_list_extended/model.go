@@ -46,7 +46,9 @@ type ApplyModel struct {
 // Constants for sequence calculation.
 const (
 	DefaultSequenceStep = 10
-	MaxSequenceValue    = 65535
+	// MaxSequenceValue is the maximum valid sequence number for RTX filters.
+	// RTX routers support filter numbers up to 2147483647, but practical usage is typically under 1000000.
+	MaxSequenceValue = 2147483647
 )
 
 // EntryAttrTypes returns the attribute types for EntryModel.

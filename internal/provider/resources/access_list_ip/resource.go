@@ -33,7 +33,8 @@ var (
 )
 
 // MaxSequenceValue is the maximum valid sequence number for RTX filters.
-const MaxSequenceValue = 65535
+// RTX routers support filter numbers up to 2147483647, but practical usage is typically under 1000000.
+const MaxSequenceValue = 2147483647
 
 // NewAccessListIPResource creates a new IP access list resource.
 func NewAccessListIPResource() resource.Resource {
