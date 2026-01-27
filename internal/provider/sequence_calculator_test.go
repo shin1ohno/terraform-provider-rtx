@@ -110,10 +110,10 @@ func TestCalculateSequences(t *testing.T) {
 		},
 		{
 			name:     "near maximum sequence",
-			start:    99990,
+			start:    65525,
 			step:     3,
 			count:    3,
-			expected: []int{99990, 99993, 99996},
+			expected: []int{65525, 65528, 65531},
 		},
 		// Error cases
 		{
@@ -166,7 +166,7 @@ func TestCalculateSequences(t *testing.T) {
 		},
 		{
 			name:          "sequence overflow returns error",
-			start:         2147483640,
+			start:         65530,
 			step:          10,
 			count:         3,
 			expected:      nil,
@@ -291,7 +291,7 @@ func TestValidateSequenceRange(t *testing.T) {
 		// Overflow cases
 		{
 			name:          "overflow at end of sequence",
-			start:         2147483640,
+			start:         65530,
 			step:          10,
 			count:         3,
 			expectedError: ErrSequenceOverflow,
@@ -624,7 +624,7 @@ func TestCalculateSequencesForResourceData(t *testing.T) {
 		{
 			name: "auto mode with overflow",
 			config: map[string]interface{}{
-				"sequence_start": 2147483640,
+				"sequence_start": 65530,
 				"sequence_step":  10,
 				"entry": []interface{}{
 					map[string]interface{}{"action": "pass"},
@@ -655,7 +655,7 @@ func TestCalculateSequencesForResourceData(t *testing.T) {
 // TestConstants verifies that constants have expected values.
 func TestConstants(t *testing.T) {
 	t.Run("MaxSequence", func(t *testing.T) {
-		assert.Equal(t, 2147483647, MaxSequence)
+		assert.Equal(t, 65535, MaxSequence)
 	})
 
 	t.Run("MinSequence", func(t *testing.T) {
@@ -726,10 +726,10 @@ func TestValidateSequenceRange_ErrorMessages(t *testing.T) {
 		},
 		{
 			name:             "overflow error contains relevant values",
-			start:            2147483640,
+			start:            65530,
 			step:             10,
 			count:            3,
-			expectedContains: []string{"2147483640", "exceed"},
+			expectedContains: []string{"65530", "exceed"},
 		},
 	}
 

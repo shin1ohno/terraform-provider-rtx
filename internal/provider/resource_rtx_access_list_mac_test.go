@@ -400,14 +400,14 @@ func TestResourceRTXAccessListMACSchemaValidation(t *testing.T) {
 		_, errs := entrySchema["sequence"].ValidateFunc(1, "sequence")
 		assert.Empty(t, errs, "sequence 1 should be valid")
 
-		_, errs = entrySchema["sequence"].ValidateFunc(2147483647, "sequence")
-		assert.Empty(t, errs, "sequence 2147483647 should be valid")
+		_, errs = entrySchema["sequence"].ValidateFunc(65535, "sequence")
+		assert.Empty(t, errs, "sequence 65535 should be valid")
 
 		_, errs = entrySchema["sequence"].ValidateFunc(0, "sequence")
 		assert.NotEmpty(t, errs, "sequence 0 should be invalid")
 
-		_, errs = entrySchema["sequence"].ValidateFunc(2147483648, "sequence")
-		assert.NotEmpty(t, errs, "sequence 2147483648 should be invalid")
+		_, errs = entrySchema["sequence"].ValidateFunc(65536, "sequence")
+		assert.NotEmpty(t, errs, "sequence 65536 should be invalid")
 	})
 
 	t.Run("vlan_id validation", func(t *testing.T) {

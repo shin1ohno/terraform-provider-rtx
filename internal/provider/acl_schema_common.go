@@ -44,10 +44,11 @@ const (
 )
 
 // MaxSequenceValue is the maximum valid sequence number for RTX filters.
-// RTX routers support sequence numbers from 1 to 2147483647 (int32 max).
+// RTX routers support sequence numbers from 1 to 65535.
+// Reference: RTX Command Reference Chapter 13 (Ethernet Filtering), Chapter 14 (IP Packet Filtering)
 // This is used for schema validation. The MaxSequence constant in sequence_calculator.go
 // is used for calculation validation.
-const MaxSequenceValue = 2147483647
+const MaxSequenceValue = 65535
 
 // CommonACL represents the common fields extracted from ACL resource data.
 type CommonACL struct {

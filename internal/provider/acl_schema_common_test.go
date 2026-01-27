@@ -59,7 +59,7 @@ func TestACLType_Constants(t *testing.T) {
 
 // TestMaxSequenceValue tests the MaxSequenceValue constant.
 func TestMaxSequenceValue(t *testing.T) {
-	assert.Equal(t, 2147483647, MaxSequenceValue)
+	assert.Equal(t, 65535, MaxSequenceValue)
 }
 
 // TestCommonACLSchema tests that CommonACLSchema returns the expected schema.
@@ -359,12 +359,12 @@ func TestValidateACLSchema(t *testing.T) {
 			expectError: true,
 			errorMsg:    "sequence 100 is already used",
 		},
-		// Overflow error (MaxSequenceValue is 2147483647)
+		// Overflow error (MaxSequenceValue is 65535)
 		{
 			name: "sequence overflow in auto mode",
 			config: map[string]interface{}{
 				"name":           "test-acl",
-				"sequence_start": 2147483640,
+				"sequence_start": 65530,
 				"sequence_step":  10,
 				"entry": []interface{}{
 					map[string]interface{}{"sequence": 0, "action": "pass"},

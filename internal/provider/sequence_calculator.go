@@ -57,8 +57,9 @@ var ErrInvalidStart = errors.New("start must be a positive integer")
 var ErrSequenceOverflow = errors.New("calculated sequence exceeds maximum allowed value")
 
 // MaxSequence is the maximum allowed sequence number for RTX ACL entries.
-// RTX routers support filter IDs from 1 to 2147483647 (int32 max).
-const MaxSequence = 2147483647
+// RTX routers support filter IDs from 1 to 65535.
+// Reference: RTX Command Reference Chapter 13 (Ethernet Filtering), Chapter 14 (IP Packet Filtering)
+const MaxSequence = 65535
 
 // MinSequence is the minimum allowed sequence number for RTX ACL entries.
 const MinSequence = 1

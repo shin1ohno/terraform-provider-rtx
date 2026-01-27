@@ -106,19 +106,16 @@ func TestResourceRTXAccessListIPv6SchemaValidation(t *testing.T) {
 		assert.NotEmpty(t, errs, "protocol 'invalid' should be invalid")
 	})
 
-	t.Run("sequence validation allows large values", func(t *testing.T) {
-		// Valid range: 1-2147483647
+	t.Run("sequence validation allows valid values", func(t *testing.T) {
+		// Valid range: 1-65535
 		_, errs := entrySchema["sequence"].ValidateFunc(1, "sequence")
 		assert.Empty(t, errs, "sequence 1 should be valid")
 
 		_, errs = entrySchema["sequence"].ValidateFunc(65535, "sequence")
 		assert.Empty(t, errs, "sequence 65535 should be valid")
 
-		_, errs = entrySchema["sequence"].ValidateFunc(101000, "sequence")
-		assert.Empty(t, errs, "sequence 101000 should be valid")
-
-		_, errs = entrySchema["sequence"].ValidateFunc(402100, "sequence")
-		assert.Empty(t, errs, "sequence 402100 should be valid")
+		_, errs = entrySchema["sequence"].ValidateFunc(65536, "sequence")
+		assert.NotEmpty(t, errs, "sequence 65536 should be invalid")
 
 		_, errs = entrySchema["sequence"].ValidateFunc(0, "sequence")
 		assert.NotEmpty(t, errs, "sequence 0 should be invalid")
