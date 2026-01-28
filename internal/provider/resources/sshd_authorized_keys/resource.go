@@ -12,7 +12,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -75,9 +74,6 @@ func (r *SSHDAuthorizedKeysResource) Schema(ctx context.Context, req resource.Sc
 			"key_count": schema.Int64Attribute{
 				Description: "Number of authorized keys registered for this user.",
 				Computed:    true,
-				PlanModifiers: []planmodifier.Int64{
-					int64planmodifier.UseStateForUnknown(),
-				},
 			},
 		},
 	}
@@ -141,8 +137,11 @@ func (r *SSHDAuthorizedKeysResource) Create(ctx context.Context, req resource.Cr
 	// Restore username (not returned by FromClient)
 	data.Username = plannedUsername
 
-	// If router returned empty keys but we had planned keys, restore them
-	if data.Keys.IsNull() && !plannedKeys.IsNull() {
+	// If router returned empty/null keys but we had planned keys, restore them
+	// This handles the case where the router doesn't immediately return keys after write
+	keysEmpty := data.Keys.IsNull() || len(data.Keys.Elements()) == 0
+	plannedKeysHaveValues := !plannedKeys.IsNull() && len(plannedKeys.Elements()) > 0
+	if keysEmpty && plannedKeysHaveValues {
 		data.Keys = plannedKeys
 	}
 
@@ -165,6 +164,10 @@ func (r *SSHDAuthorizedKeysResource) Read(ctx context.Context, req resource.Read
 		return
 	}
 
+	// Preserve current state keys for potential restoration
+	stateKeys := data.Keys
+	stateKeyCount := data.KeyCount
+
 	r.read(ctx, &data, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
@@ -174,6 +177,20 @@ func (r *SSHDAuthorizedKeysResource) Read(ctx context.Context, req resource.Read
 	if data.Username.IsNull() {
 		resp.State.RemoveResource(ctx)
 		return
+	}
+
+	// If router returned empty keys but state has keys, preserve state
+	// This handles cases where the router doesn't consistently return keys
+	dataKeysEmpty := data.Keys.IsNull() || len(data.Keys.Elements()) == 0
+	stateKeysHaveValues := !stateKeys.IsNull() && len(stateKeys.Elements()) > 0
+	if dataKeysEmpty && stateKeysHaveValues {
+		logger := logging.FromContext(ctx)
+		logger.Debug().
+			Str("resource", "rtx_sshd_authorized_keys").
+			Str("username", data.Username.ValueString()).
+			Msg("Router returned empty keys but state has keys, preserving state")
+		data.Keys = stateKeys
+		data.KeyCount = stateKeyCount
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -211,14 +228,13 @@ func (r *SSHDAuthorizedKeysResource) read(ctx context.Context, data *SSHDAuthori
 		return
 	}
 
-	// If no keys returned, don't remove from state - the keys might have been
-	// temporarily unavailable or the router might not be returning them consistently
+	// If no keys returned, set empty list to detect drift from desired state
 	if len(keys) == 0 {
 		logger.Debug().
 			Str("resource", "rtx_sshd_authorized_keys").
 			Str("username", username).
-			Msg("No authorized keys returned from router, preserving state")
-		// Don't set Username to null - preserve the state
+			Msg("No authorized keys returned from router, setting empty list")
+		data.FromClient([]client.SSHAuthorizedKey{})
 		return
 	}
 
@@ -272,8 +288,11 @@ func (r *SSHDAuthorizedKeysResource) Update(ctx context.Context, req resource.Up
 	// Restore username (not returned by FromClient)
 	data.Username = plannedUsername
 
-	// If router returned empty keys but we had planned keys, restore them
-	if data.Keys.IsNull() && !plannedKeys.IsNull() {
+	// If router returned empty/null keys but we had planned keys, restore them
+	// This handles the case where the router doesn't immediately return keys after write
+	keysEmpty := data.Keys.IsNull() || len(data.Keys.Elements()) == 0
+	plannedKeysHaveValues := !plannedKeys.IsNull() && len(plannedKeys.Elements()) > 0
+	if keysEmpty && plannedKeysHaveValues {
 		data.Keys = plannedKeys
 	}
 
