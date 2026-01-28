@@ -201,6 +201,12 @@ func (r *AccessListIPv6Resource) Create(ctx context.Context, req resource.Create
 
 	logger.Debug().Str("resource", "rtx_access_list_ipv6").Msgf("Creating IPv6 access list group: %s", name)
 
+	// Check for sequence conflicts with existing IPv6 filters on the router
+	r.checkSequenceConflicts(ctx, &data, nil, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	// Build and create IPv6 filters
 	filters := data.ToFilters(ctx, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
@@ -320,6 +326,13 @@ func (r *AccessListIPv6Resource) Update(ctx context.Context, req resource.Update
 	// Get old and new sequences
 	oldSequences := state.GetExpectedSequences()
 	newSequences := data.GetExpectedSequences()
+
+	// Check for sequence conflicts with existing IPv6 filters on the router
+	// Pass oldSequences as currentState so our own sequences are not flagged as conflicts
+	r.checkSequenceConflicts(ctx, &data, oldSequences, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	// Delete removed sequences
 	toDelete := FindRemovedSequences(oldSequences, newSequences)
@@ -528,4 +541,33 @@ func (r *AccessListIPv6Resource) readApplyBlocks(ctx context.Context, data *Acce
 	}
 
 	return nil
+}
+
+// checkSequenceConflicts checks for sequence conflicts with existing IPv6 filters on the router.
+// currentState contains sequences that this resource already owns (for update operations).
+func (r *AccessListIPv6Resource) checkSequenceConflicts(ctx context.Context, data *AccessListIPv6Model, currentState []int, diagnostics *diag.Diagnostics) {
+	logger := logging.FromContext(ctx)
+
+	// Get planned sequences
+	plannedSequences := data.GetExpectedSequences()
+	if len(plannedSequences) == 0 {
+		return
+	}
+
+	// Get all existing IPv6 filter sequences from the router
+	existingSequences, err := r.client.GetAllIPv6FilterSequences(ctx)
+	if err != nil {
+		// Log warning but don't fail - this is a best-effort check
+		logger.Warn().Err(err).Msg("Could not check for sequence conflicts")
+		return
+	}
+
+	// Check for conflicts
+	conflicts := fwhelpers.CheckSequenceConflicts(plannedSequences, existingSequences, currentState)
+	if len(conflicts) > 0 {
+		diagnostics.AddError(
+			"Sequence conflict detected",
+			fwhelpers.FormatSequenceConflictError("rtx_access_list_ipv6", fwhelpers.GetStringValue(data.Name), conflicts),
+		)
+	}
 }

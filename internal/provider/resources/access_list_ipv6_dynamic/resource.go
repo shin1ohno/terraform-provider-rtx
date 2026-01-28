@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -21,6 +22,9 @@ import (
 	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"github.com/sh1/terraform-provider-rtx/internal/provider/fwhelpers"
 )
+
+// MaxSequenceValue is the maximum allowed sequence number.
+const MaxSequenceValue = 65535
 
 // Ensure provider defined types fully satisfy framework interfaces.
 var (
@@ -69,6 +73,22 @@ Note: Unlike IPv4 dynamic filters, IPv6 dynamic filters do NOT support the timeo
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
+			"sequence_start": schema.Int64Attribute{
+				Description: "Starting sequence number for automatic sequence calculation. When set, sequence numbers are automatically assigned to entries based on their definition order.",
+				Optional:    true,
+				Validators: []validator.Int64{
+					int64validator.Between(1, MaxSequenceValue),
+				},
+			},
+			"sequence_step": schema.Int64Attribute{
+				Description: fmt.Sprintf("Increment value for automatic sequence calculation. Only used when sequence_start is set. Default is %d.", DefaultSequenceStep),
+				Optional:    true,
+				Computed:    true,
+				Default:     int64default.StaticInt64(DefaultSequenceStep),
+				Validators: []validator.Int64{
+					int64validator.Between(1, MaxSequenceValue),
+				},
+			},
 		},
 		Blocks: map[string]schema.Block{
 			"entry": schema.ListNestedBlock{
@@ -76,8 +96,9 @@ Note: Unlike IPv4 dynamic filters, IPv6 dynamic filters do NOT support the timeo
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
 						"sequence": schema.Int64Attribute{
-							Description: "Sequence number (determines order and filter number).",
-							Required:    true,
+							Description: "Sequence number (determines order and filter number). Required in manual mode, auto-calculated when sequence_start is set.",
+							Optional:    true,
+							Computed:    true,
 							Validators: []validator.Int64{
 								int64validator.AtLeast(1),
 							},
@@ -142,6 +163,12 @@ func (r *AccessListIPv6DynamicResource) Create(ctx context.Context, req resource
 	name := data.Name.ValueString()
 	ctx = logging.WithResource(ctx, "rtx_access_list_ipv6_dynamic", name)
 	logger := logging.FromContext(ctx)
+
+	// Check for sequence conflicts with existing IPv6 dynamic filters on the router
+	r.checkSequenceConflicts(ctx, &data, nil, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	acl := data.ToClient()
 	logger.Debug().Str("resource", "rtx_access_list_ipv6_dynamic").Msgf("Creating dynamic IPv6 access list: %s", acl.Name)
@@ -214,8 +241,10 @@ func (r *AccessListIPv6DynamicResource) read(ctx context.Context, data *AccessLi
 // Update updates the resource and sets the updated Terraform state on success.
 func (r *AccessListIPv6DynamicResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var data AccessListIPv6DynamicModel
+	var state AccessListIPv6DynamicModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -223,6 +252,14 @@ func (r *AccessListIPv6DynamicResource) Update(ctx context.Context, req resource
 	name := data.Name.ValueString()
 	ctx = logging.WithResource(ctx, "rtx_access_list_ipv6_dynamic", name)
 	logger := logging.FromContext(ctx)
+
+	// Check for sequence conflicts with existing IPv6 dynamic filters on the router
+	// Pass current state sequences so our own sequences are not flagged as conflicts
+	currentStateSequences := state.GetFilterNumbers()
+	r.checkSequenceConflicts(ctx, &data, currentStateSequences, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	acl := data.ToClient()
 	logger.Debug().Str("resource", "rtx_access_list_ipv6_dynamic").Msgf("Updating dynamic IPv6 access list: %s", acl.Name)
@@ -284,4 +321,33 @@ func (r *AccessListIPv6DynamicResource) ImportState(ctx context.Context, req res
 	// The Terraform configuration defines which entries belong to this access list.
 	// After import, run `terraform apply` to bind the configured entries to this resource.
 	resource.ImportStatePassthroughID(ctx, path.Root("name"), req, resp)
+}
+
+// checkSequenceConflicts checks for sequence conflicts with existing IPv6 dynamic filters on the router.
+// currentState contains sequences that this resource already owns (for update operations).
+func (r *AccessListIPv6DynamicResource) checkSequenceConflicts(ctx context.Context, data *AccessListIPv6DynamicModel, currentState []int, diagnostics *diag.Diagnostics) {
+	logger := logging.FromContext(ctx)
+
+	// Get planned sequences
+	plannedSequences := data.GetFilterNumbers()
+	if len(plannedSequences) == 0 {
+		return
+	}
+
+	// Get all existing IPv6 dynamic filter sequences from the router
+	existingSequences, err := r.client.GetAllIPv6FilterDynamicSequences(ctx)
+	if err != nil {
+		// Log warning but don't fail - this is a best-effort check
+		logger.Warn().Err(err).Msg("Could not check for sequence conflicts")
+		return
+	}
+
+	// Check for conflicts
+	conflicts := fwhelpers.CheckSequenceConflicts(plannedSequences, existingSequences, currentState)
+	if len(conflicts) > 0 {
+		diagnostics.AddError(
+			"Sequence conflict detected",
+			fwhelpers.FormatSequenceConflictError("rtx_access_list_ipv6_dynamic", data.Name.ValueString(), conflicts),
+		)
+	}
 }

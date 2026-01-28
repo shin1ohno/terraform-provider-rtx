@@ -1459,3 +1459,55 @@ func (s *IPFilterService) ListIPv6Filters(ctx context.Context) ([]IPFilter, erro
 
 	return filters, nil
 }
+
+// GetAllIPFilterSequences returns all IP filter sequence numbers currently on the router
+func (s *IPFilterService) GetAllIPFilterSequences(ctx context.Context) ([]int, error) {
+	filters, err := s.ListFilters(ctx)
+	if err != nil {
+		return nil, err
+	}
+	sequences := make([]int, len(filters))
+	for i, f := range filters {
+		sequences[i] = f.Number
+	}
+	return sequences, nil
+}
+
+// GetAllIPFilterDynamicSequences returns all dynamic IP filter sequence numbers
+func (s *IPFilterService) GetAllIPFilterDynamicSequences(ctx context.Context) ([]int, error) {
+	filters, err := s.ListDynamicFilters(ctx)
+	if err != nil {
+		return nil, err
+	}
+	sequences := make([]int, len(filters))
+	for i, f := range filters {
+		sequences[i] = f.Number
+	}
+	return sequences, nil
+}
+
+// GetAllIPv6FilterSequences returns all IPv6 filter sequence numbers
+func (s *IPFilterService) GetAllIPv6FilterSequences(ctx context.Context) ([]int, error) {
+	filters, err := s.ListIPv6Filters(ctx)
+	if err != nil {
+		return nil, err
+	}
+	sequences := make([]int, len(filters))
+	for i, f := range filters {
+		sequences[i] = f.Number
+	}
+	return sequences, nil
+}
+
+// GetAllIPv6FilterDynamicSequences returns all IPv6 dynamic filter sequence numbers
+func (s *IPFilterService) GetAllIPv6FilterDynamicSequences(ctx context.Context) ([]int, error) {
+	config, err := s.GetIPv6FilterDynamicConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	sequences := make([]int, len(config.Entries))
+	for i, e := range config.Entries {
+		sequences[i] = e.Number
+	}
+	return sequences, nil
+}

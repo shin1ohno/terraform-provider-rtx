@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -21,6 +22,9 @@ import (
 	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"github.com/sh1/terraform-provider-rtx/internal/provider/fwhelpers"
 )
+
+// MaxSequenceValue is the maximum allowed sequence number.
+const MaxSequenceValue = 65535
 
 // Ensure provider defined types fully satisfy framework interfaces.
 var (
@@ -67,6 +71,22 @@ multiple dynamic filter entries under a single name for easier management and re
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
+			"sequence_start": schema.Int64Attribute{
+				Description: "Starting sequence number for automatic sequence calculation. When set, sequence numbers are automatically assigned to entries based on their definition order.",
+				Optional:    true,
+				Validators: []validator.Int64{
+					int64validator.Between(1, MaxSequenceValue),
+				},
+			},
+			"sequence_step": schema.Int64Attribute{
+				Description: fmt.Sprintf("Increment value for automatic sequence calculation. Only used when sequence_start is set. Default is %d.", DefaultSequenceStep),
+				Optional:    true,
+				Computed:    true,
+				Default:     int64default.StaticInt64(DefaultSequenceStep),
+				Validators: []validator.Int64{
+					int64validator.Between(1, MaxSequenceValue),
+				},
+			},
 		},
 		Blocks: map[string]schema.Block{
 			"entry": schema.ListNestedBlock{
@@ -74,8 +94,9 @@ multiple dynamic filter entries under a single name for easier management and re
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
 						"sequence": schema.Int64Attribute{
-							Description: "Sequence number (determines order and filter number).",
-							Required:    true,
+							Description: "Sequence number (determines order and filter number). Required in manual mode, auto-calculated when sequence_start is set.",
+							Optional:    true,
+							Computed:    true,
 							Validators: []validator.Int64{
 								int64validator.AtLeast(1),
 							},
@@ -146,6 +167,12 @@ func (r *AccessListIPDynamicResource) Create(ctx context.Context, req resource.C
 
 	ctx = logging.WithResource(ctx, "rtx_access_list_ip_dynamic", data.Name.ValueString())
 	logger := logging.FromContext(ctx)
+
+	// Check for sequence conflicts with existing dynamic filters on the router
+	r.checkSequenceConflicts(ctx, &data, nil, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	acl := data.ToClient()
 	logger.Debug().Str("resource", "rtx_access_list_ip_dynamic").Msgf("Creating dynamic IP access list: %s", acl.Name)
@@ -218,14 +245,24 @@ func (r *AccessListIPDynamicResource) read(ctx context.Context, data *AccessList
 // Update updates the resource and sets the updated Terraform state on success.
 func (r *AccessListIPDynamicResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var data AccessListIPDynamicModel
+	var state AccessListIPDynamicModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	ctx = logging.WithResource(ctx, "rtx_access_list_ip_dynamic", data.Name.ValueString())
 	logger := logging.FromContext(ctx)
+
+	// Check for sequence conflicts with existing dynamic filters on the router
+	// Pass current state sequences so our own sequences are not flagged as conflicts
+	currentStateSequences := state.GetFilterNumbers()
+	r.checkSequenceConflicts(ctx, &data, currentStateSequences, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	acl := data.ToClient()
 	logger.Debug().Str("resource", "rtx_access_list_ip_dynamic").Msgf("Updating dynamic IP access list: %s", acl.Name)
@@ -288,4 +325,33 @@ func (r *AccessListIPDynamicResource) ImportState(ctx context.Context, req resou
 	// The Terraform configuration defines which entries belong to this access list.
 	// After import, run `terraform apply` to bind the configured entries to this resource.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), name)...)
+}
+
+// checkSequenceConflicts checks for sequence conflicts with existing dynamic filters on the router.
+// currentState contains sequences that this resource already owns (for update operations).
+func (r *AccessListIPDynamicResource) checkSequenceConflicts(ctx context.Context, data *AccessListIPDynamicModel, currentState []int, diagnostics *diag.Diagnostics) {
+	logger := logging.FromContext(ctx)
+
+	// Get planned sequences
+	plannedSequences := data.GetFilterNumbers()
+	if len(plannedSequences) == 0 {
+		return
+	}
+
+	// Get all existing dynamic filter sequences from the router
+	existingSequences, err := r.client.GetAllIPFilterDynamicSequences(ctx)
+	if err != nil {
+		// Log warning but don't fail - this is a best-effort check
+		logger.Warn().Err(err).Msg("Could not check for sequence conflicts")
+		return
+	}
+
+	// Check for conflicts
+	conflicts := fwhelpers.CheckSequenceConflicts(plannedSequences, existingSequences, currentState)
+	if len(conflicts) > 0 {
+		diagnostics.AddError(
+			"Sequence conflict detected",
+			fwhelpers.FormatSequenceConflictError("rtx_access_list_ip_dynamic", fwhelpers.GetStringValue(data.Name), conflicts),
+		)
+	}
 }

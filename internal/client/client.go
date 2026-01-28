@@ -1592,6 +1592,74 @@ func (c *rtxClient) ListIPFiltersDynamic(ctx context.Context) ([]IPFilterDynamic
 	return ipFilterService.ListDynamicFilters(ctx)
 }
 
+// GetAllIPFilterSequences returns all IP filter sequence numbers currently on the router
+func (c *rtxClient) GetAllIPFilterSequences(ctx context.Context) ([]int, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	ipFilterService := c.ipFilterService
+	c.mu.Unlock()
+
+	if ipFilterService == nil {
+		return nil, fmt.Errorf("IP filter service not initialized")
+	}
+
+	return ipFilterService.GetAllIPFilterSequences(ctx)
+}
+
+// GetAllIPFilterDynamicSequences returns all dynamic IP filter sequence numbers
+func (c *rtxClient) GetAllIPFilterDynamicSequences(ctx context.Context) ([]int, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	ipFilterService := c.ipFilterService
+	c.mu.Unlock()
+
+	if ipFilterService == nil {
+		return nil, fmt.Errorf("IP filter service not initialized")
+	}
+
+	return ipFilterService.GetAllIPFilterDynamicSequences(ctx)
+}
+
+// GetAllIPv6FilterSequences returns all IPv6 filter sequence numbers
+func (c *rtxClient) GetAllIPv6FilterSequences(ctx context.Context) ([]int, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	ipFilterService := c.ipFilterService
+	c.mu.Unlock()
+
+	if ipFilterService == nil {
+		return nil, fmt.Errorf("IP filter service not initialized")
+	}
+
+	return ipFilterService.GetAllIPv6FilterSequences(ctx)
+}
+
+// GetAllIPv6FilterDynamicSequences returns all IPv6 dynamic filter sequence numbers
+func (c *rtxClient) GetAllIPv6FilterDynamicSequences(ctx context.Context) ([]int, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	ipFilterService := c.ipFilterService
+	c.mu.Unlock()
+
+	if ipFilterService == nil {
+		return nil, fmt.Errorf("IP filter service not initialized")
+	}
+
+	return ipFilterService.GetAllIPv6FilterDynamicSequences(ctx)
+}
+
 // GetBGPConfig retrieves BGP configuration
 func (c *rtxClient) GetBGPConfig(ctx context.Context) (*BGPConfig, error) {
 	c.mu.Lock()

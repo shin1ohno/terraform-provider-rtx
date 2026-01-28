@@ -202,6 +202,18 @@ type Client interface {
 	// ListIPFiltersDynamic retrieves all dynamic IP filters
 	ListIPFiltersDynamic(ctx context.Context) ([]IPFilterDynamic, error)
 
+	// GetAllIPFilterSequences returns all IP filter sequence numbers currently on the router
+	GetAllIPFilterSequences(ctx context.Context) ([]int, error)
+
+	// GetAllIPFilterDynamicSequences returns all dynamic IP filter sequence numbers
+	GetAllIPFilterDynamicSequences(ctx context.Context) ([]int, error)
+
+	// GetAllIPv6FilterSequences returns all IPv6 filter sequence numbers
+	GetAllIPv6FilterSequences(ctx context.Context) ([]int, error)
+
+	// GetAllIPv6FilterDynamicSequences returns all IPv6 dynamic filter sequence numbers
+	GetAllIPv6FilterDynamicSequences(ctx context.Context) ([]int, error)
+
 	// GetEthernetFilter retrieves an Ethernet filter configuration
 	GetEthernetFilter(ctx context.Context, number int) (*EthernetFilter, error)
 

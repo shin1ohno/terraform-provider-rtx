@@ -221,6 +221,12 @@ func (r *AccessListIPResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
+	// Check for sequence conflicts with existing filters on the router
+	r.checkSequenceConflicts(ctx, &data, nil, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	// Build and create IP filters
 	filters := data.ToClientFilters()
 	for _, filter := range filters {
@@ -342,6 +348,13 @@ func (r *AccessListIPResource) Update(ctx context.Context, req resource.UpdateRe
 	// Get old and new sequences
 	oldSequences := state.GetExpectedSequences()
 	newSequences := data.GetExpectedSequences()
+
+	// Check for sequence conflicts with existing filters on the router
+	// Pass oldSequences as currentState so our own sequences are not flagged as conflicts
+	r.checkSequenceConflicts(ctx, &data, oldSequences, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	// Delete removed sequences
 	toDelete := findRemovedSequences(oldSequences, newSequences)
@@ -713,4 +726,33 @@ func findRemovedSequences(old, new []int) []int {
 	}
 
 	return removed
+}
+
+// checkSequenceConflicts checks for sequence conflicts with existing filters on the router.
+// currentState contains sequences that this resource already owns (for update operations).
+func (r *AccessListIPResource) checkSequenceConflicts(ctx context.Context, data *AccessListIPModel, currentState []int, diagnostics *diag.Diagnostics) {
+	logger := logging.FromContext(ctx)
+
+	// Get planned sequences
+	plannedSequences := data.GetExpectedSequences()
+	if len(plannedSequences) == 0 {
+		return
+	}
+
+	// Get all existing sequences from the router
+	existingSequences, err := r.client.GetAllIPFilterSequences(ctx)
+	if err != nil {
+		// Log warning but don't fail - this is a best-effort check
+		logger.Warn().Err(err).Msg("Could not check for sequence conflicts")
+		return
+	}
+
+	// Check for conflicts
+	conflicts := fwhelpers.CheckSequenceConflicts(plannedSequences, existingSequences, currentState)
+	if len(conflicts) > 0 {
+		diagnostics.AddError(
+			"Sequence conflict detected",
+			fwhelpers.FormatSequenceConflictError("rtx_access_list_ip", fwhelpers.GetStringValue(data.Name), conflicts),
+		)
+	}
 }
