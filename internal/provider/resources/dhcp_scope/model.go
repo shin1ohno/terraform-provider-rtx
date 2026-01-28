@@ -46,9 +46,11 @@ func ExcludeRangeAttrTypes() map[string]attr.Type {
 // ToClient converts the Terraform model to a client.DHCPScope.
 func (m *DHCPScopeModel) ToClient(ctx context.Context, diagnostics *diag.Diagnostics) client.DHCPScope {
 	scope := client.DHCPScope{
-		ScopeID:   int(m.ScopeID.ValueInt64()),
-		Network:   fwhelpers.GetStringValue(m.Network),
-		LeaseTime: fwhelpers.GetStringValue(m.LeaseTime),
+		ScopeID:    int(m.ScopeID.ValueInt64()),
+		Network:    fwhelpers.GetStringValue(m.Network),
+		RangeStart: fwhelpers.GetStringValue(m.RangeStart),
+		RangeEnd:   fwhelpers.GetStringValue(m.RangeEnd),
+		LeaseTime:  fwhelpers.GetStringValue(m.LeaseTime),
 	}
 
 	// Handle exclude_ranges

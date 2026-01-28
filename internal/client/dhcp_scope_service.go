@@ -326,6 +326,8 @@ func (s *DHCPScopeService) fromParserScope(ps parsers.DHCPScope) DHCPScope {
 	return DHCPScope{
 		ScopeID:       ps.ScopeID,
 		Network:       ps.Network,
+		RangeStart:    ps.RangeStart,
+		RangeEnd:      ps.RangeEnd,
 		LeaseTime:     ps.LeaseTime,
 		ExcludeRanges: excludeRanges,
 		Options: DHCPScopeOptions{
