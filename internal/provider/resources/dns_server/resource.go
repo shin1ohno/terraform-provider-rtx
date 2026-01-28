@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -45,6 +46,12 @@ func (r *DNSServerResource) Metadata(ctx context.Context, req resource.MetadataR
 }
 
 // Schema defines the schema for the resource.
+// MaxPriorityValue is the maximum valid priority number for DNS server select entries.
+const MaxPriorityValue = 65535
+
+// DefaultPriorityStep is the default step between priority numbers.
+const DefaultPriorityStep = 10
+
 func (r *DNSServerResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "Manages DNS server configuration on RTX routers. This is a singleton resource - there is only one DNS server configuration per router.",
@@ -81,6 +88,22 @@ func (r *DNSServerResource) Schema(ctx context.Context, req resource.SchemaReque
 				Optional:    true,
 				Computed:    true,
 			},
+			"priority_start": schema.Int64Attribute{
+				Description: "Starting priority number for automatic priority calculation in server_select entries. When set, priority numbers are automatically assigned based on definition order. Mutually exclusive with entry-level priority attributes.",
+				Optional:    true,
+				Validators: []validator.Int64{
+					int64validator.Between(1, MaxPriorityValue),
+				},
+			},
+			"priority_step": schema.Int64Attribute{
+				Description: fmt.Sprintf("Increment value for automatic priority calculation. Only used when priority_start is set. Default is %d.", DefaultPriorityStep),
+				Optional:    true,
+				Computed:    true,
+				Default:     int64default.StaticInt64(DefaultPriorityStep),
+				Validators: []validator.Int64{
+					int64validator.Between(1, MaxPriorityValue),
+				},
+			},
 		},
 		Blocks: map[string]schema.Block{
 			"server_select": schema.ListNestedBlock{
@@ -88,10 +111,14 @@ func (r *DNSServerResource) Schema(ctx context.Context, req resource.SchemaReque
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
 						"priority": schema.Int64Attribute{
-							Description: "Priority for DNS server selection. Lower numbers have higher priority.",
-							Required:    true,
+							Description: "Priority for DNS server selection. Lower numbers have higher priority. Required when priority_start is not set (manual mode). Auto-calculated when priority_start is set (auto mode).",
+							Optional:    true,
+							Computed:    true,
 							Validators: []validator.Int64{
-								int64validator.AtLeast(1),
+								int64validator.Between(1, MaxPriorityValue),
+							},
+							PlanModifiers: []planmodifier.Int64{
+								AutoPriorityModifier(),
 							},
 						},
 						"record_type": schema.StringAttribute{
@@ -185,14 +212,27 @@ func (r *DNSServerResource) Configure(ctx context.Context, req resource.Configur
 // Create creates the resource and sets the initial Terraform state.
 func (r *DNSServerResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data DNSServerModel
+	var planData DNSServerModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
+	// Save a copy of the plan to preserve server_select ordering
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &planData)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	ctx = logging.WithResource(ctx, "rtx_dns_server", "dns")
 	logger := logging.FromContext(ctx)
+
+	// Validate the configuration
+	r.validateConfig(ctx, &data, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	config := data.ToClient(ctx, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
@@ -213,6 +253,12 @@ func (r *DNSServerResource) Create(ctx context.Context, req resource.CreateReque
 	data.ID = types.StringValue("dns")
 
 	r.read(ctx, &data, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Reorder server_select to match the plan ordering
+	data.reorderServerSelectToMatchPlan(ctx, &planData, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -277,14 +323,27 @@ func (r *DNSServerResource) read(ctx context.Context, data *DNSServerModel, diag
 // Update updates the resource and sets the updated Terraform state on success.
 func (r *DNSServerResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var data DNSServerModel
+	var planData DNSServerModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
+	// Save a copy of the plan to preserve server_select ordering
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &planData)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	ctx = logging.WithResource(ctx, "rtx_dns_server", "dns")
 	logger := logging.FromContext(ctx)
+
+	// Validate the configuration
+	r.validateConfig(ctx, &data, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	config := data.ToClient(ctx, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
@@ -302,6 +361,12 @@ func (r *DNSServerResource) Update(ctx context.Context, req resource.UpdateReque
 	}
 
 	r.read(ctx, &data, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Reorder server_select to match the plan ordering
+	data.reorderServerSelectToMatchPlan(ctx, &planData, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -389,4 +454,77 @@ func convertParsedDNSConfig(parsed *parsers.DNSConfig) *client.DNSConfig {
 	}
 
 	return config
+}
+
+// validateConfig validates the DNS server configuration for auto/manual mode consistency.
+func (r *DNSServerResource) validateConfig(ctx context.Context, data *DNSServerModel, diagnostics *diag.Diagnostics) {
+	priorityStart := fwhelpers.GetInt64Value(data.PriorityStart)
+	priorityStep := fwhelpers.GetInt64Value(data.PriorityStep)
+	if priorityStep == 0 {
+		priorityStep = DefaultPriorityStep
+	}
+
+	if data.ServerSelect.IsNull() || data.ServerSelect.IsUnknown() {
+		return
+	}
+
+	var serverSelects []DNSServerSelectModel
+	data.ServerSelect.ElementsAs(ctx, &serverSelects, false)
+
+	autoMode := priorityStart > 0
+	usedPriorities := make(map[int]int) // priority -> entry index
+
+	for i, sel := range serverSelects {
+		entryPriority := fwhelpers.GetInt64Value(sel.Priority)
+
+		if autoMode {
+			// Auto mode: entry-level priority should not be specified
+			if entryPriority > 0 {
+				diagnostics.AddError(
+					"Invalid configuration",
+					fmt.Sprintf("server_select[%d]: priority cannot be specified when priority_start is set (auto mode). Remove the priority attribute or use manual mode by removing priority_start", i),
+				)
+				return
+			}
+
+			// Calculate the priority for overflow check
+			calculatedPriority := priorityStart + (i * priorityStep)
+			if calculatedPriority > MaxPriorityValue {
+				diagnostics.AddError(
+					"Priority overflow",
+					fmt.Sprintf("server_select[%d]: calculated priority %d exceeds maximum value %d. Reduce priority_start or priority_step, or reduce number of entries", i, calculatedPriority, MaxPriorityValue),
+				)
+				return
+			}
+
+			// Check for duplicates
+			if prevIdx, exists := usedPriorities[calculatedPriority]; exists {
+				diagnostics.AddError(
+					"Duplicate priority",
+					fmt.Sprintf("server_select[%d]: calculated priority %d conflicts with server_select[%d]. Increase priority_step to avoid collisions", i, calculatedPriority, prevIdx),
+				)
+				return
+			}
+			usedPriorities[calculatedPriority] = i
+		} else {
+			// Manual mode: entry-level priority is required
+			if entryPriority <= 0 {
+				diagnostics.AddError(
+					"Invalid configuration",
+					fmt.Sprintf("server_select[%d]: priority must be specified when priority_start is not set (manual mode). Add a priority attribute to each entry or use auto mode by setting priority_start", i),
+				)
+				return
+			}
+
+			// Check for duplicates
+			if prevIdx, exists := usedPriorities[int(entryPriority)]; exists {
+				diagnostics.AddError(
+					"Duplicate priority",
+					fmt.Sprintf("server_select[%d]: priority %d is already used by server_select[%d]. Each entry must have a unique priority number", i, entryPriority, prevIdx),
+				)
+				return
+			}
+			usedPriorities[int(entryPriority)] = i
+		}
+	}
 }

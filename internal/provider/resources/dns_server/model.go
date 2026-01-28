@@ -2,6 +2,7 @@ package dns_server
 
 import (
 	"context"
+	"sort"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -21,6 +22,8 @@ type DNSServerModel struct {
 	Hosts               types.List   `tfsdk:"hosts"`
 	ServiceOn           types.Bool   `tfsdk:"service_on"`
 	PrivateAddressSpoof types.Bool   `tfsdk:"private_address_spoof"`
+	PriorityStart       types.Int64  `tfsdk:"priority_start"`
+	PriorityStep        types.Int64  `tfsdk:"priority_step"`
 }
 
 // DNSServerSelectModel represents a domain-based DNS server selection entry.
@@ -71,13 +74,28 @@ func (m *DNSServerModel) ToClient(ctx context.Context, diags *diag.Diagnostics) 
 
 	// Convert server_select list
 	if !m.ServerSelect.IsNull() && !m.ServerSelect.IsUnknown() {
+		priorityStart := fwhelpers.GetInt64Value(m.PriorityStart)
+		priorityStep := fwhelpers.GetInt64Value(m.PriorityStep)
+		if priorityStep == 0 {
+			priorityStep = 10 // DefaultPriorityStep
+		}
+
 		var serverSelects []DNSServerSelectModel
 		d := m.ServerSelect.ElementsAs(ctx, &serverSelects, false)
 		diags.Append(d...)
 		if !diags.HasError() {
-			for _, sel := range serverSelects {
+			for i, sel := range serverSelects {
+				var priority int
+				if priorityStart > 0 {
+					// Auto mode
+					priority = priorityStart + (i * priorityStep)
+				} else {
+					// Manual mode
+					priority = int(sel.Priority.ValueInt64())
+				}
+
 				serverSelect := client.DNSServerSelect{
-					ID:             int(sel.Priority.ValueInt64()),
+					ID:             priority,
 					RecordType:     fwhelpers.GetStringValue(sel.RecordType),
 					QueryPattern:   fwhelpers.GetStringValue(sel.QueryPattern),
 					OriginalSender: fwhelpers.GetStringValue(sel.OriginalSender),
@@ -151,8 +169,15 @@ func (m *DNSServerModel) FromClient(ctx context.Context, config *client.DNSConfi
 
 	// Convert server_select
 	if len(config.ServerSelect) > 0 {
-		serverSelectValues := make([]attr.Value, len(config.ServerSelect))
-		for i, sel := range config.ServerSelect {
+		// Sort server_select by ID to ensure consistent ordering
+		sortedServerSelect := make([]client.DNSServerSelect, len(config.ServerSelect))
+		copy(sortedServerSelect, config.ServerSelect)
+		sort.Slice(sortedServerSelect, func(i, j int) bool {
+			return sortedServerSelect[i].ID < sortedServerSelect[j].ID
+		})
+
+		serverSelectValues := make([]attr.Value, len(sortedServerSelect))
+		for i, sel := range sortedServerSelect {
 			// Convert servers
 			serverValues := make([]attr.Value, len(sel.Servers))
 			for j, srv := range sel.Servers {
@@ -239,4 +264,106 @@ func DNSHostAttrTypes() map[string]attr.Type {
 		"name":    types.StringType,
 		"address": types.StringType,
 	}
+}
+
+// reorderServerSelectToMatchPlan reorders the server_select list to match the plan ordering.
+// This is necessary because the router may return entries in a different order (e.g., by ID),
+// but Terraform expects the list to match the plan ordering.
+func (m *DNSServerModel) reorderServerSelectToMatchPlan(ctx context.Context, plan *DNSServerModel, diags *diag.Diagnostics) {
+	if m.ServerSelect.IsNull() || m.ServerSelect.IsUnknown() || plan.ServerSelect.IsNull() || plan.ServerSelect.IsUnknown() {
+		return
+	}
+
+	// Check if auto mode is enabled
+	priorityStart := fwhelpers.GetInt64Value(plan.PriorityStart)
+	priorityStep := fwhelpers.GetInt64Value(plan.PriorityStep)
+	if priorityStep == 0 {
+		priorityStep = 10 // DefaultPriorityStep
+	}
+	autoMode := priorityStart > 0
+
+	// Extract plan server_select priorities in order
+	var planSelects []DNSServerSelectModel
+	d := plan.ServerSelect.ElementsAs(ctx, &planSelects, false)
+	diags.Append(d...)
+	if diags.HasError() {
+		return
+	}
+
+	// Extract current server_select entries
+	var currentSelects []DNSServerSelectModel
+	d = m.ServerSelect.ElementsAs(ctx, &currentSelects, false)
+	diags.Append(d...)
+	if diags.HasError() {
+		return
+	}
+
+	// Build a map of priority -> index in current list
+	currentByPriority := make(map[int64]int)
+	for i, sel := range currentSelects {
+		currentByPriority[sel.Priority.ValueInt64()] = i
+	}
+
+	// Reorder current selects to match plan order
+	reorderedValues := make([]attr.Value, len(planSelects))
+	for i := range planSelects {
+		var priority int64
+		if autoMode {
+			// Auto mode: calculate priority from index
+			priority = int64(priorityStart + (i * priorityStep))
+		} else {
+			// Manual mode: use plan's priority
+			priority = planSelects[i].Priority.ValueInt64()
+		}
+
+		if idx, ok := currentByPriority[priority]; ok {
+			sel := currentSelects[idx]
+
+			// Convert servers
+			var servers []DNSServerEntryModel
+			d := sel.Server.ElementsAs(ctx, &servers, false)
+			diags.Append(d...)
+			if diags.HasError() {
+				return
+			}
+
+			serverValues := make([]attr.Value, len(servers))
+			for j, srv := range servers {
+				serverObj, d := types.ObjectValue(
+					DNSServerEntryAttrTypes(),
+					map[string]attr.Value{
+						"address": srv.Address,
+						"edns":    srv.EDNS,
+					},
+				)
+				diags.Append(d...)
+				serverValues[j] = serverObj
+			}
+
+			serverListVal, d := types.ListValue(types.ObjectType{AttrTypes: DNSServerEntryAttrTypes()}, serverValues)
+			diags.Append(d...)
+
+			selectObj, d := types.ObjectValue(
+				DNSServerSelectAttrTypes(),
+				map[string]attr.Value{
+					"priority":        sel.Priority,
+					"server":          serverListVal,
+					"record_type":     sel.RecordType,
+					"query_pattern":   sel.QueryPattern,
+					"original_sender": sel.OriginalSender,
+					"restrict_pp":     sel.RestrictPP,
+				},
+			)
+			diags.Append(d...)
+			reorderedValues[i] = selectObj
+		}
+	}
+
+	if diags.HasError() {
+		return
+	}
+
+	listVal, d := types.ListValue(types.ObjectType{AttrTypes: DNSServerSelectAttrTypes()}, reorderedValues)
+	diags.Append(d...)
+	m.ServerSelect = listVal
 }

@@ -453,7 +453,7 @@ func BuildShowDNSConfigCommand() string {
 func ValidateDNSConfig(config DNSConfig) error {
 	// Validate name servers
 	for _, server := range config.NameServers {
-		if !isValidIP(server) {
+		if !isValidIPForDNS(server) {
 			return fmt.Errorf("invalid DNS server IP address: %s", server)
 		}
 	}
@@ -482,7 +482,7 @@ func ValidateDNSConfig(config DNSConfig) error {
 			return fmt.Errorf("dns server select %d: invalid record type %q, must be one of: a, aaaa, ptr, mx, ns, cname, any", sel.ID, sel.RecordType)
 		}
 		for _, server := range sel.Servers {
-			if !isValidIP(server.Address) {
+			if !isValidIPForDNS(server.Address) {
 				return fmt.Errorf("dns server select %d: invalid server IP address: %s", sel.ID, server.Address)
 			}
 		}
@@ -493,7 +493,7 @@ func ValidateDNSConfig(config DNSConfig) error {
 		if host.Name == "" {
 			return fmt.Errorf("dns static host name cannot be empty")
 		}
-		if !isValidIP(host.Address) {
+		if !isValidIPForDNS(host.Address) {
 			return fmt.Errorf("dns static host %s: invalid IP address: %s", host.Name, host.Address)
 		}
 	}
