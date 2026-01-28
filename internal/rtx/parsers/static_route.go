@@ -310,7 +310,7 @@ func splitOnGateway(gatewayPart string) []string {
 	return result
 }
 
-// BuildIPRouteCommand builds the command to create a static route
+// BuildIPRouteCommand builds the command to create a static route with a single next hop
 // Command format: ip route <network> gateway <gateway> [weight <n>] [filter <n>] [hide] [keepalive]
 func BuildIPRouteCommand(route StaticRoute, hop NextHop) string {
 	// Determine network string
@@ -344,6 +344,49 @@ func BuildIPRouteCommand(route StaticRoute, hop NextHop) string {
 
 	// Note: name parameter is typically not supported in standard ip route command
 	// It's more of a Terraform-only tracking field
+
+	return cmd.String()
+}
+
+// BuildIPRouteCommandMultiHop builds the command to create a static route with multiple next hops
+// RTX routers require all gateways to be specified in a single command for ECMP/failover routes
+// Command format: ip route <network> gateway <gw1> [weight <n>] gateway <gw2> [weight <n>] ...
+func BuildIPRouteCommandMultiHop(route StaticRoute) string {
+	if len(route.NextHops) == 0 {
+		return ""
+	}
+
+	// Determine network string
+	network := formatNetworkNotation(route.Prefix, route.Mask)
+
+	var cmd strings.Builder
+	cmd.WriteString(fmt.Sprintf("ip route %s", network))
+
+	for _, hop := range route.NextHops {
+		cmd.WriteString(" gateway ")
+
+		// Add gateway
+		if hop.Interface != "" {
+			cmd.WriteString(hop.Interface)
+		} else if hop.NextHop != "" {
+			cmd.WriteString(hop.NextHop)
+		} else {
+			continue
+		}
+
+		// Add optional parameters for this hop
+		if hop.Distance > 1 {
+			cmd.WriteString(fmt.Sprintf(" weight %d", hop.Distance))
+		}
+
+		if hop.Filter > 0 {
+			cmd.WriteString(fmt.Sprintf(" filter %d", hop.Filter))
+		}
+
+		if hop.Permanent {
+			cmd.WriteString(" keepalive")
+		}
+	}
 
 	return cmd.String()
 }

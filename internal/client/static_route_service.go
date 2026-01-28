@@ -39,20 +39,18 @@ func (s *StaticRouteService) CreateRoute(ctx context.Context, route StaticRoute)
 	default:
 	}
 
-	// Each next hop becomes a separate command
-	for _, hop := range route.NextHops {
-		parserHop := s.toParserHop(hop)
-		cmd := parsers.BuildIPRouteCommand(parserRoute, parserHop)
-		logging.FromContext(ctx).Debug().Str("service", "static_route").Msgf("Creating static route with command: %s", cmd)
+	// RTX routers require all gateways to be specified in a single command for ECMP/failover routes
+	// Using separate commands would cause each gateway to overwrite the previous one
+	cmd := parsers.BuildIPRouteCommandMultiHop(parserRoute)
+	logging.FromContext(ctx).Debug().Str("service", "static_route").Msgf("Creating static route with command: %s", cmd)
 
-		output, err := s.executor.Run(ctx, cmd)
-		if err != nil {
-			return fmt.Errorf("failed to create static route: %w", err)
-		}
+	output, err := s.executor.Run(ctx, cmd)
+	if err != nil {
+		return fmt.Errorf("failed to create static route: %w", err)
+	}
 
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("command failed: %s", string(output))
-		}
+	if len(output) > 0 && containsError(string(output)) {
+		return fmt.Errorf("command failed: %s", string(output))
 	}
 
 	// Save configuration
@@ -125,20 +123,17 @@ func (s *StaticRouteService) UpdateRoute(ctx context.Context, route StaticRoute)
 		}
 	}
 
-	// Create all new next hops
-	for _, hop := range route.NextHops {
-		parserHop := s.toParserHop(hop)
-		cmd := parsers.BuildIPRouteCommand(parserRoute, parserHop)
-		logging.FromContext(ctx).Debug().Str("service", "static_route").Msgf("Creating new next hop with command: %s", cmd)
+	// RTX routers require all gateways to be specified in a single command for ECMP/failover routes
+	cmd := parsers.BuildIPRouteCommandMultiHop(parserRoute)
+	logging.FromContext(ctx).Debug().Str("service", "static_route").Msgf("Creating new route with command: %s", cmd)
 
-		output, err := s.executor.Run(ctx, cmd)
-		if err != nil {
-			return fmt.Errorf("failed to create next hop: %w", err)
-		}
+	output, err := s.executor.Run(ctx, cmd)
+	if err != nil {
+		return fmt.Errorf("failed to create route: %w", err)
+	}
 
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("command failed: %s", string(output))
-		}
+	if len(output) > 0 && containsError(string(output)) {
+		return fmt.Errorf("command failed: %s", string(output))
 	}
 
 	// Save configuration

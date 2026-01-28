@@ -171,6 +171,9 @@ func (r *StaticRouteResource) Create(ctx context.Context, req resource.CreateReq
 	// Set the ID
 	data.ID = types.StringValue(id)
 
+	// Invalidate cache to ensure we read the latest config
+	r.client.InvalidateCache()
+
 	// Read back the created resource
 	r.read(ctx, &data, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
@@ -213,44 +216,22 @@ func (r *StaticRouteResource) read(ctx context.Context, data *StaticRouteModel, 
 
 	logger.Debug().Str("resource", "rtx_static_route").Msgf("Reading static route: %s/%s", prefix, mask)
 
-	var route *client.StaticRoute
-
-	// Try to use SFTP cache if enabled
-	if r.client.SFTPEnabled() {
-		parsedConfig, err := r.client.GetCachedConfig(ctx)
-		if err == nil && parsedConfig != nil {
-			// Extract static routes from parsed config
-			routes := parsedConfig.ExtractStaticRoutes()
-			for i := range routes {
-				if routes[i].Prefix == prefix && routes[i].Mask == mask {
-					route = convertParsedStaticRoute(&routes[i])
-					logger.Debug().Str("resource", "rtx_static_route").Msg("Found route in SFTP cache")
-					break
-				}
-			}
-		}
-		if route == nil {
-			// Route not found in cache or cache error, fallback to SSH
-			logger.Debug().Str("resource", "rtx_static_route").Msg("Route not in cache, falling back to SSH")
-		}
-	}
-
-	// Fallback to SSH if SFTP disabled or route not found in cache
-	if route == nil {
-		var err error
-		route, err = r.client.GetStaticRoute(ctx, prefix, mask)
-		if err != nil {
-			// Check if route doesn't exist
-			if strings.Contains(err.Error(), "not found") {
-				logger.Debug().Str("resource", "rtx_static_route").Msgf("Static route %s/%s not found", prefix, mask)
-				// Resource has been deleted outside of Terraform
-				data.Prefix = types.StringNull()
-				return
-			}
-			fwhelpers.AppendDiagError(diagnostics, "Failed to read static route", fmt.Sprintf("Could not read static route %s/%s: %v", prefix, mask, err))
+	// Always use SSH for static routes to ensure we get the latest config
+	// SFTP cache may not be updated immediately after Create/Update
+	route, err := r.client.GetStaticRoute(ctx, prefix, mask)
+	if err != nil {
+		// Check if route doesn't exist
+		if strings.Contains(err.Error(), "not found") {
+			logger.Debug().Str("resource", "rtx_static_route").Msgf("Static route %s/%s not found", prefix, mask)
+			// Resource has been deleted outside of Terraform
+			data.Prefix = types.StringNull()
 			return
 		}
+		fwhelpers.AppendDiagError(diagnostics, "Failed to read static route", fmt.Sprintf("Could not read static route %s/%s: %v", prefix, mask, err))
+		return
 	}
+
+	logger.Debug().Str("resource", "rtx_static_route").Msgf("Read route with %d next hops", len(route.NextHops))
 
 	// Update data from the route
 	data.FromClient(route)
@@ -298,6 +279,9 @@ func (r *StaticRouteResource) Update(ctx context.Context, req resource.UpdateReq
 		)
 		return
 	}
+
+	// Invalidate cache to ensure we read the latest config
+	r.client.InvalidateCache()
 
 	// Read back the updated resource
 	r.read(ctx, &data, &resp.Diagnostics)
