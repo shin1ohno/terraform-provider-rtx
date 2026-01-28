@@ -324,7 +324,7 @@ func (s *EthernetFilterService) GetAccessListMAC(ctx context.Context, name strin
 		acl.Entries = append(acl.Entries, s.fromParserFilterToMACEntry(filter))
 	}
 
-	// Attempt to populate apply from interface filter config
+	// Attempt to populate applies from interface filter config
 	if len(acl.Entries) > 0 {
 		allIDs := make(map[int]struct{}, len(acl.Entries))
 		for _, e := range acl.Entries {
@@ -341,6 +341,7 @@ func (s *EthernetFilterService) GetAccessListMAC(ctx context.Context, name strin
 		logging.FromContext(ctx).Debug().Str("service", "ethernet_filter").Msgf("Getting interface ethernet filter bindings with command: %s", intfCmd)
 		if output, err := s.executor.Run(ctx, intfCmd); err == nil {
 			if bindings, err := parsers.ParseInterfaceEthernetFilter(string(output)); err == nil {
+				acl.Applies = make([]MACApply, 0)
 				for iface, dirs := range bindings {
 					for dir, nums := range dirs {
 						match := true
@@ -351,17 +352,17 @@ func (s *EthernetFilterService) GetAccessListMAC(ctx context.Context, name strin
 							}
 						}
 						if match {
-							acl.Apply = &MACApply{
+							acl.Applies = append(acl.Applies, MACApply{
 								Interface: iface,
 								Direction: dir,
 								FilterIDs: nums,
-							}
-							break
+							})
 						}
 					}
-					if acl.Apply != nil {
-						break
-					}
+				}
+				// Set legacy Apply field for backward compatibility
+				if len(acl.Applies) > 0 {
+					acl.Apply = &acl.Applies[0]
 				}
 			}
 		}
