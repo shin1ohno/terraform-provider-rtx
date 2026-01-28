@@ -30,6 +30,8 @@ Note: Unlike IPv4 dynamic filters, IPv6 dynamic filters do NOT support the timeo
 ### Optional
 
 - `entry` (Block List) List of dynamic IPv6 filter entries. (see [below for nested schema](#nestedblock--entry))
+- `sequence_start` (Number) Starting sequence number for automatic sequence calculation. When set, sequence numbers are automatically assigned to entries based on their definition order.
+- `sequence_step` (Number) Increment value for automatic sequence calculation. Only used when sequence_start is set. Default is 10.
 
 <a id="nestedblock--entry"></a>
 ### Nested Schema for `entry`
@@ -38,9 +40,9 @@ Required:
 
 - `destination` (String) Destination IPv6 address or '*' for any. Can be an IPv6 address, network in CIDR notation, or '*'.
 - `protocol` (String) Protocol for stateful inspection. Valid values: ftp, www, smtp, pop3, dns, domain, telnet, ssh, tcp, udp, *, tftp, submission, https, imap, imaps, pop3s, smtps, ldap, ldaps, bgp, sip, ipsec-nat-t, ntp, snmp, rtsp, h323, pptp, l2tp, ike, esp.
-- `sequence` (Number) Sequence number (determines order and filter number).
 - `source` (String) Source IPv6 address or '*' for any. Can be an IPv6 address, network in CIDR notation, or '*'.
 
 Optional:
 
+- `sequence` (Number) Sequence number (determines order and filter number). Required in manual mode, auto-calculated when sequence_start is set.
 - `syslog` (Boolean) Enable syslog logging for this filter.

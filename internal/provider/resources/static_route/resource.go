@@ -20,7 +20,6 @@ import (
 	"github.com/sh1/terraform-provider-rtx/internal/client"
 	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"github.com/sh1/terraform-provider-rtx/internal/provider/fwhelpers"
-	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -235,25 +234,6 @@ func (r *StaticRouteResource) read(ctx context.Context, data *StaticRouteModel, 
 
 	// Update data from the route
 	data.FromClient(route)
-}
-
-// convertParsedStaticRoute converts a parser StaticRoute to a client StaticRoute
-func convertParsedStaticRoute(parsed *parsers.StaticRoute) *client.StaticRoute {
-	route := &client.StaticRoute{
-		Prefix:   parsed.Prefix,
-		Mask:     parsed.Mask,
-		NextHops: make([]client.StaticRouteHop, len(parsed.NextHops)),
-	}
-	for i, hop := range parsed.NextHops {
-		route.NextHops[i] = client.StaticRouteHop{
-			NextHop:   hop.NextHop,
-			Interface: hop.Interface,
-			Distance:  hop.Distance,
-			Permanent: hop.Permanent,
-			Filter:    hop.Filter,
-		}
-	}
-	return route
 }
 
 // Update updates the resource and sets the updated Terraform state on success.

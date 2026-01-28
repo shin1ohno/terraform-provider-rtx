@@ -12,6 +12,7 @@ import (
 // autoPriorityPlanModifier computes priority automatically when priority_start is set.
 type autoPriorityPlanModifier struct{}
 
+// AutoPriorityModifier returns a plan modifier that computes priority automatically.
 func AutoPriorityModifier() planmodifier.Int64 {
 	return autoPriorityPlanModifier{}
 }

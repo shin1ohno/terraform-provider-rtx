@@ -21,6 +21,8 @@ Manages DNS server configuration on RTX routers. This is a singleton resource - 
 - `domain_name` (String) Default domain name for DNS queries (dns domain <name>)
 - `hosts` (Block List) Static DNS host entries (dns static) (see [below for nested schema](#nestedblock--hosts))
 - `name_servers` (List of String) List of DNS server IP addresses (up to 3)
+- `priority_start` (Number) Starting priority number for automatic priority calculation in server_select entries. When set, priority numbers are automatically assigned based on definition order. Mutually exclusive with entry-level priority attributes.
+- `priority_step` (Number) Increment value for automatic priority calculation. Only used when priority_start is set. Default is 10.
 - `private_address_spoof` (Boolean) Enable DNS private address spoofing (dns private address spoof on/off)
 - `server_select` (Block List) Domain-based DNS server selection entries (see [below for nested schema](#nestedblock--server_select))
 - `service_on` (Boolean) Enable DNS service (dns service on/off)
@@ -43,12 +45,12 @@ Required:
 
 Required:
 
-- `priority` (Number) Priority for DNS server selection. Lower numbers have higher priority.
 - `query_pattern` (String) Domain pattern to match (e.g., '.', '*.example.com', 'internal.net')
 
 Optional:
 
 - `original_sender` (String) Source IP/CIDR restriction for DNS queries
+- `priority` (Number) Priority for DNS server selection. Lower numbers have higher priority. Required when priority_start is not set (manual mode). Auto-calculated when priority_start is set (auto mode).
 - `record_type` (String) DNS record type to match: a, aaaa, ptr, mx, ns, cname, any
 - `restrict_pp` (Number) PP session restriction (0 = no restriction)
 - `server` (Block List) DNS servers for this selector (1-2 servers with per-server EDNS settings) (see [below for nested schema](#nestedblock--server_select--server))

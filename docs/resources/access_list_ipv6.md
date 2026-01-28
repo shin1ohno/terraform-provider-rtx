@@ -36,6 +36,7 @@ Required:
 
 Optional:
 
+- `dynamic_filter_ids` (List of Number) Dynamic filter IDs to apply. These are appended after the 'dynamic' keyword in the secure filter command.
 - `filter_ids` (List of Number) Specific filter IDs (sequence numbers) to apply in order. If omitted, all entry sequences are applied in order.
 
 

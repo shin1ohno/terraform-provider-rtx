@@ -45,13 +45,13 @@ func (r *DNSServerResource) Metadata(ctx context.Context, req resource.MetadataR
 	resp.TypeName = req.ProviderTypeName + "_dns_server"
 }
 
-// Schema defines the schema for the resource.
 // MaxPriorityValue is the maximum valid priority number for DNS server select entries.
 const MaxPriorityValue = 65535
 
 // DefaultPriorityStep is the default step between priority numbers.
 const DefaultPriorityStep = 10
 
+// Schema defines the schema for the DNS server resource.
 func (r *DNSServerResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "Manages DNS server configuration on RTX routers. This is a singleton resource - there is only one DNS server configuration per router.",
