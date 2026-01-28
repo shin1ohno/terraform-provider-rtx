@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/sh1/terraform-provider-rtx/internal/logging"
@@ -360,6 +361,8 @@ func (s *EthernetFilterService) GetAccessListMAC(ctx context.Context, name strin
 						}
 					}
 				}
+				// Sort applies for deterministic order (interface, then direction)
+				sortMACApplies(acl.Applies)
 				// Set legacy Apply field for backward compatibility
 				if len(acl.Applies) > 0 {
 					acl.Apply = &acl.Applies[0]
@@ -628,4 +631,15 @@ func (s *EthernetFilterService) fromParserFilterToMACEntry(filter parsers.Ethern
 	}
 
 	return entry
+}
+
+// sortMACApplies sorts MACApply slice for deterministic ordering.
+// Sort by interface name first, then by direction ("in" before "out").
+func sortMACApplies(applies []MACApply) {
+	sort.Slice(applies, func(i, j int) bool {
+		if applies[i].Interface != applies[j].Interface {
+			return applies[i].Interface < applies[j].Interface
+		}
+		return applies[i].Direction < applies[j].Direction
+	})
 }
