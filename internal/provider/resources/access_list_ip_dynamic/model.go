@@ -7,10 +7,15 @@ import (
 	"github.com/sh1/terraform-provider-rtx/internal/provider/fwhelpers"
 )
 
+// DefaultSequenceStep is the default step between sequence numbers.
+const DefaultSequenceStep = 10
+
 // AccessListIPDynamicModel describes the resource data model.
 type AccessListIPDynamicModel struct {
-	Name    types.String `tfsdk:"name"`
-	Entries []EntryModel `tfsdk:"entry"`
+	Name          types.String `tfsdk:"name"`
+	SequenceStart types.Int64  `tfsdk:"sequence_start"`
+	SequenceStep  types.Int64  `tfsdk:"sequence_step"`
+	Entries       []EntryModel `tfsdk:"entry"`
 }
 
 // EntryModel describes a single dynamic filter entry.
@@ -25,14 +30,29 @@ type EntryModel struct {
 
 // ToClient converts the Terraform model to a client.AccessListIPDynamic.
 func (m *AccessListIPDynamicModel) ToClient() client.AccessListIPDynamic {
+	sequenceStart := fwhelpers.GetInt64Value(m.SequenceStart)
+	sequenceStep := fwhelpers.GetInt64Value(m.SequenceStep)
+	if sequenceStep == 0 {
+		sequenceStep = DefaultSequenceStep
+	}
+
 	acl := client.AccessListIPDynamic{
 		Name:    fwhelpers.GetStringValue(m.Name),
 		Entries: make([]client.AccessListIPDynamicEntry, 0, len(m.Entries)),
 	}
 
-	for _, entry := range m.Entries {
+	for i, entry := range m.Entries {
+		var seq int
+		if sequenceStart > 0 {
+			// Auto mode
+			seq = sequenceStart + (i * sequenceStep)
+		} else {
+			// Manual mode
+			seq = fwhelpers.GetInt64Value(entry.Sequence)
+		}
+
 		aclEntry := client.AccessListIPDynamicEntry{
-			Sequence:    fwhelpers.GetInt64Value(entry.Sequence),
+			Sequence:    seq,
 			Source:      fwhelpers.GetStringValue(entry.Source),
 			Destination: fwhelpers.GetStringValue(entry.Destination),
 			Protocol:    fwhelpers.GetStringValue(entry.Protocol),
@@ -58,6 +78,12 @@ func (m *AccessListIPDynamicModel) ToClient() client.AccessListIPDynamic {
 func (m *AccessListIPDynamicModel) FromClient(acl *client.AccessListIPDynamic, currentSeqs map[int]bool) {
 	m.Name = types.StringValue(acl.Name)
 
+	sequenceStart := fwhelpers.GetInt64Value(m.SequenceStart)
+	sequenceStep := fwhelpers.GetInt64Value(m.SequenceStep)
+	if sequenceStep == 0 {
+		sequenceStep = DefaultSequenceStep
+	}
+
 	// Build a map of entries from the router response
 	entryMap := make(map[int]client.AccessListIPDynamicEntry)
 	for _, entry := range acl.Entries {
@@ -66,8 +92,16 @@ func (m *AccessListIPDynamicModel) FromClient(acl *client.AccessListIPDynamic, c
 
 	// Update entries that are in the state
 	newEntries := make([]EntryModel, 0, len(m.Entries))
-	for _, stateEntry := range m.Entries {
-		seq := fwhelpers.GetInt64Value(stateEntry.Sequence)
+	for i, stateEntry := range m.Entries {
+		var seq int
+		if sequenceStart > 0 {
+			// Auto mode
+			seq = sequenceStart + (i * sequenceStep)
+		} else {
+			// Manual mode
+			seq = fwhelpers.GetInt64Value(stateEntry.Sequence)
+		}
+
 		if !currentSeqs[seq] {
 			continue
 		}
@@ -96,10 +130,26 @@ func (m *AccessListIPDynamicModel) FromClient(acl *client.AccessListIPDynamic, c
 
 // GetCurrentSequences returns a map of sequence numbers currently in the model.
 func (m *AccessListIPDynamicModel) GetCurrentSequences() map[int]bool {
+	sequenceStart := fwhelpers.GetInt64Value(m.SequenceStart)
+	sequenceStep := fwhelpers.GetInt64Value(m.SequenceStep)
+	if sequenceStep == 0 {
+		sequenceStep = DefaultSequenceStep
+	}
+
 	seqs := make(map[int]bool)
-	for _, entry := range m.Entries {
-		if !entry.Sequence.IsNull() && !entry.Sequence.IsUnknown() {
-			seqs[fwhelpers.GetInt64Value(entry.Sequence)] = true
+	for i, entry := range m.Entries {
+		var seq int
+		if sequenceStart > 0 {
+			// Auto mode
+			seq = sequenceStart + (i * sequenceStep)
+		} else {
+			// Manual mode
+			if !entry.Sequence.IsNull() && !entry.Sequence.IsUnknown() {
+				seq = fwhelpers.GetInt64Value(entry.Sequence)
+			}
+		}
+		if seq > 0 {
+			seqs[seq] = true
 		}
 	}
 	return seqs
@@ -107,13 +157,26 @@ func (m *AccessListIPDynamicModel) GetCurrentSequences() map[int]bool {
 
 // GetFilterNumbers returns a slice of filter numbers (sequence numbers) from the model.
 func (m *AccessListIPDynamicModel) GetFilterNumbers() []int {
+	sequenceStart := fwhelpers.GetInt64Value(m.SequenceStart)
+	sequenceStep := fwhelpers.GetInt64Value(m.SequenceStep)
+	if sequenceStep == 0 {
+		sequenceStep = DefaultSequenceStep
+	}
+
 	nums := make([]int, 0, len(m.Entries))
-	for _, entry := range m.Entries {
-		if !entry.Sequence.IsNull() && !entry.Sequence.IsUnknown() {
-			seq := fwhelpers.GetInt64Value(entry.Sequence)
-			if seq > 0 {
-				nums = append(nums, seq)
+	for i, entry := range m.Entries {
+		var seq int
+		if sequenceStart > 0 {
+			// Auto mode
+			seq = sequenceStart + (i * sequenceStep)
+		} else {
+			// Manual mode
+			if !entry.Sequence.IsNull() && !entry.Sequence.IsUnknown() {
+				seq = fwhelpers.GetInt64Value(entry.Sequence)
 			}
+		}
+		if seq > 0 {
+			nums = append(nums, seq)
 		}
 	}
 	return nums
