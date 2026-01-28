@@ -234,9 +234,12 @@ func (e *PooledExecutor) authenticateAsAdmin(ctx context.Context, conn *PooledCo
 	logger.Debug().Msg("PooledExecutor: Password prompt received")
 
 	// Send password
-	if _, err := fmt.Fprintf(ws.stdin, "%s\r", e.config.AdminPassword); err != nil {
+	logger.Debug().Int("password_len", len(e.config.AdminPassword)).Msg("PooledExecutor: Sending password")
+	n, err := fmt.Fprintf(ws.stdin, "%s\r", e.config.AdminPassword)
+	if err != nil {
 		return fmt.Errorf("failed to send password: %w", err)
 	}
+	logger.Debug().Int("bytes_written", n).Msg("PooledExecutor: Password sent")
 
 	// Read response after password - look for administrator prompt (# instead of >)
 	response, err = ws.readUntilPrompt(10 * time.Second)

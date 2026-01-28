@@ -80,7 +80,7 @@ func (p *SyslogParser) ParseSyslogConfig(raw string) (*SyslogConfig, error) {
 		if matches := hostPattern.FindStringSubmatch(line); len(matches) >= 2 {
 			config.Hosts = append(config.Hosts, SyslogHost{
 				Address: matches[1],
-				Port:    0, // Default port (514)
+				Port:    514, // Default syslog port
 			})
 			continue
 		}

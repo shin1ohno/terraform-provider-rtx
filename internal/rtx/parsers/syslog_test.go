@@ -17,7 +17,7 @@ func TestParseSyslogConfig(t *testing.T) {
 			input: `syslog host 192.168.1.100`,
 			expected: &SyslogConfig{
 				Hosts: []SyslogHost{
-					{Address: "192.168.1.100", Port: 0},
+					{Address: "192.168.1.100", Port: 514},
 				},
 			},
 		},
@@ -36,7 +36,7 @@ func TestParseSyslogConfig(t *testing.T) {
 syslog host 192.168.1.101 1514`,
 			expected: &SyslogConfig{
 				Hosts: []SyslogHost{
-					{Address: "192.168.1.100", Port: 0},
+					{Address: "192.168.1.100", Port: 514},
 					{Address: "192.168.1.101", Port: 1514},
 				},
 			},
@@ -46,7 +46,7 @@ syslog host 192.168.1.101 1514`,
 			input: `syslog host syslog.example.com`,
 			expected: &SyslogConfig{
 				Hosts: []SyslogHost{
-					{Address: "syslog.example.com", Port: 0},
+					{Address: "syslog.example.com", Port: 514},
 				},
 			},
 		},
@@ -129,7 +129,7 @@ syslog info on
 syslog debug off`,
 			expected: &SyslogConfig{
 				Hosts: []SyslogHost{
-					{Address: "192.168.1.100", Port: 0},
+					{Address: "192.168.1.100", Port: 514},
 					{Address: "192.168.1.101", Port: 1514},
 				},
 				LocalAddress: "192.168.1.1",
@@ -161,7 +161,7 @@ another config line
 syslog notice on`,
 			expected: &SyslogConfig{
 				Hosts: []SyslogHost{
-					{Address: "192.168.1.100", Port: 0},
+					{Address: "192.168.1.100", Port: 514},
 				},
 				Notice: true,
 			},
@@ -236,7 +236,7 @@ func TestBuildSyslogHostCommand(t *testing.T) {
 	}{
 		{
 			name:     "host without port",
-			host:     SyslogHost{Address: "192.168.1.100", Port: 0},
+			host:     SyslogHost{Address: "192.168.1.100", Port: 514},
 			expected: "syslog host 192.168.1.100",
 		},
 		{
@@ -427,7 +427,7 @@ func TestBuildSyslogLevelCommands(t *testing.T) {
 func TestBuildDeleteSyslogCommand(t *testing.T) {
 	config := &SyslogConfig{
 		Hosts: []SyslogHost{
-			{Address: "192.168.1.100", Port: 0},
+			{Address: "192.168.1.100", Port: 514},
 			{Address: "192.168.1.101", Port: 1514},
 		},
 		LocalAddress: "192.168.1.1",
@@ -511,7 +511,7 @@ func TestValidateSyslogConfig(t *testing.T) {
 			name: "valid minimal config",
 			config: &SyslogConfig{
 				Hosts: []SyslogHost{
-					{Address: "192.168.1.100", Port: 0},
+					{Address: "192.168.1.100", Port: 514},
 				},
 			},
 			wantErr: false,

@@ -13,6 +13,12 @@ import (
 	"github.com/sh1/terraform-provider-rtx/internal/logging"
 )
 
+// readResult represents a single byte read from stdout
+type readResult struct {
+	b   byte
+	err error
+}
+
 // workingSession implements a working SSH session for RTX routers
 // This is based on the successful expect script test
 type workingSession struct {
@@ -23,6 +29,11 @@ type workingSession struct {
 	mu        sync.Mutex
 	closed    bool
 	adminMode bool // Track if we're in administrator mode
+
+	// Single reader goroutine pattern to avoid goroutine leaks
+	readCh   chan readResult // Channel for bytes read from stdout
+	doneCh   chan struct{}   // Signal to stop reader goroutine
+	readerWg sync.WaitGroup  // Wait for reader goroutine to finish
 }
 
 // newWorkingSession creates a new working session
@@ -75,7 +86,13 @@ func newWorkingSession(client *ssh.Client) (*workingSession, error) {
 		session: session,
 		stdin:   stdin,
 		stdout:  stdout,
+		readCh:  make(chan readResult, 256), // Buffer for read bytes
+		doneCh:  make(chan struct{}),
 	}
+
+	// Start dedicated reader goroutine
+	s.readerWg.Add(1)
+	go s.readerLoop()
 
 	// Wait for initial prompt
 	logger.Debug().Msg("Waiting for initial prompt")
@@ -98,6 +115,46 @@ func newWorkingSession(client *ssh.Client) (*workingSession, error) {
 	}
 
 	return s, nil
+}
+
+// readerLoop is the dedicated goroutine that reads from stdout
+// It runs continuously until doneCh is closed or an error occurs
+func (s *workingSession) readerLoop() {
+	defer s.readerWg.Done()
+	buf := make([]byte, 1)
+
+	for {
+		select {
+		case <-s.doneCh:
+			return
+		default:
+			n, err := s.stdout.Read(buf)
+			if err != nil {
+				// Check if we're shutting down
+				select {
+				case <-s.doneCh:
+					return
+				default:
+				}
+				// Only send error if it's not EOF
+				if err != io.EOF {
+					select {
+					case s.readCh <- readResult{err: err}:
+					case <-s.doneCh:
+						return
+					}
+				}
+				return
+			}
+			if n > 0 {
+				select {
+				case s.readCh <- readResult{b: buf[0]}:
+				case <-s.doneCh:
+					return
+				}
+			}
+		}
+	}
 }
 
 // Send executes a command and returns the output
@@ -176,34 +233,12 @@ func (s *workingSession) executeCommandRaw(cmd string, timeout time.Duration) ([
 }
 
 // readUntilPrompt reads until we see a prompt character
-// Uses goroutine + channel pattern to ensure timeout works even with blocking I/O
+// Uses the shared reader goroutine channel to avoid goroutine leaks
 func (s *workingSession) readUntilPrompt(timeout time.Duration) ([]byte, error) {
 	logger := logging.Global()
 	var buffer bytes.Buffer
 
-	// Channel for read results
-	type readResult struct {
-		b   byte
-		err error
-	}
-	readCh := make(chan readResult, 1)
-
-	// Goroutine for blocking reads
-	go func() {
-		buf := make([]byte, 1)
-		for {
-			n, err := s.stdout.Read(buf)
-			if err != nil && err != io.EOF {
-				readCh <- readResult{err: err}
-				return
-			}
-			if n > 0 {
-				readCh <- readResult{b: buf[0]}
-			}
-		}
-	}()
-
-	// Read with timeout
+	// Read with timeout using shared channel
 	timeoutTimer := time.NewTimer(timeout)
 	defer timeoutTimer.Stop()
 
@@ -212,7 +247,7 @@ func (s *workingSession) readUntilPrompt(timeout time.Duration) ([]byte, error) 
 		case <-timeoutTimer.C:
 			logger.Debug().Str("buffer", buffer.String()).Msg("readUntilPrompt: Timeout waiting for prompt")
 			return buffer.Bytes(), fmt.Errorf("timeout waiting for prompt")
-		case result := <-readCh:
+		case result := <-s.readCh:
 			if result.err != nil {
 				return buffer.Bytes(), fmt.Errorf("read error: %w", result.err)
 			}
@@ -261,34 +296,12 @@ func (s *workingSession) readUntilPrompt(timeout time.Duration) ([]byte, error) 
 }
 
 // readUntilString reads from stdout until the specified string appears
-// Uses goroutine + channel pattern to ensure timeout works even with blocking I/O
+// Uses the shared reader goroutine channel to avoid goroutine leaks
 func (s *workingSession) readUntilString(target string, timeout time.Duration) ([]byte, error) {
 	logger := logging.Global()
 	var buffer bytes.Buffer
 
-	// Channel for read results
-	type readResult struct {
-		b   byte
-		err error
-	}
-	readCh := make(chan readResult, 1)
-
-	// Goroutine for blocking reads
-	go func() {
-		buf := make([]byte, 1)
-		for {
-			n, err := s.stdout.Read(buf)
-			if err != nil && err != io.EOF {
-				readCh <- readResult{err: err}
-				return
-			}
-			if n > 0 {
-				readCh <- readResult{b: buf[0]}
-			}
-		}
-	}()
-
-	// Read with timeout
+	// Read with timeout using shared channel
 	timeoutTimer := time.NewTimer(timeout)
 	defer timeoutTimer.Stop()
 
@@ -300,7 +313,7 @@ func (s *workingSession) readUntilString(target string, timeout time.Duration) (
 				Str("buffer", buffer.String()).
 				Msg("readUntilString: Timeout")
 			return buffer.Bytes(), fmt.Errorf("timeout waiting for %q (got: %q)", target, buffer.String())
-		case result := <-readCh:
+		case result := <-s.readCh:
 			if result.err != nil {
 				return buffer.Bytes(), fmt.Errorf("read error: %w", result.err)
 			}
@@ -362,6 +375,7 @@ func (s *workingSession) Close() error {
 	s.closed = true
 
 	// Send appropriate exit commands based on current mode
+	// Note: We do this BEFORE closing doneCh so readUntil* functions still work
 	if s.adminMode {
 		logger.Debug().Msg("Session is in administrator mode, sending two exit commands")
 		// First exit: leave administrator mode (back to user mode)
@@ -386,13 +400,20 @@ func (s *workingSession) Close() error {
 		time.Sleep(300 * time.Millisecond)
 	}
 
-	// Close session
+	// Signal reader goroutine to stop
+	close(s.doneCh)
+
+	// Close session (this will cause the reader goroutine to exit if still running)
+	var err error
 	if s.session != nil {
 		logger.Debug().Msg("Closing SSH session")
-		return s.session.Close()
+		err = s.session.Close()
 	}
 
-	return nil
+	// Wait for reader goroutine to finish
+	s.readerWg.Wait()
+
+	return err
 }
 
 // SetAdminMode sets the administrator mode flag
@@ -448,29 +469,7 @@ func (s *workingSession) readUntilPromptOrSaveConfirmation(timeout time.Duration
 	logger := logging.Global()
 	var buffer bytes.Buffer
 
-	// Channel for read results
-	type readResult struct {
-		b   byte
-		err error
-	}
-	readCh := make(chan readResult, 1)
-
-	// Goroutine for blocking reads
-	go func() {
-		buf := make([]byte, 1)
-		for {
-			n, err := s.stdout.Read(buf)
-			if err != nil && err != io.EOF {
-				readCh <- readResult{err: err}
-				return
-			}
-			if n > 0 {
-				readCh <- readResult{b: buf[0]}
-			}
-		}
-	}()
-
-	// Read with timeout
+	// Read with timeout using shared channel
 	timeoutTimer := time.NewTimer(timeout)
 	defer timeoutTimer.Stop()
 
@@ -479,7 +478,7 @@ func (s *workingSession) readUntilPromptOrSaveConfirmation(timeout time.Duration
 		case <-timeoutTimer.C:
 			logger.Debug().Str("buffer", buffer.String()).Msg("readUntilPromptOrSaveConfirmation: Timeout")
 			return buffer.Bytes(), fmt.Errorf("timeout waiting for prompt or save confirmation")
-		case result := <-readCh:
+		case result := <-s.readCh:
 			if result.err != nil {
 				return buffer.Bytes(), fmt.Errorf("read error: %w", result.err)
 			}
@@ -543,34 +542,12 @@ func (s *workingSession) isSaveConfigurationPrompt(text string) bool {
 }
 
 // readUntilPromptOrConfirmation reads until we see a prompt or confirmation prompt (Y/N)
-// Uses goroutine + channel pattern to ensure timeout works even with blocking I/O
+// Uses the shared reader goroutine channel to avoid goroutine leaks
 func (s *workingSession) readUntilPromptOrConfirmation(timeout time.Duration) ([]byte, error) {
 	logger := logging.Global()
 	var buffer bytes.Buffer
 
-	// Channel for read results
-	type readResult struct {
-		b   byte
-		err error
-	}
-	readCh := make(chan readResult, 1)
-
-	// Goroutine for blocking reads
-	go func() {
-		buf := make([]byte, 1)
-		for {
-			n, err := s.stdout.Read(buf)
-			if err != nil && err != io.EOF {
-				readCh <- readResult{err: err}
-				return
-			}
-			if n > 0 {
-				readCh <- readResult{b: buf[0]}
-			}
-		}
-	}()
-
-	// Read with timeout
+	// Read with timeout using shared channel
 	timeoutTimer := time.NewTimer(timeout)
 	defer timeoutTimer.Stop()
 
@@ -579,7 +556,7 @@ func (s *workingSession) readUntilPromptOrConfirmation(timeout time.Duration) ([
 		case <-timeoutTimer.C:
 			logger.Debug().Str("buffer", buffer.String()).Msg("readUntilPromptOrConfirmation: Timeout")
 			return buffer.Bytes(), fmt.Errorf("timeout waiting for prompt or confirmation")
-		case result := <-readCh:
+		case result := <-s.readCh:
 			if result.err != nil {
 				return buffer.Bytes(), fmt.Errorf("read error: %w", result.err)
 			}
@@ -620,34 +597,12 @@ func (s *workingSession) readUntilPromptOrConfirmation(timeout time.Duration) ([
 // - "Password:" prompt (need to enter password)
 // - Admin prompt with "already administrator" message (already in admin mode)
 // - Admin prompt (# ending) indicating we're already in admin mode
-// Uses goroutine + channel pattern to ensure timeout works even with blocking I/O
+// Uses the shared reader goroutine channel to avoid goroutine leaks
 func (s *workingSession) readUntilPasswordPromptOrAdminMode(timeout time.Duration) ([]byte, error) {
 	logger := logging.Global()
 	var buffer bytes.Buffer
 
-	// Channel for read results
-	type readResult struct {
-		b   byte
-		err error
-	}
-	readCh := make(chan readResult, 1)
-
-	// Goroutine for blocking reads
-	go func() {
-		buf := make([]byte, 1)
-		for {
-			n, err := s.stdout.Read(buf)
-			if err != nil && err != io.EOF {
-				readCh <- readResult{err: err}
-				return
-			}
-			if n > 0 {
-				readCh <- readResult{b: buf[0]}
-			}
-		}
-	}()
-
-	// Read with timeout
+	// Read with timeout using shared channel
 	timeoutTimer := time.NewTimer(timeout)
 	defer timeoutTimer.Stop()
 
@@ -656,7 +611,7 @@ func (s *workingSession) readUntilPasswordPromptOrAdminMode(timeout time.Duratio
 		case <-timeoutTimer.C:
 			logger.Debug().Str("buffer", buffer.String()).Msg("readUntilPasswordPromptOrAdminMode: Timeout")
 			return buffer.Bytes(), fmt.Errorf("timeout waiting for password prompt or admin mode")
-		case result := <-readCh:
+		case result := <-s.readCh:
 			if result.err != nil {
 				return buffer.Bytes(), fmt.Errorf("read error: %w", result.err)
 			}
