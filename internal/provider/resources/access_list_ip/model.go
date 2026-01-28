@@ -34,9 +34,10 @@ type EntryModel struct {
 
 // ApplyModel describes an interface binding configuration.
 type ApplyModel struct {
-	Interface types.String `tfsdk:"interface"`
-	Direction types.String `tfsdk:"direction"`
-	FilterIDs types.List   `tfsdk:"filter_ids"`
+	Interface        types.String `tfsdk:"interface"`
+	Direction        types.String `tfsdk:"direction"`
+	FilterIDs        types.List   `tfsdk:"filter_ids"`
+	DynamicFilterIDs types.List   `tfsdk:"dynamic_filter_ids"`
 }
 
 // EntryModelAttrTypes returns the attribute types for EntryModel.
@@ -57,9 +58,10 @@ func EntryModelAttrTypes() map[string]attr.Type {
 // ApplyModelAttrTypes returns the attribute types for ApplyModel.
 func ApplyModelAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
-		"interface":  types.StringType,
-		"direction":  types.StringType,
-		"filter_ids": types.ListType{ElemType: types.Int64Type},
+		"interface":          types.StringType,
+		"direction":          types.StringType,
+		"filter_ids":         types.ListType{ElemType: types.Int64Type},
+		"dynamic_filter_ids": types.ListType{ElemType: types.Int64Type},
 	}
 }
 
@@ -199,9 +201,10 @@ func entryToObjectValue(e EntryModel) attr.Value {
 // applyToObjectValue converts an ApplyModel to an attr.Value.
 func applyToObjectValue(a ApplyModel) attr.Value {
 	return types.ObjectValueMust(ApplyModelAttrTypes(), map[string]attr.Value{
-		"interface":  a.Interface,
-		"direction":  a.Direction,
-		"filter_ids": a.FilterIDs,
+		"interface":          a.Interface,
+		"direction":          a.Direction,
+		"filter_ids":         a.FilterIDs,
+		"dynamic_filter_ids": a.DynamicFilterIDs,
 	})
 }
 

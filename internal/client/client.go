@@ -4591,6 +4591,40 @@ func (c *rtxClient) GetIPInterfaceFilters(ctx context.Context, iface, direction 
 	return aclApplyService.GetInterfaceFilters(ctx, iface, direction, ACLTypeIP)
 }
 
+// ApplyIPFiltersWithDynamicToInterface applies both static and dynamic IP filters to an interface
+func (c *rtxClient) ApplyIPFiltersWithDynamicToInterface(ctx context.Context, iface, direction string, staticIDs, dynamicIDs []int) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	aclApplyService := c.aclApplyService
+	c.mu.Unlock()
+
+	if aclApplyService == nil {
+		return fmt.Errorf("ACL apply service not initialized")
+	}
+
+	return aclApplyService.ApplyFiltersToInterfaceWithDynamic(ctx, iface, direction, ACLTypeIP, staticIDs, dynamicIDs)
+}
+
+// GetIPInterfaceDynamicFilters returns the current dynamic IP filter IDs applied to an interface
+func (c *rtxClient) GetIPInterfaceDynamicFilters(ctx context.Context, iface, direction string) ([]int, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	aclApplyService := c.aclApplyService
+	c.mu.Unlock()
+
+	if aclApplyService == nil {
+		return nil, fmt.Errorf("ACL apply service not initialized")
+	}
+
+	return aclApplyService.GetInterfaceDynamicFilters(ctx, iface, direction, ACLTypeIP)
+}
+
 // ApplyExtendedFiltersToInterface applies extended ACL filters to an interface
 func (c *rtxClient) ApplyExtendedFiltersToInterface(ctx context.Context, iface, direction string, filterIDs []int) error {
 	c.mu.Lock()
@@ -4691,6 +4725,40 @@ func (c *rtxClient) GetIPv6InterfaceFilters(ctx context.Context, iface, directio
 	}
 
 	return aclApplyService.GetInterfaceFilters(ctx, iface, direction, ACLTypeIPv6)
+}
+
+// ApplyIPv6FiltersWithDynamicToInterface applies both static and dynamic IPv6 filters to an interface
+func (c *rtxClient) ApplyIPv6FiltersWithDynamicToInterface(ctx context.Context, iface, direction string, staticIDs, dynamicIDs []int) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	aclApplyService := c.aclApplyService
+	c.mu.Unlock()
+
+	if aclApplyService == nil {
+		return fmt.Errorf("ACL apply service not initialized")
+	}
+
+	return aclApplyService.ApplyFiltersToInterfaceWithDynamic(ctx, iface, direction, ACLTypeIPv6, staticIDs, dynamicIDs)
+}
+
+// GetIPv6InterfaceDynamicFilters returns the current dynamic IPv6 filter IDs applied to an interface
+func (c *rtxClient) GetIPv6InterfaceDynamicFilters(ctx context.Context, iface, direction string) ([]int, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	aclApplyService := c.aclApplyService
+	c.mu.Unlock()
+
+	if aclApplyService == nil {
+		return nil, fmt.Errorf("ACL apply service not initialized")
+	}
+
+	return aclApplyService.GetInterfaceDynamicFilters(ctx, iface, direction, ACLTypeIPv6)
 }
 
 // ApplyMACFiltersToInterface applies MAC filters to an interface for a specific direction

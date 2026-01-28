@@ -158,6 +158,12 @@ func ParseIPFilterDynamicConfig(raw string) ([]IPFilterDynamic, error) {
 	return filters, nil
 }
 
+// InterfaceSecureFilterResult contains both static and dynamic filter IDs for an interface/direction
+type InterfaceSecureFilterResult struct {
+	StaticIDs  []int
+	DynamicIDs []int
+}
+
 // ParseInterfaceSecureFilter parses the interface secure filter configuration
 // Returns a map of interface -> direction -> filter numbers
 func ParseInterfaceSecureFilter(raw string) (map[string]map[string][]int, error) {
@@ -197,6 +203,61 @@ func ParseInterfaceSecureFilter(raw string) (map[string]map[string][]int, error)
 			}
 
 			result[iface][direction] = filterNums
+		}
+	}
+
+	return result, nil
+}
+
+// ParseInterfaceSecureFilterWithDynamic parses the interface secure filter configuration
+// Returns a map of interface -> direction -> InterfaceSecureFilterResult (static and dynamic IDs)
+func ParseInterfaceSecureFilterWithDynamic(raw string) (map[string]map[string]InterfaceSecureFilterResult, error) {
+	result := make(map[string]map[string]InterfaceSecureFilterResult)
+	lines := strings.Split(raw, "\n")
+
+	// Pattern: ip <interface> secure filter <direction> <filter_numbers...> [dynamic <dynamic_numbers...>]
+	// Example: ip lan1 secure filter in 100 101 dynamic 10 20
+	securePattern := regexp.MustCompile(`^\s*ip\s+(\S+)\s+secure\s+filter\s+(in|out)\s+(.+)$`)
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		if matches := securePattern.FindStringSubmatch(line); len(matches) >= 4 {
+			iface := matches[1]
+			direction := matches[2]
+			filterPart := matches[3]
+
+			if result[iface] == nil {
+				result[iface] = make(map[string]InterfaceSecureFilterResult)
+			}
+
+			staticNums := []int{}
+			dynamicNums := []int{}
+			inDynamic := false
+
+			parts := strings.Fields(filterPart)
+			for _, part := range parts {
+				if part == "dynamic" {
+					inDynamic = true
+					continue
+				}
+				num, err := strconv.Atoi(part)
+				if err == nil {
+					if inDynamic {
+						dynamicNums = append(dynamicNums, num)
+					} else {
+						staticNums = append(staticNums, num)
+					}
+				}
+			}
+
+			result[iface][direction] = InterfaceSecureFilterResult{
+				StaticIDs:  staticNums,
+				DynamicIDs: dynamicNums,
+			}
 		}
 	}
 
@@ -818,6 +879,60 @@ func ParseInterfaceIPv6SecureFilter(raw string) (map[string]map[string][]int, er
 			}
 
 			result[iface][direction] = filterNums
+		}
+	}
+
+	return result, nil
+}
+
+// ParseInterfaceIPv6SecureFilterWithDynamic parses the interface IPv6 secure filter configuration
+// Returns a map of interface -> direction -> InterfaceSecureFilterResult (static and dynamic IDs)
+func ParseInterfaceIPv6SecureFilterWithDynamic(raw string) (map[string]map[string]InterfaceSecureFilterResult, error) {
+	result := make(map[string]map[string]InterfaceSecureFilterResult)
+	lines := strings.Split(raw, "\n")
+
+	// Pattern: ipv6 <interface> secure filter <direction> <filter_numbers...> [dynamic <dynamic_numbers...>]
+	securePattern := regexp.MustCompile(`^\s*ipv6\s+(\S+)\s+secure\s+filter\s+(in|out)\s+(.+)$`)
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		if matches := securePattern.FindStringSubmatch(line); len(matches) >= 4 {
+			iface := matches[1]
+			direction := matches[2]
+			filterPart := matches[3]
+
+			if result[iface] == nil {
+				result[iface] = make(map[string]InterfaceSecureFilterResult)
+			}
+
+			staticNums := []int{}
+			dynamicNums := []int{}
+			inDynamic := false
+
+			parts := strings.Fields(filterPart)
+			for _, part := range parts {
+				if part == "dynamic" {
+					inDynamic = true
+					continue
+				}
+				num, err := strconv.Atoi(part)
+				if err == nil {
+					if inDynamic {
+						dynamicNums = append(dynamicNums, num)
+					} else {
+						staticNums = append(staticNums, num)
+					}
+				}
+			}
+
+			result[iface][direction] = InterfaceSecureFilterResult{
+				StaticIDs:  staticNums,
+				DynamicIDs: dynamicNums,
+			}
 		}
 	}
 

@@ -800,21 +800,35 @@ type Client interface {
 	// ApplyIPFiltersToInterface applies IP filters to an interface for a specific direction
 	ApplyIPFiltersToInterface(ctx context.Context, iface, direction string, filterIDs []int) error
 
+	// ApplyIPFiltersWithDynamicToInterface applies both static and dynamic IP filters to an interface
+	// This generates: ip <iface> secure filter <direction> <static_ids...> dynamic <dynamic_ids...>
+	ApplyIPFiltersWithDynamicToInterface(ctx context.Context, iface, direction string, staticIDs, dynamicIDs []int) error
+
 	// RemoveIPFiltersFromInterface removes IP filter bindings from an interface
 	RemoveIPFiltersFromInterface(ctx context.Context, iface, direction string) error
 
 	// GetIPInterfaceFilters returns the current IP filter IDs applied to an interface
 	GetIPInterfaceFilters(ctx context.Context, iface, direction string) ([]int, error)
 
+	// GetIPInterfaceDynamicFilters returns the current dynamic IP filter IDs applied to an interface
+	GetIPInterfaceDynamicFilters(ctx context.Context, iface, direction string) ([]int, error)
+
 	// IPv6 Filter Apply methods
 	// ApplyIPv6FiltersToInterface applies IPv6 filters to an interface for a specific direction
 	ApplyIPv6FiltersToInterface(ctx context.Context, iface, direction string, filterIDs []int) error
+
+	// ApplyIPv6FiltersWithDynamicToInterface applies both static and dynamic IPv6 filters to an interface
+	// This generates: ipv6 <iface> secure filter <direction> <static_ids...> dynamic <dynamic_ids...>
+	ApplyIPv6FiltersWithDynamicToInterface(ctx context.Context, iface, direction string, staticIDs, dynamicIDs []int) error
 
 	// RemoveIPv6FiltersFromInterface removes IPv6 filter bindings from an interface
 	RemoveIPv6FiltersFromInterface(ctx context.Context, iface, direction string) error
 
 	// GetIPv6InterfaceFilters returns the current IPv6 filter IDs applied to an interface
 	GetIPv6InterfaceFilters(ctx context.Context, iface, direction string) ([]int, error)
+
+	// GetIPv6InterfaceDynamicFilters returns the current dynamic IPv6 filter IDs applied to an interface
+	GetIPv6InterfaceDynamicFilters(ctx context.Context, iface, direction string) ([]int, error)
 
 	// MAC Filter Apply methods
 	// ApplyMACFiltersToInterface applies MAC filters to an interface for a specific direction

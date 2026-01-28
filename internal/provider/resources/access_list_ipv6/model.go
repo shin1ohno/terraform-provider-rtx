@@ -35,9 +35,10 @@ type EntryModel struct {
 
 // ApplyModel describes an interface binding configuration.
 type ApplyModel struct {
-	Interface types.String `tfsdk:"interface"`
-	Direction types.String `tfsdk:"direction"`
-	FilterIDs types.List   `tfsdk:"filter_ids"`
+	Interface        types.String `tfsdk:"interface"`
+	Direction        types.String `tfsdk:"direction"`
+	FilterIDs        types.List   `tfsdk:"filter_ids"`
+	DynamicFilterIDs types.List   `tfsdk:"dynamic_filter_ids"`
 }
 
 // EntryAttrTypes returns the attribute types for EntryModel.
@@ -60,6 +61,9 @@ func ApplyAttrTypes() map[string]attr.Type {
 		"interface": types.StringType,
 		"direction": types.StringType,
 		"filter_ids": types.ListType{
+			ElemType: types.Int64Type,
+		},
+		"dynamic_filter_ids": types.ListType{
 			ElemType: types.Int64Type,
 		},
 	}
@@ -189,6 +193,40 @@ func SetApplyFilterIDs(apply *ApplyModel, filterIDs []int) {
 		elements[i] = types.Int64Value(int64(id))
 	}
 	apply.FilterIDs = types.ListValueMust(types.Int64Type, elements)
+}
+
+// GetApplyDynamicFilterIDs extracts dynamic filter IDs from an apply block.
+func (m *AccessListIPv6Model) GetApplyDynamicFilterIDs(apply *ApplyModel) []int {
+	if apply.DynamicFilterIDs.IsNull() || apply.DynamicFilterIDs.IsUnknown() {
+		return nil
+	}
+
+	elements := apply.DynamicFilterIDs.Elements()
+	if len(elements) == 0 {
+		return nil
+	}
+
+	ids := make([]int, 0, len(elements))
+	for _, elem := range elements {
+		if intVal, ok := elem.(types.Int64); ok && !intVal.IsNull() && !intVal.IsUnknown() {
+			ids = append(ids, int(intVal.ValueInt64()))
+		}
+	}
+	return ids
+}
+
+// SetApplyDynamicFilterIDs sets the dynamic filter IDs on an apply block.
+func SetApplyDynamicFilterIDs(apply *ApplyModel, filterIDs []int) {
+	if len(filterIDs) == 0 {
+		apply.DynamicFilterIDs = types.ListValueMust(types.Int64Type, []attr.Value{})
+		return
+	}
+
+	elements := make([]attr.Value, len(filterIDs))
+	for i, id := range filterIDs {
+		elements[i] = types.Int64Value(int64(id))
+	}
+	apply.DynamicFilterIDs = types.ListValueMust(types.Int64Type, elements)
 }
 
 // normalizePort normalizes port values for display.

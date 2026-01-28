@@ -161,6 +161,12 @@ func (r *AccessListIPv6Resource) Schema(ctx context.Context, req resource.Schema
 							Computed:    true,
 							ElementType: types.Int64Type,
 						},
+						"dynamic_filter_ids": schema.ListAttribute{
+							Description: "Dynamic filter IDs to apply. These are appended after the 'dynamic' keyword in the secure filter command.",
+							Optional:    true,
+							Computed:    true,
+							ElementType: types.Int64Type,
+						},
 					},
 				},
 			},
@@ -509,10 +515,11 @@ func (r *AccessListIPv6Resource) applyFiltersToInterfaces(ctx context.Context, d
 		apply := &data.Apply[i]
 		iface := fwhelpers.GetStringValue(apply.Interface)
 		direction := strings.ToLower(fwhelpers.GetStringValue(apply.Direction))
-		filterIDs := data.GetApplyFilterIDs(apply)
+		staticIDs := data.GetApplyFilterIDs(apply)
+		dynamicIDs := data.GetApplyDynamicFilterIDs(apply)
 
-		if len(filterIDs) > 0 {
-			if err := r.client.ApplyIPv6FiltersToInterface(ctx, iface, direction, filterIDs); err != nil {
+		if len(staticIDs) > 0 || len(dynamicIDs) > 0 {
+			if err := r.client.ApplyIPv6FiltersWithDynamicToInterface(ctx, iface, direction, staticIDs, dynamicIDs); err != nil {
 				return fmt.Errorf("failed to apply filters to interface %s %s: %w", iface, direction, err)
 			}
 		}
@@ -522,6 +529,7 @@ func (r *AccessListIPv6Resource) applyFiltersToInterfaces(ctx context.Context, d
 }
 
 // readApplyBlocks reads apply block state from the router.
+// It preserves user-specified dynamic_filter_ids to avoid state inconsistency.
 func (r *AccessListIPv6Resource) readApplyBlocks(ctx context.Context, data *AccessListIPv6Model) error {
 	if len(data.Apply) == 0 {
 		return nil
@@ -538,6 +546,19 @@ func (r *AccessListIPv6Resource) readApplyBlocks(ctx context.Context, data *Acce
 		}
 
 		SetApplyFilterIDs(apply, filterIDs)
+
+		// Preserve user-specified dynamic_filter_ids to avoid state inconsistency.
+		// If user specified dynamic_filter_ids in config, keep that value.
+		// Otherwise, read from router.
+		if apply.DynamicFilterIDs.IsNull() || apply.DynamicFilterIDs.IsUnknown() {
+			// Not specified, read from router
+			dynamicFilterIDs, err := r.client.GetIPv6InterfaceDynamicFilters(ctx, iface, direction)
+			if err != nil {
+				return fmt.Errorf("failed to get dynamic filters for interface %s %s: %w", iface, direction, err)
+			}
+			SetApplyDynamicFilterIDs(apply, dynamicFilterIDs)
+		}
+		// If user specified dynamic_filter_ids, preserve it (don't overwrite)
 	}
 
 	return nil

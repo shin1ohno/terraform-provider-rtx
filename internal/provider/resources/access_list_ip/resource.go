@@ -109,6 +109,17 @@ func (r *AccessListIPResource) Schema(ctx context.Context, req resource.SchemaRe
 								),
 							},
 						},
+						"dynamic_filter_ids": schema.ListAttribute{
+							Description: "Dynamic filter IDs to apply. These are appended after the 'dynamic' keyword in the secure filter command.",
+							Optional:    true,
+							Computed:    true,
+							ElementType: types.Int64Type,
+							Validators: []validator.List{
+								listvalidator.ValueInt64sAre(
+									int64validator.Between(1, MaxSequenceValue),
+								),
+							},
+						},
 					},
 				},
 			},
@@ -396,10 +407,11 @@ func (r *AccessListIPResource) Update(ctx context.Context, req resource.UpdateRe
 	for _, a := range newApplies {
 		iface := fwhelpers.GetStringValue(a.Interface)
 		direction := strings.ToLower(fwhelpers.GetStringValue(a.Direction))
-		filterIDs := r.extractFilterIDs(a, &data)
+		staticIDs := r.extractFilterIDs(a, &data)
+		dynamicIDs := r.extractDynamicFilterIDs(a)
 
-		if len(filterIDs) > 0 {
-			if err := r.client.ApplyIPFiltersToInterface(ctx, iface, direction, filterIDs); err != nil {
+		if len(staticIDs) > 0 || len(dynamicIDs) > 0 {
+			if err := r.client.ApplyIPFiltersWithDynamicToInterface(ctx, iface, direction, staticIDs, dynamicIDs); err != nil {
 				resp.Diagnostics.AddError(
 					"Failed to apply filters to interface",
 					fmt.Sprintf("Could not apply filters to interface %s %s: %v", iface, direction, err),
@@ -646,10 +658,11 @@ func (r *AccessListIPResource) applyFiltersToInterfaces(ctx context.Context, dat
 	for _, a := range applies {
 		iface := fwhelpers.GetStringValue(a.Interface)
 		direction := strings.ToLower(fwhelpers.GetStringValue(a.Direction))
-		filterIDs := r.extractFilterIDs(a, data)
+		staticIDs := r.extractFilterIDs(a, data)
+		dynamicIDs := r.extractDynamicFilterIDs(a)
 
-		if len(filterIDs) > 0 {
-			if err := r.client.ApplyIPFiltersToInterface(ctx, iface, direction, filterIDs); err != nil {
+		if len(staticIDs) > 0 || len(dynamicIDs) > 0 {
+			if err := r.client.ApplyIPFiltersWithDynamicToInterface(ctx, iface, direction, staticIDs, dynamicIDs); err != nil {
 				return fmt.Errorf("failed to apply filters to interface %s %s: %w", iface, direction, err)
 			}
 		}
@@ -659,6 +672,7 @@ func (r *AccessListIPResource) applyFiltersToInterfaces(ctx context.Context, dat
 }
 
 // readApplyBlocks reads apply block state from the router.
+// It preserves user-specified dynamic_filter_ids to avoid state inconsistency.
 func (r *AccessListIPResource) readApplyBlocks(ctx context.Context, data *AccessListIPModel) error {
 	applies := data.GetApplies()
 	if len(applies) == 0 {
@@ -681,10 +695,30 @@ func (r *AccessListIPResource) readApplyBlocks(ctx context.Context, data *Access
 			filterIDValues[i] = types.Int64Value(int64(id))
 		}
 
+		// Preserve user-specified dynamic_filter_ids to avoid state inconsistency.
+		// If user specified dynamic_filter_ids in config, use that value.
+		// Otherwise, read from router.
+		var dynamicFilterIDValues []attr.Value
+		if !a.DynamicFilterIDs.IsNull() && !a.DynamicFilterIDs.IsUnknown() {
+			// User specified dynamic_filter_ids, preserve it
+			dynamicFilterIDValues = a.DynamicFilterIDs.Elements()
+		} else {
+			// Not specified, read from router
+			dynamicFilterIDs, err := r.client.GetIPInterfaceDynamicFilters(ctx, iface, direction)
+			if err != nil {
+				return fmt.Errorf("failed to get dynamic filters for interface %s %s: %w", iface, direction, err)
+			}
+			dynamicFilterIDValues = make([]attr.Value, len(dynamicFilterIDs))
+			for i, id := range dynamicFilterIDs {
+				dynamicFilterIDValues[i] = types.Int64Value(int64(id))
+			}
+		}
+
 		updatedApply := ApplyModel{
-			Interface: types.StringValue(iface),
-			Direction: types.StringValue(direction),
-			FilterIDs: types.ListValueMust(types.Int64Type, filterIDValues),
+			Interface:        types.StringValue(iface),
+			Direction:        types.StringValue(direction),
+			FilterIDs:        types.ListValueMust(types.Int64Type, filterIDValues),
+			DynamicFilterIDs: types.ListValueMust(types.Int64Type, dynamicFilterIDValues),
 		}
 		updatedApplies = append(updatedApplies, updatedApply)
 	}
@@ -709,6 +743,25 @@ func (r *AccessListIPResource) extractFilterIDs(apply ApplyModel, data *AccessLi
 
 	// Fall back to all entry sequences
 	return data.GetExpectedSequences()
+}
+
+// extractDynamicFilterIDs extracts dynamic filter IDs from apply config.
+func (r *AccessListIPResource) extractDynamicFilterIDs(apply ApplyModel) []int {
+	if apply.DynamicFilterIDs.IsNull() || apply.DynamicFilterIDs.IsUnknown() {
+		return nil
+	}
+
+	var filterIDs []int64
+	apply.DynamicFilterIDs.ElementsAs(context.TODO(), &filterIDs, false)
+	if len(filterIDs) == 0 {
+		return nil
+	}
+
+	ids := make([]int, len(filterIDs))
+	for i, id := range filterIDs {
+		ids[i] = int(id)
+	}
+	return ids
 }
 
 // findRemovedSequences finds sequences that were in old but not in new.

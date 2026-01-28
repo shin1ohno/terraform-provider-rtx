@@ -363,6 +363,67 @@ func (s *ACLApplyService) ApplyFiltersToInterfaceWithDynamic(ctx context.Context
 	return nil
 }
 
+// GetInterfaceDynamicFilters returns current dynamic filter bindings for an interface
+func (s *ACLApplyService) GetInterfaceDynamicFilters(ctx context.Context, iface, direction string, aclType ACLType) ([]int, error) {
+	logger := logging.FromContext(ctx)
+
+	// Check context
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	if direction != "in" && direction != "out" {
+		return nil, fmt.Errorf("invalid direction %q: must be 'in' or 'out'", direction)
+	}
+
+	// Only IP and IPv6 support dynamic filters
+	var cmd string
+	switch aclType {
+	case ACLTypeIP, ACLTypeExtended, ACLTypeIPDynamic:
+		cmd = parsers.BuildShowIPFilterCommand()
+	case ACLTypeIPv6, ACLTypeIPv6Dynamic:
+		cmd = parsers.BuildShowIPv6FilterCommand()
+	default:
+		return nil, fmt.Errorf("dynamic filters not supported for ACL type: %s", aclType)
+	}
+
+	logger.Debug().
+		Str("service", "ACLApplyService").
+		Str("operation", "GetInterfaceDynamicFilters").
+		Str("interface", iface).
+		Str("direction", direction).
+		Str("acl_type", string(aclType)).
+		Msgf("Getting interface dynamic filters with command: %s", cmd)
+
+	output, err := s.executor.Run(ctx, cmd)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get interface filters: %w", err)
+	}
+
+	var result map[string]map[string]parsers.InterfaceSecureFilterResult
+	switch aclType {
+	case ACLTypeIP, ACLTypeExtended, ACLTypeIPDynamic:
+		result, err = parsers.ParseInterfaceSecureFilterWithDynamic(string(output))
+	case ACLTypeIPv6, ACLTypeIPv6Dynamic:
+		result, err = parsers.ParseInterfaceIPv6SecureFilterWithDynamic(string(output))
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse interface filters: %w", err)
+	}
+
+	// Extract dynamic filters for specific interface and direction
+	if ifaceFilters, ok := result[iface]; ok {
+		if filters, ok := ifaceFilters[direction]; ok {
+			return filters.DynamicIDs, nil
+		}
+	}
+
+	// No dynamic filters found for this interface/direction
+	return []int{}, nil
+}
+
 // GetAllInterfaceFiltersForType retrieves all interface filter bindings for a specific ACL type
 // Returns a map of interface -> direction -> filter IDs
 func (s *ACLApplyService) GetAllInterfaceFiltersForType(ctx context.Context, aclType ACLType) (map[string]map[string][]int, error) {
