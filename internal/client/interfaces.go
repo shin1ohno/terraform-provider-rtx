@@ -1200,19 +1200,20 @@ type OSPFNeighbor struct {
 
 // IPsecTunnel represents an IPsec tunnel configuration on an RTX router
 type IPsecTunnel struct {
-	ID             int            `json:"id"`                     // Tunnel ID
-	Name           string         `json:"name,omitempty"`         // Description/name
-	LocalAddress   string         `json:"local_address"`          // Local endpoint IP
-	RemoteAddress  string         `json:"remote_address"`         // Remote endpoint IP
-	PreSharedKey   string         `json:"pre_shared_key"`         // IKE pre-shared key
-	IKEv2Proposal  IKEv2Proposal  `json:"ikev2_proposal"`         // IKE Phase 1 proposal
-	IPsecTransform IPsecTransform `json:"ipsec_transform"`        // IPsec Phase 2 transform
-	LocalNetwork   string         `json:"local_network"`          // Local network CIDR
-	RemoteNetwork  string         `json:"remote_network"`         // Remote network CIDR
-	DPDEnabled     bool           `json:"dpd_enabled"`            // Dead Peer Detection enabled
-	DPDInterval    int            `json:"dpd_interval,omitempty"` // DPD interval in seconds
-	DPDRetry       int            `json:"dpd_retry,omitempty"`    // DPD retry count
-	Enabled        bool           `json:"enabled"`                // Tunnel enabled
+	ID             int            `json:"id"`                       // Tunnel ID
+	Name           string         `json:"name,omitempty"`           // Description/name
+	LocalAddress   string         `json:"local_address"`            // Local endpoint IP
+	RemoteAddress  string         `json:"remote_address"`           // Remote endpoint IP
+	PreSharedKey   string         `json:"pre_shared_key"`           // IKE pre-shared key
+	IKEv2Proposal  IKEv2Proposal  `json:"ikev2_proposal"`           // IKE Phase 1 proposal
+	IPsecTransform IPsecTransform `json:"ipsec_transform"`          // IPsec Phase 2 transform
+	LocalNetwork   string         `json:"local_network"`            // Local network CIDR
+	RemoteNetwork  string         `json:"remote_network"`           // Remote network CIDR
+	DPDEnabled     bool           `json:"dpd_enabled"`              // Dead Peer Detection enabled
+	DPDInterval    int            `json:"dpd_interval,omitempty"`   // DPD interval in seconds
+	DPDRetry       int            `json:"dpd_retry,omitempty"`      // DPD retry count
+	KeepaliveMode  string         `json:"keepalive_mode,omitempty"` // Keepalive mode: "dpd" or "heartbeat"
+	Enabled        bool           `json:"enabled"`                  // Tunnel enabled
 }
 
 // IKEv2Proposal represents IKE Phase 1 proposal settings
@@ -1267,9 +1268,10 @@ type L2TPConfig struct {
 
 // L2TPAuth represents L2TPv2 authentication configuration
 type L2TPAuth struct {
-	Method   string `json:"method"`             // pap, chap, mschap, mschap-v2
-	Username string `json:"username,omitempty"` // Local username
-	Password string `json:"password,omitempty"` // Local password
+	Method        string `json:"method,omitempty"`         // pp auth accept: pap, chap, mschap, mschap-v2
+	RequestMethod string `json:"request_method,omitempty"` // pp auth request: pap, chap, mschap, mschap-v2
+	Username      string `json:"username,omitempty"`       // Local username
+	Password      string `json:"password,omitempty"`       // Local password
 }
 
 // L2TPIPPool represents L2TPv2 IP pool configuration

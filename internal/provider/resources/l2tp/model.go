@@ -13,6 +13,7 @@ import (
 type L2TPModel struct {
 	TunnelID          types.Int64          `tfsdk:"tunnel_id"`
 	TunnelInterface   types.String         `tfsdk:"tunnel_interface"`
+	InterfaceName     types.String         `tfsdk:"interface_name"`
 	Name              types.String         `tfsdk:"name"`
 	Version           types.String         `tfsdk:"version"`
 	Mode              types.String         `tfsdk:"mode"`
@@ -34,9 +35,10 @@ type L2TPModel struct {
 
 // AuthenticationModel describes the authentication nested block.
 type AuthenticationModel struct {
-	Method   types.String `tfsdk:"method"`
-	Username types.String `tfsdk:"username"`
-	Password types.String `tfsdk:"password"`
+	Method        types.String `tfsdk:"method"`
+	RequestMethod types.String `tfsdk:"request_method"`
+	Username      types.String `tfsdk:"username"`
+	Password      types.String `tfsdk:"password"`
 }
 
 // IPPoolModel describes the IP pool nested block.
@@ -84,9 +86,10 @@ func (m *L2TPModel) ToClient() client.L2TPConfig {
 	// Handle authentication
 	if m.Authentication != nil {
 		config.Authentication = &client.L2TPAuth{
-			Method:   fwhelpers.GetStringValue(m.Authentication.Method),
-			Username: fwhelpers.GetStringValue(m.Authentication.Username),
-			Password: fwhelpers.GetStringValue(m.Authentication.Password),
+			Method:        fwhelpers.GetStringValue(m.Authentication.Method),
+			RequestMethod: fwhelpers.GetStringValue(m.Authentication.RequestMethod),
+			Username:      fwhelpers.GetStringValue(m.Authentication.Username),
+			Password:      fwhelpers.GetStringValue(m.Authentication.Password),
 		}
 	}
 
@@ -140,6 +143,7 @@ func (m *L2TPModel) ToClient() client.L2TPConfig {
 func (m *L2TPModel) FromClient(config *client.L2TPConfig) {
 	m.TunnelID = types.Int64Value(int64(config.ID))
 	m.TunnelInterface = types.StringValue(fmt.Sprintf("tunnel%d", config.ID))
+	m.InterfaceName = types.StringValue(fmt.Sprintf("tunnel%d", config.ID))
 	m.Name = fwhelpers.StringValueOrNull(config.Name)
 	m.Version = types.StringValue(config.Version)
 	m.Mode = types.StringValue(config.Mode)
@@ -153,18 +157,20 @@ func (m *L2TPModel) FromClient(config *client.L2TPConfig) {
 	m.AlwaysOn = types.BoolValue(config.AlwaysOn)
 	m.Enabled = types.BoolValue(config.Enabled)
 
-	// Update authentication
-	if config.Authentication != nil {
+	// Update authentication - skip for L2TPv2 LNS as router parsing is unreliable
+	// For LNS mode, preserve existing state values
+	if config.Authentication != nil && !(config.Version == "l2tp" && config.Mode == "lns") {
 		if m.Authentication == nil {
 			m.Authentication = &AuthenticationModel{}
 		}
-		m.Authentication.Method = types.StringValue(config.Authentication.Method)
+		m.Authentication.Method = fwhelpers.StringValueOrNull(config.Authentication.Method)
+		m.Authentication.RequestMethod = fwhelpers.StringValueOrNull(config.Authentication.RequestMethod)
 		m.Authentication.Username = fwhelpers.StringValueOrNull(config.Authentication.Username)
 		m.Authentication.Password = fwhelpers.StringValueOrNull(config.Authentication.Password)
 	}
 
-	// Update IP pool
-	if config.IPPool != nil {
+	// Update IP pool - skip for L2TPv2 LNS as router parsing is unreliable
+	if config.IPPool != nil && !(config.Version == "l2tp" && config.Mode == "lns") {
 		if m.IPPool == nil {
 			m.IPPool = &IPPoolModel{}
 		}

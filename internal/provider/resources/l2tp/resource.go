@@ -67,6 +67,13 @@ func (r *L2TPResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"interface_name": schema.StringAttribute{
+				Description: "The interface name (e.g., 'tunnel1'). Alias for tunnel_interface for consistency with other resources.",
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
 			"name": schema.StringAttribute{
 				Description: "Tunnel description.",
 				Optional:    true,
@@ -161,7 +168,14 @@ func (r *L2TPResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				Description: "L2TP authentication settings. Required for L2TP LNS mode, not needed for L2TPv3.",
 				Attributes: map[string]schema.Attribute{
 					"method": schema.StringAttribute{
-						Description: "Authentication method: 'pap', 'chap', 'mschap', or 'mschap-v2'.",
+						Description: "Authentication method to accept (pp auth accept): 'pap', 'chap', 'mschap', or 'mschap-v2'.",
+						Optional:    true,
+						Validators: []validator.String{
+							stringvalidator.OneOf("pap", "chap", "mschap", "mschap-v2"),
+						},
+					},
+					"request_method": schema.StringAttribute{
+						Description: "Authentication method to request from client (pp auth request): 'pap', 'chap', 'mschap', or 'mschap-v2'.",
 						Optional:    true,
 						Validators: []validator.String{
 							stringvalidator.OneOf("pap", "chap", "mschap", "mschap-v2"),
@@ -373,6 +387,23 @@ func (r *L2TPResource) Update(ctx context.Context, req resource.UpdateRequest, r
 			"Failed to update L2TP tunnel",
 			fmt.Sprintf("Could not update L2TP tunnel: %v", err),
 		)
+		return
+	}
+
+	// For L2TPv2 LNS, skip read and use plan values directly
+	// Router parsing for LNS mode is unreliable for authentication and IP pool
+	if data.Version.ValueString() == "l2tp" && data.Mode.ValueString() == "lns" {
+		// Set computed values that were unknown in plan
+		if data.KeepaliveInterval.IsUnknown() {
+			data.KeepaliveInterval = types.Int64Null()
+		}
+		if data.KeepaliveRetry.IsUnknown() {
+			data.KeepaliveRetry = types.Int64Null()
+		}
+		if data.TunnelDestType.IsUnknown() {
+			data.TunnelDestType = types.StringNull()
+		}
+		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return
 	}
 
