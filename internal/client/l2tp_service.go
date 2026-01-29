@@ -128,8 +128,15 @@ func (s *L2TPService) Create(ctx context.Context, config L2TPConfig) error {
 		commands = append(commands, parsers.BuildPPBindTunnelCommand(config.ID))
 
 		if config.Authentication != nil {
+			// Only generate pp auth accept if method is explicitly specified
 			if config.Authentication.Method != "" {
 				commands = append(commands, parsers.BuildPPAuthAcceptCommand(config.Authentication.Method))
+			} else {
+				// Explicitly delete pp auth accept if not specified
+				commands = append(commands, parsers.BuildDeletePPAuthAcceptCommand())
+			}
+			if config.Authentication.RequestMethod != "" {
+				commands = append(commands, parsers.BuildPPAuthRequestCommand(config.Authentication.RequestMethod))
 			}
 			if config.Authentication.Username != "" && config.Authentication.Password != "" {
 				commands = append(commands, parsers.BuildPPAuthMynameCommand(
@@ -137,22 +144,37 @@ func (s *L2TPService) Create(ctx context.Context, config L2TPConfig) error {
 					config.Authentication.Password,
 				))
 			}
+		} else {
+			// Delete pp auth accept if authentication block not specified
+			commands = append(commands, parsers.BuildDeletePPAuthAcceptCommand())
 		}
 
-		if config.IPPool != nil {
+		// Set ip pool - use dhcp if not explicitly specified
+		if config.IPPool != nil && config.IPPool.Start != "" && config.IPPool.End != "" {
 			commands = append(commands, parsers.BuildIPPPRemotePoolCommand(config.IPPool.Start, config.IPPool.End))
+		} else {
+			// Explicitly set dhcp for ip pool
+			commands = append(commands, parsers.BuildIPPPRemotePoolDHCPCommand())
 		}
+
+		// Exit PP context before saving - use pp select none to return to main context
+		commands = append(commands, "pp select none")
 	}
 
-	// Execute all commands
-	for _, cmd := range commands {
-		output, err := s.executor.Run(ctx, cmd)
-		if err != nil {
-			return fmt.Errorf("failed to execute L2TP command '%s': %w", cmd, err)
-		}
-		if containsError(string(output)) {
-			return fmt.Errorf("L2TP command '%s' failed: %s", cmd, string(output))
-		}
+	// Log commands for debugging
+	logger := logging.FromContext(ctx)
+	logger.Info().Strs("commands", commands).Msg("L2TP Create: sending commands")
+
+	// Execute all commands in batch to maintain session context (pp select anonymous)
+	output, err := s.executor.RunBatch(ctx, commands)
+	if err != nil {
+		return fmt.Errorf("failed to execute L2TP commands: %w", err)
+	}
+
+	logger.Info().Str("output", string(output)).Msg("L2TP Create: batch output")
+
+	if containsError(string(output)) {
+		return fmt.Errorf("L2TP commands failed: %s", string(output))
 	}
 
 	// Save configuration
@@ -173,7 +195,38 @@ func (s *L2TPService) Update(ctx context.Context, config L2TPConfig) error {
 
 	commands := []string{}
 
-	if config.Version == "l2tpv3" {
+	if config.Version == "l2tp" && config.Mode == "lns" {
+		// L2TPv2 LNS update
+		commands = append(commands, parsers.BuildPPSelectAnonymousCommand())
+
+		if config.Authentication != nil {
+			if config.Authentication.Method != "" {
+				commands = append(commands, parsers.BuildPPAuthAcceptCommand(config.Authentication.Method))
+			} else {
+				// Delete pp auth accept if not specified
+				commands = append(commands, parsers.BuildDeletePPAuthAcceptCommand())
+			}
+			if config.Authentication.RequestMethod != "" {
+				commands = append(commands, parsers.BuildPPAuthRequestCommand(config.Authentication.RequestMethod))
+			}
+			if config.Authentication.Username != "" && config.Authentication.Password != "" {
+				commands = append(commands, parsers.BuildPPAuthMynameCommand(
+					config.Authentication.Username,
+					config.Authentication.Password,
+				))
+			}
+		} else {
+			// Delete pp auth accept if authentication block not specified
+			commands = append(commands, parsers.BuildDeletePPAuthAcceptCommand())
+		}
+
+		if config.IPPool != nil && config.IPPool.Start != "" && config.IPPool.End != "" {
+			commands = append(commands, parsers.BuildIPPPRemotePoolCommand(config.IPPool.Start, config.IPPool.End))
+		} else {
+			// Use dhcp for ip pool if not specified
+			commands = append(commands, parsers.BuildIPPPRemotePoolDHCPCommand())
+		}
+	} else if config.Version == "l2tpv3" {
 		commands = append(commands, fmt.Sprintf("tunnel select %d", config.ID))
 
 		if config.TunnelSource != "" && config.TunnelDest != "" {
@@ -205,15 +258,13 @@ func (s *L2TPService) Update(ctx context.Context, config L2TPConfig) error {
 		}
 	}
 
-	// Execute all commands
-	for _, cmd := range commands {
-		output, err := s.executor.Run(ctx, cmd)
-		if err != nil {
-			return fmt.Errorf("failed to execute L2TP command '%s': %w", cmd, err)
-		}
-		if containsError(string(output)) {
-			return fmt.Errorf("L2TP command '%s' failed: %s", cmd, string(output))
-		}
+	// Execute all commands in batch to maintain session context (pp select anonymous)
+	output, err := s.executor.RunBatch(ctx, commands)
+	if err != nil {
+		return fmt.Errorf("failed to execute L2TP commands: %w", err)
+	}
+	if containsError(string(output)) {
+		return fmt.Errorf("L2TP commands failed: %s", string(output))
 	}
 
 	// Save configuration
@@ -262,9 +313,10 @@ func convertToParserL2TPConfig(config L2TPConfig) parsers.L2TPConfig {
 
 	if config.Authentication != nil {
 		parserConfig.Authentication = &parsers.L2TPAuth{
-			Method:   config.Authentication.Method,
-			Username: config.Authentication.Username,
-			Password: config.Authentication.Password,
+			Method:        config.Authentication.Method,
+			RequestMethod: config.Authentication.RequestMethod,
+			Username:      config.Authentication.Username,
+			Password:      config.Authentication.Password,
 		}
 	}
 
@@ -329,9 +381,10 @@ func convertFromParserL2TPConfig(p parsers.L2TPConfig) L2TPConfig {
 
 	if p.Authentication != nil {
 		config.Authentication = &L2TPAuth{
-			Method:   p.Authentication.Method,
-			Username: p.Authentication.Username,
-			Password: p.Authentication.Password,
+			Method:        p.Authentication.Method,
+			RequestMethod: p.Authentication.RequestMethod,
+			Username:      p.Authentication.Username,
+			Password:      p.Authentication.Password,
 		}
 	}
 
