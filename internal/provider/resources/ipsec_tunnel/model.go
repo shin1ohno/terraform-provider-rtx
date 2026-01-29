@@ -21,6 +21,7 @@ type IPsecTunnelModel struct {
 	DPDEnabled      types.Bool           `tfsdk:"dpd_enabled"`
 	DPDInterval     types.Int64          `tfsdk:"dpd_interval"`
 	DPDRetry        types.Int64          `tfsdk:"dpd_retry"`
+	KeepaliveMode   types.String         `tfsdk:"keepalive_mode"`
 	Enabled         types.Bool           `tfsdk:"enabled"`
 	TunnelInterface types.String         `tfsdk:"tunnel_interface"`
 	IKEv2Proposal   *IKEv2ProposalModel  `tfsdk:"ikev2_proposal"`
@@ -69,6 +70,7 @@ func (m *IPsecTunnelModel) ToClient() client.IPsecTunnel {
 		DPDEnabled:    fwhelpers.GetBoolValue(m.DPDEnabled),
 		DPDInterval:   fwhelpers.GetInt64Value(m.DPDInterval),
 		DPDRetry:      fwhelpers.GetInt64Value(m.DPDRetry),
+		KeepaliveMode: fwhelpers.GetStringValue(m.KeepaliveMode),
 		Enabled:       fwhelpers.GetBoolValueWithDefault(m.Enabled, true),
 	}
 
@@ -136,23 +138,29 @@ func (m *IPsecTunnelModel) FromClient(tunnel *client.IPsecTunnel) {
 	}
 	// else: preserve existing m.DPDRetry
 
+	// KeepaliveMode: preserve existing state value if set
+	if m.KeepaliveMode.IsUnknown() || m.KeepaliveMode.IsNull() {
+		m.KeepaliveMode = fwhelpers.StringValueOrNull(tunnel.KeepaliveMode)
+	}
+
 	m.Enabled = types.BoolValue(tunnel.Enabled)
 	m.TunnelInterface = types.StringValue(fmt.Sprintf("tunnel%d", tunnel.ID))
 
-	// Update IKEv2 proposal
-	if m.IKEv2Proposal == nil {
-		m.IKEv2Proposal = &IKEv2ProposalModel{}
+	// Update IKEv2 proposal - only update if the block already exists in state
+	// This preserves the user's intent when they don't specify ikev2_proposal
+	if m.IKEv2Proposal != nil {
+		m.IKEv2Proposal.EncryptionAES256 = types.BoolValue(tunnel.IKEv2Proposal.EncryptionAES256)
+		m.IKEv2Proposal.EncryptionAES128 = types.BoolValue(tunnel.IKEv2Proposal.EncryptionAES128)
+		m.IKEv2Proposal.Encryption3DES = types.BoolValue(tunnel.IKEv2Proposal.Encryption3DES)
+		m.IKEv2Proposal.IntegritySHA256 = types.BoolValue(tunnel.IKEv2Proposal.IntegritySHA256)
+		m.IKEv2Proposal.IntegritySHA1 = types.BoolValue(tunnel.IKEv2Proposal.IntegritySHA1)
+		m.IKEv2Proposal.IntegrityMD5 = types.BoolValue(tunnel.IKEv2Proposal.IntegrityMD5)
+		m.IKEv2Proposal.GroupFourteen = types.BoolValue(tunnel.IKEv2Proposal.GroupFourteen)
+		m.IKEv2Proposal.GroupFive = types.BoolValue(tunnel.IKEv2Proposal.GroupFive)
+		m.IKEv2Proposal.GroupTwo = types.BoolValue(tunnel.IKEv2Proposal.GroupTwo)
+		m.IKEv2Proposal.LifetimeSeconds = fwhelpers.Int64ValueOrNull(tunnel.IKEv2Proposal.LifetimeSeconds)
 	}
-	m.IKEv2Proposal.EncryptionAES256 = types.BoolValue(tunnel.IKEv2Proposal.EncryptionAES256)
-	m.IKEv2Proposal.EncryptionAES128 = types.BoolValue(tunnel.IKEv2Proposal.EncryptionAES128)
-	m.IKEv2Proposal.Encryption3DES = types.BoolValue(tunnel.IKEv2Proposal.Encryption3DES)
-	m.IKEv2Proposal.IntegritySHA256 = types.BoolValue(tunnel.IKEv2Proposal.IntegritySHA256)
-	m.IKEv2Proposal.IntegritySHA1 = types.BoolValue(tunnel.IKEv2Proposal.IntegritySHA1)
-	m.IKEv2Proposal.IntegrityMD5 = types.BoolValue(tunnel.IKEv2Proposal.IntegrityMD5)
-	m.IKEv2Proposal.GroupFourteen = types.BoolValue(tunnel.IKEv2Proposal.GroupFourteen)
-	m.IKEv2Proposal.GroupFive = types.BoolValue(tunnel.IKEv2Proposal.GroupFive)
-	m.IKEv2Proposal.GroupTwo = types.BoolValue(tunnel.IKEv2Proposal.GroupTwo)
-	m.IKEv2Proposal.LifetimeSeconds = fwhelpers.Int64ValueOrNull(tunnel.IKEv2Proposal.LifetimeSeconds)
+	// If m.IKEv2Proposal is nil, leave it nil - user didn't specify the block
 
 	// Update IPsec transform
 	if m.IPsecTransform == nil {

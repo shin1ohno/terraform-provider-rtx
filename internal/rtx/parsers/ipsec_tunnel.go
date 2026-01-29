@@ -9,24 +9,25 @@ import (
 
 // IPsecTunnel represents an IPsec tunnel configuration on an RTX router
 type IPsecTunnel struct {
-	ID             int            `json:"id"`                      // Tunnel ID
-	Name           string         `json:"name,omitempty"`          // Description/name
-	LocalAddress   string         `json:"local_address"`           // Local endpoint IP
-	RemoteAddress  string         `json:"remote_address"`          // Remote endpoint IP
-	PreSharedKey   string         `json:"pre_shared_key"`          // IKE pre-shared key
-	IKEv2Proposal  IKEv2Proposal  `json:"ikev2_proposal"`          // IKE Phase 1 proposal
-	IPsecTransform IPsecTransform `json:"ipsec_transform"`         // IPsec Phase 2 transform
-	LocalNetwork   string         `json:"local_network"`           // Local network CIDR
-	RemoteNetwork  string         `json:"remote_network"`          // Remote network CIDR
-	DPDEnabled     bool           `json:"dpd_enabled"`             // Dead Peer Detection enabled
-	DPDInterval    int            `json:"dpd_interval,omitempty"`  // DPD interval in seconds
-	DPDRetry       int            `json:"dpd_retry,omitempty"`     // DPD retry count
-	Enabled        bool           `json:"enabled"`                 // Tunnel enabled
-	SAPolicy       int            `json:"sa_policy,omitempty"`     // SA policy number
-	IKELocalID     string         `json:"ike_local_id,omitempty"`  // IKE local ID
-	IKERemoteID    string         `json:"ike_remote_id,omitempty"` // IKE remote ID
-	NATTraversal   bool           `json:"nat_traversal,omitempty"` // NAT-T enabled
-	PFSGroup       string         `json:"pfs_group,omitempty"`     // PFS DH group
+	ID             int            `json:"id"`                       // Tunnel ID
+	Name           string         `json:"name,omitempty"`           // Description/name
+	LocalAddress   string         `json:"local_address"`            // Local endpoint IP
+	RemoteAddress  string         `json:"remote_address"`           // Remote endpoint IP
+	PreSharedKey   string         `json:"pre_shared_key"`           // IKE pre-shared key
+	IKEv2Proposal  IKEv2Proposal  `json:"ikev2_proposal"`           // IKE Phase 1 proposal
+	IPsecTransform IPsecTransform `json:"ipsec_transform"`          // IPsec Phase 2 transform
+	LocalNetwork   string         `json:"local_network"`            // Local network CIDR
+	RemoteNetwork  string         `json:"remote_network"`           // Remote network CIDR
+	DPDEnabled     bool           `json:"dpd_enabled"`              // Dead Peer Detection enabled
+	DPDInterval    int            `json:"dpd_interval,omitempty"`   // DPD interval in seconds
+	DPDRetry       int            `json:"dpd_retry,omitempty"`      // DPD retry count
+	KeepaliveMode  string         `json:"keepalive_mode,omitempty"` // Keepalive mode: "dpd" or "heartbeat"
+	Enabled        bool           `json:"enabled"`                  // Tunnel enabled
+	SAPolicy       int            `json:"sa_policy,omitempty"`      // SA policy number
+	IKELocalID     string         `json:"ike_local_id,omitempty"`   // IKE local ID
+	IKERemoteID    string         `json:"ike_remote_id,omitempty"`  // IKE remote ID
+	NATTraversal   bool           `json:"nat_traversal,omitempty"`  // NAT-T enabled
+	PFSGroup       string         `json:"pfs_group,omitempty"`      // PFS DH group
 }
 
 // IKEv2Proposal represents IKE Phase 1 proposal settings
@@ -83,6 +84,7 @@ func (p *IPsecTunnelParser) ParseIPsecTunnelConfig(raw string) ([]IPsecTunnel, e
 	ipsecIKEGroupPattern := regexp.MustCompile(`^\s*ipsec\s+ike\s+group\s+(\d+)\s+(.+)\s*$`)
 	ipsecIKEKeepalivePattern := regexp.MustCompile(`^\s*ipsec\s+ike\s+keepalive\s+use\s+(\d+)\s+on\s+dpd\s+(\d+)\s*$`)
 	ipsecIKEKeepaliveRetryPattern := regexp.MustCompile(`^\s*ipsec\s+ike\s+keepalive\s+use\s+(\d+)\s+on\s+dpd\s+(\d+)\s+(\d+)\s*$`)
+	ipsecIKEKeepaliveHeartbeatPattern := regexp.MustCompile(`^\s*ipsec\s+ike\s+keepalive\s+use\s+(\d+)\s+on\s+heartbeat\s+(\d+)\s+(\d+)\s*$`)
 	tunnelDescriptionPattern := regexp.MustCompile(`^\s*description\s+(.+)\s*$`)
 
 	var currentTunnelID int
@@ -209,6 +211,7 @@ func (p *IPsecTunnelParser) ParseIPsecTunnelConfig(raw string) ([]IPsecTunnel, e
 			id, _ := strconv.Atoi(matches[1])
 			if tunnel, exists := tunnels[id]; exists {
 				tunnel.DPDEnabled = true
+				tunnel.KeepaliveMode = "dpd"
 				tunnel.DPDInterval, _ = strconv.Atoi(matches[2])
 				tunnel.DPDRetry, _ = strconv.Atoi(matches[3])
 			}
@@ -220,7 +223,20 @@ func (p *IPsecTunnelParser) ParseIPsecTunnelConfig(raw string) ([]IPsecTunnel, e
 			id, _ := strconv.Atoi(matches[1])
 			if tunnel, exists := tunnels[id]; exists {
 				tunnel.DPDEnabled = true
+				tunnel.KeepaliveMode = "dpd"
 				tunnel.DPDInterval, _ = strconv.Atoi(matches[2])
+			}
+			continue
+		}
+
+		// IPsec IKE keepalive (heartbeat)
+		if matches := ipsecIKEKeepaliveHeartbeatPattern.FindStringSubmatch(line); len(matches) >= 4 {
+			id, _ := strconv.Atoi(matches[1])
+			if tunnel, exists := tunnels[id]; exists {
+				tunnel.DPDEnabled = true
+				tunnel.KeepaliveMode = "heartbeat"
+				tunnel.DPDInterval, _ = strconv.Atoi(matches[2])
+				tunnel.DPDRetry, _ = strconv.Atoi(matches[3])
 			}
 			continue
 		}
@@ -434,10 +450,34 @@ func BuildIPsecIKEKeepaliveCommand(tunnelID, interval, retry int) string {
 	return fmt.Sprintf("ipsec ike keepalive use %d on dpd %d", tunnelID, interval)
 }
 
+// BuildIPsecIKEKeepaliveHeartbeatCommand builds the command to enable heartbeat keepalive
+// Command format: ipsec ike keepalive use <n> on heartbeat <interval> <retry>
+func BuildIPsecIKEKeepaliveHeartbeatCommand(tunnelID, interval, retry int) string {
+	return fmt.Sprintf("ipsec ike keepalive use %d on heartbeat %d %d", tunnelID, interval, retry)
+}
+
 // BuildIPsecIKEKeepaliveOffCommand builds the command to disable DPD
 // Command format: ipsec ike keepalive use <n> off
 func BuildIPsecIKEKeepaliveOffCommand(tunnelID int) string {
 	return fmt.Sprintf("ipsec ike keepalive use %d off", tunnelID)
+}
+
+// BuildDeleteIPsecIKEEncryptionCommand builds the command to delete IKE encryption setting
+// Command format: no ipsec ike encryption <n>
+func BuildDeleteIPsecIKEEncryptionCommand(tunnelID int) string {
+	return fmt.Sprintf("no ipsec ike encryption %d", tunnelID)
+}
+
+// BuildDeleteIPsecIKEHashCommand builds the command to delete IKE hash setting
+// Command format: no ipsec ike hash <n>
+func BuildDeleteIPsecIKEHashCommand(tunnelID int) string {
+	return fmt.Sprintf("no ipsec ike hash %d", tunnelID)
+}
+
+// BuildDeleteIPsecIKEGroupCommand builds the command to delete IKE group setting
+// Command format: no ipsec ike group <n>
+func BuildDeleteIPsecIKEGroupCommand(tunnelID int) string {
+	return fmt.Sprintf("no ipsec ike group %d", tunnelID)
 }
 
 // BuildDeleteIPsecTunnelCommand builds the command to delete an IPsec tunnel

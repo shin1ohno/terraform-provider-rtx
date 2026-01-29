@@ -108,6 +108,17 @@ func (r *IPsecTunnelResource) Schema(ctx context.Context, req resource.SchemaReq
 					int64planmodifier.UseStateForUnknown(),
 				},
 			},
+			"keepalive_mode": schema.StringAttribute{
+				Description: "Keepalive mode: 'dpd' (Dead Peer Detection) or 'heartbeat'. Defaults to 'dpd' if dpd_enabled is true.",
+				Optional:    true,
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+				Validators: []validator.String{
+					stringvalidator.OneOf("dpd", "heartbeat"),
+				},
+			},
 			"enabled": schema.BoolAttribute{
 				Description: "Enable the IPsec tunnel.",
 				Optional:    true,
@@ -381,6 +392,8 @@ func (r *IPsecTunnelResource) Update(ctx context.Context, req resource.UpdateReq
 	plannedDPDEnabled := data.DPDEnabled
 	plannedDPDInterval := data.DPDInterval
 	plannedDPDRetry := data.DPDRetry
+	plannedKeepaliveMode := data.KeepaliveMode
+	plannedIKEv2Proposal := data.IKEv2Proposal
 
 	tunnel := data.ToClient()
 	logger.Debug().Str("resource", "rtx_ipsec_tunnel").Msgf("Updating IPsec tunnel: %+v", tunnel)
@@ -410,6 +423,13 @@ func (r *IPsecTunnelResource) Update(ctx context.Context, req resource.UpdateReq
 	if !plannedDPDRetry.IsUnknown() {
 		data.DPDRetry = plannedDPDRetry
 	}
+	if !plannedKeepaliveMode.IsUnknown() {
+		data.KeepaliveMode = plannedKeepaliveMode
+	}
+
+	// Preserve planned IKEv2Proposal - if plan doesn't have it, don't create it
+	// This handles the case where user removes the ikev2_proposal block
+	data.IKEv2Proposal = plannedIKEv2Proposal
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

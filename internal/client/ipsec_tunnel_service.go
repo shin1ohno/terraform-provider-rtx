@@ -84,22 +84,32 @@ func (s *IPsecTunnelService) Create(ctx context.Context, tunnel IPsecTunnel) err
 	// 5. Set pre-shared key
 	commands = append(commands, parsers.BuildIPsecIKEPreSharedKeyCommand(tunnel.ID, tunnel.PreSharedKey))
 
-	// 6. Set IKE encryption
-	commands = append(commands, parsers.BuildIPsecIKEEncryptionCommand(tunnel.ID, parserTunnel.IKEv2Proposal))
+	// 6. Set IKE encryption (only if explicitly specified)
+	if hasIKEEncryption(parserTunnel.IKEv2Proposal) {
+		commands = append(commands, parsers.BuildIPsecIKEEncryptionCommand(tunnel.ID, parserTunnel.IKEv2Proposal))
+	}
 
-	// 7. Set IKE hash
-	commands = append(commands, parsers.BuildIPsecIKEHashCommand(tunnel.ID, parserTunnel.IKEv2Proposal))
+	// 7. Set IKE hash (only if explicitly specified)
+	if hasIKEHash(parserTunnel.IKEv2Proposal) {
+		commands = append(commands, parsers.BuildIPsecIKEHashCommand(tunnel.ID, parserTunnel.IKEv2Proposal))
+	}
 
-	// 8. Set IKE group
-	commands = append(commands, parsers.BuildIPsecIKEGroupCommand(tunnel.ID, parserTunnel.IKEv2Proposal))
+	// 8. Set IKE group (only if explicitly specified)
+	if hasIKEGroup(parserTunnel.IKEv2Proposal) {
+		commands = append(commands, parsers.BuildIPsecIKEGroupCommand(tunnel.ID, parserTunnel.IKEv2Proposal))
+	}
 
 	// 9. Set SA policy
 	policyNum := 100 + tunnel.ID
 	commands = append(commands, parsers.BuildIPsecSAPolicyCommand(policyNum, tunnel.ID, parserTunnel.IPsecTransform))
 
-	// 10. Configure DPD if enabled
+	// 10. Configure keepalive if enabled
 	if tunnel.DPDEnabled {
-		commands = append(commands, parsers.BuildIPsecIKEKeepaliveCommand(tunnel.ID, tunnel.DPDInterval, tunnel.DPDRetry))
+		if tunnel.KeepaliveMode == "heartbeat" {
+			commands = append(commands, parsers.BuildIPsecIKEKeepaliveHeartbeatCommand(tunnel.ID, tunnel.DPDInterval, tunnel.DPDRetry))
+		} else {
+			commands = append(commands, parsers.BuildIPsecIKEKeepaliveCommand(tunnel.ID, tunnel.DPDInterval, tunnel.DPDRetry))
+		}
 	} else {
 		commands = append(commands, parsers.BuildIPsecIKEKeepaliveOffCommand(tunnel.ID))
 	}
@@ -136,29 +146,52 @@ func (s *IPsecTunnelService) Update(ctx context.Context, tunnel IPsecTunnel) err
 	// Select tunnel
 	commands = append(commands, parsers.BuildTunnelSelectCommand(tunnel.ID))
 
-	// Update local address
-	commands = append(commands, parsers.BuildIPsecIKELocalAddressCommand(tunnel.ID, tunnel.LocalAddress))
+	// Update local address (only if specified)
+	if tunnel.LocalAddress != "" {
+		commands = append(commands, parsers.BuildIPsecIKELocalAddressCommand(tunnel.ID, tunnel.LocalAddress))
+	}
 
-	// Update remote address
-	commands = append(commands, parsers.BuildIPsecIKERemoteAddressCommand(tunnel.ID, tunnel.RemoteAddress))
+	// Update remote address (only if specified)
+	if tunnel.RemoteAddress != "" {
+		commands = append(commands, parsers.BuildIPsecIKERemoteAddressCommand(tunnel.ID, tunnel.RemoteAddress))
+	}
 
 	// Update pre-shared key if provided
 	if tunnel.PreSharedKey != "" {
 		commands = append(commands, parsers.BuildIPsecIKEPreSharedKeyCommand(tunnel.ID, tunnel.PreSharedKey))
 	}
 
-	// Update IKE settings
-	commands = append(commands, parsers.BuildIPsecIKEEncryptionCommand(tunnel.ID, parserTunnel.IKEv2Proposal))
-	commands = append(commands, parsers.BuildIPsecIKEHashCommand(tunnel.ID, parserTunnel.IKEv2Proposal))
-	commands = append(commands, parsers.BuildIPsecIKEGroupCommand(tunnel.ID, parserTunnel.IKEv2Proposal))
+	// Update IKE settings (only if explicitly specified, otherwise delete)
+	if hasIKEEncryption(parserTunnel.IKEv2Proposal) {
+		commands = append(commands, parsers.BuildIPsecIKEEncryptionCommand(tunnel.ID, parserTunnel.IKEv2Proposal))
+	} else {
+		// Delete IKE encryption setting if not specified
+		commands = append(commands, parsers.BuildDeleteIPsecIKEEncryptionCommand(tunnel.ID))
+	}
+	if hasIKEHash(parserTunnel.IKEv2Proposal) {
+		commands = append(commands, parsers.BuildIPsecIKEHashCommand(tunnel.ID, parserTunnel.IKEv2Proposal))
+	} else {
+		// Delete IKE hash setting if not specified
+		commands = append(commands, parsers.BuildDeleteIPsecIKEHashCommand(tunnel.ID))
+	}
+	if hasIKEGroup(parserTunnel.IKEv2Proposal) {
+		commands = append(commands, parsers.BuildIPsecIKEGroupCommand(tunnel.ID, parserTunnel.IKEv2Proposal))
+	} else {
+		// Delete IKE group setting if not specified
+		commands = append(commands, parsers.BuildDeleteIPsecIKEGroupCommand(tunnel.ID))
+	}
 
 	// Update SA policy
 	policyNum := 100 + tunnel.ID
 	commands = append(commands, parsers.BuildIPsecSAPolicyCommand(policyNum, tunnel.ID, parserTunnel.IPsecTransform))
 
-	// Update DPD settings
+	// Update keepalive settings
 	if tunnel.DPDEnabled {
-		commands = append(commands, parsers.BuildIPsecIKEKeepaliveCommand(tunnel.ID, tunnel.DPDInterval, tunnel.DPDRetry))
+		if tunnel.KeepaliveMode == "heartbeat" {
+			commands = append(commands, parsers.BuildIPsecIKEKeepaliveHeartbeatCommand(tunnel.ID, tunnel.DPDInterval, tunnel.DPDRetry))
+		} else {
+			commands = append(commands, parsers.BuildIPsecIKEKeepaliveCommand(tunnel.ID, tunnel.DPDInterval, tunnel.DPDRetry))
+		}
 	} else {
 		commands = append(commands, parsers.BuildIPsecIKEKeepaliveOffCommand(tunnel.ID))
 	}
@@ -208,6 +241,21 @@ func (s *IPsecTunnelService) Delete(ctx context.Context, tunnelID int) error {
 	return nil
 }
 
+// hasIKEEncryption returns true if any IKE encryption algorithm is explicitly specified
+func hasIKEEncryption(proposal parsers.IKEv2Proposal) bool {
+	return proposal.EncryptionAES256 || proposal.EncryptionAES128 || proposal.Encryption3DES
+}
+
+// hasIKEHash returns true if any IKE hash algorithm is explicitly specified
+func hasIKEHash(proposal parsers.IKEv2Proposal) bool {
+	return proposal.IntegritySHA256 || proposal.IntegritySHA1 || proposal.IntegrityMD5
+}
+
+// hasIKEGroup returns true if any IKE DH group is explicitly specified
+func hasIKEGroup(proposal parsers.IKEv2Proposal) bool {
+	return proposal.GroupFourteen || proposal.GroupFive || proposal.GroupTwo
+}
+
 // convertToParserIPsecTunnel converts client IPsecTunnel to parser IPsecTunnel
 func convertToParserIPsecTunnel(tunnel IPsecTunnel) parsers.IPsecTunnel {
 	return parsers.IPsecTunnel{
@@ -221,6 +269,7 @@ func convertToParserIPsecTunnel(tunnel IPsecTunnel) parsers.IPsecTunnel {
 		DPDEnabled:    tunnel.DPDEnabled,
 		DPDInterval:   tunnel.DPDInterval,
 		DPDRetry:      tunnel.DPDRetry,
+		KeepaliveMode: tunnel.KeepaliveMode,
 		Enabled:       tunnel.Enabled,
 		IKEv2Proposal: parsers.IKEv2Proposal{
 			EncryptionAES256: tunnel.IKEv2Proposal.EncryptionAES256,
@@ -263,6 +312,7 @@ func convertFromParserIPsecTunnel(p parsers.IPsecTunnel) IPsecTunnel {
 		DPDEnabled:    p.DPDEnabled,
 		DPDInterval:   p.DPDInterval,
 		DPDRetry:      p.DPDRetry,
+		KeepaliveMode: p.KeepaliveMode,
 		Enabled:       p.Enabled,
 		IKEv2Proposal: IKEv2Proposal{
 			EncryptionAES256: p.IKEv2Proposal.EncryptionAES256,
