@@ -30,9 +30,10 @@ type L2TPConfig struct {
 
 // L2TPAuth represents L2TPv2 authentication configuration
 type L2TPAuth struct {
-	Method   string `json:"method"`             // pap, chap, mschap, mschap-v2
-	Username string `json:"username,omitempty"` // Local username
-	Password string `json:"password,omitempty"` // Local password
+	Method        string `json:"method,omitempty"`         // pp auth accept: pap, chap, mschap, mschap-v2
+	RequestMethod string `json:"request_method,omitempty"` // pp auth request: pap, chap, mschap, mschap-v2
+	Username      string `json:"username,omitempty"`       // Local username
+	Password      string `json:"password,omitempty"`       // Local password
 }
 
 // L2TPIPPool represents L2TPv2 IP pool configuration
@@ -89,6 +90,7 @@ func (p *L2TPParser) ParseL2TPConfig(raw string) ([]L2TPConfig, error) {
 	ppSelectAnonymousPattern := regexp.MustCompile(`^\s*pp\s+select\s+anonymous\s*$`)
 	ppBindTunnelPattern := regexp.MustCompile(`^\s*pp\s+bind\s+tunnel(\d+)\s*$`)
 	ppAuthAcceptPattern := regexp.MustCompile(`^\s*pp\s+auth\s+accept\s+(\S+)\s*$`)
+	ppAuthRequestPattern := regexp.MustCompile(`^\s*pp\s+auth\s+request\s+(\S+)\s*$`)
 	ppAuthMynamePattern := regexp.MustCompile(`^\s*pp\s+auth\s+myname\s+(\S+)\s+(\S+)\s*$`)
 	ipPPRemotePoolPattern := regexp.MustCompile(`^\s*ip\s+pp\s+remote\s+address\s+pool\s+([0-9.]+)-([0-9.]+)\s*$`)
 
@@ -156,6 +158,17 @@ func (p *L2TPParser) ParseL2TPConfig(raw string) ([]L2TPConfig, error) {
 					currentAnonymousConfig.Authentication = &L2TPAuth{}
 				}
 				currentAnonymousConfig.Authentication.Method = matches[1]
+			}
+			continue
+		}
+
+		// PP auth request
+		if matches := ppAuthRequestPattern.FindStringSubmatch(line); len(matches) >= 2 && inAnonymousPP {
+			if currentAnonymousConfig != nil {
+				if currentAnonymousConfig.Authentication == nil {
+					currentAnonymousConfig.Authentication = &L2TPAuth{}
+				}
+				currentAnonymousConfig.Authentication.RequestMethod = matches[1]
 			}
 			continue
 		}
@@ -397,6 +410,12 @@ func BuildPPAuthAcceptCommand(method string) string {
 	return fmt.Sprintf("pp auth accept %s", method)
 }
 
+// BuildPPAuthRequestCommand builds the command to request authentication method
+// Command format: pp auth request <method>
+func BuildPPAuthRequestCommand(method string) string {
+	return fmt.Sprintf("pp auth request %s", method)
+}
+
 // BuildPPAuthMynameCommand builds the command to set credentials
 // Command format: pp auth myname <username> <password>
 func BuildPPAuthMynameCommand(username, password string) string {
@@ -407,6 +426,18 @@ func BuildPPAuthMynameCommand(username, password string) string {
 // Command format: ip pp remote address pool <start>-<end>
 func BuildIPPPRemotePoolCommand(start, end string) string {
 	return fmt.Sprintf("ip pp remote address pool %s-%s", start, end)
+}
+
+// BuildIPPPRemotePoolDHCPCommand builds the command to set IP pool to DHCP
+// Command format: ip pp remote address pool dhcp
+func BuildIPPPRemotePoolDHCPCommand() string {
+	return "ip pp remote address pool dhcp"
+}
+
+// BuildDeletePPAuthAcceptCommand builds the command to delete pp auth accept
+// Command format: no pp auth accept
+func BuildDeletePPAuthAcceptCommand() string {
+	return "no pp auth accept"
 }
 
 // BuildTunnelEncapsulationCommand builds the command to set tunnel encapsulation
@@ -496,10 +527,13 @@ func ValidateL2TPConfig(config L2TPConfig) error {
 	if config.Version == "l2tp" && config.Mode == "lns" {
 		if config.Authentication != nil {
 			validMethods := map[string]bool{
-				"pap": true, "chap": true, "mschap": true, "mschap-v2": true,
+				"": true, "pap": true, "chap": true, "mschap": true, "mschap-v2": true,
 			}
 			if !validMethods[config.Authentication.Method] {
 				return fmt.Errorf("invalid authentication method: %s", config.Authentication.Method)
+			}
+			if !validMethods[config.Authentication.RequestMethod] {
+				return fmt.Errorf("invalid authentication request_method: %s", config.Authentication.RequestMethod)
 			}
 		}
 		if config.IPPool != nil {
