@@ -29,6 +29,7 @@ Manages IPsec VPN tunnel configuration on RTX routers. Supports IKEv2 with pre-s
 - `enabled` (Boolean) Enable the IPsec tunnel.
 - `ikev2_proposal` (Block, Optional) IKE Phase 1 proposal settings. (see [below for nested schema](#nestedblock--ikev2_proposal))
 - `ipsec_transform` (Block, Optional) IPsec Phase 2 transform settings. (see [below for nested schema](#nestedblock--ipsec_transform))
+- `keepalive_mode` (String) Keepalive mode: 'dpd' (Dead Peer Detection) or 'heartbeat'. Defaults to 'dpd' if dpd_enabled is true.
 - `local_address` (String) Local endpoint IP address.
 - `local_network` (String) Local network in CIDR notation (e.g., '192.168.1.0/24').
 - `name` (String) Tunnel description/name.

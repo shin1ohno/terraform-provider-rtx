@@ -43,6 +43,7 @@ Manages L2TP/L2TPv3 tunnel configuration on RTX routers. Supports both L2TPv2 (L
 
 ### Read-Only
 
+- `interface_name` (String) The interface name (e.g., 'tunnel1'). Alias for tunnel_interface for consistency with other resources.
 - `tunnel_interface` (String) The tunnel interface name (e.g., 'tunnel1'). Computed from tunnel_id.
 
 <a id="nestedblock--authentication"></a>
@@ -50,8 +51,9 @@ Manages L2TP/L2TPv3 tunnel configuration on RTX routers. Supports both L2TPv2 (L
 
 Optional:
 
-- `method` (String) Authentication method: 'pap', 'chap', 'mschap', or 'mschap-v2'.
+- `method` (String) Authentication method to accept (pp auth accept): 'pap', 'chap', 'mschap', or 'mschap-v2'.
 - `password` (String, Sensitive) Password for authentication.
+- `request_method` (String) Authentication method to request from client (pp auth request): 'pap', 'chap', 'mschap', or 'mschap-v2'.
 - `username` (String) Username for authentication.
 
 
