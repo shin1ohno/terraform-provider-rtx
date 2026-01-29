@@ -126,7 +126,7 @@ func (s *DHCPService) ListBindings(ctx context.Context, scopeID int) ([]DHCPBind
 
 // containsError checks if the output contains an error message
 func containsError(output string) bool {
-	// More specific patterns for RTX router errors
+	// More specific patterns for RTX router errors (English and Japanese)
 	errorPatterns := []string{
 		"Error:",
 		"% Error:",
@@ -136,6 +136,8 @@ func containsError(output string) bool {
 		"Connection timeout",
 		"already exists",
 		"not found",
+		"エラー:",                         // Japanese "Error:"
+		"管理レベルでのみ使用できます", // "can only be used at administrator level"
 	}
 
 	outputLower := strings.ToLower(output)

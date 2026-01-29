@@ -250,8 +250,9 @@ func (e *PooledExecutor) authenticateAsAdmin(ctx context.Context, conn *PooledCo
 	responseStr = string(response)
 	logger.Debug().Str("response", responseStr).Msg("PooledExecutor: Password authentication response received")
 
-	// Check for authentication failure
-	if strings.Contains(responseStr, "incorrect") || strings.Contains(responseStr, "failed") || strings.Contains(responseStr, "Invalid") {
+	// Check for authentication failure (English and Japanese)
+	if strings.Contains(responseStr, "incorrect") || strings.Contains(responseStr, "failed") || strings.Contains(responseStr, "Invalid") ||
+		strings.Contains(responseStr, "エラー") || strings.Contains(responseStr, "パスワードが違います") {
 		return fmt.Errorf("administrator authentication failed: %s", responseStr)
 	}
 

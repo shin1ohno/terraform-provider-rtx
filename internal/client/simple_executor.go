@@ -180,7 +180,8 @@ func (e *simpleExecutor) sendAdministratorCommand(ctx context.Context, ws *worki
 	logger.Debug().Str("response", responseStr).Msg("SimpleExecutor: Password authentication response received")
 
 	// Check for authentication failure
-	if strings.Contains(responseStr, "incorrect") || strings.Contains(responseStr, "failed") || strings.Contains(responseStr, "Invalid") {
+	if strings.Contains(responseStr, "incorrect") || strings.Contains(responseStr, "failed") || strings.Contains(responseStr, "Invalid") ||
+		strings.Contains(responseStr, "エラー") || strings.Contains(responseStr, "パスワードが違います") {
 		return fmt.Errorf("administrator authentication failed: %s", responseStr)
 	}
 
@@ -289,7 +290,8 @@ func (e *simpleExecutor) SetAdministratorPassword(ctx context.Context, oldPasswo
 	logger.Debug().Str("response", responseStr).Msg("SimpleExecutor: Password change response received")
 
 	// Check for errors
-	if strings.Contains(responseStr, "incorrect") || strings.Contains(responseStr, "failed") || strings.Contains(responseStr, "Invalid") {
+	if strings.Contains(responseStr, "incorrect") || strings.Contains(responseStr, "failed") || strings.Contains(responseStr, "Invalid") ||
+		strings.Contains(responseStr, "エラー") || strings.Contains(responseStr, "パスワードが違います") {
 		return fmt.Errorf("administrator password change failed: %s", responseStr)
 	}
 
@@ -366,7 +368,8 @@ func (e *simpleExecutor) SetLoginPassword(ctx context.Context, newPassword strin
 	logger.Debug().Str("response", responseStr).Msg("SimpleExecutor: Password change response received")
 
 	// Check for errors
-	if strings.Contains(responseStr, "incorrect") || strings.Contains(responseStr, "failed") || strings.Contains(responseStr, "Invalid") {
+	if strings.Contains(responseStr, "incorrect") || strings.Contains(responseStr, "failed") || strings.Contains(responseStr, "Invalid") ||
+		strings.Contains(responseStr, "エラー") || strings.Contains(responseStr, "パスワードが違います") {
 		return fmt.Errorf("login password change failed: %s", responseStr)
 	}
 
@@ -438,7 +441,8 @@ func (e *simpleExecutor) authenticateAsAdminWithSession(ctx context.Context, ws 
 	responseStr = string(response)
 
 	// Check for authentication success
-	if strings.Contains(responseStr, "incorrect") || strings.Contains(responseStr, "failed") || strings.Contains(responseStr, "Invalid") {
+	if strings.Contains(responseStr, "incorrect") || strings.Contains(responseStr, "failed") || strings.Contains(responseStr, "Invalid") ||
+		strings.Contains(responseStr, "エラー") || strings.Contains(responseStr, "パスワードが違います") {
 		return fmt.Errorf("administrator authentication failed: %s", responseStr)
 	}
 
