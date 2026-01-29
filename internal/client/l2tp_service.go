@@ -138,15 +138,15 @@ func (s *L2TPService) Create(ctx context.Context, config L2TPConfig) error {
 			if config.Authentication.RequestMethod != "" {
 				commands = append(commands, parsers.BuildPPAuthRequestCommand(config.Authentication.RequestMethod))
 			}
-			if config.Authentication.Username != "" && config.Authentication.Password != "" {
-				commands = append(commands, parsers.BuildPPAuthMynameCommand(
-					config.Authentication.Username,
-					config.Authentication.Password,
-				))
-			}
+			// Note: pp auth myname is NOT used in LNS mode
+			// LNS uses pp auth username (configured separately) to authenticate incoming clients
+			// Delete any existing pp auth myname setting
+			commands = append(commands, "no pp auth myname")
 		} else {
 			// Delete pp auth accept if authentication block not specified
 			commands = append(commands, parsers.BuildDeletePPAuthAcceptCommand())
+			// Also delete pp auth myname
+			commands = append(commands, "no pp auth myname")
 		}
 
 		// Set ip pool - use dhcp if not explicitly specified
@@ -209,15 +209,15 @@ func (s *L2TPService) Update(ctx context.Context, config L2TPConfig) error {
 			if config.Authentication.RequestMethod != "" {
 				commands = append(commands, parsers.BuildPPAuthRequestCommand(config.Authentication.RequestMethod))
 			}
-			if config.Authentication.Username != "" && config.Authentication.Password != "" {
-				commands = append(commands, parsers.BuildPPAuthMynameCommand(
-					config.Authentication.Username,
-					config.Authentication.Password,
-				))
-			}
+			// Note: pp auth myname is NOT used in LNS mode
+			// LNS uses pp auth username (configured separately) to authenticate incoming clients
+			// Delete any existing pp auth myname setting
+			commands = append(commands, "no pp auth myname")
 		} else {
 			// Delete pp auth accept if authentication block not specified
 			commands = append(commands, parsers.BuildDeletePPAuthAcceptCommand())
+			// Also delete pp auth myname
+			commands = append(commands, "no pp auth myname")
 		}
 
 		if config.IPPool != nil && config.IPPool.Start != "" && config.IPPool.End != "" {
