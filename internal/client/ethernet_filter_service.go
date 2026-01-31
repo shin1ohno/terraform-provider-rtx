@@ -260,8 +260,31 @@ func (s *EthernetFilterService) CreateAccessListMAC(ctx context.Context, acl Acc
 		}
 	}
 
-	// Apply to interface if requested
-	if acl.Apply != nil {
+	// Apply to interfaces - process all Applies blocks
+	for _, apply := range acl.Applies {
+		filterNums := apply.FilterIDs
+		if len(filterNums) == 0 {
+			for _, entry := range acl.Entries {
+				num := entry.FilterID
+				if num == 0 {
+					num = entry.Sequence
+				}
+				if num > 0 {
+					filterNums = append(filterNums, num)
+				}
+			}
+		}
+		cmd := parsers.BuildMACAccessListInterfaceCommand(apply.Interface, apply.Direction, filterNums)
+		if cmd != "" {
+			logging.FromContext(ctx).Debug().Str("service", "ethernet_filter").Msgf("Applying MAC ACL to interface with command: %s", cmd)
+			if _, err := s.executor.Run(ctx, cmd); err != nil {
+				return fmt.Errorf("failed to apply MAC ACL: %w", err)
+			}
+		}
+	}
+
+	// Fallback to legacy Apply field for backward compatibility
+	if len(acl.Applies) == 0 && acl.Apply != nil {
 		filterNums := acl.Apply.FilterIDs
 		if len(filterNums) == 0 {
 			for _, entry := range acl.Entries {
@@ -405,8 +428,31 @@ func (s *EthernetFilterService) UpdateAccessListMAC(ctx context.Context, acl Acc
 		}
 	}
 
-	// Apply to interface if requested
-	if acl.Apply != nil {
+	// Apply to interfaces - process all Applies blocks
+	for _, apply := range acl.Applies {
+		filterNums := apply.FilterIDs
+		if len(filterNums) == 0 {
+			for _, entry := range acl.Entries {
+				num := entry.FilterID
+				if num == 0 {
+					num = entry.Sequence
+				}
+				if num > 0 {
+					filterNums = append(filterNums, num)
+				}
+			}
+		}
+		cmd := parsers.BuildMACAccessListInterfaceCommand(apply.Interface, apply.Direction, filterNums)
+		if cmd != "" {
+			logging.FromContext(ctx).Debug().Str("service", "ethernet_filter").Msgf("Applying MAC ACL to interface with command: %s", cmd)
+			if _, err := s.executor.Run(ctx, cmd); err != nil {
+				return fmt.Errorf("failed to apply MAC ACL: %w", err)
+			}
+		}
+	}
+
+	// Fallback to legacy Apply field for backward compatibility
+	if len(acl.Applies) == 0 && acl.Apply != nil {
 		filterNums := acl.Apply.FilterIDs
 		if len(filterNums) == 0 {
 			for _, entry := range acl.Entries {
