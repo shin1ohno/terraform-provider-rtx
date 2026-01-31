@@ -279,7 +279,7 @@ func TestValidateIPsecTunnel(t *testing.T) {
 			name: "invalid local address",
 			tunnel: IPsecTunnel{
 				ID:            1,
-				LocalAddress:  "invalid",
+				LocalAddress:  "not!valid", // contains invalid character for hostname
 				RemoteAddress: "10.0.0.2",
 				PreSharedKey:  "secret123",
 			},
@@ -290,7 +290,7 @@ func TestValidateIPsecTunnel(t *testing.T) {
 			tunnel: IPsecTunnel{
 				ID:            1,
 				LocalAddress:  "10.0.0.1",
-				RemoteAddress: "invalid",
+				RemoteAddress: "not!valid", // contains invalid character for hostname
 				PreSharedKey:  "secret123",
 			},
 			wantErr: true,
