@@ -30,11 +30,12 @@ func TestIPsecTunnelService_Get(t *testing.T) {
  ipsec ike keepalive use 1 on dpd 30 3
 `
 				m.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
-					return cmd == `show config | grep ipsec`
+					return cmd == "show config"
 				})).Return([]byte(output), nil)
 			},
 			expected: &IPsecTunnel{
 				ID:            1,
+				IPsecTunnelID: 1,
 				LocalAddress:  "192.168.1.1",
 				RemoteAddress: "192.168.2.1",
 				DPDEnabled:    true,
