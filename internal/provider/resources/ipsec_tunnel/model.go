@@ -53,6 +53,7 @@ var _ = context.Background
 // IPsecTunnelModel describes the resource data model.
 type IPsecTunnelModel struct {
 	TunnelID        types.Int64          `tfsdk:"tunnel_id"`
+	IPsecTunnelID   types.Int64          `tfsdk:"ipsec_tunnel_id"`
 	Name            types.String         `tfsdk:"name"`
 	LocalAddress    types.String         `tfsdk:"local_address"`
 	RemoteAddress   types.String         `tfsdk:"remote_address"`
@@ -105,6 +106,7 @@ type IPsecTransformModel struct {
 func (m *IPsecTunnelModel) ToClient() client.IPsecTunnel {
 	tunnel := client.IPsecTunnel{
 		ID:              int(m.TunnelID.ValueInt64()),
+		IPsecTunnelID:   int(m.IPsecTunnelID.ValueInt64()),
 		Name:            fwhelpers.GetStringValue(m.Name),
 		LocalAddress:    fwhelpers.GetStringValue(m.LocalAddress),
 		RemoteAddress:   fwhelpers.GetStringValue(m.RemoteAddress),
@@ -160,6 +162,7 @@ func (m *IPsecTunnelModel) ToClient() client.IPsecTunnel {
 // FromClient updates the Terraform model from a client.IPsecTunnel.
 func (m *IPsecTunnelModel) FromClient(tunnel *client.IPsecTunnel) {
 	m.TunnelID = types.Int64Value(int64(tunnel.ID))
+	m.IPsecTunnelID = fwhelpers.Int64ValueOrNull(tunnel.IPsecTunnelID)
 	m.Name = fwhelpers.StringValueOrNull(tunnel.Name)
 	m.LocalAddress = fwhelpers.StringValueOrNull(tunnel.LocalAddress)
 	m.RemoteAddress = fwhelpers.StringValueOrNull(tunnel.RemoteAddress)

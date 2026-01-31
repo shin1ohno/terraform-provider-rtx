@@ -1200,8 +1200,9 @@ type OSPFNeighbor struct {
 
 // IPsecTunnel represents an IPsec tunnel configuration on an RTX router
 type IPsecTunnel struct {
-	ID              int            `json:"id"`                        // Tunnel ID
-	Name            string         `json:"name,omitempty"`            // Description/name
+	ID              int            `json:"id"`                          // Tunnel ID (tunnel select N)
+	IPsecTunnelID   int            `json:"ipsec_tunnel_id,omitempty"`   // IPsec tunnel ID (ipsec tunnel N)
+	Name            string         `json:"name,omitempty"`              // Description/name
 	LocalAddress    string         `json:"local_address"`             // Local endpoint IP
 	RemoteAddress   string         `json:"remote_address"`            // Remote endpoint IP
 	PreSharedKey    string         `json:"pre_shared_key"`            // IKE pre-shared key

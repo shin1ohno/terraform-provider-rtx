@@ -51,13 +51,21 @@ func (r *IPsecTunnelResource) Schema(ctx context.Context, req resource.SchemaReq
 		Description: "Manages IPsec VPN tunnel configuration on RTX routers. Supports IKEv2 with pre-shared key authentication.",
 		Attributes: map[string]schema.Attribute{
 			"tunnel_id": schema.Int64Attribute{
-				Description: "Tunnel ID (1-6000).",
+				Description: "Tunnel ID (tunnel select N, 1-6000).",
 				Required:    true,
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.RequiresReplace(),
 				},
 				Validators: []validator.Int64{
 					int64validator.Between(1, 6000),
+				},
+			},
+			"ipsec_tunnel_id": schema.Int64Attribute{
+				Description: "IPsec tunnel ID (ipsec tunnel N). If not specified, defaults to tunnel_id.",
+				Optional:    true,
+				Computed:    true,
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
 				},
 			},
 			"name": schema.StringAttribute{

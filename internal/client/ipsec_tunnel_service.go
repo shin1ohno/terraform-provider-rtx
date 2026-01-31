@@ -67,13 +67,20 @@ func (s *IPsecTunnelService) Create(ctx context.Context, tunnel IPsecTunnel) err
 		return fmt.Errorf("invalid IPsec tunnel config: %w", err)
 	}
 
+	// Determine ipsec tunnel ID (ipsec tunnel N)
+	// If not specified, default to tunnel.ID for backward compatibility
+	ipsecTunnelID := tunnel.IPsecTunnelID
+	if ipsecTunnelID == 0 {
+		ipsecTunnelID = tunnel.ID
+	}
+
 	commands := []string{}
 
 	// 1. Select tunnel
 	commands = append(commands, parsers.BuildTunnelSelectCommand(tunnel.ID))
 
-	// 2. Create IPsec tunnel
-	commands = append(commands, parsers.BuildIPsecTunnelCommand(tunnel.ID))
+	// 2. Create IPsec tunnel (ipsec tunnel N)
+	commands = append(commands, parsers.BuildIPsecTunnelCommand(ipsecTunnelID))
 
 	// 3. Set local address
 	commands = append(commands, parsers.BuildIPsecIKELocalAddressCommand(tunnel.ID, tunnel.LocalAddress))
@@ -99,9 +106,8 @@ func (s *IPsecTunnelService) Create(ctx context.Context, tunnel IPsecTunnel) err
 		commands = append(commands, parsers.BuildIPsecIKEGroupCommand(tunnel.ID, parserTunnel.IKEv2Proposal))
 	}
 
-	// 9. Set SA policy
-	policyNum := 100 + tunnel.ID
-	commands = append(commands, parsers.BuildIPsecSAPolicyCommand(policyNum, tunnel.ID, parserTunnel.IPsecTransform))
+	// 9. Set SA policy (ipsec sa policy N uses ipsecTunnelID)
+	commands = append(commands, parsers.BuildIPsecSAPolicyCommand(ipsecTunnelID, ipsecTunnelID, parserTunnel.IPsecTransform))
 
 	// 10. Configure keepalive if enabled
 	if tunnel.DPDEnabled {
@@ -169,6 +175,13 @@ func (s *IPsecTunnelService) Update(ctx context.Context, tunnel IPsecTunnel) err
 		return fmt.Errorf("invalid IPsec tunnel config: %w", err)
 	}
 
+	// Determine ipsec tunnel ID (ipsec tunnel N)
+	// If not specified, default to tunnel.ID for backward compatibility
+	ipsecTunnelID := tunnel.IPsecTunnelID
+	if ipsecTunnelID == 0 {
+		ipsecTunnelID = tunnel.ID
+	}
+
 	commands := []string{}
 
 	// Select tunnel
@@ -209,9 +222,8 @@ func (s *IPsecTunnelService) Update(ctx context.Context, tunnel IPsecTunnel) err
 		commands = append(commands, parsers.BuildDeleteIPsecIKEGroupCommand(tunnel.ID))
 	}
 
-	// Update SA policy
-	policyNum := 100 + tunnel.ID
-	commands = append(commands, parsers.BuildIPsecSAPolicyCommand(policyNum, tunnel.ID, parserTunnel.IPsecTransform))
+	// Update SA policy (ipsec sa policy N uses ipsecTunnelID)
+	commands = append(commands, parsers.BuildIPsecSAPolicyCommand(ipsecTunnelID, ipsecTunnelID, parserTunnel.IPsecTransform))
 
 	// Update keepalive settings
 	if tunnel.DPDEnabled {
@@ -325,6 +337,7 @@ func hasIKEGroup(proposal parsers.IKEv2Proposal) bool {
 func convertToParserIPsecTunnel(tunnel IPsecTunnel) parsers.IPsecTunnel {
 	return parsers.IPsecTunnel{
 		ID:              tunnel.ID,
+		SAPolicy:        tunnel.IPsecTunnelID, // ipsec tunnel N
 		Name:            tunnel.Name,
 		LocalAddress:    tunnel.LocalAddress,
 		RemoteAddress:   tunnel.RemoteAddress,
@@ -371,6 +384,7 @@ func convertToParserIPsecTunnel(tunnel IPsecTunnel) parsers.IPsecTunnel {
 func convertFromParserIPsecTunnel(p parsers.IPsecTunnel) IPsecTunnel {
 	return IPsecTunnel{
 		ID:              p.ID,
+		IPsecTunnelID:   p.SAPolicy, // ipsec tunnel N
 		Name:            p.Name,
 		LocalAddress:    p.LocalAddress,
 		RemoteAddress:   p.RemoteAddress,
