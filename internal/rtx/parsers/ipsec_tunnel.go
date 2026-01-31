@@ -9,25 +9,28 @@ import (
 
 // IPsecTunnel represents an IPsec tunnel configuration on an RTX router
 type IPsecTunnel struct {
-	ID             int            `json:"id"`                       // Tunnel ID
-	Name           string         `json:"name,omitempty"`           // Description/name
-	LocalAddress   string         `json:"local_address"`            // Local endpoint IP
-	RemoteAddress  string         `json:"remote_address"`           // Remote endpoint IP
-	PreSharedKey   string         `json:"pre_shared_key"`           // IKE pre-shared key
-	IKEv2Proposal  IKEv2Proposal  `json:"ikev2_proposal"`           // IKE Phase 1 proposal
-	IPsecTransform IPsecTransform `json:"ipsec_transform"`          // IPsec Phase 2 transform
-	LocalNetwork   string         `json:"local_network"`            // Local network CIDR
-	RemoteNetwork  string         `json:"remote_network"`           // Remote network CIDR
-	DPDEnabled     bool           `json:"dpd_enabled"`              // Dead Peer Detection enabled
-	DPDInterval    int            `json:"dpd_interval,omitempty"`   // DPD interval in seconds
-	DPDRetry       int            `json:"dpd_retry,omitempty"`      // DPD retry count
-	KeepaliveMode  string         `json:"keepalive_mode,omitempty"` // Keepalive mode: "dpd" or "heartbeat"
-	Enabled        bool           `json:"enabled"`                  // Tunnel enabled
-	SAPolicy       int            `json:"sa_policy,omitempty"`      // SA policy number
-	IKELocalID     string         `json:"ike_local_id,omitempty"`   // IKE local ID
-	IKERemoteID    string         `json:"ike_remote_id,omitempty"`  // IKE remote ID
-	NATTraversal   bool           `json:"nat_traversal,omitempty"`  // NAT-T enabled
-	PFSGroup       string         `json:"pfs_group,omitempty"`      // PFS DH group
+	ID              int            `json:"id"`                        // Tunnel ID
+	Name            string         `json:"name,omitempty"`            // Description/name
+	LocalAddress    string         `json:"local_address"`             // Local endpoint IP
+	RemoteAddress   string         `json:"remote_address"`            // Remote endpoint IP
+	PreSharedKey    string         `json:"pre_shared_key"`            // IKE pre-shared key
+	IKEv2Proposal   IKEv2Proposal  `json:"ikev2_proposal"`            // IKE Phase 1 proposal
+	IPsecTransform  IPsecTransform `json:"ipsec_transform"`           // IPsec Phase 2 transform
+	LocalNetwork    string         `json:"local_network"`             // Local network CIDR
+	RemoteNetwork   string         `json:"remote_network"`            // Remote network CIDR
+	DPDEnabled      bool           `json:"dpd_enabled"`               // Dead Peer Detection enabled
+	DPDInterval     int            `json:"dpd_interval,omitempty"`    // DPD interval in seconds
+	DPDRetry        int            `json:"dpd_retry,omitempty"`       // DPD retry count
+	KeepaliveMode   string         `json:"keepalive_mode,omitempty"`  // Keepalive mode: "dpd" or "heartbeat"
+	Enabled         bool           `json:"enabled"`                   // Tunnel enabled
+	SAPolicy        int            `json:"sa_policy,omitempty"`       // SA policy number
+	IKELocalID      string         `json:"ike_local_id,omitempty"`    // IKE local ID
+	IKERemoteID     string         `json:"ike_remote_id,omitempty"`   // IKE remote ID
+	NATTraversal    bool           `json:"nat_traversal,omitempty"`   // NAT-T enabled
+	PFSGroup        string         `json:"pfs_group,omitempty"`       // PFS DH group
+	SecureFilterIn  []int          `json:"secure_filter_in,omitempty"`  // Security filter IDs for incoming traffic
+	SecureFilterOut []int          `json:"secure_filter_out,omitempty"` // Security filter IDs for outgoing traffic
+	TCPMSSLimit     string         `json:"tcp_mss_limit,omitempty"`     // TCP MSS limit: "auto" or numeric value
 }
 
 // IKEv2Proposal represents IKE Phase 1 proposal settings
@@ -76,8 +79,9 @@ func (p *IPsecTunnelParser) ParseIPsecTunnelConfig(raw string) ([]IPsecTunnel, e
 	tunnelSelectPattern := regexp.MustCompile(`^\s*tunnel\s+select\s+(\d+)\s*$`)
 	ipsecTunnelPattern := regexp.MustCompile(`^\s*ipsec\s+tunnel\s+(\d+)\s*$`)
 	ipsecSAPolicyPattern := regexp.MustCompile(`^\s*ipsec\s+sa\s+policy\s+(\d+)\s+(\d+)\s+(\w+)\s+(.+)\s*$`)
-	ipsecIKELocalAddrPattern := regexp.MustCompile(`^\s*ipsec\s+ike\s+local\s+address\s+(\d+)\s+([0-9.]+)\s*$`)
-	ipsecIKERemoteAddrPattern := regexp.MustCompile(`^\s*ipsec\s+ike\s+remote\s+address\s+(\d+)\s+([0-9.]+)\s*$`)
+	// Match IPv4, FQDN, or special values like "any"
+	ipsecIKELocalAddrPattern := regexp.MustCompile(`^\s*ipsec\s+ike\s+local\s+address\s+(\d+)\s+(\S+)\s*$`)
+	ipsecIKERemoteAddrPattern := regexp.MustCompile(`^\s*ipsec\s+ike\s+remote\s+address\s+(\d+)\s+(\S+)\s*$`)
 	ipsecIKEPreSharedKeyPattern := regexp.MustCompile(`^\s*ipsec\s+ike\s+pre-shared-key\s+(\d+)\s+text\s+(.+)\s*$`)
 	ipsecIKEEncryptionPattern := regexp.MustCompile(`^\s*ipsec\s+ike\s+encryption\s+(\d+)\s+(.+)\s*$`)
 	ipsecIKEHashPattern := regexp.MustCompile(`^\s*ipsec\s+ike\s+hash\s+(\d+)\s+(.+)\s*$`)
@@ -86,6 +90,9 @@ func (p *IPsecTunnelParser) ParseIPsecTunnelConfig(raw string) ([]IPsecTunnel, e
 	ipsecIKEKeepaliveRetryPattern := regexp.MustCompile(`^\s*ipsec\s+ike\s+keepalive\s+use\s+(\d+)\s+on\s+dpd\s+(\d+)\s+(\d+)\s*$`)
 	ipsecIKEKeepaliveHeartbeatPattern := regexp.MustCompile(`^\s*ipsec\s+ike\s+keepalive\s+use\s+(\d+)\s+on\s+heartbeat\s+(\d+)\s+(\d+)\s*$`)
 	tunnelDescriptionPattern := regexp.MustCompile(`^\s*description\s+(.+)\s*$`)
+	ipTunnelSecureFilterPattern := regexp.MustCompile(`^\s*ip\s+tunnel\s+secure\s+filter\s+(in|out)\s+(.+)$`)
+	ipTunnelTCPMSSPattern := regexp.MustCompile(`^\s*ip\s+tunnel\s+tcp\s+mss\s+limit\s+(\S+)\s*$`)
+	tunnelEnablePattern := regexp.MustCompile(`^\s*tunnel\s+enable\s+(\d+)\s*$`)
 
 	var currentTunnelID int
 
@@ -115,20 +122,14 @@ func (p *IPsecTunnelParser) ParseIPsecTunnelConfig(raw string) ([]IPsecTunnel, e
 			continue
 		}
 
-		// IPsec tunnel
+		// IPsec tunnel - record ipsec tunnel ID in current tunnel select context
+		// Note: ipsec tunnel ID may differ from tunnel select ID
 		if matches := ipsecTunnelPattern.FindStringSubmatch(line); len(matches) >= 2 {
-			id, _ := strconv.Atoi(matches[1])
-			if _, exists := tunnels[id]; !exists {
-				tunnels[id] = &IPsecTunnel{
-					ID:            id,
-					DPDEnabled:    true,
-					DPDInterval:   30,
-					Enabled:       true,
-					IKEv2Proposal: IKEv2Proposal{LifetimeSeconds: 28800},
-					IPsecTransform: IPsecTransform{
-						Protocol:        "esp",
-						LifetimeSeconds: 3600,
-					},
+			ipsecTunnelID, _ := strconv.Atoi(matches[1])
+			// Store ipsec tunnel ID in the current tunnel select's SAPolicy field
+			if currentTunnelID > 0 {
+				if tunnel, exists := tunnels[currentTunnelID]; exists {
+					tunnel.SAPolicy = ipsecTunnelID
 				}
 			}
 			continue
@@ -250,6 +251,44 @@ func (p *IPsecTunnelParser) ParseIPsecTunnelConfig(raw string) ([]IPsecTunnel, e
 				continue
 			}
 		}
+
+		// IP tunnel secure filter in/out (within tunnel context)
+		if currentTunnelID > 0 {
+			if matches := ipTunnelSecureFilterPattern.FindStringSubmatch(line); len(matches) >= 3 {
+				if tunnel, exists := tunnels[currentTunnelID]; exists {
+					direction := matches[1]
+					filterIDsStr := strings.TrimSpace(matches[2])
+					filterIDs := parseFilterIDs(filterIDsStr)
+					if direction == "in" {
+						tunnel.SecureFilterIn = filterIDs
+					} else {
+						tunnel.SecureFilterOut = filterIDs
+					}
+				}
+				continue
+			}
+		}
+
+		// IP tunnel tcp mss limit (within tunnel context)
+		if currentTunnelID > 0 {
+			if matches := ipTunnelTCPMSSPattern.FindStringSubmatch(line); len(matches) >= 2 {
+				if tunnel, exists := tunnels[currentTunnelID]; exists {
+					tunnel.TCPMSSLimit = strings.TrimSpace(matches[1])
+				}
+				continue
+			}
+		}
+
+		// Tunnel enable (within tunnel context)
+		if currentTunnelID > 0 {
+			if matches := tunnelEnablePattern.FindStringSubmatch(line); len(matches) >= 2 {
+				enabledID, _ := strconv.Atoi(matches[1])
+				if tunnel, exists := tunnels[currentTunnelID]; exists && enabledID == currentTunnelID {
+					tunnel.Enabled = true
+				}
+				continue
+			}
+		}
 	}
 
 	// Convert map to slice
@@ -301,6 +340,18 @@ func parseIKEGroup(group string, proposal *IKEv2Proposal) {
 	if strings.Contains(group, "modp1024") || strings.Contains(group, "2") {
 		proposal.GroupTwo = true
 	}
+}
+
+// parseFilterIDs parses a space-separated list of filter IDs
+func parseFilterIDs(s string) []int {
+	var ids []int
+	parts := strings.Fields(s)
+	for _, part := range parts {
+		if id, err := strconv.Atoi(part); err == nil {
+			ids = append(ids, id)
+		}
+	}
+	return ids
 }
 
 // parseIPsecSAAlgorithms parses IPsec SA policy algorithm string
@@ -493,8 +544,68 @@ func BuildDeleteTunnelSelectCommand(tunnelID int) string {
 }
 
 // BuildShowIPsecConfigCommand builds the command to show IPsec configuration
+// Uses full "show config" output since we need tunnel select context
 func BuildShowIPsecConfigCommand() string {
-	return "show config | grep ipsec"
+	return "show config"
+}
+
+// BuildIPTunnelSecureFilterCommand builds the command to set IP tunnel secure filter
+// Command format: ip tunnel secure filter <in|out> <filter_id> [filter_id...]
+func BuildIPTunnelSecureFilterCommand(direction string, filterIDs []int) string {
+	if len(filterIDs) == 0 {
+		return ""
+	}
+	ids := make([]string, len(filterIDs))
+	for i, id := range filterIDs {
+		ids[i] = strconv.Itoa(id)
+	}
+	return fmt.Sprintf("ip tunnel secure filter %s %s", direction, strings.Join(ids, " "))
+}
+
+// BuildDeleteIPTunnelSecureFilterCommand builds the command to delete IP tunnel secure filter
+// Command format: no ip tunnel secure filter <in|out>
+func BuildDeleteIPTunnelSecureFilterCommand(direction string) string {
+	return fmt.Sprintf("no ip tunnel secure filter %s", direction)
+}
+
+// BuildIPTunnelTCPMSSLimitCommand builds the command to set IP tunnel TCP MSS limit
+// Command format: ip tunnel tcp mss limit <auto|numeric>
+func BuildIPTunnelTCPMSSLimitCommand(limit string) string {
+	return fmt.Sprintf("ip tunnel tcp mss limit %s", limit)
+}
+
+// BuildDeleteIPTunnelTCPMSSLimitCommand builds the command to delete IP tunnel TCP MSS limit
+// Command format: no ip tunnel tcp mss limit
+func BuildDeleteIPTunnelTCPMSSLimitCommand() string {
+	return "no ip tunnel tcp mss limit"
+}
+
+// BuildTunnelEnableCommand builds the command to enable a tunnel
+// Command format: tunnel enable <n>
+func BuildTunnelEnableCommand(tunnelID int) string {
+	return fmt.Sprintf("tunnel enable %d", tunnelID)
+}
+
+// BuildTunnelDisableCommand builds the command to disable a tunnel
+// Command format: tunnel disable <n>
+func BuildTunnelDisableCommand(tunnelID int) string {
+	return fmt.Sprintf("tunnel disable %d", tunnelID)
+}
+
+// isValidIPOrFQDN validates if the string is a valid IPv4 address or FQDN
+func isValidIPOrFQDN(s string) bool {
+	if isValidIP(s) {
+		return true
+	}
+	return ValidateHostname(s) == nil
+}
+
+// isValidIPOrFQDNOrAny validates if the string is a valid IPv4, FQDN, or "any"
+func isValidIPOrFQDNOrAny(s string) bool {
+	if s == "any" {
+		return true
+	}
+	return isValidIPOrFQDN(s)
 }
 
 // ValidateIPsecTunnel validates an IPsec tunnel configuration
@@ -504,12 +615,14 @@ func ValidateIPsecTunnel(tunnel IPsecTunnel) error {
 	}
 
 	// LocalAddress is optional - when empty, the router uses appropriate local address
-	if tunnel.LocalAddress != "" && !isValidIP(tunnel.LocalAddress) {
+	// Can be IPv4 or FQDN
+	if tunnel.LocalAddress != "" && !isValidIPOrFQDN(tunnel.LocalAddress) {
 		return fmt.Errorf("invalid local_address: %s", tunnel.LocalAddress)
 	}
 
 	// RemoteAddress is optional for some IPsec configurations (e.g., L2TP anonymous)
-	if tunnel.RemoteAddress != "" && !isValidIP(tunnel.RemoteAddress) {
+	// Can be IPv4, FQDN, or "any"
+	if tunnel.RemoteAddress != "" && !isValidIPOrFQDNOrAny(tunnel.RemoteAddress) {
 		return fmt.Errorf("invalid remote_address: %s", tunnel.RemoteAddress)
 	}
 

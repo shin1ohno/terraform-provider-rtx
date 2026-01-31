@@ -1200,20 +1200,23 @@ type OSPFNeighbor struct {
 
 // IPsecTunnel represents an IPsec tunnel configuration on an RTX router
 type IPsecTunnel struct {
-	ID             int            `json:"id"`                       // Tunnel ID
-	Name           string         `json:"name,omitempty"`           // Description/name
-	LocalAddress   string         `json:"local_address"`            // Local endpoint IP
-	RemoteAddress  string         `json:"remote_address"`           // Remote endpoint IP
-	PreSharedKey   string         `json:"pre_shared_key"`           // IKE pre-shared key
-	IKEv2Proposal  IKEv2Proposal  `json:"ikev2_proposal"`           // IKE Phase 1 proposal
-	IPsecTransform IPsecTransform `json:"ipsec_transform"`          // IPsec Phase 2 transform
-	LocalNetwork   string         `json:"local_network"`            // Local network CIDR
-	RemoteNetwork  string         `json:"remote_network"`           // Remote network CIDR
-	DPDEnabled     bool           `json:"dpd_enabled"`              // Dead Peer Detection enabled
-	DPDInterval    int            `json:"dpd_interval,omitempty"`   // DPD interval in seconds
-	DPDRetry       int            `json:"dpd_retry,omitempty"`      // DPD retry count
-	KeepaliveMode  string         `json:"keepalive_mode,omitempty"` // Keepalive mode: "dpd" or "heartbeat"
-	Enabled        bool           `json:"enabled"`                  // Tunnel enabled
+	ID              int            `json:"id"`                        // Tunnel ID
+	Name            string         `json:"name,omitempty"`            // Description/name
+	LocalAddress    string         `json:"local_address"`             // Local endpoint IP
+	RemoteAddress   string         `json:"remote_address"`            // Remote endpoint IP
+	PreSharedKey    string         `json:"pre_shared_key"`            // IKE pre-shared key
+	IKEv2Proposal   IKEv2Proposal  `json:"ikev2_proposal"`            // IKE Phase 1 proposal
+	IPsecTransform  IPsecTransform `json:"ipsec_transform"`           // IPsec Phase 2 transform
+	LocalNetwork    string         `json:"local_network"`             // Local network CIDR
+	RemoteNetwork   string         `json:"remote_network"`            // Remote network CIDR
+	DPDEnabled      bool           `json:"dpd_enabled"`               // Dead Peer Detection enabled
+	DPDInterval     int            `json:"dpd_interval,omitempty"`    // DPD interval in seconds
+	DPDRetry        int            `json:"dpd_retry,omitempty"`       // DPD retry count
+	KeepaliveMode   string         `json:"keepalive_mode,omitempty"`  // Keepalive mode: "dpd" or "heartbeat"
+	Enabled         bool           `json:"enabled"`                   // Tunnel enabled
+	SecureFilterIn  []int          `json:"secure_filter_in,omitempty"`  // Security filter IDs for incoming traffic
+	SecureFilterOut []int          `json:"secure_filter_out,omitempty"` // Security filter IDs for outgoing traffic
+	TCPMSSLimit     string         `json:"tcp_mss_limit,omitempty"`     // TCP MSS limit: "auto" or numeric value
 }
 
 // IKEv2Proposal represents IKE Phase 1 proposal settings

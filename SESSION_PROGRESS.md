@@ -1,173 +1,101 @@
 # Session Progress
 
-## Terraform Provider for Yamaha RTX
+## 機能追加
 
-### プロジェクト概要
+### rtx_ipsec_tunnel: 3つの新機能を追加
 
-Yamaha RTXシリーズルーター用Terraformプロバイダーの開発プロジェクト。
+**追加日**: 2026-01-31
 
-**プロバイダー設定**:
-- `host`: RTXルーターのIPアドレス/ホスト名
-- `username`: 認証用ユーザー名
-- `password`: 認証用パスワード
-- `port`: SSHポート（デフォルト: 22）
-- `timeout`: 接続タイムアウト秒数（デフォルト: 30）
+`rtx_ipsec_tunnel` リソースに以下の3つの機能を追加しました。
 
-環境変数: `RTX_HOST`, `RTX_USERNAME`, `RTX_PASSWORD`
+#### 1. `secure_filter_in` / `secure_filter_out` 属性
 
----
-
-## 実装完了済みリソース
-
-| リソース | 説明 |
-|---------|------|
-| rtx_dhcp_scope | DHCPスコープ管理 |
-| rtx_dhcp_binding | DHCP静的バインディング（Client Identifier対応） |
-| rtx_system | システム設定（timezone, console, packet_buffer, statistics） |
-| rtx_ipv6_prefix | IPv6プレフィックス（static, ra, dhcpv6-pd） |
-| rtx_vlan | VLAN設定（802.1Q、IP付き対応） |
-| rtx_static_route | スタティックルート（マルチホップ、ECMP、フェイルオーバー） |
-| rtx_interface | インターフェース設定（IP, filter, NAT, ProxyARP, MTU） |
-| rtx_ipv6_interface | IPv6インターフェース設定（アドレス、RTADV、DHCPv6、MTU、フィルタ） |
-| rtx_nat_static | 静的NAT（1:1マッピング、ポートベースNAT） |
-| rtx_nat_masquerade | NATマスカレード（PAT、静的ポートマッピング） |
-| rtx_kron_policy | Kronポリシー（コマンドリスト） |
-| rtx_kron_schedule | Kronスケジュール（時刻・曜日・日付指定、起動時） |
-| rtx_snmp_server | SNMP設定（community、host、trap） |
-| rtx_dns_server | DNSサーバー設定（name_servers、server_select、hosts） |
-| rtx_syslog | Syslog設定（hosts、facility、log levels） |
-| rtx_class_map | QoSクラスマップ（トラフィック分類） |
-| rtx_policy_map | QoSポリシーマップ（クラスアクション定義） |
-| rtx_service_policy | QoSサービスポリシー（インターフェースへの適用） |
-| rtx_shape | トラフィックシェーピング（帯域制御） |
-| rtx_admin | 管理者パスワード設定（シングルトン） |
-| rtx_admin_user | ユーザーアカウント管理（属性、権限） |
-| rtx_httpd | HTTPDサービス設定（Webインターフェース） |
-| rtx_sshd | SSHDサービス設定（SSHアクセス） |
-| rtx_sftpd | SFTPDサービス設定（SFTPファイル転送） |
-| rtx_access_list_ip | IPv4アクセスリスト（entries配列構造） |
-| rtx_access_list_ipv6 | IPv6アクセスリスト（entries配列構造） |
-| rtx_access_list_ip_dynamic | IPv4動的フィルタのグループ化（entries配列構造） |
-| rtx_access_list_ipv6_dynamic | IPv6動的フィルタのグループ化（entries配列構造） |
-| rtx_access_list_mac | MACアクセスリスト（entries配列構造） |
-| rtx_bridge | Ethernetブリッジ（L2VPN） |
-| rtx_bgp | BGP動的ルーティング |
-| rtx_ospf | OSPF動的ルーティング |
-| rtx_ipsec_tunnel | IPsec VPNトンネル |
-| rtx_l2tp | L2TP/L2TPv3トンネル |
-| rtx_pptp | PPTP VPNサーバー |
-
-## データソース
-
-| データソース | 説明 |
-|------------|------|
-| rtx_system_info | システム情報 |
-| rtx_interfaces | インターフェース一覧 |
-| rtx_routes | ルーティングテーブル |
-
----
-
-## 現在の課題
-
-### 既存のテストの問題（解決待ち）
-- `TestPPPoERoundTrip`: LCPReconnect設定のパース問題
-- ethernet_filter_service_test.go
-- ip_filter_service_test.go
-
-### SSH接続エラー
-- `ssh: handshake failed: EOF` エラーが頻発
-- 原因: SSHセッションプールが有効だが、simpleExecutorでは活用されていない
-- 対策: SSH Session Pool統合Spec（`.spec-workflow/specs/ssh-session-pool-integration/`）
-
----
-
-## SSH Session Pool 機能
-
-SSHセッションプールを実装済み。プロバイダー設定で有効化可能。
+トンネルの入出力トラフィックに対するIPフィルタを設定します。
 
 ```hcl
-provider "rtx" {
-  host     = "192.168.1.1"
-  username = "admin"
-  password = "password"
-
-  ssh_session_pool {
-    enabled      = true    # デフォルト: true
-    max_sessions = 2       # デフォルト: 2
-    idle_timeout = "5m"    # デフォルト: 5m
-  }
+resource "rtx_ipsec_tunnel" "example" {
+  tunnel_id = 1
+  # ...
+  secure_filter_in  = [200028, 200099]
+  secure_filter_out = [200100, 200101, 200102]
 }
 ```
 
-**実装ファイル:**
-- `internal/client/ssh_session_pool.go` - プール本体
-- `internal/client/ssh_session_pool_test.go` - ユニットテスト（32テスト）
-- `internal/client/ssh_session_pool_integration_test.go` - 統合テスト
+**生成されるRTXコマンド:**
+```
+ip tunnel secure filter in 200028 200099
+ip tunnel secure filter out 200100 200101 200102
+```
 
----
+#### 2. `tcp_mss_limit` 属性
 
-## 最近の変更
+トンネルのTCP MSS制限を設定します。
 
-### State Drift問題の解決（2026-01-25）
+```hcl
+resource "rtx_ipsec_tunnel" "example" {
+  tunnel_id     = 1
+  tcp_mss_limit = "auto"  # or numeric value like "1414"
+}
+```
 
-`terraform apply`後も差分が残り続ける問題を修正。
+**生成されるRTXコマンド:**
+```
+ip tunnel tcp mss limit auto
+```
 
-**問題1: interface access list属性**
-- 原因: RTXルーターはフィルタ番号のみを保存、名前は逆引き不可
-- 解決: Create/Update関数で`d.Set()`を使用してconfig値を明示的に設定
+#### 3. `tunnel enable/disable` コマンドの生成
 
-**問題2: rtx_access_list_mac source_any/destination_any**
-- 原因: ルーターが`*:*:*:*:*:*`を返すがTerraformは`*_any=true`を期待
-- 解決: Read関数でワイルドカードアドレスを検出して`*_any`フィールドに変換
+既存の `enabled` 属性に基づいて、`tunnel enable N` または `tunnel disable N` コマンドを生成するようになりました。
 
-**問題3: rtx_access_list_mac filter_id/apply**
-- 原因: Optional属性がConfigで指定されていないのにReadで設定される
-- 解決: `Computed: true`を追加してReadからの値を許容
+```hcl
+resource "rtx_ipsec_tunnel" "example" {
+  tunnel_id = 1
+  enabled   = true  # default
+}
+```
 
-**修正ファイル:**
-- `internal/provider/resource_rtx_interface.go`
-- `internal/provider/resource_rtx_ipv6_interface.go`
-- `internal/provider/resource_rtx_access_list_mac.go`
-- `internal/provider/diff_suppress.go`
+**生成されるRTXコマンド:**
+```
+tunnel enable 1
+```
 
-### Dynamic Access List Import修正（2026-01-25）
+#### 修正ファイル
 
-RTXルーターは「名前付きアクセスリスト」の概念を持たず、フィルタ番号のみを管理。
-Import時に他のアクセスリストのフィルタが漏れ込む問題を修正。
+| ファイル | 変更内容 |
+|----------|----------|
+| `internal/rtx/parsers/ipsec_tunnel.go` | 構造体フィールド、正規表現パターン、コマンドビルダー追加 |
+| `internal/rtx/parsers/ipsec_tunnel_test.go` | パーサーとビルダーのテスト追加 |
+| `internal/client/interfaces.go` | IPsecTunnel構造体にフィールド追加 |
+| `internal/client/ipsec_tunnel_service.go` | コンバーター更新、Create/Updateにコマンド追加 |
+| `internal/provider/resources/ipsec_tunnel/model.go` | Terraformモデルにフィールド追加、ToClient/FromClient更新 |
+| `internal/provider/resources/ipsec_tunnel/resource.go` | スキーマ定義追加 |
 
-**解決策:**
-- Import関数: 名前のみを設定、entriesは設定しない
-- Read関数: stateにあるシーケンス番号のみを返す
+## バグ修正
 
-**修正後のワークフロー:**
-1. `terraform import` → 名前のみがstate保存
-2. `terraform plan` → 設定のentriesが「追加」として表示
-3. `terraform apply` → entriesがリソースにバインド
+### ipsec_tunnel: show config コマンド修正
 
-コミット: `13c58e0 import: prevent filter leakage between dynamic access lists`
+**修正日**: 2026-01-31
 
-### フィルタ属性統合（2026-01-25）
+`BuildShowIPsecConfigCommand()` が `show config | grep ipsec` を返していたため、`tunnel select N` 行がパースできず `tunnel_id` が null になる問題を修正。
 
-フィルタ管理を簡素化:
-- 動的フィルタをアクセスリストリソースでグループ化
-- `rtx_interface`から名前でアクセスリストを参照
-- 冗長なACLバインディングリソースを削除
+**修正内容**: `show config` を返すように変更し、パーサーがトンネルコンテキストを正しく取得できるようにした。
 
-**破壊的変更:**
-- 削除: `rtx_interface_acl`, `rtx_interface_mac_acl`, `rtx_ip_filter_dynamic`, `rtx_ipv6_filter_dynamic`
-- 追加: `rtx_access_list_ip_dynamic`, `rtx_access_list_ipv6_dynamic`
-- `rtx_interface`属性: `secure_filter_*` → `access_list_*`
+### examples/import/main.tf: IPsec tunnel_id 修正
 
-### スキーマ属性名の標準化（2026-01-25）
+**修正日**: 2026-01-31
 
-業界標準の用語に合わせて属性名を変更:
-- `filter_id` → `sequence` (評価順序)
-- `id` → `priority` / `area_id` / `index` (用途に応じて)
+`tunnel_id`属性は`tunnel select N`に対応するため、main.tfを修正。
 
----
+**修正前**:
+- `rtx_ipsec_tunnel.ipsec101` with `tunnel_id = 101` → 存在しないトンネル
+- `rtx_ipsec_tunnel.ipsec1` with `tunnel_id = 1` → 実際はtunnel select 2
 
-## 次のステップ
+**修正後**:
+- `rtx_ipsec_tunnel.tunnel1` with `tunnel_id = 1` → tunnel select 1 (ipsec tunnel 101, L2TPv3)
+- `rtx_ipsec_tunnel.tunnel2` with `tunnel_id = 2` → tunnel select 2 (ipsec tunnel 1, L2TP anonymous)
 
-1. **SSH Session Pool統合**: simpleExecutorでプールを活用（Spec作成済み）
-2. **PPPパーサー修正**: LCPReconnect round-trip テスト修正
-3. **受け入れテスト**: 実RTXでの統合テスト
+**ルーター設定との対応関係**:
+| Terraform resource | tunnel_id | ルーターコマンド |
+|--------------------|-----------|------------------|
+| `rtx_ipsec_tunnel.tunnel1` | 1 | `tunnel select 1` + `ipsec tunnel 101` |
+| `rtx_ipsec_tunnel.tunnel2` | 2 | `tunnel select 2` + `ipsec tunnel 1` |

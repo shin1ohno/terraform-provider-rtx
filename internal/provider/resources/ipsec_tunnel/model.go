@@ -1,13 +1,54 @@
 package ipsec_tunnel
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
 	"github.com/sh1/terraform-provider-rtx/internal/provider/fwhelpers"
 )
+
+// convertListToIntSlice converts a types.List to []int
+func convertListToIntSlice(list types.List) []int {
+	if list.IsNull() || list.IsUnknown() {
+		return nil
+	}
+
+	elements := list.Elements()
+	if len(elements) == 0 {
+		return nil
+	}
+
+	result := make([]int, 0, len(elements))
+	for _, elem := range elements {
+		if int64Val, ok := elem.(types.Int64); ok && !int64Val.IsNull() && !int64Val.IsUnknown() {
+			result = append(result, int(int64Val.ValueInt64()))
+		}
+	}
+
+	return result
+}
+
+// convertIntSliceToList converts []int to types.List
+func convertIntSliceToList(ints []int) types.List {
+	if len(ints) == 0 {
+		return types.ListNull(types.Int64Type)
+	}
+
+	elements := make([]attr.Value, len(ints))
+	for i, v := range ints {
+		elements[i] = types.Int64Value(int64(v))
+	}
+
+	list, _ := types.ListValue(types.Int64Type, elements)
+	return list
+}
+
+// Ensure context is used (for future use with diagnostics)
+var _ = context.Background
 
 // IPsecTunnelModel describes the resource data model.
 type IPsecTunnelModel struct {
@@ -24,6 +65,9 @@ type IPsecTunnelModel struct {
 	KeepaliveMode   types.String         `tfsdk:"keepalive_mode"`
 	Enabled         types.Bool           `tfsdk:"enabled"`
 	TunnelInterface types.String         `tfsdk:"tunnel_interface"`
+	SecureFilterIn  types.List           `tfsdk:"secure_filter_in"`
+	SecureFilterOut types.List           `tfsdk:"secure_filter_out"`
+	TCPMSSLimit     types.String         `tfsdk:"tcp_mss_limit"`
 	IKEv2Proposal   *IKEv2ProposalModel  `tfsdk:"ikev2_proposal"`
 	IPsecTransform  *IPsecTransformModel `tfsdk:"ipsec_transform"`
 }
@@ -60,18 +104,21 @@ type IPsecTransformModel struct {
 // ToClient converts the Terraform model to a client.IPsecTunnel.
 func (m *IPsecTunnelModel) ToClient() client.IPsecTunnel {
 	tunnel := client.IPsecTunnel{
-		ID:            int(m.TunnelID.ValueInt64()),
-		Name:          fwhelpers.GetStringValue(m.Name),
-		LocalAddress:  fwhelpers.GetStringValue(m.LocalAddress),
-		RemoteAddress: fwhelpers.GetStringValue(m.RemoteAddress),
-		PreSharedKey:  fwhelpers.GetStringValue(m.PreSharedKey),
-		LocalNetwork:  fwhelpers.GetStringValue(m.LocalNetwork),
-		RemoteNetwork: fwhelpers.GetStringValue(m.RemoteNetwork),
-		DPDEnabled:    fwhelpers.GetBoolValue(m.DPDEnabled),
-		DPDInterval:   fwhelpers.GetInt64Value(m.DPDInterval),
-		DPDRetry:      fwhelpers.GetInt64Value(m.DPDRetry),
-		KeepaliveMode: fwhelpers.GetStringValue(m.KeepaliveMode),
-		Enabled:       fwhelpers.GetBoolValueWithDefault(m.Enabled, true),
+		ID:              int(m.TunnelID.ValueInt64()),
+		Name:            fwhelpers.GetStringValue(m.Name),
+		LocalAddress:    fwhelpers.GetStringValue(m.LocalAddress),
+		RemoteAddress:   fwhelpers.GetStringValue(m.RemoteAddress),
+		PreSharedKey:    fwhelpers.GetStringValue(m.PreSharedKey),
+		LocalNetwork:    fwhelpers.GetStringValue(m.LocalNetwork),
+		RemoteNetwork:   fwhelpers.GetStringValue(m.RemoteNetwork),
+		DPDEnabled:      fwhelpers.GetBoolValue(m.DPDEnabled),
+		DPDInterval:     fwhelpers.GetInt64Value(m.DPDInterval),
+		DPDRetry:        fwhelpers.GetInt64Value(m.DPDRetry),
+		KeepaliveMode:   fwhelpers.GetStringValue(m.KeepaliveMode),
+		Enabled:         fwhelpers.GetBoolValueWithDefault(m.Enabled, true),
+		SecureFilterIn:  convertListToIntSlice(m.SecureFilterIn),
+		SecureFilterOut: convertListToIntSlice(m.SecureFilterOut),
+		TCPMSSLimit:     fwhelpers.GetStringValue(m.TCPMSSLimit),
 	}
 
 	// Handle IKEv2 proposal
@@ -145,6 +192,9 @@ func (m *IPsecTunnelModel) FromClient(tunnel *client.IPsecTunnel) {
 
 	m.Enabled = types.BoolValue(tunnel.Enabled)
 	m.TunnelInterface = types.StringValue(fmt.Sprintf("tunnel%d", tunnel.ID))
+	m.SecureFilterIn = convertIntSliceToList(tunnel.SecureFilterIn)
+	m.SecureFilterOut = convertIntSliceToList(tunnel.SecureFilterOut)
+	m.TCPMSSLimit = fwhelpers.StringValueOrNull(tunnel.TCPMSSLimit)
 
 	// Update IKEv2 proposal - only update if the block already exists in state
 	// This preserves the user's intent when they don't specify ikev2_proposal

@@ -114,6 +114,34 @@ func (s *IPsecTunnelService) Create(ctx context.Context, tunnel IPsecTunnel) err
 		commands = append(commands, parsers.BuildIPsecIKEKeepaliveOffCommand(tunnel.ID))
 	}
 
+	// 11. Configure IP tunnel secure filter in
+	if len(tunnel.SecureFilterIn) > 0 {
+		cmd := parsers.BuildIPTunnelSecureFilterCommand("in", tunnel.SecureFilterIn)
+		if cmd != "" {
+			commands = append(commands, cmd)
+		}
+	}
+
+	// 12. Configure IP tunnel secure filter out
+	if len(tunnel.SecureFilterOut) > 0 {
+		cmd := parsers.BuildIPTunnelSecureFilterCommand("out", tunnel.SecureFilterOut)
+		if cmd != "" {
+			commands = append(commands, cmd)
+		}
+	}
+
+	// 13. Configure IP tunnel TCP MSS limit
+	if tunnel.TCPMSSLimit != "" {
+		commands = append(commands, parsers.BuildIPTunnelTCPMSSLimitCommand(tunnel.TCPMSSLimit))
+	}
+
+	// 14. Enable or disable tunnel
+	if tunnel.Enabled {
+		commands = append(commands, parsers.BuildTunnelEnableCommand(tunnel.ID))
+	} else {
+		commands = append(commands, parsers.BuildTunnelDisableCommand(tunnel.ID))
+	}
+
 	// Execute all commands in batch
 	output, err := s.executor.RunBatch(ctx, commands)
 	if err != nil {
@@ -196,6 +224,43 @@ func (s *IPsecTunnelService) Update(ctx context.Context, tunnel IPsecTunnel) err
 		commands = append(commands, parsers.BuildIPsecIKEKeepaliveOffCommand(tunnel.ID))
 	}
 
+	// Update IP tunnel secure filter in
+	if len(tunnel.SecureFilterIn) > 0 {
+		cmd := parsers.BuildIPTunnelSecureFilterCommand("in", tunnel.SecureFilterIn)
+		if cmd != "" {
+			commands = append(commands, cmd)
+		}
+	} else {
+		// Delete filter if not specified
+		commands = append(commands, parsers.BuildDeleteIPTunnelSecureFilterCommand("in"))
+	}
+
+	// Update IP tunnel secure filter out
+	if len(tunnel.SecureFilterOut) > 0 {
+		cmd := parsers.BuildIPTunnelSecureFilterCommand("out", tunnel.SecureFilterOut)
+		if cmd != "" {
+			commands = append(commands, cmd)
+		}
+	} else {
+		// Delete filter if not specified
+		commands = append(commands, parsers.BuildDeleteIPTunnelSecureFilterCommand("out"))
+	}
+
+	// Update IP tunnel TCP MSS limit
+	if tunnel.TCPMSSLimit != "" {
+		commands = append(commands, parsers.BuildIPTunnelTCPMSSLimitCommand(tunnel.TCPMSSLimit))
+	} else {
+		// Delete TCP MSS limit if not specified
+		commands = append(commands, parsers.BuildDeleteIPTunnelTCPMSSLimitCommand())
+	}
+
+	// Enable or disable tunnel
+	if tunnel.Enabled {
+		commands = append(commands, parsers.BuildTunnelEnableCommand(tunnel.ID))
+	} else {
+		commands = append(commands, parsers.BuildTunnelDisableCommand(tunnel.ID))
+	}
+
 	// Execute all commands in batch
 	output, err := s.executor.RunBatch(ctx, commands)
 	if err != nil {
@@ -259,18 +324,21 @@ func hasIKEGroup(proposal parsers.IKEv2Proposal) bool {
 // convertToParserIPsecTunnel converts client IPsecTunnel to parser IPsecTunnel
 func convertToParserIPsecTunnel(tunnel IPsecTunnel) parsers.IPsecTunnel {
 	return parsers.IPsecTunnel{
-		ID:            tunnel.ID,
-		Name:          tunnel.Name,
-		LocalAddress:  tunnel.LocalAddress,
-		RemoteAddress: tunnel.RemoteAddress,
-		PreSharedKey:  tunnel.PreSharedKey,
-		LocalNetwork:  tunnel.LocalNetwork,
-		RemoteNetwork: tunnel.RemoteNetwork,
-		DPDEnabled:    tunnel.DPDEnabled,
-		DPDInterval:   tunnel.DPDInterval,
-		DPDRetry:      tunnel.DPDRetry,
-		KeepaliveMode: tunnel.KeepaliveMode,
-		Enabled:       tunnel.Enabled,
+		ID:              tunnel.ID,
+		Name:            tunnel.Name,
+		LocalAddress:    tunnel.LocalAddress,
+		RemoteAddress:   tunnel.RemoteAddress,
+		PreSharedKey:    tunnel.PreSharedKey,
+		LocalNetwork:    tunnel.LocalNetwork,
+		RemoteNetwork:   tunnel.RemoteNetwork,
+		DPDEnabled:      tunnel.DPDEnabled,
+		DPDInterval:     tunnel.DPDInterval,
+		DPDRetry:        tunnel.DPDRetry,
+		KeepaliveMode:   tunnel.KeepaliveMode,
+		Enabled:         tunnel.Enabled,
+		SecureFilterIn:  tunnel.SecureFilterIn,
+		SecureFilterOut: tunnel.SecureFilterOut,
+		TCPMSSLimit:     tunnel.TCPMSSLimit,
 		IKEv2Proposal: parsers.IKEv2Proposal{
 			EncryptionAES256: tunnel.IKEv2Proposal.EncryptionAES256,
 			EncryptionAES128: tunnel.IKEv2Proposal.EncryptionAES128,
@@ -302,18 +370,21 @@ func convertToParserIPsecTunnel(tunnel IPsecTunnel) parsers.IPsecTunnel {
 // convertFromParserIPsecTunnel converts parser IPsecTunnel to client IPsecTunnel
 func convertFromParserIPsecTunnel(p parsers.IPsecTunnel) IPsecTunnel {
 	return IPsecTunnel{
-		ID:            p.ID,
-		Name:          p.Name,
-		LocalAddress:  p.LocalAddress,
-		RemoteAddress: p.RemoteAddress,
-		PreSharedKey:  p.PreSharedKey,
-		LocalNetwork:  p.LocalNetwork,
-		RemoteNetwork: p.RemoteNetwork,
-		DPDEnabled:    p.DPDEnabled,
-		DPDInterval:   p.DPDInterval,
-		DPDRetry:      p.DPDRetry,
-		KeepaliveMode: p.KeepaliveMode,
-		Enabled:       p.Enabled,
+		ID:              p.ID,
+		Name:            p.Name,
+		LocalAddress:    p.LocalAddress,
+		RemoteAddress:   p.RemoteAddress,
+		PreSharedKey:    p.PreSharedKey,
+		LocalNetwork:    p.LocalNetwork,
+		RemoteNetwork:   p.RemoteNetwork,
+		DPDEnabled:      p.DPDEnabled,
+		DPDInterval:     p.DPDInterval,
+		DPDRetry:        p.DPDRetry,
+		KeepaliveMode:   p.KeepaliveMode,
+		Enabled:         p.Enabled,
+		SecureFilterIn:  p.SecureFilterIn,
+		SecureFilterOut: p.SecureFilterOut,
+		TCPMSSLimit:     p.TCPMSSLimit,
 		IKEv2Proposal: IKEv2Proposal{
 			EncryptionAES256: p.IKEv2Proposal.EncryptionAES256,
 			EncryptionAES128: p.IKEv2Proposal.EncryptionAES128,

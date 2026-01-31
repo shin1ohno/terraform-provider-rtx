@@ -132,6 +132,20 @@ func (r *IPsecTunnelResource) Schema(ctx context.Context, req resource.SchemaReq
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"secure_filter_in": schema.ListAttribute{
+				Description: "IP filter IDs for incoming traffic on this tunnel (ip tunnel secure filter in).",
+				Optional:    true,
+				ElementType: types.Int64Type,
+			},
+			"secure_filter_out": schema.ListAttribute{
+				Description: "IP filter IDs for outgoing traffic on this tunnel (ip tunnel secure filter out).",
+				Optional:    true,
+				ElementType: types.Int64Type,
+			},
+			"tcp_mss_limit": schema.StringAttribute{
+				Description: "TCP MSS limit for this tunnel: 'auto' or a numeric value (ip tunnel tcp mss limit).",
+				Optional:    true,
+			},
 		},
 		Blocks: map[string]schema.Block{
 			"ikev2_proposal": schema.SingleNestedBlock{
