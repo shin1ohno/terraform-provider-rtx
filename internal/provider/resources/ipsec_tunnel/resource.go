@@ -63,14 +63,26 @@ func (r *IPsecTunnelResource) Schema(ctx context.Context, req resource.SchemaReq
 			"name": schema.StringAttribute{
 				Description: "Tunnel description/name.",
 				Optional:    true,
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"local_address": schema.StringAttribute{
 				Description: "Local endpoint IP address.",
 				Optional:    true,
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"remote_address": schema.StringAttribute{
 				Description: "Remote endpoint IP address or hostname (for dynamic DNS).",
 				Optional:    true,
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"pre_shared_key": schema.StringAttribute{
 				Description: "Pre-shared key for IKE authentication. This value is write-only and will not be stored in state.",

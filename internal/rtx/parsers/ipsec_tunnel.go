@@ -144,11 +144,14 @@ func (p *IPsecTunnelParser) ParseIPsecTunnelConfig(raw string) ([]IPsecTunnel, e
 			protocol := matches[3]
 			algorithms := matches[4]
 
-			// Use policy number to find the matching tunnel (ipsec tunnel ID = SA policy number)
-			if tunnel, exists := tunnels[policyNum]; exists {
-				tunnel.SAPolicy = policyNum
-				tunnel.IPsecTransform.Protocol = protocol
-				parseIPsecSAAlgorithms(algorithms, &tunnel.IPsecTransform)
+			// Find the tunnel that has this policy number as its SAPolicy
+			// (SAPolicy is set from "ipsec tunnel N" command)
+			for _, tunnel := range tunnels {
+				if tunnel.SAPolicy == policyNum {
+					tunnel.IPsecTransform.Protocol = protocol
+					parseIPsecSAAlgorithms(algorithms, &tunnel.IPsecTransform)
+					break
+				}
 			}
 			continue
 		}
