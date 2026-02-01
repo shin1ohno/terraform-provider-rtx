@@ -22,8 +22,6 @@ Manages unified tunnel configuration on RTX routers. Supports IPsec, L2TPv3, and
 
 ### Optional
 
-> **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
-
 - `enabled` (Boolean) Enable the tunnel.
 - `endpoint_name` (String) Tunnel endpoint name for DNS resolution.
 - `endpoint_name_type` (String) Endpoint name type: 'fqdn'.
@@ -40,9 +38,7 @@ Manages unified tunnel configuration on RTX routers. Supports IPsec, L2TPv3, and
 
 Required:
 
-> **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
-
-- `pre_shared_key` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) IKE pre-shared key. This value is write-only and will not be stored in state.
+- `pre_shared_key` (String, Sensitive) IKE pre-shared key.
 
 Optional:
 

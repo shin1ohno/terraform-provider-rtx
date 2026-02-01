@@ -21,11 +21,9 @@ Manages admin user accounts on RTX routers. Each user can have different permiss
 
 ### Optional
 
-> **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
-
 - `administrator` (Boolean) Whether the user has administrator privileges.
 - `connection_methods` (Set of String) Allowed connection methods for the user.
 - `encrypted` (Boolean) Whether the password is already encrypted. If true, the password value will be used as-is.
 - `gui_pages` (Set of String) Allowed GUI pages for the user.
 - `login_timer` (Number) Login timeout in seconds. 0 means infinite (no timeout).
-- `password` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Password for the admin user. This value is write-only and will not be stored in state.
+- `password` (String, Sensitive) Password for the admin user.

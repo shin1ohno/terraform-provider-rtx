@@ -21,8 +21,6 @@ Manages IPsec VPN tunnel configuration on RTX routers. Supports IKEv2 with pre-s
 
 ### Optional
 
-> **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
-
 - `dpd_enabled` (Boolean) Enable Dead Peer Detection.
 - `dpd_interval` (Number) DPD interval in seconds.
 - `dpd_retry` (Number) DPD retry count before declaring peer dead (0 means disabled).
@@ -34,7 +32,7 @@ Manages IPsec VPN tunnel configuration on RTX routers. Supports IKEv2 with pre-s
 - `local_address` (String) Local endpoint IP address.
 - `local_network` (String) Local network in CIDR notation (e.g., '192.168.1.0/24').
 - `name` (String) Tunnel description/name.
-- `pre_shared_key` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Pre-shared key for IKE authentication. This value is write-only and will not be stored in state.
+- `pre_shared_key` (String, Sensitive) Pre-shared key for IKE authentication.
 - `remote_address` (String) Remote endpoint IP address or hostname (for dynamic DNS).
 - `remote_network` (String) Remote network in CIDR notation (e.g., '10.0.0.0/24').
 - `secure_filter_in` (List of Number) IP filter IDs for incoming traffic on this tunnel (ip tunnel secure filter in).

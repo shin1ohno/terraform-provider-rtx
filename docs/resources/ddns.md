@@ -23,7 +23,5 @@ Manages custom DDNS provider configuration on RTX routers. Use this resource to 
 
 ### Optional
 
-> **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
-
-- `password` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) DDNS account password for authentication. This value is write-only and will not be stored in state.
+- `password` (String, Sensitive) DDNS account password for authentication.
 - `username` (String) DDNS account username for authentication.
