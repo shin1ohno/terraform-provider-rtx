@@ -1219,18 +1219,18 @@ type IPsecTunnel struct {
 	ID              int            `json:"id"`                          // Tunnel ID (tunnel select N)
 	IPsecTunnelID   int            `json:"ipsec_tunnel_id,omitempty"`   // IPsec tunnel ID (ipsec tunnel N)
 	Name            string         `json:"name,omitempty"`              // Description/name
-	LocalAddress    string         `json:"local_address"`             // Local endpoint IP
-	RemoteAddress   string         `json:"remote_address"`            // Remote endpoint IP
-	PreSharedKey    string         `json:"pre_shared_key"`            // IKE pre-shared key
-	IKEv2Proposal   IKEv2Proposal  `json:"ikev2_proposal"`            // IKE Phase 1 proposal
-	IPsecTransform  IPsecTransform `json:"ipsec_transform"`           // IPsec Phase 2 transform
-	LocalNetwork    string         `json:"local_network"`             // Local network CIDR
-	RemoteNetwork   string         `json:"remote_network"`            // Remote network CIDR
-	DPDEnabled      bool           `json:"dpd_enabled"`               // Dead Peer Detection enabled
-	DPDInterval     int            `json:"dpd_interval,omitempty"`    // DPD interval in seconds
-	DPDRetry        int            `json:"dpd_retry,omitempty"`       // DPD retry count
-	KeepaliveMode   string         `json:"keepalive_mode,omitempty"`  // Keepalive mode: "dpd" or "heartbeat"
-	Enabled         bool           `json:"enabled"`                   // Tunnel enabled
+	LocalAddress    string         `json:"local_address"`               // Local endpoint IP
+	RemoteAddress   string         `json:"remote_address"`              // Remote endpoint IP
+	PreSharedKey    string         `json:"pre_shared_key"`              // IKE pre-shared key
+	IKEv2Proposal   IKEv2Proposal  `json:"ikev2_proposal"`              // IKE Phase 1 proposal
+	IPsecTransform  IPsecTransform `json:"ipsec_transform"`             // IPsec Phase 2 transform
+	LocalNetwork    string         `json:"local_network"`               // Local network CIDR
+	RemoteNetwork   string         `json:"remote_network"`              // Remote network CIDR
+	DPDEnabled      bool           `json:"dpd_enabled"`                 // Dead Peer Detection enabled
+	DPDInterval     int            `json:"dpd_interval,omitempty"`      // DPD interval in seconds
+	DPDRetry        int            `json:"dpd_retry,omitempty"`         // DPD retry count
+	KeepaliveMode   string         `json:"keepalive_mode,omitempty"`    // Keepalive mode: "dpd" or "heartbeat"
+	Enabled         bool           `json:"enabled"`                     // Tunnel enabled
 	SecureFilterIn  []int          `json:"secure_filter_in,omitempty"`  // Security filter IDs for incoming traffic
 	SecureFilterOut []int          `json:"secure_filter_out,omitempty"` // Security filter IDs for outgoing traffic
 	TCPMSSLimit     string         `json:"tcp_mss_limit,omitempty"`     // TCP MSS limit: "auto" or numeric value
@@ -1339,50 +1339,58 @@ type L2TPServiceState struct {
 // Tunnel represents a unified tunnel configuration (rtx_tunnel resource)
 // This combines IPsec and L2TP settings under a single tunnel select N context
 type Tunnel struct {
-	ID            int          `json:"id"`                    // tunnel select N
-	Encapsulation string       `json:"encapsulation"`         // "ipsec", "l2tpv3", or "l2tp"
-	Enabled       bool         `json:"enabled"`               // tunnel enable N
-	Name          string       `json:"name,omitempty"`        // Description
-	IPsec         *TunnelIPsec `json:"ipsec,omitempty"`       // IPsec configuration
-	L2TP          *TunnelL2TP  `json:"l2tp,omitempty"`        // L2TP configuration
+	ID               int          `json:"id"`                           // tunnel select N
+	Encapsulation    string       `json:"encapsulation"`                // "ipsec", "l2tpv3", or "l2tp"
+	Enabled          bool         `json:"enabled"`                      // tunnel enable N
+	Name             string       `json:"name,omitempty"`               // Description
+	EndpointName     string       `json:"endpoint_name,omitempty"`      // tunnel endpoint name <addr>
+	EndpointNameType string       `json:"endpoint_name_type,omitempty"` // fqdn
+	IPsec            *TunnelIPsec `json:"ipsec,omitempty"`              // IPsec configuration
+	L2TP             *TunnelL2TP  `json:"l2tp,omitempty"`               // L2TP configuration
 }
 
 // TunnelIPsec represents IPsec settings within a unified tunnel
 type TunnelIPsec struct {
-	IPsecTunnelID   int                 `json:"ipsec_tunnel_id"`           // ipsec tunnel N (Computed: defaults to tunnel_id)
-	LocalAddress    string              `json:"local_address,omitempty"`   // ipsec ike local address
-	RemoteAddress   string              `json:"remote_address,omitempty"`  // ipsec ike remote address
-	PreSharedKey    string              `json:"pre_shared_key"`            // ipsec ike pre-shared-key
-	IKEv2Proposal   IKEv2Proposal       `json:"ikev2_proposal"`            // IKE Phase 1 proposal
-	Transform       IPsecTransform      `json:"transform"`                 // IPsec Phase 2 transform
-	Keepalive       *TunnelIPsecKeepalive `json:"keepalive,omitempty"`     // DPD/heartbeat settings
-	SecureFilterIn  []int               `json:"secure_filter_in,omitempty"`  // ip tunnel secure filter in
-	SecureFilterOut []int               `json:"secure_filter_out,omitempty"` // ip tunnel secure filter out
-	TCPMSSLimit     string              `json:"tcp_mss_limit,omitempty"`     // ip tunnel tcp mss limit
+	IPsecTunnelID     int                   `json:"ipsec_tunnel_id"`                // ipsec tunnel N (Computed: defaults to tunnel_id)
+	LocalAddress      string                `json:"local_address,omitempty"`        // ipsec ike local address
+	RemoteAddress     string                `json:"remote_address,omitempty"`       // ipsec ike remote address
+	PreSharedKey      string                `json:"pre_shared_key"`                 // ipsec ike pre-shared-key
+	NATTraversal      bool                  `json:"nat_traversal"`                  // ipsec ike nat-traversal
+	IKERemoteName     string                `json:"ike_remote_name,omitempty"`      // ipsec ike remote name value
+	IKERemoteNameType string                `json:"ike_remote_name_type,omitempty"` // ipsec ike remote name type
+	IKEKeepaliveLog   bool                  `json:"ike_keepalive_log"`              // ipsec ike keepalive log
+	IKELog            string                `json:"ike_log,omitempty"`              // ipsec ike log options
+	IKEv2Proposal     IKEv2Proposal         `json:"ikev2_proposal"`                 // IKE Phase 1 proposal
+	Transform         IPsecTransform        `json:"transform"`                      // IPsec Phase 2 transform
+	Keepalive         *TunnelIPsecKeepalive `json:"keepalive,omitempty"`            // DPD/heartbeat settings
+	SecureFilterIn    []int                 `json:"secure_filter_in,omitempty"`     // ip tunnel secure filter in
+	SecureFilterOut   []int                 `json:"secure_filter_out,omitempty"`    // ip tunnel secure filter out
+	TCPMSSLimit       string                `json:"tcp_mss_limit,omitempty"`        // ip tunnel tcp mss limit
 }
 
 // TunnelIPsecKeepalive represents IPsec keepalive/DPD settings within a tunnel
 type TunnelIPsecKeepalive struct {
-	Enabled  bool   `json:"enabled"`           // Keepalive enabled
-	Mode     string `json:"mode"`              // "dpd" or "heartbeat"
-	Interval int    `json:"interval"`          // Interval in seconds
-	Retry    int    `json:"retry"`             // Retry count
+	Enabled  bool   `json:"enabled"`  // Keepalive enabled
+	Mode     string `json:"mode"`     // "dpd" or "heartbeat"
+	Interval int    `json:"interval"` // Interval in seconds
+	Retry    int    `json:"retry"`    // Retry count
 }
 
 // TunnelL2TP represents L2TP settings within a unified tunnel
 type TunnelL2TP struct {
 	// Common L2TP settings
-	Hostname       string              `json:"hostname,omitempty"`        // l2tp hostname
-	AlwaysOn       bool                `json:"always_on,omitempty"`       // l2tp always-on
-	DisconnectTime int                 `json:"disconnect_time,omitempty"` // Idle disconnect time (0 = disabled)
+	Hostname       string               `json:"hostname,omitempty"`        // l2tp hostname
+	AlwaysOn       bool                 `json:"always_on,omitempty"`       // l2tp always-on
+	DisconnectTime int                  `json:"disconnect_time,omitempty"` // Idle disconnect time (0 = off)
+	KeepaliveLog   bool                 `json:"keepalive_log"`             // l2tp keepalive log
 	Keepalive      *TunnelL2TPKeepalive `json:"keepalive,omitempty"`       // l2tp keepalive use
-	SyslogEnabled  bool                `json:"syslog_enabled,omitempty"`  // l2tp syslog on
+	SyslogEnabled  bool                 `json:"syslog_enabled,omitempty"`  // l2tp syslog on
 
 	// L2TPv3 specific
-	LocalRouterID  string              `json:"local_router_id,omitempty"`  // l2tp local router-id
-	RemoteRouterID string              `json:"remote_router_id,omitempty"` // l2tp remote router-id
-	RemoteEndID    string              `json:"remote_end_id,omitempty"`    // l2tp remote end-id
-	TunnelAuth     *TunnelL2TPAuth     `json:"tunnel_auth,omitempty"`      // l2tp tunnel auth
+	LocalRouterID  string          `json:"local_router_id,omitempty"`  // l2tp local router-id
+	RemoteRouterID string          `json:"remote_router_id,omitempty"` // l2tp remote router-id
+	RemoteEndID    string          `json:"remote_end_id,omitempty"`    // l2tp remote end-id
+	TunnelAuth     *TunnelL2TPAuth `json:"tunnel_auth,omitempty"`      // l2tp tunnel auth
 
 	// L2TPv2 specific (remote access)
 	Authentication *L2TPAuth   `json:"authentication,omitempty"` // PPP authentication

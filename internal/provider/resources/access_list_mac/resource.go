@@ -320,6 +320,31 @@ func (r *AccessListMACResource) read(ctx context.Context, data *AccessListMACMod
 
 	logger.Debug().Str("resource", "rtx_access_list_mac").Msgf("Reading MAC access list: %s", name)
 
+	// Build a set of expected sequence numbers from current model
+	expectedSequences := make(map[int]struct{})
+	sequenceStart := fwhelpers.GetInt64Value(data.SequenceStart)
+	sequenceStep := fwhelpers.GetInt64Value(data.SequenceStep)
+	if sequenceStep == 0 {
+		sequenceStep = DefaultSequenceStep
+	}
+
+	for i, entry := range data.Entries {
+		var seq int
+		if sequenceStart > 0 {
+			// Auto mode: calculate sequence
+			seq = sequenceStart + (i * sequenceStep)
+		} else {
+			// Manual mode: use explicit sequence or filter_id
+			seq = fwhelpers.GetInt64Value(entry.Sequence)
+			if seq == 0 {
+				seq = fwhelpers.GetInt64Value(entry.FilterID)
+			}
+		}
+		if seq > 0 {
+			expectedSequences[seq] = struct{}{}
+		}
+	}
+
 	acl, err := r.client.GetAccessListMAC(ctx, name)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
@@ -329,6 +354,42 @@ func (r *AccessListMACResource) read(ctx context.Context, data *AccessListMACMod
 		}
 		fwhelpers.AppendDiagError(diagnostics, "Failed to read MAC access list", fmt.Sprintf("Could not read MAC access list %s: %v", name, err))
 		return
+	}
+
+	// Filter ACL entries to only include those with expected sequences
+	if len(expectedSequences) > 0 {
+		filteredEntries := make([]client.AccessListMACEntry, 0, len(data.Entries))
+		for _, entry := range acl.Entries {
+			seq := entry.Sequence
+			if seq == 0 {
+				seq = entry.FilterID
+			}
+			if _, ok := expectedSequences[seq]; ok {
+				filteredEntries = append(filteredEntries, entry)
+			}
+		}
+		acl.Entries = filteredEntries
+	}
+
+	// Preserve Applies from the current model instead of reading from router
+	// This is necessary because Applies reference filter IDs that may include
+	// filters not managed by this resource
+	acl.Applies = make([]client.MACApply, 0, len(data.Applies))
+	for _, apply := range data.Applies {
+		var filterIDs []int
+		if !apply.FilterIDs.IsNull() && !apply.FilterIDs.IsUnknown() {
+			var tfFilterIDs []types.Int64
+			if diags := apply.FilterIDs.ElementsAs(ctx, &tfFilterIDs, false); !diags.HasError() {
+				for _, id := range tfFilterIDs {
+					filterIDs = append(filterIDs, int(id.ValueInt64()))
+				}
+			}
+		}
+		acl.Applies = append(acl.Applies, client.MACApply{
+			Interface: fwhelpers.GetStringValue(apply.Interface),
+			Direction: fwhelpers.GetStringValue(apply.Direction),
+			FilterIDs: filterIDs,
+		})
 	}
 
 	data.FromClient(ctx, acl, diagnostics)

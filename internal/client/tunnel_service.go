@@ -146,22 +146,29 @@ func (s *TunnelService) Delete(ctx context.Context, tunnelID int) error {
 // convertToParserTunnel converts client.Tunnel to parsers.Tunnel
 func convertToParserTunnel(tunnel Tunnel) parsers.Tunnel {
 	result := parsers.Tunnel{
-		ID:            tunnel.ID,
-		Encapsulation: tunnel.Encapsulation,
-		Enabled:       tunnel.Enabled,
-		Name:          tunnel.Name,
+		ID:               tunnel.ID,
+		Encapsulation:    tunnel.Encapsulation,
+		Enabled:          tunnel.Enabled,
+		Name:             tunnel.Name,
+		EndpointName:     tunnel.EndpointName,
+		EndpointNameType: tunnel.EndpointNameType,
 	}
 
 	// Convert IPsec block
 	if tunnel.IPsec != nil {
 		result.IPsec = &parsers.TunnelIPsec{
-			IPsecTunnelID:   tunnel.IPsec.IPsecTunnelID,
-			LocalAddress:    tunnel.IPsec.LocalAddress,
-			RemoteAddress:   tunnel.IPsec.RemoteAddress,
-			PreSharedKey:    tunnel.IPsec.PreSharedKey,
-			SecureFilterIn:  tunnel.IPsec.SecureFilterIn,
-			SecureFilterOut: tunnel.IPsec.SecureFilterOut,
-			TCPMSSLimit:     tunnel.IPsec.TCPMSSLimit,
+			IPsecTunnelID:     tunnel.IPsec.IPsecTunnelID,
+			LocalAddress:      tunnel.IPsec.LocalAddress,
+			RemoteAddress:     tunnel.IPsec.RemoteAddress,
+			PreSharedKey:      tunnel.IPsec.PreSharedKey,
+			NATTraversal:      tunnel.IPsec.NATTraversal,
+			IKERemoteName:     tunnel.IPsec.IKERemoteName,
+			IKERemoteNameType: tunnel.IPsec.IKERemoteNameType,
+			IKEKeepaliveLog:   tunnel.IPsec.IKEKeepaliveLog,
+			IKELog:            tunnel.IPsec.IKELog,
+			SecureFilterIn:    tunnel.IPsec.SecureFilterIn,
+			SecureFilterOut:   tunnel.IPsec.SecureFilterOut,
+			TCPMSSLimit:       tunnel.IPsec.TCPMSSLimit,
 			IKEv2Proposal: parsers.IKEv2Proposal{
 				EncryptionAES256: tunnel.IPsec.IKEv2Proposal.EncryptionAES256,
 				EncryptionAES128: tunnel.IPsec.IKEv2Proposal.EncryptionAES128,
@@ -206,6 +213,7 @@ func convertToParserTunnel(tunnel Tunnel) parsers.Tunnel {
 			Hostname:       tunnel.L2TP.Hostname,
 			AlwaysOn:       tunnel.L2TP.AlwaysOn,
 			DisconnectTime: tunnel.L2TP.DisconnectTime,
+			KeepaliveLog:   tunnel.L2TP.KeepaliveLog,
 			SyslogEnabled:  tunnel.L2TP.SyslogEnabled,
 			LocalRouterID:  tunnel.L2TP.LocalRouterID,
 			RemoteRouterID: tunnel.L2TP.RemoteRouterID,
@@ -254,22 +262,29 @@ func convertToParserTunnel(tunnel Tunnel) parsers.Tunnel {
 // convertFromParserTunnel converts parsers.Tunnel to client.Tunnel
 func convertFromParserTunnel(p parsers.Tunnel) Tunnel {
 	result := Tunnel{
-		ID:            p.ID,
-		Encapsulation: p.Encapsulation,
-		Enabled:       p.Enabled,
-		Name:          p.Name,
+		ID:               p.ID,
+		Encapsulation:    p.Encapsulation,
+		Enabled:          p.Enabled,
+		Name:             p.Name,
+		EndpointName:     p.EndpointName,
+		EndpointNameType: p.EndpointNameType,
 	}
 
 	// Convert IPsec block
 	if p.IPsec != nil {
 		result.IPsec = &TunnelIPsec{
-			IPsecTunnelID:   p.IPsec.IPsecTunnelID,
-			LocalAddress:    p.IPsec.LocalAddress,
-			RemoteAddress:   p.IPsec.RemoteAddress,
-			PreSharedKey:    p.IPsec.PreSharedKey,
-			SecureFilterIn:  p.IPsec.SecureFilterIn,
-			SecureFilterOut: p.IPsec.SecureFilterOut,
-			TCPMSSLimit:     p.IPsec.TCPMSSLimit,
+			IPsecTunnelID:     p.IPsec.IPsecTunnelID,
+			LocalAddress:      p.IPsec.LocalAddress,
+			RemoteAddress:     p.IPsec.RemoteAddress,
+			PreSharedKey:      p.IPsec.PreSharedKey,
+			NATTraversal:      p.IPsec.NATTraversal,
+			IKERemoteName:     p.IPsec.IKERemoteName,
+			IKERemoteNameType: p.IPsec.IKERemoteNameType,
+			IKEKeepaliveLog:   p.IPsec.IKEKeepaliveLog,
+			IKELog:            p.IPsec.IKELog,
+			SecureFilterIn:    p.IPsec.SecureFilterIn,
+			SecureFilterOut:   p.IPsec.SecureFilterOut,
+			TCPMSSLimit:       p.IPsec.TCPMSSLimit,
 			IKEv2Proposal: IKEv2Proposal{
 				EncryptionAES256: p.IPsec.IKEv2Proposal.EncryptionAES256,
 				EncryptionAES128: p.IPsec.IKEv2Proposal.EncryptionAES128,
@@ -314,6 +329,7 @@ func convertFromParserTunnel(p parsers.Tunnel) Tunnel {
 			Hostname:       p.L2TP.Hostname,
 			AlwaysOn:       p.L2TP.AlwaysOn,
 			DisconnectTime: p.L2TP.DisconnectTime,
+			KeepaliveLog:   p.L2TP.KeepaliveLog,
 			SyslogEnabled:  p.L2TP.SyslogEnabled,
 			LocalRouterID:  p.L2TP.LocalRouterID,
 			RemoteRouterID: p.L2TP.RemoteRouterID,

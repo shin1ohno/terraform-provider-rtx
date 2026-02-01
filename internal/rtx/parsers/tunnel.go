@@ -10,26 +10,33 @@ import (
 // Tunnel represents a unified tunnel configuration (rtx_tunnel resource)
 // This combines IPsec and L2TP settings under a single tunnel select N context
 type Tunnel struct {
-	ID            int          `json:"id"`                    // tunnel select N
-	Encapsulation string       `json:"encapsulation"`         // "ipsec", "l2tpv3", or "l2tp"
-	Enabled       bool         `json:"enabled"`               // tunnel enable N
-	Name          string       `json:"name,omitempty"`        // Description
-	IPsec         *TunnelIPsec `json:"ipsec,omitempty"`       // IPsec configuration
-	L2TP          *TunnelL2TP  `json:"l2tp,omitempty"`        // L2TP configuration
+	ID               int          `json:"id"`                           // tunnel select N
+	Encapsulation    string       `json:"encapsulation"`                // "ipsec", "l2tpv3", or "l2tp"
+	Enabled          bool         `json:"enabled"`                      // tunnel enable N
+	Name             string       `json:"name,omitempty"`               // Description
+	EndpointName     string       `json:"endpoint_name,omitempty"`      // tunnel endpoint name <addr>
+	EndpointNameType string       `json:"endpoint_name_type,omitempty"` // fqdn
+	IPsec            *TunnelIPsec `json:"ipsec,omitempty"`              // IPsec configuration
+	L2TP             *TunnelL2TP  `json:"l2tp,omitempty"`               // L2TP configuration
 }
 
 // TunnelIPsec represents IPsec settings within a unified tunnel
 type TunnelIPsec struct {
-	IPsecTunnelID   int                   `json:"ipsec_tunnel_id"`             // ipsec tunnel N (Computed: defaults to tunnel_id)
-	LocalAddress    string                `json:"local_address,omitempty"`     // ipsec ike local address
-	RemoteAddress   string                `json:"remote_address,omitempty"`    // ipsec ike remote address
-	PreSharedKey    string                `json:"pre_shared_key"`              // ipsec ike pre-shared-key
-	IKEv2Proposal   IKEv2Proposal         `json:"ikev2_proposal"`              // IKE Phase 1 proposal
-	Transform       IPsecTransform        `json:"transform"`                   // IPsec Phase 2 transform
-	Keepalive       *TunnelIPsecKeepalive `json:"keepalive,omitempty"`         // DPD/heartbeat settings
-	SecureFilterIn  []int                 `json:"secure_filter_in,omitempty"`  // ip tunnel secure filter in
-	SecureFilterOut []int                 `json:"secure_filter_out,omitempty"` // ip tunnel secure filter out
-	TCPMSSLimit     string                `json:"tcp_mss_limit,omitempty"`     // ip tunnel tcp mss limit
+	IPsecTunnelID     int                   `json:"ipsec_tunnel_id"`                // ipsec tunnel N (Computed: defaults to tunnel_id)
+	LocalAddress      string                `json:"local_address,omitempty"`        // ipsec ike local address
+	RemoteAddress     string                `json:"remote_address,omitempty"`       // ipsec ike remote address
+	PreSharedKey      string                `json:"pre_shared_key"`                 // ipsec ike pre-shared-key
+	NATTraversal      bool                  `json:"nat_traversal"`                  // ipsec ike nat-traversal
+	IKERemoteName     string                `json:"ike_remote_name,omitempty"`      // ipsec ike remote name value
+	IKERemoteNameType string                `json:"ike_remote_name_type,omitempty"` // ipsec ike remote name type (l2tpv3, fqdn, etc.)
+	IKEKeepaliveLog   bool                  `json:"ike_keepalive_log"`              // ipsec ike keepalive log
+	IKELog            string                `json:"ike_log,omitempty"`              // ipsec ike log options
+	IKEv2Proposal     IKEv2Proposal         `json:"ikev2_proposal"`                 // IKE Phase 1 proposal
+	Transform         IPsecTransform        `json:"transform"`                      // IPsec Phase 2 transform
+	Keepalive         *TunnelIPsecKeepalive `json:"keepalive,omitempty"`            // DPD/heartbeat settings
+	SecureFilterIn    []int                 `json:"secure_filter_in,omitempty"`     // ip tunnel secure filter in
+	SecureFilterOut   []int                 `json:"secure_filter_out,omitempty"`    // ip tunnel secure filter out
+	TCPMSSLimit       string                `json:"tcp_mss_limit,omitempty"`        // ip tunnel tcp mss limit
 }
 
 // TunnelIPsecKeepalive represents IPsec keepalive/DPD settings within a tunnel
@@ -45,15 +52,16 @@ type TunnelL2TP struct {
 	// Common L2TP settings
 	Hostname       string               `json:"hostname,omitempty"`        // l2tp hostname
 	AlwaysOn       bool                 `json:"always_on,omitempty"`       // l2tp always-on
-	DisconnectTime int                  `json:"disconnect_time,omitempty"` // Idle disconnect time (0 = disabled)
+	DisconnectTime int                  `json:"disconnect_time,omitempty"` // Idle disconnect time (0 = off)
+	KeepaliveLog   bool                 `json:"keepalive_log"`             // l2tp keepalive log
 	Keepalive      *TunnelL2TPKeepalive `json:"keepalive,omitempty"`       // l2tp keepalive use
 	SyslogEnabled  bool                 `json:"syslog_enabled,omitempty"`  // l2tp syslog on
 
 	// L2TPv3 specific
-	LocalRouterID  string           `json:"local_router_id,omitempty"`  // l2tp local router-id
-	RemoteRouterID string           `json:"remote_router_id,omitempty"` // l2tp remote router-id
-	RemoteEndID    string           `json:"remote_end_id,omitempty"`    // l2tp remote end-id
-	TunnelAuth     *TunnelL2TPAuth  `json:"tunnel_auth,omitempty"`      // l2tp tunnel auth
+	LocalRouterID  string          `json:"local_router_id,omitempty"`  // l2tp local router-id
+	RemoteRouterID string          `json:"remote_router_id,omitempty"` // l2tp remote router-id
+	RemoteEndID    string          `json:"remote_end_id,omitempty"`    // l2tp remote end-id
+	TunnelAuth     *TunnelL2TPAuth `json:"tunnel_auth,omitempty"`      // l2tp tunnel auth
 
 	// L2TPv2 specific (remote access)
 	Authentication *L2TPAuth   `json:"authentication,omitempty"` // PPP authentication
@@ -91,6 +99,7 @@ func (p *TunnelParser) ParseTunnelConfig(raw string) ([]Tunnel, error) {
 	tunnelEncapsulationPattern := regexp.MustCompile(`^\s*tunnel\s+encapsulation\s+(l2tp|l2tpv3)\s*$`)
 	tunnelEnablePattern := regexp.MustCompile(`^\s*tunnel\s+enable\s+(\d+)\s*$`)
 	tunnelDescriptionPattern := regexp.MustCompile(`^\s*description\s+(.+)\s*$`)
+	tunnelEndpointNamePattern := regexp.MustCompile(`^\s*tunnel\s+endpoint\s+name\s+(\S+)(?:\s+(fqdn))?\s*$`)
 
 	// IPsec patterns
 	ipsecTunnelPattern := regexp.MustCompile(`^\s*ipsec\s+tunnel\s+(\d+)\s*$`)
@@ -104,6 +113,10 @@ func (p *TunnelParser) ParseTunnelConfig(raw string) ([]Tunnel, error) {
 	ipsecIKEKeepaliveRetryPattern := regexp.MustCompile(`^\s*ipsec\s+ike\s+keepalive\s+use\s+(\d+)\s+on\s+dpd\s+(\d+)\s+(\d+)\s*$`)
 	ipsecIKEKeepalivePattern := regexp.MustCompile(`^\s*ipsec\s+ike\s+keepalive\s+use\s+(\d+)\s+on\s+dpd\s+(\d+)\s*$`)
 	ipsecIKEKeepaliveHeartbeatPattern := regexp.MustCompile(`^\s*ipsec\s+ike\s+keepalive\s+use\s+(\d+)\s+on\s+heartbeat\s+(\d+)\s+(\d+)\s*$`)
+	ipsecIKENATTraversalPattern := regexp.MustCompile(`^\s*ipsec\s+ike\s+nat-traversal\s+(\d+)\s+(on|off)\s*$`)
+	ipsecIKERemoteNamePattern := regexp.MustCompile(`^\s*ipsec\s+ike\s+remote\s+name\s+(\d+)\s+(\S+)\s+(\S+)\s*$`)
+	ipsecIKEKeepaliveLogPattern := regexp.MustCompile(`^\s*ipsec\s+ike\s+keepalive\s+log\s+(\d+)\s+(on|off)\s*$`)
+	ipsecIKELogPattern := regexp.MustCompile(`^\s*ipsec\s+ike\s+log\s+(\d+)\s+(.+)\s*$`)
 	ipTunnelSecureFilterPattern := regexp.MustCompile(`^\s*ip\s+tunnel\s+secure\s+filter\s+(in|out)\s+(.+)$`)
 	ipTunnelTCPMSSPattern := regexp.MustCompile(`^\s*ip\s+tunnel\s+tcp\s+mss\s+limit\s+(\S+)\s*$`)
 
@@ -115,6 +128,8 @@ func (p *TunnelParser) ParseTunnelConfig(raw string) ([]Tunnel, error) {
 	l2tpAlwaysOnPattern := regexp.MustCompile(`^\s*l2tp\s+always-on\s+(on|off)\s*$`)
 	l2tpTunnelAuthPattern := regexp.MustCompile(`^\s*l2tp\s+tunnel\s+auth\s+(on|off)(?:\s+(\S+))?\s*$`)
 	l2tpKeepalivePattern := regexp.MustCompile(`^\s*l2tp\s+keepalive\s+use\s+on\s+(\d+)\s+(\d+)\s*$`)
+	l2tpKeepaliveLogPattern := regexp.MustCompile(`^\s*l2tp\s+keepalive\s+log\s+(on|off)\s*$`)
+	l2tpDisconnectTimePattern := regexp.MustCompile(`^\s*l2tp\s+tunnel\s+disconnect\s+time\s+(off|\d+)\s*$`)
 	l2tpSyslogPattern := regexp.MustCompile(`^\s*l2tp\s+syslog\s+(on|off)\s*$`)
 
 	// L2TPv2 LNS patterns (anonymous PP context)
@@ -168,6 +183,17 @@ func (p *TunnelParser) ParseTunnelConfig(raw string) ([]Tunnel, error) {
 		if matches := tunnelEncapsulationPattern.FindStringSubmatch(line); len(matches) >= 2 && currentTunnelID > 0 {
 			if tunnel, exists := tunnels[currentTunnelID]; exists {
 				tunnel.Encapsulation = matches[1]
+			}
+			continue
+		}
+
+		// Tunnel endpoint name
+		if matches := tunnelEndpointNamePattern.FindStringSubmatch(line); len(matches) >= 2 && currentTunnelID > 0 {
+			if tunnel, exists := tunnels[currentTunnelID]; exists {
+				tunnel.EndpointName = matches[1]
+				if len(matches) >= 3 && matches[2] != "" {
+					tunnel.EndpointNameType = matches[2]
+				}
 			}
 			continue
 		}
@@ -305,6 +331,39 @@ func (p *TunnelParser) ParseTunnelConfig(raw string) ([]Tunnel, error) {
 			continue
 		}
 
+		// IPsec IKE NAT traversal
+		if matches := ipsecIKENATTraversalPattern.FindStringSubmatch(line); len(matches) >= 3 && currentTunnelID > 0 {
+			if tunnel, exists := tunnels[currentTunnelID]; exists && tunnel.IPsec != nil {
+				tunnel.IPsec.NATTraversal = matches[2] == "on"
+			}
+			continue
+		}
+
+		// IPsec IKE remote name (format: ipsec ike remote name N <value> <type>)
+		if matches := ipsecIKERemoteNamePattern.FindStringSubmatch(line); len(matches) >= 4 && currentTunnelID > 0 {
+			if tunnel, exists := tunnels[currentTunnelID]; exists && tunnel.IPsec != nil {
+				tunnel.IPsec.IKERemoteName = matches[2]
+				tunnel.IPsec.IKERemoteNameType = matches[3]
+			}
+			continue
+		}
+
+		// IPsec IKE keepalive log
+		if matches := ipsecIKEKeepaliveLogPattern.FindStringSubmatch(line); len(matches) >= 3 && currentTunnelID > 0 {
+			if tunnel, exists := tunnels[currentTunnelID]; exists && tunnel.IPsec != nil {
+				tunnel.IPsec.IKEKeepaliveLog = matches[2] == "on"
+			}
+			continue
+		}
+
+		// IPsec IKE log
+		if matches := ipsecIKELogPattern.FindStringSubmatch(line); len(matches) >= 3 && currentTunnelID > 0 {
+			if tunnel, exists := tunnels[currentTunnelID]; exists && tunnel.IPsec != nil {
+				tunnel.IPsec.IKELog = strings.TrimSpace(matches[2])
+			}
+			continue
+		}
+
 		// IP tunnel secure filter
 		if matches := ipTunnelSecureFilterPattern.FindStringSubmatch(line); len(matches) >= 3 && currentTunnelID > 0 {
 			if tunnel, exists := tunnels[currentTunnelID]; exists && tunnel.IPsec != nil {
@@ -424,6 +483,32 @@ func (p *TunnelParser) ParseTunnelConfig(raw string) ([]Tunnel, error) {
 			continue
 		}
 
+		// L2TP keepalive log
+		if matches := l2tpKeepaliveLogPattern.FindStringSubmatch(line); len(matches) >= 2 && currentTunnelID > 0 {
+			if tunnel, exists := tunnels[currentTunnelID]; exists {
+				if tunnel.L2TP == nil {
+					tunnel.L2TP = &TunnelL2TP{}
+				}
+				tunnel.L2TP.KeepaliveLog = matches[1] == "on"
+			}
+			continue
+		}
+
+		// L2TP tunnel disconnect time
+		if matches := l2tpDisconnectTimePattern.FindStringSubmatch(line); len(matches) >= 2 && currentTunnelID > 0 {
+			if tunnel, exists := tunnels[currentTunnelID]; exists {
+				if tunnel.L2TP == nil {
+					tunnel.L2TP = &TunnelL2TP{}
+				}
+				if matches[1] == "off" {
+					tunnel.L2TP.DisconnectTime = 0
+				} else {
+					tunnel.L2TP.DisconnectTime, _ = strconv.Atoi(matches[1])
+				}
+			}
+			continue
+		}
+
 		// L2TP syslog
 		if matches := l2tpSyslogPattern.FindStringSubmatch(line); len(matches) >= 2 && currentTunnelID > 0 {
 			if tunnel, exists := tunnels[currentTunnelID]; exists {
@@ -528,6 +613,11 @@ func BuildTunnelCommands(tunnel Tunnel) []string {
 		commands = append(commands, BuildTunnelEncapsulationCommand(tunnel.ID, tunnel.Encapsulation))
 	}
 
+	// tunnel endpoint name
+	if tunnel.EndpointName != "" {
+		commands = append(commands, BuildTunnelEndpointNameCommand(tunnel.EndpointName, tunnel.EndpointNameType))
+	}
+
 	// Note: description command is not generated for tunnels.
 	// The tunnel.Name is read from the config but not written back
 	// because RTX doesn't support "description" command within tunnel select context.
@@ -553,10 +643,12 @@ func BuildTunnelCommands(tunnel Tunnel) []string {
 	return commands
 }
 
-// buildTunnelDescription builds the description command within tunnel context
-// Command format: description <text>
-func buildTunnelDescription(description string) string {
-	return fmt.Sprintf("description %s", description)
+// isIKEv2ProposalSet returns true if any IKEv2 proposal settings are explicitly configured
+// When all fields are at zero values, the router should use its default negotiation behavior
+func isIKEv2ProposalSet(proposal IKEv2Proposal) bool {
+	return proposal.EncryptionAES256 || proposal.EncryptionAES128 || proposal.Encryption3DES ||
+		proposal.IntegritySHA256 || proposal.IntegritySHA1 || proposal.IntegrityMD5 ||
+		proposal.GroupFourteen || proposal.GroupFive || proposal.GroupTwo
 }
 
 // buildTunnelIPsecCommands builds IPsec-related commands within tunnel context
@@ -593,14 +685,41 @@ func buildTunnelIPsecCommands(tunnelID int, ipsec *TunnelIPsec) []string {
 		commands = append(commands, BuildIPsecIKEPreSharedKeyCommand(tunnelID, ipsec.PreSharedKey))
 	}
 
-	// ipsec ike encryption
-	commands = append(commands, BuildIPsecIKEEncryptionCommand(tunnelID, ipsec.IKEv2Proposal))
+	// IKEv2Proposal commands are only generated when explicitly configured
+	// If none of the encryption/hash/group options are set, skip these commands
+	// to use the router's default negotiation behavior
+	if isIKEv2ProposalSet(ipsec.IKEv2Proposal) {
+		// ipsec ike encryption
+		commands = append(commands, BuildIPsecIKEEncryptionCommand(tunnelID, ipsec.IKEv2Proposal))
 
-	// ipsec ike hash
-	commands = append(commands, BuildIPsecIKEHashCommand(tunnelID, ipsec.IKEv2Proposal))
+		// ipsec ike hash
+		commands = append(commands, BuildIPsecIKEHashCommand(tunnelID, ipsec.IKEv2Proposal))
 
-	// ipsec ike group
-	commands = append(commands, BuildIPsecIKEGroupCommand(tunnelID, ipsec.IKEv2Proposal))
+		// ipsec ike group
+		commands = append(commands, BuildIPsecIKEGroupCommand(tunnelID, ipsec.IKEv2Proposal))
+	}
+
+	// ipsec ike nat-traversal (only generate if true)
+	if ipsec.NATTraversal {
+		commands = append(commands, BuildIPsecIKENATTraversalCommand(tunnelID, true))
+	}
+
+	// ipsec ike remote name
+	if ipsec.IKERemoteNameType != "" && ipsec.IKERemoteName != "" {
+		commands = append(commands, BuildIPsecIKERemoteNameCommand(tunnelID, ipsec.IKERemoteName, ipsec.IKERemoteNameType))
+	}
+
+	// ipsec ike keepalive log (only generate if explicitly set to true for on)
+	// Note: We generate this command when IKEKeepaliveLog is true
+	// The "off" case is typically the default, so we don't generate it
+	if ipsec.IKEKeepaliveLog {
+		commands = append(commands, BuildIPsecIKEKeepaliveLogCommand(tunnelID, true))
+	}
+
+	// ipsec ike log
+	if ipsec.IKELog != "" {
+		commands = append(commands, BuildIPsecIKELogCommand(tunnelID, ipsec.IKELog))
+	}
 
 	// ipsec ike keepalive
 	if ipsec.Keepalive != nil && ipsec.Keepalive.Enabled {
@@ -666,9 +785,21 @@ func buildTunnelL2TPCommands(encapsulation string, l2tp *TunnelL2TP) []string {
 		commands = append(commands, BuildL2TPAlwaysOnCommand(true))
 	}
 
+	// l2tp tunnel disconnect time
+	// DisconnectTime: 0 means "off", >0 means the number of seconds
+	// Only generate when explicitly set (non-zero or explicitly off via config)
+	if l2tp.DisconnectTime >= 0 {
+		commands = append(commands, BuildL2TPDisconnectTimeCommand(l2tp.DisconnectTime))
+	}
+
 	// l2tp keepalive
 	if l2tp.Keepalive != nil && l2tp.Keepalive.Enabled {
 		commands = append(commands, BuildL2TPKeepaliveCommand(l2tp.Keepalive.Interval, l2tp.Keepalive.Retry))
+	}
+
+	// l2tp keepalive log (only generate if true)
+	if l2tp.KeepaliveLog {
+		commands = append(commands, BuildL2TPKeepaliveLogCommand(true))
 	}
 
 	// l2tp syslog
@@ -701,6 +832,57 @@ func BuildL2TPSyslogCommand(enabled bool) string {
 		return "l2tp syslog on"
 	}
 	return "l2tp syslog off"
+}
+
+// BuildTunnelEndpointNameCommand builds the tunnel endpoint name command
+// Command format: tunnel endpoint name <address> [fqdn]
+func BuildTunnelEndpointNameCommand(address, nameType string) string {
+	if nameType != "" {
+		return fmt.Sprintf("tunnel endpoint name %s %s", address, nameType)
+	}
+	return fmt.Sprintf("tunnel endpoint name %s", address)
+}
+
+// BuildIPsecIKENATTraversalCommand builds the IPsec IKE NAT traversal command
+// Command format: ipsec ike nat-traversal N on/off
+func BuildIPsecIKENATTraversalCommand(tunnelID int, enabled bool) string {
+	state := "off"
+	if enabled {
+		state = "on"
+	}
+	return fmt.Sprintf("ipsec ike nat-traversal %d %s", tunnelID, state)
+}
+
+// BuildIPsecIKERemoteNameCommand builds the IPsec IKE remote name command
+// Command format: ipsec ike remote name N <value> <type>
+func BuildIPsecIKERemoteNameCommand(tunnelID int, value, nameType string) string {
+	return fmt.Sprintf("ipsec ike remote name %d %s %s", tunnelID, value, nameType)
+}
+
+// BuildIPsecIKEKeepaliveLogCommand builds the IPsec IKE keepalive log command
+// Command format: ipsec ike keepalive log N on/off
+func BuildIPsecIKEKeepaliveLogCommand(tunnelID int, enabled bool) string {
+	state := "off"
+	if enabled {
+		state = "on"
+	}
+	return fmt.Sprintf("ipsec ike keepalive log %d %s", tunnelID, state)
+}
+
+// BuildIPsecIKELogCommand builds the IPsec IKE log command
+// Command format: ipsec ike log N <options>
+func BuildIPsecIKELogCommand(tunnelID int, options string) string {
+	return fmt.Sprintf("ipsec ike log %d %s", tunnelID, options)
+}
+
+// BuildL2TPKeepaliveLogCommand builds the L2TP keepalive log command
+// Command format: l2tp keepalive log on/off
+func BuildL2TPKeepaliveLogCommand(enabled bool) string {
+	state := "off"
+	if enabled {
+		state = "on"
+	}
+	return fmt.Sprintf("l2tp keepalive log %s", state)
 }
 
 // BuildDeleteTunnelCommands builds commands to delete a tunnel

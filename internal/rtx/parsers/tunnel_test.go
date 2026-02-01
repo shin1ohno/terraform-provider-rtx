@@ -45,16 +45,24 @@ func TestTunnelParser_ParseIPsecTunnel(t *testing.T) {
 func TestTunnelParser_ParseL2TPv3Tunnel(t *testing.T) {
 	config := `tunnel select 1
  tunnel encapsulation l2tpv3
+ tunnel endpoint name itm.ohno.be fqdn
  ipsec tunnel 101
  ipsec sa policy 101 1 esp aes-cbc sha-hmac
- ipsec ike local address 101 192.168.1.253
- ipsec ike remote address 101 itm.ohno.be
- ipsec ike pre-shared-key 101 text secret123
- ipsec ike keepalive use 101 on heartbeat 10 6
+ ipsec ike keepalive log 1 off
+ ipsec ike keepalive use 1 on heartbeat 10 6
+ ipsec ike local address 1 192.168.1.253
+ ipsec ike log 1 key-info message-info payload-info
+ ipsec ike nat-traversal 1 on
+ ipsec ike pre-shared-key 1 text secret123
+ ipsec ike remote address 1 itm.ohno.be
+ ipsec ike remote name 1 test-id key-id
  l2tp always-on on
  l2tp hostname ebisu-RTX1210
  l2tp tunnel auth on password123
+ l2tp tunnel disconnect time off
  l2tp keepalive use on 60 3
+ l2tp keepalive log off
+ l2tp syslog on
  l2tp local router-id 192.168.1.253
  l2tp remote router-id 192.168.1.254
  l2tp remote end-id shin1
@@ -74,6 +82,10 @@ func TestTunnelParser_ParseL2TPv3Tunnel(t *testing.T) {
 	assert.Equal(t, "l2tpv3", tunnel.Encapsulation)
 	assert.True(t, tunnel.Enabled)
 
+	// Root level new attributes
+	assert.Equal(t, "itm.ohno.be", tunnel.EndpointName)
+	assert.Equal(t, "fqdn", tunnel.EndpointNameType)
+
 	// IPsec block
 	require.NotNil(t, tunnel.IPsec)
 	assert.Equal(t, 101, tunnel.IPsec.IPsecTunnelID)
@@ -82,6 +94,13 @@ func TestTunnelParser_ParseL2TPv3Tunnel(t *testing.T) {
 	assert.Equal(t, "secret123", tunnel.IPsec.PreSharedKey)
 	assert.Equal(t, []int{200028, 200099}, tunnel.IPsec.SecureFilterIn)
 	assert.Equal(t, "auto", tunnel.IPsec.TCPMSSLimit)
+
+	// New IPsec attributes
+	assert.True(t, tunnel.IPsec.NATTraversal)
+	assert.Equal(t, "key-id", tunnel.IPsec.IKERemoteNameType)
+	assert.Equal(t, "test-id", tunnel.IPsec.IKERemoteName)
+	assert.False(t, tunnel.IPsec.IKEKeepaliveLog)
+	assert.Equal(t, "key-info message-info payload-info", tunnel.IPsec.IKELog)
 
 	require.NotNil(t, tunnel.IPsec.Keepalive)
 	assert.True(t, tunnel.IPsec.Keepalive.Enabled)
@@ -96,6 +115,11 @@ func TestTunnelParser_ParseL2TPv3Tunnel(t *testing.T) {
 	assert.Equal(t, "192.168.1.253", tunnel.L2TP.LocalRouterID)
 	assert.Equal(t, "192.168.1.254", tunnel.L2TP.RemoteRouterID)
 	assert.Equal(t, "shin1", tunnel.L2TP.RemoteEndID)
+
+	// New L2TP attributes
+	assert.Equal(t, 0, tunnel.L2TP.DisconnectTime) // "off" = 0
+	assert.False(t, tunnel.L2TP.KeepaliveLog)
+	assert.True(t, tunnel.L2TP.SyslogEnabled)
 
 	require.NotNil(t, tunnel.L2TP.TunnelAuth)
 	assert.True(t, tunnel.L2TP.TunnelAuth.Enabled)
@@ -193,14 +217,21 @@ func TestBuildTunnelCommands_IPsec(t *testing.T) {
 
 func TestBuildTunnelCommands_L2TPv3(t *testing.T) {
 	tunnel := Tunnel{
-		ID:            1,
-		Encapsulation: "l2tpv3",
-		Enabled:       true,
+		ID:               1,
+		Encapsulation:    "l2tpv3",
+		Enabled:          true,
+		EndpointName:     "itm.ohno.be",
+		EndpointNameType: "fqdn",
 		IPsec: &TunnelIPsec{
-			IPsecTunnelID: 101,
-			LocalAddress:  "192.168.1.253",
-			RemoteAddress: "itm.ohno.be",
-			PreSharedKey:  "secret123",
+			IPsecTunnelID:     101,
+			LocalAddress:      "192.168.1.253",
+			RemoteAddress:     "itm.ohno.be",
+			PreSharedKey:      "secret123",
+			NATTraversal:      true,
+			IKERemoteNameType: "key-id",
+			IKERemoteName:     "test-id",
+			IKEKeepaliveLog:   false, // will not generate command when false
+			IKELog:            "key-info message-info payload-info",
 			IKEv2Proposal: IKEv2Proposal{
 				EncryptionAES128: true,
 				IntegritySHA1:    true,
@@ -226,6 +257,9 @@ func TestBuildTunnelCommands_L2TPv3(t *testing.T) {
 			RemoteRouterID: "192.168.1.254",
 			RemoteEndID:    "shin1",
 			AlwaysOn:       true,
+			DisconnectTime: 0,     // "off"
+			KeepaliveLog:   false, // will not generate command when false
+			SyslogEnabled:  true,
 			TunnelAuth: &TunnelL2TPAuth{
 				Enabled:  true,
 				Password: "password123",
@@ -242,12 +276,16 @@ func TestBuildTunnelCommands_L2TPv3(t *testing.T) {
 
 	assert.Contains(t, commands, "tunnel select 1")
 	assert.Contains(t, commands, "tunnel encapsulation l2tpv3")
+	assert.Contains(t, commands, "tunnel endpoint name itm.ohno.be fqdn")
 	assert.Contains(t, commands, "ipsec tunnel 101")
 	// IKE commands use tunnel_id (1), not ipsec_tunnel_id (101)
 	// RTX uses separate ID spaces for IPsec tunnels and IKE gateways
 	assert.Contains(t, commands, "ipsec ike local address 1 192.168.1.253")
 	assert.Contains(t, commands, "ipsec ike remote address 1 itm.ohno.be")
 	assert.Contains(t, commands, "ipsec ike pre-shared-key 1 text secret123")
+	assert.Contains(t, commands, "ipsec ike nat-traversal 1 on")
+	assert.Contains(t, commands, "ipsec ike remote name 1 test-id key-id")
+	assert.Contains(t, commands, "ipsec ike log 1 key-info message-info payload-info")
 	assert.Contains(t, commands, "ipsec ike keepalive use 1 on heartbeat 10 6")
 	assert.Contains(t, commands, "ip tunnel secure filter in 200028 200099")
 	assert.Contains(t, commands, "ip tunnel tcp mss limit auto")
@@ -256,9 +294,91 @@ func TestBuildTunnelCommands_L2TPv3(t *testing.T) {
 	assert.Contains(t, commands, "l2tp remote router-id 192.168.1.254")
 	assert.Contains(t, commands, "l2tp remote end-id shin1")
 	assert.Contains(t, commands, "l2tp always-on on")
+	assert.Contains(t, commands, "l2tp tunnel disconnect time off")
 	assert.Contains(t, commands, "l2tp tunnel auth on password123")
 	assert.Contains(t, commands, "l2tp keepalive use on 60 3")
+	assert.Contains(t, commands, "l2tp syslog on")
 	assert.Contains(t, commands, "tunnel enable 1")
+
+	// Verify commands that should NOT be generated when false
+	assert.NotContains(t, commands, "ipsec ike keepalive log 1 off")
+	assert.NotContains(t, commands, "l2tp keepalive log off")
+}
+
+func TestBuildNewTunnelCommands(t *testing.T) {
+	tests := []struct {
+		name     string
+		builder  func() string
+		expected string
+	}{
+		{
+			name:     "BuildTunnelEndpointNameCommand with fqdn",
+			builder:  func() string { return BuildTunnelEndpointNameCommand("itm.ohno.be", "fqdn") },
+			expected: "tunnel endpoint name itm.ohno.be fqdn",
+		},
+		{
+			name:     "BuildTunnelEndpointNameCommand without type",
+			builder:  func() string { return BuildTunnelEndpointNameCommand("192.168.1.1", "") },
+			expected: "tunnel endpoint name 192.168.1.1",
+		},
+		{
+			name:     "BuildIPsecIKENATTraversalCommand on",
+			builder:  func() string { return BuildIPsecIKENATTraversalCommand(1, true) },
+			expected: "ipsec ike nat-traversal 1 on",
+		},
+		{
+			name:     "BuildIPsecIKENATTraversalCommand off",
+			builder:  func() string { return BuildIPsecIKENATTraversalCommand(1, false) },
+			expected: "ipsec ike nat-traversal 1 off",
+		},
+		{
+			name:     "BuildIPsecIKERemoteNameCommand",
+			builder:  func() string { return BuildIPsecIKERemoteNameCommand(1, "test-id", "key-id") },
+			expected: "ipsec ike remote name 1 test-id key-id",
+		},
+		{
+			name:     "BuildIPsecIKEKeepaliveLogCommand off",
+			builder:  func() string { return BuildIPsecIKEKeepaliveLogCommand(1, false) },
+			expected: "ipsec ike keepalive log 1 off",
+		},
+		{
+			name:     "BuildIPsecIKEKeepaliveLogCommand on",
+			builder:  func() string { return BuildIPsecIKEKeepaliveLogCommand(1, true) },
+			expected: "ipsec ike keepalive log 1 on",
+		},
+		{
+			name:     "BuildIPsecIKELogCommand",
+			builder:  func() string { return BuildIPsecIKELogCommand(1, "key-info message-info payload-info") },
+			expected: "ipsec ike log 1 key-info message-info payload-info",
+		},
+		{
+			name:     "BuildL2TPDisconnectTimeCommand off",
+			builder:  func() string { return BuildL2TPDisconnectTimeCommand(0) },
+			expected: "l2tp tunnel disconnect time off",
+		},
+		{
+			name:     "BuildL2TPDisconnectTimeCommand seconds",
+			builder:  func() string { return BuildL2TPDisconnectTimeCommand(300) },
+			expected: "l2tp tunnel disconnect time 300",
+		},
+		{
+			name:     "BuildL2TPKeepaliveLogCommand off",
+			builder:  func() string { return BuildL2TPKeepaliveLogCommand(false) },
+			expected: "l2tp keepalive log off",
+		},
+		{
+			name:     "BuildL2TPKeepaliveLogCommand on",
+			builder:  func() string { return BuildL2TPKeepaliveLogCommand(true) },
+			expected: "l2tp keepalive log on",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.builder()
+			assert.Equal(t, tt.expected, result)
+		})
+	}
 }
 
 func TestValidateTunnel(t *testing.T) {

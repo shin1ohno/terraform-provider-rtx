@@ -52,26 +52,33 @@ var _ = context.Background
 
 // TunnelModel describes the unified tunnel resource data model.
 type TunnelModel struct {
-	TunnelID        types.Int64       `tfsdk:"tunnel_id"`
-	Encapsulation   types.String      `tfsdk:"encapsulation"`
-	Enabled         types.Bool        `tfsdk:"enabled"`
-	Name            types.String      `tfsdk:"name"`
-	TunnelInterface types.String      `tfsdk:"tunnel_interface"`
-	IPsec           *TunnelIPsecModel `tfsdk:"ipsec"`
-	L2TP            *TunnelL2TPModel  `tfsdk:"l2tp"`
+	TunnelID         types.Int64       `tfsdk:"tunnel_id"`
+	Encapsulation    types.String      `tfsdk:"encapsulation"`
+	Enabled          types.Bool        `tfsdk:"enabled"`
+	Name             types.String      `tfsdk:"name"`
+	EndpointName     types.String      `tfsdk:"endpoint_name"`
+	EndpointNameType types.String      `tfsdk:"endpoint_name_type"`
+	TunnelInterface  types.String      `tfsdk:"tunnel_interface"`
+	IPsec            *TunnelIPsecModel `tfsdk:"ipsec"`
+	L2TP             *TunnelL2TPModel  `tfsdk:"l2tp"`
 }
 
 // TunnelIPsecModel describes the IPsec nested block.
 type TunnelIPsecModel struct {
-	IPsecTunnelID   types.Int64             `tfsdk:"ipsec_tunnel_id"`
-	LocalAddress    types.String            `tfsdk:"local_address"`
-	RemoteAddress   types.String            `tfsdk:"remote_address"`
-	PreSharedKey    types.String            `tfsdk:"pre_shared_key"`
-	SecureFilterIn  types.List              `tfsdk:"secure_filter_in"`
-	SecureFilterOut types.List              `tfsdk:"secure_filter_out"`
-	TCPMSSLimit     types.String            `tfsdk:"tcp_mss_limit"`
-	IPsecTransform  *IPsecTransformModel    `tfsdk:"ipsec_transform"`
-	Keepalive       *TunnelIPsecKeepaliveModel `tfsdk:"keepalive"`
+	IPsecTunnelID     types.Int64                `tfsdk:"ipsec_tunnel_id"`
+	LocalAddress      types.String               `tfsdk:"local_address"`
+	RemoteAddress     types.String               `tfsdk:"remote_address"`
+	PreSharedKey      types.String               `tfsdk:"pre_shared_key"`
+	NATTraversal      types.Bool                 `tfsdk:"nat_traversal"`
+	IKERemoteName     types.String               `tfsdk:"ike_remote_name"`
+	IKERemoteNameType types.String               `tfsdk:"ike_remote_name_type"`
+	IKEKeepaliveLog   types.Bool                 `tfsdk:"ike_keepalive_log"`
+	IKELog            types.String               `tfsdk:"ike_log"`
+	SecureFilterIn    types.List                 `tfsdk:"secure_filter_in"`
+	SecureFilterOut   types.List                 `tfsdk:"secure_filter_out"`
+	TCPMSSLimit       types.String               `tfsdk:"tcp_mss_limit"`
+	IPsecTransform    *IPsecTransformModel       `tfsdk:"ipsec_transform"`
+	Keepalive         *TunnelIPsecKeepaliveModel `tfsdk:"keepalive"`
 }
 
 // TunnelIPsecKeepaliveModel describes the IPsec keepalive nested block.
@@ -95,12 +102,15 @@ type IPsecTransformModel struct {
 
 // TunnelL2TPModel describes the L2TP nested block.
 type TunnelL2TPModel struct {
-	Hostname       types.String            `tfsdk:"hostname"`
-	LocalRouterID  types.String            `tfsdk:"local_router_id"`
-	RemoteRouterID types.String            `tfsdk:"remote_router_id"`
-	RemoteEndID    types.String            `tfsdk:"remote_end_id"`
-	AlwaysOn       types.Bool              `tfsdk:"always_on"`
-	TunnelAuth     *TunnelL2TPAuthModel    `tfsdk:"tunnel_auth"`
+	Hostname       types.String              `tfsdk:"hostname"`
+	LocalRouterID  types.String              `tfsdk:"local_router_id"`
+	RemoteRouterID types.String              `tfsdk:"remote_router_id"`
+	RemoteEndID    types.String              `tfsdk:"remote_end_id"`
+	AlwaysOn       types.Bool                `tfsdk:"always_on"`
+	DisconnectTime types.Int64               `tfsdk:"disconnect_time"`
+	KeepaliveLog   types.Bool                `tfsdk:"keepalive_log"`
+	Syslog         types.Bool                `tfsdk:"syslog"`
+	TunnelAuth     *TunnelL2TPAuthModel      `tfsdk:"tunnel_auth"`
 	Keepalive      *TunnelL2TPKeepaliveModel `tfsdk:"keepalive"`
 }
 
@@ -120,10 +130,12 @@ type TunnelL2TPKeepaliveModel struct {
 // ToClient converts the Terraform model to a client.Tunnel.
 func (m *TunnelModel) ToClient() client.Tunnel {
 	tunnel := client.Tunnel{
-		ID:            int(m.TunnelID.ValueInt64()),
-		Encapsulation: fwhelpers.GetStringValue(m.Encapsulation),
-		Enabled:       fwhelpers.GetBoolValueWithDefault(m.Enabled, true),
-		Name:          fwhelpers.GetStringValue(m.Name),
+		ID:               int(m.TunnelID.ValueInt64()),
+		Encapsulation:    fwhelpers.GetStringValue(m.Encapsulation),
+		Enabled:          fwhelpers.GetBoolValueWithDefault(m.Enabled, true),
+		Name:             fwhelpers.GetStringValue(m.Name),
+		EndpointName:     fwhelpers.GetStringValue(m.EndpointName),
+		EndpointNameType: fwhelpers.GetStringValue(m.EndpointNameType),
 	}
 
 	// Handle IPsec block
@@ -134,13 +146,18 @@ func (m *TunnelModel) ToClient() client.Tunnel {
 		}
 
 		tunnel.IPsec = &client.TunnelIPsec{
-			IPsecTunnelID:   ipsecTunnelID,
-			LocalAddress:    fwhelpers.GetStringValue(m.IPsec.LocalAddress),
-			RemoteAddress:   fwhelpers.GetStringValue(m.IPsec.RemoteAddress),
-			PreSharedKey:    fwhelpers.GetStringValue(m.IPsec.PreSharedKey),
-			SecureFilterIn:  convertListToIntSlice(m.IPsec.SecureFilterIn),
-			SecureFilterOut: convertListToIntSlice(m.IPsec.SecureFilterOut),
-			TCPMSSLimit:     fwhelpers.GetStringValue(m.IPsec.TCPMSSLimit),
+			IPsecTunnelID:     ipsecTunnelID,
+			LocalAddress:      fwhelpers.GetStringValue(m.IPsec.LocalAddress),
+			RemoteAddress:     fwhelpers.GetStringValue(m.IPsec.RemoteAddress),
+			PreSharedKey:      fwhelpers.GetStringValue(m.IPsec.PreSharedKey),
+			NATTraversal:      fwhelpers.GetBoolValue(m.IPsec.NATTraversal),
+			IKERemoteName:     fwhelpers.GetStringValue(m.IPsec.IKERemoteName),
+			IKERemoteNameType: fwhelpers.GetStringValue(m.IPsec.IKERemoteNameType),
+			IKEKeepaliveLog:   fwhelpers.GetBoolValue(m.IPsec.IKEKeepaliveLog),
+			IKELog:            fwhelpers.GetStringValue(m.IPsec.IKELog),
+			SecureFilterIn:    convertListToIntSlice(m.IPsec.SecureFilterIn),
+			SecureFilterOut:   convertListToIntSlice(m.IPsec.SecureFilterOut),
+			TCPMSSLimit:       fwhelpers.GetStringValue(m.IPsec.TCPMSSLimit),
 		}
 
 		// Handle IPsec transform
@@ -175,6 +192,9 @@ func (m *TunnelModel) ToClient() client.Tunnel {
 			RemoteRouterID: fwhelpers.GetStringValue(m.L2TP.RemoteRouterID),
 			RemoteEndID:    fwhelpers.GetStringValue(m.L2TP.RemoteEndID),
 			AlwaysOn:       fwhelpers.GetBoolValue(m.L2TP.AlwaysOn),
+			DisconnectTime: fwhelpers.GetInt64Value(m.L2TP.DisconnectTime),
+			KeepaliveLog:   fwhelpers.GetBoolValue(m.L2TP.KeepaliveLog),
+			SyslogEnabled:  fwhelpers.GetBoolValue(m.L2TP.Syslog),
 		}
 
 		// Handle L2TP tunnel auth
@@ -204,6 +224,8 @@ func (m *TunnelModel) FromClient(tunnel *client.Tunnel) {
 	m.Encapsulation = types.StringValue(tunnel.Encapsulation)
 	m.Enabled = types.BoolValue(tunnel.Enabled)
 	m.Name = fwhelpers.StringValueOrNull(tunnel.Name)
+	m.EndpointName = fwhelpers.StringValueOrNull(tunnel.EndpointName)
+	m.EndpointNameType = fwhelpers.StringValueOrNull(tunnel.EndpointNameType)
 	m.TunnelInterface = types.StringValue(fmt.Sprintf("tunnel%d", tunnel.ID))
 
 	// Handle IPsec block
@@ -215,6 +237,11 @@ func (m *TunnelModel) FromClient(tunnel *client.Tunnel) {
 		m.IPsec.LocalAddress = fwhelpers.StringValueOrNull(tunnel.IPsec.LocalAddress)
 		m.IPsec.RemoteAddress = fwhelpers.StringValueOrNull(tunnel.IPsec.RemoteAddress)
 		// Note: pre_shared_key is WriteOnly, so we don't read it back
+		m.IPsec.NATTraversal = types.BoolValue(tunnel.IPsec.NATTraversal)
+		m.IPsec.IKERemoteName = fwhelpers.StringValueOrNull(tunnel.IPsec.IKERemoteName)
+		m.IPsec.IKERemoteNameType = fwhelpers.StringValueOrNull(tunnel.IPsec.IKERemoteNameType)
+		m.IPsec.IKEKeepaliveLog = types.BoolValue(tunnel.IPsec.IKEKeepaliveLog)
+		m.IPsec.IKELog = fwhelpers.StringValueOrNull(tunnel.IPsec.IKELog)
 		m.IPsec.SecureFilterIn = convertIntSliceToList(tunnel.IPsec.SecureFilterIn)
 		m.IPsec.SecureFilterOut = convertIntSliceToList(tunnel.IPsec.SecureFilterOut)
 		m.IPsec.TCPMSSLimit = fwhelpers.StringValueOrNull(tunnel.IPsec.TCPMSSLimit)
@@ -253,6 +280,10 @@ func (m *TunnelModel) FromClient(tunnel *client.Tunnel) {
 		m.L2TP.RemoteRouterID = fwhelpers.StringValueOrNull(tunnel.L2TP.RemoteRouterID)
 		m.L2TP.RemoteEndID = fwhelpers.StringValueOrNull(tunnel.L2TP.RemoteEndID)
 		m.L2TP.AlwaysOn = types.BoolValue(tunnel.L2TP.AlwaysOn)
+		// DisconnectTime: 0 is a valid value meaning "off", so always use Int64Value
+		m.L2TP.DisconnectTime = types.Int64Value(int64(tunnel.L2TP.DisconnectTime))
+		m.L2TP.KeepaliveLog = types.BoolValue(tunnel.L2TP.KeepaliveLog)
+		m.L2TP.Syslog = types.BoolValue(tunnel.L2TP.SyslogEnabled)
 
 		// Handle L2TP tunnel auth
 		if tunnel.L2TP.TunnelAuth != nil {

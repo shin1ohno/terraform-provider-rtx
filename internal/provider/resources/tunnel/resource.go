@@ -88,6 +88,17 @@ func (r *TunnelResource) Schema(ctx context.Context, req resource.SchemaRequest,
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"endpoint_name": schema.StringAttribute{
+				Description: "Tunnel endpoint name for DNS resolution.",
+				Optional:    true,
+			},
+			"endpoint_name_type": schema.StringAttribute{
+				Description: "Endpoint name type: 'fqdn'.",
+				Optional:    true,
+				Validators: []validator.String{
+					stringvalidator.OneOf("fqdn"),
+				},
+			},
 		},
 		Blocks: map[string]schema.Block{
 			"ipsec": schema.SingleNestedBlock{
@@ -135,6 +146,41 @@ func (r *TunnelResource) Schema(ctx context.Context, req resource.SchemaRequest,
 					},
 					"tcp_mss_limit": schema.StringAttribute{
 						Description: "TCP MSS limit: 'auto' or numeric value.",
+						Optional:    true,
+					},
+					"nat_traversal": schema.BoolAttribute{
+						Description: "Enable NAT traversal.",
+						Optional:    true,
+						Computed:    true,
+						Default:     booldefault.StaticBool(false),
+					},
+					"ike_remote_name": schema.StringAttribute{
+						Description: "IKE remote name value.",
+						Optional:    true,
+						Computed:    true,
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.UseStateForUnknown(),
+						},
+					},
+					"ike_remote_name_type": schema.StringAttribute{
+						Description: "IKE remote name type: 'ipv4-addr', 'fqdn', 'user-fqdn', 'ipv6-addr', 'key-id', 'l2tpv3'.",
+						Optional:    true,
+						Computed:    true,
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.UseStateForUnknown(),
+						},
+						Validators: []validator.String{
+							stringvalidator.OneOf("ipv4-addr", "fqdn", "user-fqdn", "ipv6-addr", "key-id", "l2tpv3"),
+						},
+					},
+					"ike_keepalive_log": schema.BoolAttribute{
+						Description: "Enable IKE keepalive logging.",
+						Optional:    true,
+						Computed:    true,
+						Default:     booldefault.StaticBool(false),
+					},
+					"ike_log": schema.StringAttribute{
+						Description: "IKE log options (e.g., 'key-info message-info payload-info').",
 						Optional:    true,
 					},
 				},
@@ -252,6 +298,26 @@ func (r *TunnelResource) Schema(ctx context.Context, req resource.SchemaRequest,
 						Computed:    true,
 						Default:     booldefault.StaticBool(false),
 					},
+					"disconnect_time": schema.Int64Attribute{
+						Description: "Disconnect time in seconds (0 = off).",
+						Optional:    true,
+						Computed:    true,
+						PlanModifiers: []planmodifier.Int64{
+							int64planmodifier.UseStateForUnknown(),
+						},
+					},
+					"keepalive_log": schema.BoolAttribute{
+						Description: "Enable L2TP keepalive logging.",
+						Optional:    true,
+						Computed:    true,
+						Default:     booldefault.StaticBool(false),
+					},
+					"syslog": schema.BoolAttribute{
+						Description: "Enable L2TP syslog.",
+						Optional:    true,
+						Computed:    true,
+						Default:     booldefault.StaticBool(false),
+					},
 				},
 				Blocks: map[string]schema.Block{
 					"tunnel_auth": schema.SingleNestedBlock{
@@ -264,10 +330,9 @@ func (r *TunnelResource) Schema(ctx context.Context, req resource.SchemaRequest,
 								Default:     booldefault.StaticBool(false),
 							},
 							"password": schema.StringAttribute{
-								Description: "Tunnel authentication password. This value is write-only.",
+								Description: "Tunnel authentication password.",
 								Optional:    true,
 								Sensitive:   true,
-								WriteOnly:   true,
 							},
 						},
 					},
