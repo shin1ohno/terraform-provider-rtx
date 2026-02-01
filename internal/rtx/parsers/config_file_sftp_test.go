@@ -144,7 +144,7 @@ tunnel select 1
   ipsec ike nat-traversal 1 on
   ipsec ike pre-shared-key 1 text TEST_PSK
   ipsec ike remote address 1 test.example.com
-  ipsec ike remote name 1 l2tpv3 key-id
+  ipsec ike remote name 1 test-id key-id
  l2tp always-on on
  l2tp hostname test-RTX1210
  l2tp tunnel auth on TEST_AUTH

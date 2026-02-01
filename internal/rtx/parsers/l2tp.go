@@ -492,8 +492,11 @@ func BuildL2TPKeepaliveOffCommand() string {
 }
 
 // BuildL2TPDisconnectTimeCommand builds the command to set disconnect time
-// Command format: l2tp tunnel disconnect time <seconds>
+// Command format: l2tp tunnel disconnect time off/<seconds>
 func BuildL2TPDisconnectTimeCommand(seconds int) string {
+	if seconds == 0 {
+		return "l2tp tunnel disconnect time off"
+	}
 	return fmt.Sprintf("l2tp tunnel disconnect time %d", seconds)
 }
 

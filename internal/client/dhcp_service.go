@@ -136,7 +136,7 @@ func containsError(output string) bool {
 		"Connection timeout",
 		"already exists",
 		"not found",
-		"エラー:",                         // Japanese "Error:"
+		"エラー:", // Japanese "Error:"
 		"管理レベルでのみ使用できます", // "can only be used at administrator level"
 	}
 

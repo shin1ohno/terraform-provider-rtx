@@ -25,12 +25,14 @@ Manages unified tunnel configuration on RTX routers. Supports IPsec, L2TPv3, and
 > **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
 
 - `enabled` (Boolean) Enable the tunnel.
+- `endpoint_name` (String) Tunnel endpoint name for DNS resolution.
+- `endpoint_name_type` (String) Endpoint name type: 'fqdn'.
 - `ipsec` (Block, Optional) IPsec configuration for the tunnel. (see [below for nested schema](#nestedblock--ipsec))
 - `l2tp` (Block, Optional) L2TP configuration for the tunnel. (see [below for nested schema](#nestedblock--l2tp))
-- `name` (String) Tunnel description/name.
 
 ### Read-Only
 
+- `name` (String) Tunnel description/name. Read-only - RTX does not support setting description within tunnel context. Use rtx_interface to set the tunnel interface description if needed.
 - `tunnel_interface` (String) The tunnel interface name (e.g., 'tunnel1'). Computed from tunnel_id.
 
 <a id="nestedblock--ipsec"></a>
@@ -44,10 +46,15 @@ Required:
 
 Optional:
 
+- `ike_keepalive_log` (Boolean) Enable IKE keepalive logging.
+- `ike_log` (String) IKE log options (e.g., 'key-info message-info payload-info').
+- `ike_remote_name` (String) IKE remote name value.
+- `ike_remote_name_type` (String) IKE remote name type: 'ipv4-addr', 'fqdn', 'user-fqdn', 'ipv6-addr', 'key-id', 'l2tpv3'.
 - `ipsec_transform` (Block, Optional) IPsec Phase 2 transform settings. (see [below for nested schema](#nestedblock--ipsec--ipsec_transform))
 - `ipsec_tunnel_id` (Number) IPsec tunnel ID (ipsec tunnel N). Defaults to tunnel_id if not specified.
 - `keepalive` (Block, Optional) IPsec keepalive/DPD settings. (see [below for nested schema](#nestedblock--ipsec--keepalive))
 - `local_address` (String) Local IKE endpoint address.
+- `nat_traversal` (Boolean) Enable NAT traversal.
 - `remote_address` (String) Remote IKE endpoint address or FQDN.
 - `secure_filter_in` (List of Number) Inbound security filter IDs.
 - `secure_filter_out` (List of Number) Outbound security filter IDs.
@@ -84,14 +91,15 @@ Optional:
 
 Optional:
 
-> **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
-
 - `always_on` (Boolean) Keep connection always active.
+- `disconnect_time` (Number) Disconnect time in seconds (0 = off).
 - `hostname` (String) L2TP hostname for negotiation.
 - `keepalive` (Block, Optional) L2TP keepalive settings. (see [below for nested schema](#nestedblock--l2tp--keepalive))
+- `keepalive_log` (Boolean) Enable L2TP keepalive logging.
 - `local_router_id` (String) Local router ID (L2TPv3).
 - `remote_end_id` (String) Remote end ID (L2TPv3).
 - `remote_router_id` (String) Remote router ID (L2TPv3).
+- `syslog` (Boolean) Enable L2TP syslog.
 - `tunnel_auth` (Block, Optional) L2TP tunnel authentication. (see [below for nested schema](#nestedblock--l2tp--tunnel_auth))
 
 <a id="nestedblock--l2tp--keepalive"></a>
@@ -109,7 +117,5 @@ Optional:
 
 Optional:
 
-> **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
-
 - `enabled` (Boolean) Enable tunnel authentication.
-- `password` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Tunnel authentication password. This value is write-only.
+- `password` (String, Sensitive) Tunnel authentication password.
