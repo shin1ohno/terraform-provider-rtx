@@ -183,6 +183,7 @@ func (r *AccessListMACResource) Schema(ctx context.Context, req resource.SchemaR
 						"filter_id": schema.Int64Attribute{
 							Description: "Explicit filter number for this entry (overrides sequence)",
 							Optional:    true,
+							Computed:    true,
 							Validators: []validator.Int64{
 								int64validator.AtLeast(1),
 							},
