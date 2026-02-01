@@ -50,13 +50,11 @@ func (r *AdminResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				Description: "Login password for the RTX router. This password is used for initial authentication when connecting to the router.",
 				Optional:    true,
 				Sensitive:   true,
-				WriteOnly:   true,
 			},
 			"admin_password": schema.StringAttribute{
 				Description: "Administrator password for the RTX router. This password is required for entering administrator mode to make configuration changes.",
 				Optional:    true,
 				Sensitive:   true,
-				WriteOnly:   true,
 			},
 			"last_updated": schema.StringAttribute{
 				Description: "Timestamp of the last password update performed by Terraform (RFC3339 format).",

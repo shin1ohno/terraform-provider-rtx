@@ -80,10 +80,9 @@ func (r *DDNSResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				Optional:    true,
 			},
 			"password": schema.StringAttribute{
-				Description: "DDNS account password for authentication. This value is write-only and will not be stored in state.",
+				Description: "DDNS account password for authentication.",
 				Optional:    true,
 				Sensitive:   true,
-				WriteOnly:   true,
 			},
 		},
 	}

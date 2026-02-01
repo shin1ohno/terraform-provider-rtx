@@ -81,10 +81,9 @@ func (r *PPPoEResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				Required:    true,
 			},
 			"password": schema.StringAttribute{
-				Description: "PPPoE authentication password. This value is write-only and will not be stored in state.",
+				Description: "PPPoE authentication password.",
 				Required:    true,
 				Sensitive:   true,
-				WriteOnly:   true,
 			},
 			"service_name": schema.StringAttribute{
 				Description: "PPPoE service name (optional). Used to specify a particular service when multiple services are available.",

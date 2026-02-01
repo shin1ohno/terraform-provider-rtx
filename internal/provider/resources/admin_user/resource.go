@@ -64,10 +64,9 @@ func (r *AdminUserResource) Schema(ctx context.Context, req resource.SchemaReque
 				},
 			},
 			"password": schema.StringAttribute{
-				Description: "Password for the admin user. This value is write-only and will not be stored in state.",
+				Description: "Password for the admin user.",
 				Optional:    true,
 				Sensitive:   true,
-				WriteOnly:   true,
 			},
 			"encrypted": schema.BoolAttribute{
 				Description: "Whether the password is already encrypted. If true, the password value will be used as-is.",

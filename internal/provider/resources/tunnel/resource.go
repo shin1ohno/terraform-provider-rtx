@@ -129,10 +129,9 @@ func (r *TunnelResource) Schema(ctx context.Context, req resource.SchemaRequest,
 						},
 					},
 					"pre_shared_key": schema.StringAttribute{
-						Description: "IKE pre-shared key. This value is write-only and will not be stored in state.",
+						Description: "IKE pre-shared key.",
 						Required:    true,
 						Sensitive:   true,
-						WriteOnly:   true,
 					},
 					"secure_filter_in": schema.ListAttribute{
 						Description: "Inbound security filter IDs.",

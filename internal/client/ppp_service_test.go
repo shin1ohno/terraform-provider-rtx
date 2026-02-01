@@ -483,6 +483,52 @@ func TestPPPService_PPIPConfigConversion(t *testing.T) {
 // Helper Function Tests
 // ============================================================================
 
+// ============================================================================
+// PPPoE Update Tests
+// ============================================================================
+
+func TestPPPService_Update_WithPassword(t *testing.T) {
+	executor := newMockPPPExecutor()
+	mockClient := &rtxClient{
+		executor: executor,
+		active:   true, // Mark client as connected for SaveConfig to succeed
+	}
+	service := &PPPService{
+		executor: executor,
+		client:   mockClient,
+	}
+
+	config := PPPoEConfig{
+		Number:        1,
+		Name:          "ISP-Connection",
+		BindInterface: "lan2",
+		AlwaysOn:      true,
+		Enabled:       true,
+		Authentication: &PPPAuth{
+			Method:   "chap",
+			Username: "user@isp.example.com",
+			Password: "newpassword123",
+		},
+	}
+
+	err := service.Update(context.Background(), config)
+	if err != nil {
+		t.Errorf("Update() unexpected error: %v", err)
+	}
+
+	// Verify that pp auth myname command was executed with password
+	foundAuthCmd := false
+	for _, cmd := range executor.commands {
+		if cmd == "pp auth myname user@isp.example.com newpassword123" {
+			foundAuthCmd = true
+			break
+		}
+	}
+	if !foundAuthCmd {
+		t.Errorf("Update() expected 'pp auth myname' command with password, got commands: %v", executor.commands)
+	}
+}
+
 func TestContains(t *testing.T) {
 	tests := []struct {
 		s      string

@@ -426,3 +426,81 @@ func TestDDNSService_DeleteDDNS_ContextCanceled(t *testing.T) {
 		t.Error("DeleteDDNS() expected error when context is canceled")
 	}
 }
+
+// ============================================================================
+// DDNS Update Password Tests
+// ============================================================================
+
+func TestDDNSService_UpdateDDNS_WithPassword(t *testing.T) {
+	executor := newMockDDNSExecutor()
+	mockClient := &rtxClient{
+		executor: executor,
+		active:   true, // Mark client as connected for SaveConfig to succeed
+	}
+	service := &DDNSService{
+		executor: executor,
+		client:   mockClient,
+	}
+
+	config := DDNSServerConfig{
+		ID:       1,
+		URL:      "https://dynupdate.no-ip.com/nic/update",
+		Hostname: "myhost.no-ip.org",
+		Username: "ddnsuser",
+		Password: "newddnspass",
+	}
+
+	err := service.UpdateDDNS(context.Background(), config)
+	if err != nil {
+		t.Errorf("UpdateDDNS() unexpected error: %v", err)
+	}
+
+	// Verify that ddns server user command was executed with password
+	foundUserCmd := false
+	for _, cmd := range executor.commands {
+		if cmd == "ddns server user 1 ddnsuser newddnspass" {
+			foundUserCmd = true
+			break
+		}
+	}
+	if !foundUserCmd {
+		t.Errorf("UpdateDDNS() expected 'ddns server user' command with password, got commands: %v", executor.commands)
+	}
+}
+
+func TestDDNSService_ConfigureDDNS_WithPassword(t *testing.T) {
+	executor := newMockDDNSExecutor()
+	mockClient := &rtxClient{
+		executor: executor,
+		active:   true, // Mark client as connected for SaveConfig to succeed
+	}
+	service := &DDNSService{
+		executor: executor,
+		client:   mockClient,
+	}
+
+	config := DDNSServerConfig{
+		ID:       2,
+		URL:      "https://www.dyndns.org/nic/update",
+		Hostname: "myhost.dyndns.org",
+		Username: "myuser",
+		Password: "example!PASS123",
+	}
+
+	err := service.ConfigureDDNS(context.Background(), config)
+	if err != nil {
+		t.Errorf("ConfigureDDNS() unexpected error: %v", err)
+	}
+
+	// Verify that ddns server user command was executed with password
+	foundUserCmd := false
+	for _, cmd := range executor.commands {
+		if cmd == "ddns server user 2 myuser example!PASS123" {
+			foundUserCmd = true
+			break
+		}
+	}
+	if !foundUserCmd {
+		t.Errorf("ConfigureDDNS() expected 'ddns server user' command with password, got commands: %v", executor.commands)
+	}
+}

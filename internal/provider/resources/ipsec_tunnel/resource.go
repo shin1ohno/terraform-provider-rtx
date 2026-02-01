@@ -93,10 +93,9 @@ func (r *IPsecTunnelResource) Schema(ctx context.Context, req resource.SchemaReq
 				},
 			},
 			"pre_shared_key": schema.StringAttribute{
-				Description: "Pre-shared key for IKE authentication. This value is write-only and will not be stored in state.",
+				Description: "Pre-shared key for IKE authentication.",
 				Optional:    true,
 				Sensitive:   true,
-				WriteOnly:   true,
 			},
 			"local_network": schema.StringAttribute{
 				Description: "Local network in CIDR notation (e.g., '192.168.1.0/24').",
