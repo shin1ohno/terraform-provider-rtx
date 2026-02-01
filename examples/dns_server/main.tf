@@ -1,5 +1,7 @@
 # Example: Basic DNS Server Configuration
+#
 # This example shows how to configure DNS server settings on an RTX router.
+# Note: DNS server is a singleton resource - only one configuration per router.
 
 terraform {
   required_version = ">= 1.11"
@@ -17,46 +19,51 @@ provider "rtx" {
   password = var.rtx_password
 }
 
-# Basic DNS Server Configuration
-# Uses Google and Cloudflare public DNS servers
-resource "rtx_dns_server" "basic" {
-  name_servers = ["8.8.8.8", "8.8.4.4"]
-  service_on   = true
-}
-
-# Full DNS Server Configuration Example
-# Demonstrates all available options
-resource "rtx_dns_server" "full" {
+# DNS Server Configuration
+# Demonstrates available options including server selection and static hosts
+resource "rtx_dns_server" "main" {
   # Enable DNS domain lookup (default: true)
   domain_lookup = true
 
   # Set default domain name for queries
   domain_name = "example.com"
 
-  # Configure up to 3 DNS servers
+  # Configure up to 3 DNS servers (Google and Cloudflare public DNS)
   name_servers = ["8.8.8.8", "1.1.1.1"]
 
   # Domain-based DNS server selection
   # Use different DNS servers for specific domains/patterns
+
+  # Internal domain resolution
   server_select {
     priority      = 1
-    servers       = ["192.168.1.1"]
     query_pattern = "internal.example.com"
+    server {
+      address = "192.168.1.1"
+    }
   }
 
+  # Local network resolution with multiple servers
   server_select {
     priority      = 2
-    servers       = ["10.0.0.1", "10.0.0.2"]
     query_pattern = "*.local"
+    server {
+      address = "10.0.0.1"
+    }
+    server {
+      address = "10.0.0.2"
+    }
   }
 
   # Advanced server select with EDNS and record type filtering
   server_select {
     priority      = 10
-    servers       = ["10.0.0.53"]
-    edns          = true
-    record_type   = "any" # a, aaaa, ptr, mx, ns, cname, any
-    query_pattern = "."   # Match all queries
+    query_pattern = "."
+    record_type   = "any"
+    server {
+      address = "10.0.0.53"
+      edns    = true
+    }
   }
 
   # Static DNS host entries (local DNS overrides)
@@ -103,5 +110,5 @@ variable "rtx_password" {
 # Outputs
 output "dns_config_id" {
   description = "DNS server configuration ID"
-  value       = rtx_dns_server.basic.id
+  value       = rtx_dns_server.main.id
 }

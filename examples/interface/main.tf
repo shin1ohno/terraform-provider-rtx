@@ -31,12 +31,7 @@ resource "rtx_interface" "wan" {
     dhcp = true
   }
 
-  # Access list bindings (reference rtx_access_list_ip and rtx_access_list_ip_dynamic resources by name)
-  access_list_ip_in          = "wan-secure-in"
-  access_list_ip_out         = "wan-secure-out"
-  access_list_ip_dynamic_out = "wan-stateful-out"
-
-  # NAT descriptor binding
+  # NAT descriptor binding (reference rtx_nat_masquerade or rtx_nat_static resources)
   nat_descriptor = 1000
 }
 

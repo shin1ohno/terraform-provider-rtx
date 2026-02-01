@@ -59,32 +59,32 @@ resource "rtx_admin" "main" {
 
 # Create an administrator user with full access
 resource "rtx_admin_user" "admin" {
-  username      = "admin"
-  password      = "SecureAdminPass123!"
-  administrator = true
-  connection    = ["ssh", "telnet", "http", "serial"]
-  gui_pages     = ["dashboard", "lan-map", "config"]
-  login_timer   = 0 # No timeout
+  username           = "admin"
+  password           = "SecureAdminPass123!"
+  administrator      = true
+  connection_methods = ["ssh", "telnet", "http", "serial"]
+  gui_pages          = ["dashboard", "lan-map", "config"]
+  login_timer        = 0 # No timeout
 }
 
 # Create an operator user with limited access
 resource "rtx_admin_user" "operator" {
-  username      = "operator"
-  password      = "OperatorPass456!"
-  administrator = false
-  connection    = ["ssh", "http"]
-  gui_pages     = ["dashboard", "lan-map"]
-  login_timer   = 300 # 5 minute timeout
+  username           = "operator"
+  password           = "OperatorPass456!"
+  administrator      = false
+  connection_methods = ["ssh", "http"]
+  gui_pages          = ["dashboard", "lan-map"]
+  login_timer        = 300 # 5 minute timeout
 }
 
 # Create a read-only user for monitoring
 resource "rtx_admin_user" "monitor" {
-  username      = "monitor"
-  password      = "MonitorPass789!"
-  administrator = false
-  connection    = ["http"]
-  gui_pages     = ["dashboard"]
-  login_timer   = 600 # 10 minute timeout
+  username           = "monitor"
+  password           = "MonitorPass789!"
+  administrator      = false
+  connection_methods = ["http"]
+  gui_pages          = ["dashboard"]
+  login_timer        = 600 # 10 minute timeout
 }
 
 # Outputs

@@ -1,17 +1,25 @@
-# Basic SNMP configuration with read-only community
-resource "rtx_snmp_server" "basic" {
-  location   = "Server Room A"
-  contact    = "admin@example.com"
-  chassis_id = "RTX830-Main"
+# RTX SNMP Server Configuration Example
+#
+# Note: SNMP server is a singleton resource - only one configuration per router.
 
-  community {
-    name       = var.snmp_community_ro
-    permission = "ro"
+terraform {
+  required_version = ">= 1.11"
+  required_providers {
+    rtx = {
+      source  = "shin1ohno/rtx"
+      version = "~> 0.8"
+    }
   }
 }
 
-# Full SNMP configuration with multiple communities, trap hosts, and security settings
-resource "rtx_snmp_server" "full" {
+provider "rtx" {
+  host     = var.rtx_host
+  username = var.rtx_username
+  password = var.rtx_password
+}
+
+# SNMP Server configuration with communities and trap hosts
+resource "rtx_snmp_server" "main" {
   location   = "Tokyo Data Center, Rack 12"
   contact    = "noc@example.com"
   chassis_id = "RTX830-Core"
@@ -26,7 +34,7 @@ resource "rtx_snmp_server" "full" {
   community {
     name       = var.snmp_community_rw
     permission = "rw"
-    acl        = "10" # Restrict to specific hosts via ACL
+    acl        = "10"
   }
 
   # Trap receiver - primary monitoring server
@@ -45,20 +53,32 @@ resource "rtx_snmp_server" "full" {
   enable_traps = ["coldstart", "warmstart", "linkdown", "linkup", "authentication"]
 }
 
-# Minimal SNMP configuration - monitoring only
-resource "rtx_snmp_server" "monitoring_only" {
-  chassis_id = "RTX830-Branch01"
+variable "rtx_host" {
+  description = "RTX router hostname or IP address"
+  type        = string
+}
 
-  community {
-    name       = var.snmp_community_ro
-    permission = "ro"
-    acl        = "20" # Only allow monitoring subnet
-  }
+variable "rtx_username" {
+  description = "RTX router username"
+  type        = string
+}
 
-  host {
-    ip_address = "10.0.0.50"
-    version    = "2c"
-  }
+variable "rtx_password" {
+  description = "RTX router password"
+  type        = string
+  sensitive   = true
+}
 
-  enable_traps = ["all"]
+variable "snmp_community_ro" {
+  description = "SNMP read-only community string"
+  type        = string
+  sensitive   = true
+  default     = "public"
+}
+
+variable "snmp_community_rw" {
+  description = "SNMP read-write community string"
+  type        = string
+  sensitive   = true
+  default     = "private"
 }

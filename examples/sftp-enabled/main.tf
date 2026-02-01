@@ -79,15 +79,15 @@ resource "rtx_sftpd" "sftp" {
 # This user will have full administrative privileges.
 
 resource "rtx_admin_user" "terraform_admin" {
-  name     = var.admin_username
+  username = var.admin_username
   password = var.admin_password
 
   # Enable administrator privileges
   # This allows the user to make configuration changes
-  administrator = "on"
+  administrator = true
 
   # Allow connections via SSH and SFTP
-  # connection = "ssh,sftp"
+  connection_methods = ["ssh"]
 }
 
 # =============================================================================
@@ -155,5 +155,5 @@ output "sftpd_hosts" {
 
 output "admin_user" {
   description = "Admin user configured for SFTP access"
-  value       = rtx_admin_user.terraform_admin.name
+  value       = rtx_admin_user.terraform_admin.username
 }

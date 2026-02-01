@@ -255,3 +255,49 @@ Synchronize examples and spec documentation with the current `rtx_tunnel` implem
 - `terraform validate` on examples/tunnel - Success
 - `go test ./internal/client/... -run TestTunnel` - All tests pass
 - `go test ./internal/rtx/parsers/... -run TestTunnel` - All tests pass
+
+---
+
+## Session: 2026-02-01 - Full Codebase Example Sync
+
+### Objective
+Audit and fix ALL examples in the codebase to match the actual implementation schemas.
+
+### Fixed Examples
+
+| Example | Issue | Fix |
+|---------|-------|-----|
+| `admin/main.tf` | `connection` → `connection_methods` | Renamed attribute |
+| `interface/main.tf` | Non-existent `access_list_ip_*` attributes | Removed unsupported attributes |
+| `bgp/main.tf` | Multiple schema issues | Complete rewrite: `address`→`ip`, added `index`, `keep_alive`→`keepalive`, `network.prefix`→`ip+wildcard+area`, removed `redistribution` blocks |
+| `bgp/variables.tf` | Duplicate variable declarations | Deleted file |
+| `ddns/main.tf` | Non-existent `rtx_ddns_status` data source | Removed data source and related output |
+| `dns_server/main.tf` | `server_select.servers` → nested `server` blocks | Restructured to use `server { address }` pattern |
+| `ipsec_transport/main.tf` | Missing terraform/provider blocks | Added required blocks |
+| `ipsec_tunnel/main.tf` | Wrong attribute names | Fixed: `local_id`→`local_address`, `remote_id`→`remote_address`, `ikev2_proposal.encryption`→`encryption_aes256`, `dpd.enabled`→`dpd_enabled` |
+| `ipv6_interface/main.tf` | Required `rtadv.prefix_id` missing | Simplified to include rtadv for all interfaces |
+| `l2tp/main.tf` | Multiple schema issues | Fixed: `tunnel_name`→`name`, `l2tpv3_config.local_session_id`→`local_router_id`, etc. |
+| `l2tp_service/main.tf` | Missing terraform/provider blocks | Added required blocks |
+| `ospf/main.tf` | Multiple schema issues | Fixed: `network.prefix`→`ip+wildcard+area`, `neighbor.address`→`ip`, merged into singleton resource |
+| `ospf/variables.tf` | Duplicate variable declarations | Deleted file |
+| `pppoe/main.tf` | Non-existent `access_list_ip_*` and `secure_filter_*` on pp_interface | Removed unsupported attributes |
+| `qos/main.tf` | Invalid `wan1` interface name, non-existent `rtx_ip_filter` resource | Changed to `lan2`, removed ip_filter example |
+| `schedule/main.tf` | `policy_list` attribute not working as expected | Changed to use `command_lines` directly |
+| `sftp-enabled/main.tf` | `name`→`username`, `administrator = "on"`→`= true` | Fixed rtx_admin_user attributes |
+| `snmp/main.tf` | Missing terraform/provider blocks | Added required blocks |
+| `syslog/main.tf` | Missing terraform/provider blocks | Added required blocks |
+
+### Common Issues Found
+
+1. **Missing terraform/provider blocks**: Many examples had no terraform version or provider configuration
+2. **Incorrect attribute names**: Many examples used hypothetical names that don't match the actual schema
+3. **Non-existent resources**: Some examples used resources that don't exist (e.g., `rtx_ip_filter`, `rtx_ddns_status`)
+4. **Schema mismatches**: Nested blocks vs lists, required vs optional attributes
+5. **Duplicate variable files**: Some examples had both inline variables and separate variables.tf files
+
+### Validation
+All examples now pass `terraform validate` (with only provider override warnings).
+
+### Files Modified
+- 18 example main.tf files updated
+- 2 variables.tf files deleted (bgp, ospf)

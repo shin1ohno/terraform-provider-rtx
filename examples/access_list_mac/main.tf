@@ -197,6 +197,7 @@ resource "rtx_access_list_mac_apply" "shared_to_lan2" {
   access_list = rtx_access_list_mac.shared_mac_filters.name
   interface   = "lan2"
   direction   = "in"
+  filter_ids  = [1000, 1100]
 }
 
 # Apply shared filters to lan3 with specific filter order

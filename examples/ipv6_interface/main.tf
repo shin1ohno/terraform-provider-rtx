@@ -1,10 +1,8 @@
 # Example: IPv6 Interface Configuration for Yamaha RTX Routers
 #
 # This example demonstrates various IPv6 interface configurations:
-# - WAN interface with DHCPv6 client (obtains prefix from ISP)
 # - LAN interface with Router Advertisement and DHCPv6 server
-# - Bridge interface with static IPv6 address
-# - Security filter configuration
+# - Additional interface with static IPv6 address
 
 terraform {
   required_version = ">= 1.11"
@@ -39,43 +37,11 @@ variable "router_password" {
 }
 
 # =============================================================================
-# Base Interface Resources
+# Example 1: LAN Interface with RA and DHCPv6 Server
 # =============================================================================
-
-resource "rtx_interface" "lan1" {
-  name = "lan1"
-}
-
-resource "rtx_interface" "lan2" {
-  name = "lan2"
-}
-
-resource "rtx_interface" "lan3" {
-  name = "lan3"
-}
-
-resource "rtx_bridge" "bridge1" {
-  name    = "bridge1"
-  members = [rtx_interface.lan1.interface_name]
-}
-
-# ============================================================
-# Example 1: WAN Interface with DHCPv6 Client
-# ============================================================
-# Obtains IPv6 prefix delegation from ISP via DHCPv6
-resource "rtx_ipv6_interface" "wan" {
-  interface = rtx_interface.lan2.interface_name
-
-  # Use DHCPv6 client to obtain address/prefix from ISP
-  dhcpv6_service = "client"
-}
-
-# ============================================================
-# Example 2: LAN Interface with RA and DHCPv6 Server
-# ============================================================
-# First, define the IPv6 prefix to be used
+# Define the IPv6 prefix to be used
 resource "rtx_ipv6_prefix" "lan_prefix" {
-  id            = 1
+  prefix_id     = 1
   prefix        = "2001:db8::"
   prefix_length = 64
   source        = "static"
@@ -83,7 +49,7 @@ resource "rtx_ipv6_prefix" "lan_prefix" {
 
 # Configure LAN interface with SLAAC and DHCPv6
 resource "rtx_ipv6_interface" "lan" {
-  interface = rtx_interface.lan1.interface_name
+  interface = "lan1"
 
   # Static IPv6 address for the router
   address {
@@ -94,7 +60,7 @@ resource "rtx_ipv6_interface" "lan" {
   # Enables SLAAC for clients
   rtadv {
     enabled   = true
-    prefix_id = rtx_ipv6_prefix.lan_prefix.id
+    prefix_id = rtx_ipv6_prefix.lan_prefix.prefix_id
     o_flag    = true  # Clients should use DHCPv6 for other config (DNS, etc.)
     m_flag    = false # Clients use SLAAC for address configuration
     lifetime  = 1800  # Router lifetime in seconds
@@ -107,70 +73,41 @@ resource "rtx_ipv6_interface" "lan" {
   mtu = 1500
 }
 
-# ============================================================
-# Example 3: Bridge Interface with Static Address
-# ============================================================
-resource "rtx_ipv6_interface" "bridge" {
-  interface = rtx_bridge.bridge1.interface_name
+# =============================================================================
+# Example 2: WAN Interface with DHCPv6 Client
+# =============================================================================
+# Obtains IPv6 prefix delegation from ISP via DHCPv6
+resource "rtx_ipv6_prefix" "wan_prefix" {
+  prefix_id     = 2
+  prefix_length = 64
+  source        = "dhcpv6-pd"
+  interface     = "lan2"
+}
 
-  # Multiple static IPv6 addresses
-  address {
-    address = "2001:db8:1::1/64"
-  }
+resource "rtx_ipv6_interface" "wan" {
+  interface = "lan2"
 
-  address {
-    address = "fd00::1/64" # ULA address for local network
+  # Use DHCPv6 client to obtain address/prefix from ISP
+  dhcpv6_service = "client"
+
+  rtadv {
+    enabled   = false
+    prefix_id = rtx_ipv6_prefix.wan_prefix.prefix_id
   }
 }
 
-# ============================================================
-# Example 4: Interface with Prefix-Based Address
-# ============================================================
-# Uses prefix obtained from another interface via RA or DHCPv6-PD
-resource "rtx_ipv6_interface" "prefix_based" {
-  interface = rtx_interface.lan3.interface_name
-
-  # Address derived from prefix received on lan2
-  address {
-    prefix_ref   = "ra-prefix@${rtx_interface.lan2.interface_name}"
-    interface_id = "::1/64"
-  }
-
-  # Also add a link-local derived address
-  address {
-    prefix_ref   = "dhcp-prefix@${rtx_interface.lan2.interface_name}"
-    interface_id = "::1/64"
-  }
-}
-
-# ============================================================
-# Example 5: Security Filter Configuration
-# ============================================================
-resource "rtx_ipv6_interface" "secured" {
-  interface = rtx_interface.lan1.interface_name
-
-  address {
-    address = "2001:db8:2::1/64"
-  }
-
-  # Access list bindings (reference rtx_access_list_ipv6 and rtx_access_list_ipv6_dynamic resources by name)
-  access_list_ipv6_in          = "ipv6-secure-in"
-  access_list_ipv6_out         = "ipv6-secure-out"
-  access_list_ipv6_dynamic_out = "ipv6-stateful-out"
-}
-
-# ============================================================
-# Example 6: Full Configuration Example
-# ============================================================
+# =============================================================================
+# Example 3: Full Configuration Example
+# =============================================================================
 resource "rtx_ipv6_prefix" "full_prefix" {
-  id            = 2
+  prefix_id     = 3
   prefix        = "2001:db8:100::"
   prefix_length = 64
   source        = "static"
 }
 
 resource "rtx_ipv6_interface" "full_example" {
-  interface = rtx_interface.lan1.interface_name
+  interface = "lan3"
 
   # Primary address
   address {
@@ -185,7 +122,7 @@ resource "rtx_ipv6_interface" "full_example" {
   # Router Advertisement with all options
   rtadv {
     enabled   = true
-    prefix_id = rtx_ipv6_prefix.full_prefix.id
+    prefix_id = rtx_ipv6_prefix.full_prefix.prefix_id
     o_flag    = true # Use DHCPv6 for other configuration
     m_flag    = true # Use DHCPv6 for managed addresses
     lifetime  = 3600 # 1 hour router lifetime
@@ -196,20 +133,15 @@ resource "rtx_ipv6_interface" "full_example" {
 
   # IPv6 MTU (minimum 1280)
   mtu = 1500
-
-  # Access list bindings (reference rtx_access_list_ipv6 and rtx_access_list_ipv6_dynamic resources by name)
-  access_list_ipv6_in          = "full-ipv6-in"
-  access_list_ipv6_out         = "full-ipv6-out"
-  access_list_ipv6_dynamic_out = "full-ipv6-dynamic"
 }
 
 # Output the configured interfaces
-output "wan_interface" {
-  description = "WAN interface configuration"
-  value       = rtx_ipv6_interface.wan.interface
-}
-
 output "lan_interface" {
   description = "LAN interface configuration"
   value       = rtx_ipv6_interface.lan.interface
+}
+
+output "wan_interface" {
+  description = "WAN interface configuration"
+  value       = rtx_ipv6_interface.wan.interface
 }

@@ -1,4 +1,6 @@
 # RTX BGP Configuration Examples
+#
+# Note: BGP is a singleton resource - only one BGP configuration can exist per router.
 
 terraform {
   required_version = ">= 1.11"
@@ -16,70 +18,69 @@ provider "rtx" {
   password = var.rtx_password
 }
 
-# Basic BGP configuration with a single neighbor
-resource "rtx_bgp" "basic" {
-  asn       = 65001
+# BGP configuration with iBGP and eBGP neighbors
+resource "rtx_bgp" "main" {
+  asn       = "65001"
   router_id = "10.0.0.1"
 
-  neighbor {
-    address    = "10.0.0.2"
-    remote_as  = 65002
-    keep_alive = 30
-    hold_time  = 90
-  }
-
-  network {
-    prefix = "192.168.0.0/24"
-  }
-}
-
-# iBGP configuration with multiple neighbors
-resource "rtx_bgp" "ibgp" {
-  asn       = 65001
-  router_id = "10.0.0.1"
+  # Enable logging neighbor state changes
+  log_neighbor_changes = true
 
   # iBGP neighbor (same AS)
   neighbor {
-    address     = "10.0.0.2"
-    remote_as   = 65001
-    description = "iBGP peer"
+    index     = 1
+    ip        = "10.0.0.2"
+    remote_as = "65001"
+    keepalive = 30
+    hold_time = 90
   }
 
   # Another iBGP neighbor
   neighbor {
-    address     = "10.0.0.3"
-    remote_as   = 65001
-    description = "iBGP peer 2"
+    index     = 2
+    ip        = "10.0.0.3"
+    remote_as = "65001"
+    keepalive = 30
+    hold_time = 90
   }
-}
 
-# eBGP configuration with route redistribution
-resource "rtx_bgp" "ebgp" {
-  asn       = 65001
-  router_id = "203.0.113.1"
-
+  # eBGP neighbor (different AS)
   neighbor {
-    address    = "203.0.113.2"
-    remote_as  = 65002
-    keep_alive = 60
-    hold_time  = 180
+    index     = 3
+    ip        = "203.0.113.2"
+    remote_as = "65002"
+    keepalive = 60
+    hold_time = 180
   }
 
   # Advertise networks
   network {
-    prefix = "192.168.1.0/24"
+    prefix = "192.168.0.0"
+    mask   = "255.255.255.0"
   }
 
   network {
-    prefix = "192.168.2.0/24"
+    prefix = "192.168.1.0"
+    mask   = "255.255.255.0"
   }
 
-  # Redistribute from other protocols
-  redistribution {
-    protocol = "static"
-  }
+  # Redistribute routes
+  redistribute_static    = true
+  redistribute_connected = true
+}
 
-  redistribution {
-    protocol = "connected"
-  }
+variable "rtx_host" {
+  description = "RTX router hostname or IP address"
+  type        = string
+}
+
+variable "rtx_username" {
+  description = "RTX router username"
+  type        = string
+}
+
+variable "rtx_password" {
+  description = "RTX router password"
+  type        = string
+  sensitive   = true
 }

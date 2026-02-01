@@ -45,10 +45,6 @@ resource "rtx_interface" "lan2" {
   name = "lan2"
 }
 
-resource "rtx_interface" "wan1" {
-  name = "wan1"
-}
-
 # ============================================================================
 # Example 1: Basic Class Map for VoIP Traffic
 # ============================================================================
@@ -61,22 +57,13 @@ resource "rtx_class_map" "voip" {
 }
 
 # ============================================================================
-# Example 2: Class Map with IP Filter Reference
+# Example 2: Class Map with DSCP Matching
 # ============================================================================
-# This class map references an existing IP filter for traffic matching
+# This class map matches traffic by DSCP value
 
-resource "rtx_ip_filter" "web_traffic" {
-  number         = 100
-  action         = "pass"
-  source_address = "*"
-  dest_address   = "*"
-  protocol       = "tcp"
-  dest_port      = "80,443"
-}
-
-resource "rtx_class_map" "web" {
-  name         = "web-traffic"
-  match_filter = rtx_ip_filter.web_traffic.number
+resource "rtx_class_map" "expedited" {
+  name       = "expedited-traffic"
+  match_dscp = "ef"
 }
 
 # ============================================================================
@@ -95,18 +82,18 @@ resource "rtx_policy_map" "qos_policy" {
     queue_limit       = 64
   }
 
-  # Normal priority for web traffic (40% bandwidth)
+  # High priority for expedited traffic (20% bandwidth)
   class {
-    name              = rtx_class_map.web.name
-    priority          = "normal"
-    bandwidth_percent = 40
+    name              = rtx_class_map.expedited.name
+    priority          = "high"
+    bandwidth_percent = 20
   }
 
-  # Low priority for bulk data (30% bandwidth)
+  # Low priority for bulk data (50% bandwidth)
   class {
     name              = "bulk"
     priority          = "low"
-    bandwidth_percent = 30
+    bandwidth_percent = 50
   }
 }
 
@@ -124,10 +111,10 @@ resource "rtx_service_policy" "lan1_qos" {
 # ============================================================================
 # Example 5: Traffic Shaping
 # ============================================================================
-# Limit outbound traffic on WAN interface to 10 Mbps
+# Limit outbound traffic on LAN2 interface to 10 Mbps
 
-resource "rtx_shape" "wan_limit" {
-  interface     = rtx_interface.wan1.interface_name
+resource "rtx_shape" "lan2_limit" {
+  interface     = rtx_interface.lan2.interface_name
   direction     = "output"
   shape_average = 10000000 # 10 Mbps in bps
 }
@@ -204,7 +191,7 @@ output "voip_class_map" {
   value       = rtx_class_map.voip.name
 }
 
-output "wan_shape_rate" {
-  description = "WAN shaping rate in bps"
-  value       = rtx_shape.wan_limit.shape_average
+output "lan2_shape_rate" {
+  description = "LAN2 shaping rate in bps"
+  value       = rtx_shape.lan2_limit.shape_average
 }

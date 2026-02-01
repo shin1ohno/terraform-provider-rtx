@@ -82,15 +82,6 @@ resource "rtx_ddns" "cloudflare_style" {
 }
 
 # =============================================================================
-# Example 4: DDNS Status Monitoring
-# =============================================================================
-# Use the data source to monitor DDNS registration status.
-
-data "rtx_ddns_status" "all" {
-  type = "all" # "netvolante", "custom", or "all"
-}
-
-# =============================================================================
 # Variables
 # =============================================================================
 
@@ -220,7 +211,3 @@ output "custom_ddns" {
   }
 }
 
-output "ddns_status" {
-  description = "Current DDNS registration status"
-  value       = data.rtx_ddns_status.all.statuses
-}

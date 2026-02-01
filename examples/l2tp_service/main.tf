@@ -3,20 +3,40 @@
 # This is a singleton resource - only one can exist per router.
 # It controls the global L2TP service state.
 
+terraform {
+  required_version = ">= 1.11"
+  required_providers {
+    rtx = {
+      source  = "shin1ohno/rtx"
+      version = "~> 0.8"
+    }
+  }
+}
+
+provider "rtx" {
+  host     = var.rtx_host
+  username = var.rtx_username
+  password = var.rtx_password
+}
+
 # Enable L2TP service with both L2TPv3 and L2TPv2 protocols
 resource "rtx_l2tp_service" "main" {
   enabled   = true
   protocols = ["l2tpv3", "l2tp"]
 }
 
-# Example: Enable only L2TPv3 for site-to-site VPN
-# resource "rtx_l2tp_service" "l2tpv3_only" {
-#   enabled   = true
-#   protocols = ["l2tpv3"]
-# }
+variable "rtx_host" {
+  description = "RTX router hostname or IP address"
+  type        = string
+}
 
-# Example: Enable only L2TPv2 for remote access VPN
-# resource "rtx_l2tp_service" "l2tp_only" {
-#   enabled   = true
-#   protocols = ["l2tp"]
-# }
+variable "rtx_username" {
+  description = "RTX router username"
+  type        = string
+}
+
+variable "rtx_password" {
+  description = "RTX router password"
+  type        = string
+  sensitive   = true
+}

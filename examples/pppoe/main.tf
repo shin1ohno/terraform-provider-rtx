@@ -46,10 +46,6 @@ resource "rtx_pp_interface" "flets_primary" {
   tcp_mss        = 1414   # TCP MSS limit (MTU - 40)
   nat_descriptor = 1000   # Link to NAT masquerade
 
-  # Access list bindings (reference rtx_access_list_ip resources by name)
-  access_list_ip_in  = "pp-secure-in"
-  access_list_ip_out = "pp-secure-out"
-
   depends_on = [rtx_pppoe.flets_primary]
 }
 
@@ -85,10 +81,6 @@ resource "rtx_pp_interface" "primary_wan" {
   tcp_mss        = 1414
   nat_descriptor = 1001
 
-  # TODO: rtx_pp_interface will be updated to use access_list_* attributes in future version
-  secure_filter_in  = [200020, 200021, 200022, 200023, 200024, 200025, 200099]
-  secure_filter_out = [200020, 200021, 200022, 200023, 200024, 200025, 200099]
-
   depends_on = [rtx_pppoe.primary_wan]
 }
 
@@ -109,10 +101,6 @@ resource "rtx_pp_interface" "secondary_wan" {
   mtu            = 1454
   tcp_mss        = 1414
   nat_descriptor = 1002
-
-  # TODO: rtx_pp_interface will be updated to use access_list_* attributes in future version
-  secure_filter_in  = [200020, 200021, 200022, 200023, 200024, 200025, 200099]
-  secure_filter_out = [200020, 200021, 200022, 200023, 200024, 200025, 200099]
 
   depends_on = [rtx_pppoe.secondary_wan]
 }

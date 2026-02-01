@@ -4,7 +4,6 @@
 # - Kron policies (command lists)
 # - Daily recurring schedules
 # - Weekly schedules with day_of_week
-# - Startup schedules
 # - One-time date-specific schedules
 
 terraform {
@@ -40,10 +39,10 @@ variable "rtx_password" {
 }
 
 # ============================================================================
-# Example 1: Basic Policy and Daily Schedule
+# Example 1: Basic Policy (reusable command set)
 # ============================================================================
 
-# Define a policy with multiple commands
+# Define a policy with multiple commands (can be referenced by schedules)
 resource "rtx_kron_policy" "daily_backup" {
   name = "daily_backup"
   command_lines = [
@@ -52,6 +51,10 @@ resource "rtx_kron_policy" "daily_backup" {
   ]
 }
 
+# ============================================================================
+# Example 2: Daily Schedule
+# ============================================================================
+
 # Create a daily schedule at 3:00 AM
 resource "rtx_kron_schedule" "backup_schedule" {
   schedule_id = 1
@@ -59,26 +62,15 @@ resource "rtx_kron_schedule" "backup_schedule" {
   at_time     = "3:00"
   recurring   = true
 
-  # Execute commands from the policy
-  command_lines = rtx_kron_policy.daily_backup.command_lines
-
-  # Note: The schedule depends on the policy
-  depends_on = [rtx_kron_policy.daily_backup]
-}
-
-# ============================================================================
-# Example 2: Weekly Schedule with day_of_week
-# ============================================================================
-
-# Define a maintenance policy
-resource "rtx_kron_policy" "weekly_maintenance" {
-  name = "weekly_maintenance"
   command_lines = [
-    "clear dns cache",
-    "clear ip filter dynamic",
-    "show status | mail admin@example.com"
+    "save",
+    "show config | mail admin@example.com"
   ]
 }
+
+# ============================================================================
+# Example 3: Weekly Schedule with day_of_week
+# ============================================================================
 
 # Create a weekly schedule every Sunday at 2:00 AM
 resource "rtx_kron_schedule" "weekly_maintenance" {
@@ -88,12 +80,18 @@ resource "rtx_kron_schedule" "weekly_maintenance" {
   day_of_week = "sun"
   recurring   = true
 
-  command_lines = rtx_kron_policy.weekly_maintenance.command_lines
-
-  depends_on = [rtx_kron_policy.weekly_maintenance]
+  command_lines = [
+    "clear dns cache",
+    "clear ip filter dynamic",
+    "show status | mail admin@example.com"
+  ]
 }
 
-# Weekday monitoring schedule (Monday through Friday)
+# ============================================================================
+# Example 4: Weekday Schedule (Monday-Friday)
+# ============================================================================
+
+# Weekday monitoring schedule with inline commands
 resource "rtx_kron_schedule" "weekday_report" {
   schedule_id = 3
   name        = "Weekday Status Report"
@@ -108,32 +106,7 @@ resource "rtx_kron_schedule" "weekday_report" {
 }
 
 # ============================================================================
-# Example 3: Startup Schedule
-# ============================================================================
-
-# Define startup initialization commands
-resource "rtx_kron_policy" "startup_init" {
-  name = "startup_init"
-  command_lines = [
-    "pp select 1",
-    "dhcp service server"
-  ]
-}
-
-# Create a startup schedule (runs when router boots)
-resource "rtx_kron_schedule" "startup_init" {
-  schedule_id = 10
-  name        = "Startup Initialization"
-  on_startup  = true
-  recurring   = false
-
-  command_lines = rtx_kron_policy.startup_init.command_lines
-
-  depends_on = [rtx_kron_policy.startup_init]
-}
-
-# ============================================================================
-# Example 4: One-time Date-specific Schedule
+# Example 5: One-time Date-specific Schedule
 # ============================================================================
 
 # Scheduled maintenance for a specific date
@@ -151,10 +124,9 @@ resource "rtx_kron_schedule" "planned_maintenance" {
 }
 
 # ============================================================================
-# Example 5: Multiple Commands Without Policy (inline)
+# Example 6: Daily Log Rotation
 # ============================================================================
 
-# Direct schedule with inline commands
 resource "rtx_kron_schedule" "log_rotation" {
   schedule_id = 30
   name        = "Daily Log Rotation"
@@ -167,23 +139,6 @@ resource "rtx_kron_schedule" "log_rotation" {
 }
 
 # ============================================================================
-# Example 6: Weekend Schedule
-# ============================================================================
-
-resource "rtx_kron_schedule" "weekend_backup" {
-  schedule_id = 40
-  name        = "Weekend Full Backup"
-  at_time     = "4:00"
-  day_of_week = "sat,sun"
-  recurring   = true
-
-  command_lines = [
-    "save",
-    "show config all"
-  ]
-}
-
-# ============================================================================
 # Outputs
 # ============================================================================
 
@@ -192,16 +147,7 @@ output "backup_schedule_id" {
   value       = rtx_kron_schedule.backup_schedule.schedule_id
 }
 
-output "startup_schedule_id" {
-  description = "ID of the startup initialization schedule"
-  value       = rtx_kron_schedule.startup_init.schedule_id
-}
-
-output "policies" {
-  description = "List of created policies"
-  value = [
-    rtx_kron_policy.daily_backup.name,
-    rtx_kron_policy.weekly_maintenance.name,
-    rtx_kron_policy.startup_init.name
-  ]
+output "policy_name" {
+  description = "Name of the backup policy"
+  value       = rtx_kron_policy.daily_backup.name
 }
