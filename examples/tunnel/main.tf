@@ -30,7 +30,7 @@ resource "rtx_tunnel" "site_to_site_vpn" {
   tunnel_id     = 1
   encapsulation = "ipsec"
   enabled       = true
-  name          = "Office-to-Datacenter"
+  # Note: 'name' is Computed (read-only) - use rtx_interface to set tunnel interface description
 
   ipsec {
     local_address  = "192.168.1.1"
@@ -61,13 +61,17 @@ resource "rtx_tunnel" "l2vpn" {
   tunnel_id     = 2
   encapsulation = "l2tpv3"
   enabled       = true
-  name          = "L2VPN-Branch"
+
+  # Optional: DNS-based endpoint resolution
+  endpoint_name      = "branch.example.com"
+  endpoint_name_type = "fqdn"
 
   ipsec {
     ipsec_tunnel_id = 101
     local_address   = "192.168.1.253"
     remote_address  = "branch.example.com"
     pre_shared_key  = var.ipsec_psk
+    nat_traversal   = true
 
     ipsec_transform {
       protocol          = "esp"
@@ -101,11 +105,21 @@ resource "rtx_tunnel" "l2vpn" {
 # ============================================================================
 # This configures the router as an L2TP Network Server (LNS)
 # for remote access VPN connections.
+# Note: L2TPv2 requires IPsec for transport encryption.
 resource "rtx_tunnel" "remote_access" {
   tunnel_id     = 3
   encapsulation = "l2tp"
   enabled       = true
-  name          = "Remote-Access-VPN"
+
+  ipsec {
+    pre_shared_key = var.ipsec_psk
+
+    ipsec_transform {
+      protocol          = "esp"
+      encryption_aes256 = true
+      integrity_sha256  = true
+    }
+  }
 
   l2tp {
     hostname  = "vpn-server"
@@ -133,7 +147,6 @@ resource "rtx_tunnel" "filtered_vpn" {
   tunnel_id     = 4
   encapsulation = "ipsec"
   enabled       = true
-  name          = "Filtered-VPN"
 
   ipsec {
     local_address     = "10.0.0.1"

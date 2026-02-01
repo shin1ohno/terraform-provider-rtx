@@ -14,17 +14,159 @@ VPN resources support enterprise-grade network infrastructure management by:
 
 ## Resources Summary
 
-| Resource | Type | Description |
-|----------|------|-------------|
-| `rtx_ipsec_tunnel` | Collection | IPsec VPN tunnel with IKEv2 |
-| `rtx_ipsec_transport` | Collection | IPsec transport mode for L2TP/IPsec |
-| `rtx_l2tp` | Collection | L2TP/L2TPv3 tunnel configuration |
-| `rtx_l2tp_service` | Singleton | L2TP service enable/disable |
-| `rtx_pptp` | Singleton | PPTP VPN server (legacy) |
+| Resource | Type | Description | Status |
+|----------|------|-------------|--------|
+| `rtx_tunnel` | Collection | **Unified tunnel resource** (IPsec, L2TPv3, L2TPv2) | **Recommended** |
+| `rtx_ipsec_tunnel` | Collection | IPsec VPN tunnel with IKEv2 | Deprecated |
+| `rtx_ipsec_transport` | Collection | IPsec transport mode for L2TP/IPsec | - |
+| `rtx_l2tp` | Collection | L2TP/L2TPv3 tunnel configuration | Deprecated |
+| `rtx_l2tp_service` | Singleton | L2TP service enable/disable | - |
+| `rtx_pptp` | Singleton | PPTP VPN server (legacy) | - |
+
+> **Note:** `rtx_tunnel` is the recommended resource for new tunnel configurations. It provides a unified interface for all tunnel types. `rtx_ipsec_tunnel` and `rtx_l2tp` are deprecated and will be removed in a future version.
 
 ---
 
-## Resource 1: rtx_ipsec_tunnel
+## Resource 0: rtx_tunnel (Unified Tunnel Resource)
+
+### Resource Summary
+
+| Attribute | Value |
+|-----------|-------|
+| Resource Name | `rtx_tunnel` |
+| Type | Collection |
+| Import Support | Yes |
+| Last Updated | 2026-02-01 |
+
+### Overview
+
+`rtx_tunnel` is the unified tunnel resource that supports three encapsulation types:
+- **ipsec**: Site-to-site VPN tunnels
+- **l2tpv3**: L2VPN tunnels (L2TPv3 over IPsec)
+- **l2tp**: L2TPv2 remote access VPN
+
+### Functional Requirements
+
+#### Create
+- Create a new tunnel with specified ID and encapsulation type
+- Configure encapsulation-specific settings (IPsec or L2TP blocks)
+- Set tunnel endpoint name for DNS resolution (optional)
+- Enable/disable the tunnel
+
+#### Read
+- Retrieve tunnel configuration by tunnel ID
+- Parse encapsulation-specific settings based on tunnel type
+- Return computed `name` and `tunnel_interface` values
+
+#### Update
+- Modify tunnel settings in-place
+- Update IPsec or L2TP block configurations
+- Toggle tunnel enabled state
+
+#### Delete
+- Remove tunnel configuration completely
+- Clean up associated IPsec settings
+
+### Requirement 1: Unified Tunnel Interface
+
+**User Story:** As a network administrator, I want a single resource type to manage all tunnel types, so that I can use consistent configuration patterns.
+
+#### Acceptance Criteria
+
+1. WHEN `encapsulation = "ipsec"` THEN the system SHALL configure an IPsec tunnel
+2. WHEN `encapsulation = "l2tpv3"` THEN the system SHALL configure an L2TPv3 tunnel with IPsec
+3. WHEN `encapsulation = "l2tp"` THEN the system SHALL configure an L2TPv2 remote access tunnel
+4. WHEN `name` is referenced THEN the system SHALL return the computed description (read-only)
+
+### Attributes
+
+| Attribute | Type | Required | Computed | ForceNew | Constraints | Description |
+|-----------|------|----------|----------|----------|-------------|-------------|
+| tunnel_id | int | Yes | No | Yes | 1-6000 | Tunnel ID (tunnel select N) |
+| encapsulation | string | Yes | No | No | ipsec, l2tpv3, l2tp | Tunnel encapsulation type |
+| enabled | bool | No | Yes | No | Default: true | Enable the tunnel |
+| name | string | No | **Yes** | No | - | Tunnel description/name (read-only) |
+| endpoint_name | string | No | No | No | - | Tunnel endpoint name for DNS resolution |
+| endpoint_name_type | string | No | No | No | fqdn | Endpoint name type |
+| tunnel_interface | string | No | Yes | No | - | Computed: "tunnel{ID}" (e.g., "tunnel1") |
+| ipsec | block | No | No | No | MaxItems: 1 | IPsec configuration |
+| l2tp | block | No | No | No | MaxItems: 1 | L2TP configuration |
+
+#### ipsec Block
+
+| Attribute | Type | Required | Computed | Sensitive | Constraints | Description |
+|-----------|------|----------|----------|-----------|-------------|-------------|
+| ipsec_tunnel_id | int | No | Yes | No | - | IPsec tunnel ID (defaults to tunnel_id) |
+| local_address | string | No | Yes | No | Valid IPv4 | Local IKE endpoint address |
+| remote_address | string | No | Yes | No | Valid IPv4/hostname | Remote IKE endpoint address |
+| pre_shared_key | string | Yes | No | Yes | WriteOnly | IKE pre-shared key |
+| nat_traversal | bool | No | Yes | No | Default: false | Enable NAT traversal |
+| ike_remote_name | string | No | Yes | No | - | IKE remote name value |
+| ike_remote_name_type | string | No | Yes | No | ipv4-addr, fqdn, user-fqdn, ipv6-addr, key-id, l2tpv3 | IKE remote name type |
+| ike_keepalive_log | bool | No | Yes | No | Default: false | Enable IKE keepalive logging |
+| ike_log | string | No | No | No | - | IKE log options |
+| secure_filter_in | list(int) | No | No | No | - | Inbound security filter IDs |
+| secure_filter_out | list(int) | No | No | No | - | Outbound security filter IDs |
+| tcp_mss_limit | string | No | No | No | auto or numeric | TCP MSS limit |
+| ipsec_transform | block | No | No | No | MaxItems: 1 | IPsec Phase 2 transform settings |
+| keepalive | block | No | No | No | MaxItems: 1 | IPsec keepalive/DPD settings |
+
+#### ipsec.ipsec_transform Block
+
+| Attribute | Type | Required | Computed | Default | Description |
+|-----------|------|----------|----------|---------|-------------|
+| protocol | string | No | Yes | esp | Protocol: "esp" or "ah" |
+| encryption_aes256 | bool | No | Yes | false | Use AES-256 encryption |
+| encryption_aes128 | bool | No | Yes | false | Use AES-128 encryption |
+| encryption_3des | bool | No | Yes | false | Use 3DES encryption |
+| integrity_sha256 | bool | No | Yes | false | Use SHA-256-HMAC integrity |
+| integrity_sha1 | bool | No | Yes | false | Use SHA-1-HMAC integrity |
+| integrity_md5 | bool | No | Yes | false | Use MD5-HMAC integrity |
+
+#### ipsec.keepalive Block
+
+| Attribute | Type | Required | Computed | Default | Description |
+|-----------|------|----------|----------|---------|-------------|
+| enabled | bool | No | Yes | false | Enable keepalive |
+| mode | string | No | Yes | dpd | Keepalive mode: "dpd" or "heartbeat" |
+| interval | int | No | Yes | - | Keepalive interval in seconds |
+| retry | int | No | Yes | - | Retry count |
+
+#### l2tp Block
+
+| Attribute | Type | Required | Computed | Constraints | Description |
+|-----------|------|----------|----------|-------------|-------------|
+| hostname | string | No | No | - | L2TP hostname for negotiation |
+| local_router_id | string | No | No | Valid IPv4 | Local router ID (L2TPv3) |
+| remote_router_id | string | No | No | Valid IPv4 | Remote router ID (L2TPv3) |
+| remote_end_id | string | No | No | - | Remote end ID (L2TPv3) |
+| always_on | bool | No | Yes | Default: false | Keep connection always active |
+| disconnect_time | int | No | Yes | >= 0 | Disconnect time in seconds (0 = off) |
+| keepalive_log | bool | No | Yes | Default: false | Enable L2TP keepalive logging |
+| syslog | bool | No | Yes | Default: false | Enable L2TP syslog |
+| tunnel_auth | block | No | No | MaxItems: 1 | L2TP tunnel authentication |
+| keepalive | block | No | No | MaxItems: 1 | L2TP keepalive settings |
+
+#### l2tp.tunnel_auth Block
+
+| Attribute | Type | Required | Computed | Sensitive | Default | Description |
+|-----------|------|----------|----------|-----------|---------|-------------|
+| enabled | bool | No | Yes | No | false | Enable tunnel authentication |
+| password | string | No | No | Yes | - | Tunnel authentication password |
+
+#### l2tp.keepalive Block
+
+| Attribute | Type | Required | Computed | Description |
+|-----------|------|----------|----------|-------------|
+| enabled | bool | No | Yes | Enable keepalive (Default: false) |
+| interval | int | No | Yes | Keepalive interval in seconds |
+| retry | int | No | Yes | Retry count |
+
+---
+
+## Resource 1: rtx_ipsec_tunnel (Deprecated)
+
+> **⚠️ Deprecation Notice:** This resource is deprecated. Use `rtx_tunnel` with `encapsulation = "ipsec"` instead. This resource will be removed in a future major version.
 
 ### Resource Summary
 
@@ -33,6 +175,7 @@ VPN resources support enterprise-grade network infrastructure management by:
 | Resource Name | `rtx_ipsec_tunnel` |
 | Type | Collection |
 | Import Support | Yes |
+| Status | **Deprecated** |
 | Last Updated | 2026-01-23 |
 
 ### Functional Requirements
@@ -186,7 +329,9 @@ VPN resources support enterprise-grade network infrastructure management by:
 
 ---
 
-## Resource 3: rtx_l2tp
+## Resource 3: rtx_l2tp (Deprecated)
+
+> **⚠️ Deprecation Notice:** This resource is deprecated. Use `rtx_tunnel` with `encapsulation = "l2tpv3"` or `encapsulation = "l2tp"` instead. This resource will be removed in a future major version.
 
 ### Resource Summary
 
@@ -195,6 +340,7 @@ VPN resources support enterprise-grade network infrastructure management by:
 | Resource Name | `rtx_l2tp` |
 | Type | Collection |
 | Import Support | Yes |
+| Status | **Deprecated** |
 | Last Updated | 2026-01-23 |
 
 ### Functional Requirements
@@ -756,3 +902,4 @@ resource "rtx_pptp" "main" {
 |------|-------------|---------|
 | 2026-01-23 | Implementation | Initial documentation from codebase |
 | 2026-01-25 | Implementation Sync | Add computed `tunnel_interface` for rtx_ipsec_tunnel and rtx_l2tp |
+| 2026-02-01 | rtx-tunnel-unified | Add `rtx_tunnel` unified resource; deprecate `rtx_ipsec_tunnel` and `rtx_l2tp` |

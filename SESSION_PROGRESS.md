@@ -1,199 +1,257 @@
-# Session Progress
+# Session Progress: Complete rtx_tunnel Resource Attributes
 
-## rtx_tunnel 統合リソースの実装 ✅ 完了
+## Objective
+Add missing attributes to the `rtx_tunnel` resource to ensure all RTX router config commands are mappable to Terraform attributes.
 
-**開始日**: 2026-02-01
-**完了日**: 2026-02-01
+## Completed Tasks
 
-`rtx_ipsec_tunnel` と `rtx_l2tp` を統合した新しい `rtx_tunnel` リソースを実装完了。RTXの実際のコマンド構造（`tunnel select N` が親コンテナとしてIPsecとL2TP設定を含む）を反映した設計。
+### 1. Parser Struct Changes (`internal/rtx/parsers/tunnel.go`)
+Added new fields:
+- **Tunnel struct**: `EndpointName`, `EndpointNameType`
+- **TunnelIPsec struct**: `NATTraversal`, `IKERemoteName`, `IKERemoteNameType`, `IKEKeepaliveLog`, `IKELog`
+- **TunnelL2TP struct**: `KeepaliveLog` (DisconnectTime and SyslogEnabled already existed)
 
-### 完了済みタスク
+### 2. Regex Patterns and Parsing Logic
+Added patterns for:
+- `tunnel endpoint name <addr> [fqdn]`
+- `ipsec ike nat-traversal N on/off`
+- `ipsec ike remote name N <type> <value>`
+- `ipsec ike keepalive log N on/off`
+- `ipsec ike log N <options>`
+- `l2tp tunnel disconnect time off/<seconds>`
+- `l2tp keepalive log on/off`
 
-#### Task #9: データ型の定義 ✅
-- `internal/client/interfaces.go` に以下の型を追加:
-  - `Tunnel` - 統合トンネル型（ID, Encapsulation, Enabled, Name, IPsec, L2TP）
-  - `TunnelIPsec` - トンネル内のIPsec設定
-  - `TunnelIPsecKeepalive` - IPsec keepalive/DPD設定
-  - `TunnelL2TP` - トンネル内のL2TP設定
-  - `TunnelL2TPKeepalive` - L2TP keepalive設定
-  - `TunnelL2TPAuth` - L2TPv3トンネル認証
-- Client interface に Tunnel メソッドを追加
+### 3. Command Builder Functions
+Added new functions:
+- `BuildTunnelEndpointNameCommand(address, nameType string) string`
+- `BuildIPsecIKENATTraversalCommand(tunnelID int, enabled bool) string`
+- `BuildIPsecIKERemoteNameCommand(tunnelID int, nameType, value string) string`
+- `BuildIPsecIKEKeepaliveLogCommand(tunnelID int, enabled bool) string`
+- `BuildIPsecIKELogCommand(tunnelID int, options string) string`
+- `BuildL2TPKeepaliveLogCommand(enabled bool) string`
 
-#### Task #10: 統合パーサーの作成 ✅
-- `internal/rtx/parsers/tunnel.go` を作成:
-  - `TunnelParser` - 統合トンネル設定をパース
-  - `ParseTunnelConfig()` - show config出力をパース
-  - `BuildTunnelCommands()` - 統合コマンドビルダー
-  - `ValidateTunnel()` - バリデーション関数
-- `internal/rtx/parsers/tunnel_test.go` を作成:
-  - IPsec, L2TPv3, L2TPv2 各モードのパーステスト
-  - コマンドビルダーテスト
-  - バリデーションテスト
+Updated `BuildL2TPDisconnectTimeCommand` in `l2tp.go` to handle `off` case (seconds == 0).
 
-#### Task #11: TunnelService の作成 ✅
-- `internal/client/tunnel_service.go` を作成:
-  - `TunnelService` - CRUDオペレーションの実装
-  - `convertToParserTunnel()` / `convertFromParserTunnel()` - 型変換
-- `internal/client/tunnel_service_test.go` を作成:
-  - Get, Create, Delete, Update のテスト
-- `internal/client/client.go` を更新:
-  - `tunnelService` フィールド追加
-  - Tunnel メソッドを TunnelService に委譲
+### 4. Client Interfaces (`internal/client/interfaces.go`)
+Updated structs:
+- **Tunnel**: Added `EndpointName`, `EndpointNameType`
+- **TunnelIPsec**: Added `NATTraversal`, `IKERemoteName`, `IKERemoteNameType`, `IKEKeepaliveLog`, `IKELog`
+- **TunnelL2TP**: Added `KeepaliveLog`
 
-#### Task #12: Tunnel リソースモデルとスキーマの作成 ✅
-- `internal/provider/resources/tunnel/model.go` を作成:
-  - `TunnelModel` - Terraform モデル
-  - `TunnelIPsecModel`, `TunnelL2TPModel` 等ネストしたブロック
-  - `ToClient()` / `FromClient()` 変換メソッド
-- `internal/provider/resources/tunnel/resource.go` を作成:
-  - スキーマ定義（ipsec/l2tp ネストブロック含む）
-  - CRUD オペレーション
-  - ImportState 実装
-- `internal/provider/provider_framework.go` を更新:
-  - tunnel リソースを登録
-- `internal/provider/fwhelpers/helpers.go` を更新:
-  - `GetStringValueWithDefault()` 関数を追加
+### 5. Tunnel Service Converters (`internal/client/tunnel_service.go`)
+Updated `convertToParserTunnel` and `convertFromParserTunnel` to include all new fields.
 
-#### Task #13: examples の更新と古いリソースの非推奨化 ✅
-- `examples/tunnel/` ディレクトリを作成:
-  - `main.tf` - 4つの例（IPsec, L2TPv3, L2TPv2, Security Filter付きIPsec）
-  - `variables.tf` - 変数定義
-- `examples/import/main.tf` を更新:
-  - `rtx_ipsec_tunnel` + `rtx_l2tp` → `rtx_tunnel` に書き換え
-  - ブリッジ参照を `rtx_tunnel.hnd_itm.tunnel_interface` に更新
-- `examples/ipsec_tunnel/main.tf` に deprecation notice を追加
-- `examples/l2tp/main.tf` に deprecation notice を追加
-- `docs/resources/tunnel.md` を生成
+### 6. Terraform Model (`internal/provider/resources/tunnel/model.go`)
+Added new fields:
+- **TunnelModel**: `EndpointName`, `EndpointNameType`
+- **TunnelIPsecModel**: `NATTraversal`, `IKERemoteName`, `IKERemoteNameType`, `IKEKeepaliveLog`, `IKELog`
+- **TunnelL2TPModel**: `DisconnectTime`, `KeepaliveLog`, `Syslog`
 
-### Encapsulation モード
+Updated `ToClient()` and `FromClient()` methods.
 
-| Encapsulation | IPsec Block | L2TP Block | 用途 |
-|---------------|-------------|------------|------|
-| `ipsec` | 必須 | 禁止 | Site-to-site IPsec VPN |
-| `l2tpv3` | 任意 | 必須 | L2VPN (with optional IPsec) |
-| `l2tp` | 必須 | 必須 | L2TPv2 リモートアクセス (always over IPsec) |
+### 7. Terraform Schema (`internal/provider/resources/tunnel/resource.go`)
+Added new schema attributes:
+- **Root level**: `endpoint_name`, `endpoint_name_type`
+- **IPsec block**: `nat_traversal`, `ike_remote_name`, `ike_remote_name_type`, `ike_keepalive_log`, `ike_log`
+- **L2TP block**: `disconnect_time`, `keepalive_log`, `syslog`
+
+### 8. Tests (`internal/rtx/parsers/tunnel_test.go`)
+- Updated `TestTunnelParser_ParseL2TPv3Tunnel` to test all new attributes
+- Updated `TestBuildTunnelCommands_L2TPv3` to verify new commands
+- Added `TestBuildNewTunnelCommands` for individual command builder tests
+
+## New Attribute Summary
+
+| Level | Terraform Attribute | RTX Command |
+|-------|---------------------|-------------|
+| Root | `endpoint_name` | `tunnel endpoint name <addr>` |
+| Root | `endpoint_name_type` | `tunnel endpoint name <addr> fqdn` |
+| IPsec | `nat_traversal` | `ipsec ike nat-traversal N on/off` |
+| IPsec | `ike_remote_name` | `ipsec ike remote name N <type> <value>` |
+| IPsec | `ike_remote_name_type` | (type field of above) |
+| IPsec | `ike_keepalive_log` | `ipsec ike keepalive log N on/off` |
+| IPsec | `ike_log` | `ipsec ike log N <options>` |
+| L2TP | `disconnect_time` | `l2tp tunnel disconnect time off/<N>` |
+| L2TP | `keepalive_log` | `l2tp keepalive log on/off` |
+| L2TP | `syslog` | `l2tp syslog on/off` |
+
+## Command Generation Rules
+
+Commands are only generated when:
+- `endpoint_name`: Non-empty
+- `nat_traversal`: `true` (false is default, no command generated)
+- `ike_remote_name/type`: Both non-empty
+- `ike_keepalive_log`: `true` (false is default, no command generated)
+- `ike_log`: Non-empty
+- `disconnect_time`: Always generated (0 = "off")
+- `keepalive_log`: `true` (false is default, no command generated)
+- `syslog`: `true` (false is default, no command generated)
+
+### 9. Example Configuration (`examples/import/main.tf`)
+Updated both tunnel resources with new attributes:
+- `rtx_tunnel.hnd_itm` (L2TPv3): Added all new attributes
+- `rtx_tunnel.remote_access` (L2TP): Added applicable new attributes
+
+### 10. Bug Fix: disconnect_time Inconsistency
+Fixed `FromClient()` in model.go to use `types.Int64Value()` instead of `fwhelpers.Int64ValueOrNull()` for `disconnect_time`.
+
+**Problem**: `Int64ValueOrNull(0)` returns null, but 0 is a valid value meaning "off" for disconnect_time. This caused "Provider produced inconsistent result after apply" errors.
+
+**Solution**: Always use `types.Int64Value(int64(tunnel.L2TP.DisconnectTime))` since 0 is semantically meaningful.
+
+## Test Results
+All tests pass:
+```
+ok  	github.com/sh1/terraform-provider-rtx/internal/client	8.315s
+ok  	github.com/sh1/terraform-provider-rtx/internal/rtx/parsers	0.264s
+```
+
+## Example Configuration
+```hcl
+resource "rtx_tunnel" "hnd_itm" {
+  tunnel_id          = 1
+  encapsulation      = "l2tpv3"
+  enabled            = true
+  endpoint_name      = "itm.ohno.be"
+  endpoint_name_type = "fqdn"
+
+  ipsec {
+    ipsec_tunnel_id      = 101
+    local_address        = "192.168.1.253"
+    remote_address       = "itm.ohno.be"
+    pre_shared_key       = var.admin_password
+    secure_filter_in     = [200028, 200099]
+    tcp_mss_limit        = "auto"
+    nat_traversal        = true
+    ike_remote_name      = "key-id"
+    ike_remote_name_type = "l2tpv3"
+    ike_keepalive_log    = false
+    ike_log              = "key-info message-info payload-info"
+
+    ipsec_transform {
+      protocol          = "esp"
+      encryption_aes128 = true
+      integrity_sha1    = true
+    }
+
+    keepalive {
+      enabled  = true
+      mode     = "heartbeat"
+      interval = 10
+      retry    = 6
+    }
+  }
+
+  l2tp {
+    hostname         = "ebisu-RTX1210"
+    local_router_id  = "192.168.1.253"
+    remote_router_id = "192.168.1.254"
+    remote_end_id    = "shin1"
+    always_on        = true
+    disconnect_time  = 0  # "off"
+    keepalive_log    = false
+    syslog           = true
+
+    tunnel_auth {
+      enabled  = true
+      password = var.admin_password
+    }
+
+    keepalive {
+      enabled  = true
+      interval = 60
+      retry    = 3
+    }
+  }
+}
+```
+
+### 11. Bug Fix: Extra IKE Commands Breaking Tunnel Connection
+
+**Problem**: L2TPv3 tunnel connection was not being established despite Terraform plan showing no changes.
+
+**Root Cause**: `buildTunnelIPsecCommands` in `internal/rtx/parsers/tunnel.go` was unconditionally generating:
+- `ipsec ike encryption N aes-cbc`
+- `ipsec ike hash N sha256`
+- `ipsec ike group N modp2048`
+
+These commands did NOT exist in the working configuration (both hnd and itm routers). The peer router (itm) used default IKE negotiation without explicit encryption/hash/group settings. When hnd explicitly specified these values, IKE negotiation failed due to mismatch.
+
+**Comparison**:
+| Command | Expected (hnd/config.txt) | Terraform Generated | itm Config |
+|---------|---------------------------|---------------------|------------|
+| `ipsec ike encryption 1 aes-cbc` | **Missing** | Generated | **Missing** |
+| `ipsec ike hash 1 sha256` | **Missing** | Generated | **Missing** |
+| `ipsec ike group 1 modp2048` | **Missing** | Generated | **Missing** |
+
+**Solution**: Added `isIKEv2ProposalSet()` helper function and conditional command generation:
+
+```go
+// isIKEv2ProposalSet returns true if any IKEv2 proposal settings are explicitly configured
+func isIKEv2ProposalSet(proposal IKEv2Proposal) bool {
+    return proposal.EncryptionAES256 || proposal.EncryptionAES128 || proposal.Encryption3DES ||
+        proposal.IntegritySHA256 || proposal.IntegritySHA1 || proposal.IntegrityMD5 ||
+        proposal.GroupFourteen || proposal.GroupFive || proposal.GroupTwo
+}
+
+// In buildTunnelIPsecCommands:
+if isIKEv2ProposalSet(ipsec.IKEv2Proposal) {
+    commands = append(commands, BuildIPsecIKEEncryptionCommand(tunnelID, ipsec.IKEv2Proposal))
+    commands = append(commands, BuildIPsecIKEHashCommand(tunnelID, ipsec.IKEv2Proposal))
+    commands = append(commands, BuildIPsecIKEGroupCommand(tunnelID, ipsec.IKEv2Proposal))
+}
+```
+
+Now IKEv2 proposal commands are only generated when explicitly configured in Terraform. When not set, the router uses its default negotiation behavior, matching the peer router.
 
 ---
 
-## 機能追加
+## Session: 2026-02-01 - Sync Examples and Spec with Implementation
 
-### rtx_ipsec_tunnel: 3つの新機能を追加
+### Objective
+Synchronize examples and spec documentation with the current `rtx_tunnel` implementation.
 
-**追加日**: 2026-01-31
+### Completed Tasks
 
-`rtx_ipsec_tunnel` リソースに以下の3つの機能を追加しました。
+#### 1. Updated `examples/tunnel/main.tf`
+- Removed `name` attribute from 4 examples (it's Computed/read-only)
+- Added `endpoint_name` and `endpoint_name_type` to Example 2 (L2TPv3)
+- Added `nat_traversal = true` to Example 2 (L2TPv3)
+- Added `ipsec` block to Example 3 (L2TPv2) - required for L2TP encapsulation
 
-#### 1. `secure_filter_in` / `secure_filter_out` 属性
+#### 2. Updated VPN Master Spec (`.spec-workflow/master-specs/vpn/`)
+- **requirements.md**: Added `rtx_tunnel` as Resource 0 with full attribute documentation
+- **requirements.md**: Added deprecation notices to `rtx_ipsec_tunnel` and `rtx_l2tp`
+- **requirements.md**: Updated Resources Summary table with status column
+- **design.md**: Added TunnelService component and architecture
+- **design.md**: Added Tunnel data models (Tunnel, TunnelIPsec, TunnelL2TP, etc.)
+- **design.md**: Updated File Structure with tunnel resource files
 
-トンネルの入出力トラフィックに対するIPフィルタを設定します。
+#### 3. Updated Feature Spec (`.spec-workflow/specs/rtx-tunnel-unified/`)
+- **design.md**: Updated Data Models with new attributes:
+  - `EndpointName`, `EndpointNameType` (Tunnel)
+  - `NATTraversal`, `IKERemoteName`, `IKERemoteNameType`, `IKEKeepaliveLog`, `IKELog` (TunnelIPsec)
+  - `DisconnectTime`, `KeepaliveLog`, `Syslog` (TunnelL2TP)
+- **design.md**: Updated Terraform Schema to show `name` as Computed (not Optional)
+- **requirements.md**: Updated FR-1, FR-2, FR-3 with new attributes
+- **requirements.md**: Fixed example code to not set `name`
+- **tasks.md**: Marked completed tasks (1-8, 10-11) with ✅
 
-```hcl
-resource "rtx_ipsec_tunnel" "example" {
-  tunnel_id = 1
-  # ...
-  secure_filter_in  = [200028, 200099]
-  secure_filter_out = [200100, 200101, 200102]
-}
-```
+### Key Findings
 
-**生成されるRTXコマンド:**
-```
-ip tunnel secure filter in 200028 200099
-ip tunnel secure filter out 200100 200101 200102
-```
+1. **`name` is Computed**: RTX does not support setting tunnel descriptions within the tunnel context. The `name` attribute is read-only.
 
-#### 2. `tcp_mss_limit` 属性
+2. **L2TPv2 requires IPsec**: When `encapsulation = "l2tp"`, the `ipsec` block with `pre_shared_key` is required.
 
-トンネルのTCP MSS制限を設定します。
+3. **New attributes implemented but not documented**:
+   - `endpoint_name`, `endpoint_name_type` - DNS resolution for tunnel endpoints
+   - `nat_traversal` - NAT traversal support
+   - `ike_remote_name`, `ike_remote_name_type` - IKE remote identification
+   - `ike_keepalive_log`, `ike_log` - IKE logging options
+   - `disconnect_time`, `keepalive_log`, `syslog` - L2TP options
 
-```hcl
-resource "rtx_ipsec_tunnel" "example" {
-  tunnel_id     = 1
-  tcp_mss_limit = "auto"  # or numeric value like "1414"
-}
-```
-
-**生成されるRTXコマンド:**
-```
-ip tunnel tcp mss limit auto
-```
-
-#### 3. `tunnel enable/disable` コマンドの生成
-
-既存の `enabled` 属性に基づいて、`tunnel enable N` または `tunnel disable N` コマンドを生成するようになりました。
-
-```hcl
-resource "rtx_ipsec_tunnel" "example" {
-  tunnel_id = 1
-  enabled   = true  # default
-}
-```
-
-**生成されるRTXコマンド:**
-```
-tunnel enable 1
-```
-
-#### 修正ファイル
-
-| ファイル | 変更内容 |
-|----------|----------|
-| `internal/rtx/parsers/ipsec_tunnel.go` | 構造体フィールド、正規表現パターン、コマンドビルダー追加 |
-| `internal/rtx/parsers/ipsec_tunnel_test.go` | パーサーとビルダーのテスト追加 |
-| `internal/client/interfaces.go` | IPsecTunnel構造体にフィールド追加 |
-| `internal/client/ipsec_tunnel_service.go` | コンバーター更新、Create/Updateにコマンド追加 |
-| `internal/provider/resources/ipsec_tunnel/model.go` | Terraformモデルにフィールド追加、ToClient/FromClient更新 |
-| `internal/provider/resources/ipsec_tunnel/resource.go` | スキーマ定義追加 |
-
-## バグ修正
-
-### rtx_tunnel: name 属性の不整合修正
-
-**修正日**: 2026-02-01
-
-`terraform apply` 時に "Provider produced inconsistent result after apply" エラーが発生する問題を修正。
-
-**原因1**: RTX ルーターは `tunnel select N` コンテキスト内で `description` コマンドをサポートしていない。`description` コマンドを実行すると "パラメータの数が不適当です" エラーになる。
-
-**原因2**: グローバルな `description` コマンド（ルーター全体の説明）が、インデントチェックなしでパースされ、最後のトンネルコンテキストに誤って割り当てられていた。
-
-**修正内容**:
-1. `name` 属性を読み取り専用（Computed）に変更
-2. `description` コマンド生成を削除
-3. パーサーにインデントチェックを追加し、コンテキスト外の description がトンネルに割り当てられないように修正
-
-**修正ファイル**:
-| ファイル | 変更内容 |
-|----------|----------|
-| `internal/rtx/parsers/tunnel.go` | インデントチェック追加、description コマンド生成削除 |
-| `internal/rtx/parsers/tunnel_test.go` | IKE コマンドの ID を tunnel_id に修正 |
-| `internal/provider/resources/tunnel/resource.go` | name 属性を Computed のみに変更 |
-| `examples/import/main.tf` | name 属性を削除 |
-
-### ipsec_tunnel: show config コマンド修正
-
-**修正日**: 2026-01-31
-
-`BuildShowIPsecConfigCommand()` が `show config | grep ipsec` を返していたため、`tunnel select N` 行がパースできず `tunnel_id` が null になる問題を修正。
-
-**修正内容**: `show config` を返すように変更し、パーサーがトンネルコンテキストを正しく取得できるようにした。
-
-### examples/import/main.tf: IPsec tunnel_id 修正
-
-**修正日**: 2026-01-31
-
-`tunnel_id`属性は`tunnel select N`に対応するため、main.tfを修正。
-
-**修正前**:
-- `rtx_ipsec_tunnel.ipsec101` with `tunnel_id = 101` → 存在しないトンネル
-- `rtx_ipsec_tunnel.ipsec1` with `tunnel_id = 1` → 実際はtunnel select 2
-
-**修正後**:
-- `rtx_ipsec_tunnel.tunnel1` with `tunnel_id = 1` → tunnel select 1 (ipsec tunnel 101, L2TPv3)
-- `rtx_ipsec_tunnel.tunnel2` with `tunnel_id = 2` → tunnel select 2 (ipsec tunnel 1, L2TP anonymous)
-
-**ルーター設定との対応関係**:
-| Terraform resource | tunnel_id | ルーターコマンド |
-|--------------------|-----------|------------------|
-| `rtx_ipsec_tunnel.tunnel1` | 1 | `tunnel select 1` + `ipsec tunnel 101` |
-| `rtx_ipsec_tunnel.tunnel2` | 2 | `tunnel select 2` + `ipsec tunnel 1` |
+### Validation Results
+- `go generate ./...` - Success
+- `terraform validate` on examples/tunnel - Success
+- `go test ./internal/client/... -run TestTunnel` - All tests pass
+- `go test ./internal/rtx/parsers/... -run TestTunnel` - All tests pass

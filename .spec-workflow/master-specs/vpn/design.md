@@ -6,13 +6,14 @@ This document describes the technical design and implementation of VPN resources
 
 ## Resources Summary
 
-| Resource | Service File | Parser File | Resource File |
-|----------|--------------|-------------|---------------|
-| `rtx_ipsec_tunnel` | `ipsec_tunnel_service.go` | `ipsec_tunnel.go` | `resource_rtx_ipsec_tunnel.go` |
-| `rtx_ipsec_transport` | `ipsec_transport_service.go` | `ipsec_transport.go` | `resource_rtx_ipsec_transport.go` |
-| `rtx_l2tp` | `l2tp_service.go` | `l2tp.go` | `resource_rtx_l2tp.go` |
-| `rtx_l2tp_service` | `l2tp_service.go` | `l2tp.go` | `resource_rtx_l2tp_service.go` |
-| `rtx_pptp` | `pptp_service.go` | `pptp.go` | `resource_rtx_pptp.go` |
+| Resource | Service File | Parser File | Resource File | Status |
+|----------|--------------|-------------|---------------|--------|
+| `rtx_tunnel` | `tunnel_service.go` | `tunnel.go` | `resources/tunnel/resource.go` | **Recommended** |
+| `rtx_ipsec_tunnel` | `ipsec_tunnel_service.go` | `ipsec_tunnel.go` | `resource_rtx_ipsec_tunnel.go` | Deprecated |
+| `rtx_ipsec_transport` | `ipsec_transport_service.go` | `ipsec_transport.go` | `resource_rtx_ipsec_transport.go` | - |
+| `rtx_l2tp` | `l2tp_service.go` | `l2tp.go` | `resource_rtx_l2tp.go` | Deprecated |
+| `rtx_l2tp_service` | `l2tp_service.go` | `l2tp.go` | `resource_rtx_l2tp_service.go` | - |
+| `rtx_pptp` | `pptp_service.go` | `pptp.go` | `resource_rtx_pptp.go` | - |
 
 ---
 
@@ -23,6 +24,7 @@ This document describes the technical design and implementation of VPN resources
 ```mermaid
 graph TD
     subgraph "Terraform Provider Layer"
+        TunnelRes[resources/tunnel/resource.go]
         IPsecTunnelRes[resource_rtx_ipsec_tunnel.go]
         IPsecTransportRes[resource_rtx_ipsec_transport.go]
         L2TPRes[resource_rtx_l2tp.go]
@@ -32,6 +34,7 @@ graph TD
 
     subgraph "Client Layer"
         Client[client.go]
+        TunnelSvc[TunnelService]
         IPsecTunnelSvc[IPsecTunnelService]
         IPsecTransportSvc[IPsecTransportService]
         L2TPSvc[L2TPService]
@@ -39,6 +42,7 @@ graph TD
     end
 
     subgraph "Parser Layer"
+        TunnelParser[tunnel.go]
         IPsecTunnelParser[ipsec_tunnel.go]
         IPsecTransportParser[ipsec_transport.go]
         L2TPParser[l2tp.go]
@@ -50,17 +54,21 @@ graph TD
         SSH[SSH Session]
     end
 
+    TunnelRes --> Client
     IPsecTunnelRes --> Client
     IPsecTransportRes --> Client
     L2TPRes --> Client
     L2TPServiceRes --> Client
     PPTPRes --> Client
 
+    Client --> TunnelSvc
     Client --> IPsecTunnelSvc
     Client --> IPsecTransportSvc
     Client --> L2TPSvc
     Client --> PPTPSvc
 
+    TunnelSvc --> TunnelParser
+    TunnelSvc --> Executor
     IPsecTunnelSvc --> IPsecTunnelParser
     IPsecTunnelSvc --> Executor
     IPsecTransportSvc --> IPsecTransportParser
@@ -80,6 +88,89 @@ graph TD
 3. **Command Builders**: Parser layer provides command builders for consistent RTX command generation
 4. **Batch Execution**: IPsec operations use batch command execution for atomicity
 5. **Validation**: Configuration validation at both parser and service layers
+
+---
+
+## Component 0: Tunnel Service (Unified)
+
+### File: `internal/client/tunnel_service.go`
+
+**Purpose:** Manages unified tunnel CRUD operations supporting IPsec, L2TPv3, and L2TPv2 encapsulations
+
+### Service Interface
+
+```go
+type TunnelService struct {
+    executor Executor
+    client   *rtxClient
+}
+
+func NewTunnelService(executor Executor, client *rtxClient) *TunnelService
+func (s *TunnelService) Get(ctx context.Context, tunnelID int) (*Tunnel, error)
+func (s *TunnelService) Create(ctx context.Context, tunnel Tunnel) error
+func (s *TunnelService) Update(ctx context.Context, tunnel Tunnel) error
+func (s *TunnelService) Delete(ctx context.Context, tunnelID int) error
+```
+
+### Data Flow
+
+```mermaid
+sequenceDiagram
+    participant TF as Terraform Resource
+    participant Svc as TunnelService
+    participant Parser as TunnelParser
+    participant Exec as Executor
+    participant Router as RTX Router
+
+    TF->>Svc: Create(tunnel)
+    alt encapsulation == "ipsec"
+        Svc->>Parser: BuildIPsecTunnelCommands()
+    else encapsulation == "l2tpv3"
+        Svc->>Parser: BuildL2TPv3TunnelCommands()
+    else encapsulation == "l2tp"
+        Svc->>Parser: BuildL2TPTunnelCommands()
+    end
+    Svc->>Exec: RunBatch(commands)
+    Exec->>Router: Execute commands
+    Router-->>Exec: Output
+    Exec-->>Svc: Result
+    Svc->>Svc: SaveConfig()
+    Svc-->>TF: nil/error
+```
+
+### Encapsulation-Specific Command Sequences
+
+#### IPsec Tunnel Creation
+
+1. `tunnel select <n>` - Select/create tunnel context
+2. `tunnel encapsulation ipsec` - Set encapsulation
+3. `ipsec tunnel <n>` - Associate IPsec
+4. `ipsec ike local address <n> <ip>` - Set local endpoint
+5. `ipsec ike remote address <n> <ip>` - Set remote endpoint
+6. `ipsec ike pre-shared-key <n> text <key>` - Set PSK
+7. `ipsec ike nat-traversal <n> on/off` - NAT traversal
+8. `ipsec sa policy <pol> <tun> <proto> <enc> <hash>` - SA policy
+9. `ipsec ike keepalive use <n> on dpd <int> [retry]` - DPD (if enabled)
+
+#### L2TPv3 Tunnel Creation
+
+1. `tunnel select <n>` - Select tunnel
+2. `tunnel encapsulation l2tpv3` - Set encapsulation
+3. `ipsec tunnel <n>` - Associate IPsec for transport
+4. IPsec configuration commands (as above)
+5. `l2tp local router-id <ip>` - Set local router ID
+6. `l2tp remote router-id <ip>` - Set remote router ID
+7. `l2tp hostname <name>` - Set hostname
+8. `l2tp always-on on/off` - Always-on mode
+9. `l2tp keepalive use on <int> <retry>` - Keepalive
+
+#### L2TPv2 Tunnel Creation
+
+1. `tunnel select <n>` - Select tunnel
+2. `tunnel encapsulation l2tp` - Set encapsulation
+3. `l2tp hostname <name>` - Set hostname
+4. `l2tp always-on on/off` - Always-on mode
+5. `l2tp keepalive use on <int> <retry>` - Keepalive
 
 ---
 
@@ -256,6 +347,83 @@ func (s *PPTPService) Delete(ctx context.Context) error
 ---
 
 ## Data Models
+
+### Tunnel (Unified)
+
+```go
+// Tunnel represents a unified tunnel configuration supporting multiple encapsulation types
+type Tunnel struct {
+    ID               int          `json:"id"`                           // tunnel select N (1-6000)
+    Encapsulation    string       `json:"encapsulation"`                // "ipsec", "l2tpv3", or "l2tp"
+    Enabled          bool         `json:"enabled"`                      // tunnel enable N
+    Name             string       `json:"name,omitempty"`               // Description (Computed/read-only)
+    EndpointName     string       `json:"endpoint_name,omitempty"`      // tunnel endpoint name <addr>
+    EndpointNameType string       `json:"endpoint_name_type,omitempty"` // fqdn
+    IPsec            *TunnelIPsec `json:"ipsec,omitempty"`              // IPsec configuration
+    L2TP             *TunnelL2TP  `json:"l2tp,omitempty"`               // L2TP configuration
+}
+
+// TunnelIPsec represents IPsec settings within a unified tunnel
+type TunnelIPsec struct {
+    IPsecTunnelID     int                   `json:"ipsec_tunnel_id"`                // ipsec tunnel N (Computed: defaults to tunnel_id)
+    LocalAddress      string                `json:"local_address,omitempty"`        // ipsec ike local address
+    RemoteAddress     string                `json:"remote_address,omitempty"`       // ipsec ike remote address
+    PreSharedKey      string                `json:"pre_shared_key"`                 // ipsec ike pre-shared-key (WriteOnly)
+    NATTraversal      bool                  `json:"nat_traversal"`                  // ipsec ike nat-traversal
+    IKERemoteName     string                `json:"ike_remote_name,omitempty"`      // ipsec ike remote name value
+    IKERemoteNameType string                `json:"ike_remote_name_type,omitempty"` // ipsec ike remote name type
+    IKEKeepaliveLog   bool                  `json:"ike_keepalive_log"`              // ipsec ike keepalive log
+    IKELog            string                `json:"ike_log,omitempty"`              // ipsec ike log options
+    IKEv2Proposal     IKEv2Proposal         `json:"ikev2_proposal"`                 // IKE Phase 1 proposal
+    Transform         IPsecTransform        `json:"transform"`                      // IPsec Phase 2 transform
+    Keepalive         *TunnelIPsecKeepalive `json:"keepalive,omitempty"`            // DPD/heartbeat settings
+    SecureFilterIn    []int                 `json:"secure_filter_in,omitempty"`     // ip tunnel secure filter in
+    SecureFilterOut   []int                 `json:"secure_filter_out,omitempty"`    // ip tunnel secure filter out
+    TCPMSSLimit       string                `json:"tcp_mss_limit,omitempty"`        // ip tunnel tcp mss limit
+}
+
+// TunnelIPsecKeepalive represents IPsec keepalive/DPD settings within a tunnel
+type TunnelIPsecKeepalive struct {
+    Enabled  bool   `json:"enabled"`  // Keepalive enabled
+    Mode     string `json:"mode"`     // "dpd" or "heartbeat"
+    Interval int    `json:"interval"` // Interval in seconds
+    Retry    int    `json:"retry"`    // Retry count
+}
+
+// TunnelL2TP represents L2TP settings within a unified tunnel
+type TunnelL2TP struct {
+    // Common L2TP settings
+    Hostname       string               `json:"hostname,omitempty"`        // l2tp hostname
+    AlwaysOn       bool                 `json:"always_on,omitempty"`       // l2tp always-on
+    DisconnectTime int                  `json:"disconnect_time,omitempty"` // Idle disconnect time (0 = off)
+    KeepaliveLog   bool                 `json:"keepalive_log"`             // l2tp keepalive log
+    Keepalive      *TunnelL2TPKeepalive `json:"keepalive,omitempty"`       // l2tp keepalive use
+    SyslogEnabled  bool                 `json:"syslog_enabled,omitempty"`  // l2tp syslog on
+
+    // L2TPv3 specific
+    LocalRouterID  string          `json:"local_router_id,omitempty"`  // l2tp local router-id
+    RemoteRouterID string          `json:"remote_router_id,omitempty"` // l2tp remote router-id
+    RemoteEndID    string          `json:"remote_end_id,omitempty"`    // l2tp remote end-id
+    TunnelAuth     *TunnelL2TPAuth `json:"tunnel_auth,omitempty"`      // l2tp tunnel auth
+
+    // L2TPv2 specific (remote access)
+    Authentication *L2TPAuth   `json:"authentication,omitempty"` // PPP authentication
+    IPPool         *L2TPIPPool `json:"ip_pool,omitempty"`        // Client IP pool
+}
+
+// TunnelL2TPKeepalive represents L2TP keepalive settings within a tunnel
+type TunnelL2TPKeepalive struct {
+    Enabled  bool `json:"enabled"`  // l2tp keepalive use on
+    Interval int  `json:"interval"` // Interval in seconds
+    Retry    int  `json:"retry"`    // Retry count
+}
+
+// TunnelL2TPAuth represents L2TPv3 tunnel authentication
+type TunnelL2TPAuth struct {
+    Enabled  bool   `json:"enabled"`            // l2tp tunnel auth on
+    Password string `json:"password,omitempty"` // Tunnel auth password
+}
+```
 
 ### IPsecTunnel
 
@@ -570,11 +738,16 @@ Test scenarios:
 ```
 internal/
 ├── provider/
-│   ├── resource_rtx_ipsec_tunnel.go      # IPsec tunnel resource
+│   ├── resources/
+│   │   └── tunnel/
+│   │       ├── resource.go               # Unified tunnel resource (rtx_tunnel)
+│   │       ├── resource_test.go
+│   │       └── model.go                  # Data model with ToClient/FromClient
+│   ├── resource_rtx_ipsec_tunnel.go      # IPsec tunnel resource (deprecated)
 │   ├── resource_rtx_ipsec_tunnel_test.go
 │   ├── resource_rtx_ipsec_transport.go   # IPsec transport resource
 │   ├── resource_rtx_ipsec_transport_test.go
-│   ├── resource_rtx_l2tp.go              # L2TP resource
+│   ├── resource_rtx_l2tp.go              # L2TP resource (deprecated)
 │   ├── resource_rtx_l2tp_test.go
 │   ├── resource_rtx_l2tp_service.go      # L2TP service resource
 │   ├── resource_rtx_l2tp_service_test.go
@@ -583,16 +756,20 @@ internal/
 ├── client/
 │   ├── interfaces.go                      # Client interface with VPN methods
 │   ├── client.go                          # Client implementation
-│   ├── ipsec_tunnel_service.go           # IPsec tunnel service
+│   ├── tunnel_service.go                 # Unified tunnel service
+│   ├── tunnel_service_test.go
+│   ├── ipsec_tunnel_service.go           # IPsec tunnel service (deprecated)
 │   ├── ipsec_tunnel_service_test.go
 │   ├── ipsec_transport_service.go        # IPsec transport service
 │   ├── ipsec_transport_service_test.go
-│   ├── l2tp_service.go                   # L2TP service
+│   ├── l2tp_service.go                   # L2TP service (deprecated)
 │   ├── l2tp_service_test.go
 │   ├── pptp_service.go                   # PPTP service
 │   └── pptp_service_test.go
 └── rtx/
     └── parsers/
+        ├── tunnel.go                     # Unified tunnel parser & commands
+        ├── tunnel_test.go
         ├── ipsec_tunnel.go               # IPsec tunnel parser & commands
         ├── ipsec_tunnel_test.go
         ├── ipsec_transport.go            # IPsec transport parser & commands
@@ -730,3 +907,4 @@ PPTP has known vulnerabilities:
 |------|-------------|---------|
 | 2026-01-23 | Implementation | Initial documentation from codebase |
 | 2026-01-25 | Implementation Sync | Add computed `tunnel_interface` for rtx_ipsec_tunnel and rtx_l2tp |
+| 2026-02-01 | rtx-tunnel-unified | Add TunnelService, Tunnel data model, and file structure for unified tunnel resource |
