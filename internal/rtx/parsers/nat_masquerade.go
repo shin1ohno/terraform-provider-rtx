@@ -293,7 +293,9 @@ func BuildNATDescriptorAddressInnerCommand(id int, network string) string {
 //
 // Format A (specific outer IP): nat descriptor masquerade static <id> <entry> <outer:port>=<inner:port> [protocol]
 // Format B (ipcp/dynamic): nat descriptor masquerade static <id> <entry> <inner_ip> <protocol> <port>
-//                      or: nat descriptor masquerade static <id> <entry> <inner_ip> <protocol> <outer_port>=<inner_port>
+//
+//	or: nat descriptor masquerade static <id> <entry> <inner_ip> <protocol> <outer_port>=<inner_port>
+//
 // Format C (protocol-only): nat descriptor masquerade static <id> <entry> <inner_ip> <protocol>
 func BuildNATMasqueradeStaticCommand(id int, entryNum int, entry MasqueradeStaticEntry) string {
 	// Protocol-only entries (ESP, AH, GRE, ICMP) don't have ports

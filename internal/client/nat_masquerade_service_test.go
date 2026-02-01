@@ -75,7 +75,7 @@ func TestNATMasqueradeService_Create(t *testing.T) {
 						if cmd == "nat descriptor type 1 masquerade" {
 							hasType = true
 						}
-						if cmd == "nat descriptor masquerade static 1 1 ipcp:80=192.168.1.100:8080 tcp" {
+						if cmd == "nat descriptor masquerade static 1 1 192.168.1.100 tcp 80=8080" {
 							hasStatic = true
 						}
 					}
@@ -488,7 +488,7 @@ nat descriptor address inner 1 192.168.1.0-192.168.1.255
 				// Add static entry using RunBatch
 				m.On("RunBatch", mock.Anything, mock.MatchedBy(func(cmds []string) bool {
 					for _, cmd := range cmds {
-						if cmd == "nat descriptor masquerade static 1 1 ipcp:80=192.168.1.100:8080 tcp" {
+						if cmd == "nat descriptor masquerade static 1 1 192.168.1.100 tcp 80=8080" {
 							return true
 						}
 					}
@@ -640,7 +640,7 @@ func TestNATMasqueradeService_UsesRunBatch(t *testing.T) {
 			if cmd == "nat descriptor address inner 1 192.168.1.0-192.168.1.255" {
 				hasInner = true
 			}
-			if cmd == "nat descriptor masquerade static 1 1 ipcp:80=192.168.1.100:8080 tcp" {
+			if cmd == "nat descriptor masquerade static 1 1 192.168.1.100 tcp 80=8080" {
 				hasStatic = true
 			}
 		}

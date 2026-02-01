@@ -1766,7 +1766,7 @@ func TestValidateOuterAddress_YAMLPatterns(t *testing.T) {
 	}{
 		// Valid cases from nat.yaml
 		{name: "ipcp keyword", address: "ipcp", wantErr: false},
-		{name: "primary keyword", address: "primary", wantErr: false},   // primary is a valid RTX outer address value
+		{name: "primary keyword", address: "primary", wantErr: false},     // primary is a valid RTX outer address value
 		{name: "secondary keyword", address: "secondary", wantErr: false}, // secondary is a valid RTX outer address value
 		{name: "pp1 interface", address: "pp1", wantErr: false},
 		{name: "pp10 interface", address: "pp10", wantErr: false},
