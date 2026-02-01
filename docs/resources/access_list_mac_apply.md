@@ -19,8 +19,8 @@ Applies MAC access list filters to an interface. This resource manages the bindi
 
 - `access_list` (String) Name of the MAC access list to apply. This is used for tracking purposes.
 - `direction` (String) Traffic direction: 'in' for incoming traffic, 'out' for outgoing traffic.
-- `filter_ids` (List of Number) List of filter IDs to apply in order. At least one filter ID must be specified.
 - `interface` (String) Interface name to apply the filters to (e.g., lan1, bridge1). PP and Tunnel interfaces are not supported for MAC filters.
+- `sequences` (List of Number) List of sequence numbers to apply in order. At least one sequence must be specified.
 
 ### Read-Only
 

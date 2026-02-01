@@ -11,7 +11,7 @@ The `rtx_ipv6_prefix` resource manages IPv6 prefix definitions on Yamaha RTX rou
 | Resource Name | `rtx_ipv6_prefix` |
 | Service File | `internal/client/ipv6_prefix_service.go` |
 | Parser File | `internal/rtx/parsers/ipv6_prefix.go` |
-| Resource File | `internal/provider/resource_rtx_ipv6_prefix.go` |
+| Resource Directory | `internal/provider/resources/ipv6_prefix/` |
 | Last Updated | 2026-01-23 |
 
 ## Architecture
@@ -19,7 +19,7 @@ The `rtx_ipv6_prefix` resource manages IPv6 prefix definitions on Yamaha RTX rou
 ```mermaid
 graph TD
     subgraph Provider Layer
-        TFResource[resource_rtx_ipv6_prefix.go]
+        TFResource[ipv6_prefix/resource.go]
     end
 
     subgraph Client Layer
@@ -87,20 +87,28 @@ graph TD
   ```
 - **Dependencies:** `regexp`, `strconv`, `net`
 
-### Component 3: Terraform Resource (`internal/provider/resource_rtx_ipv6_prefix.go`)
+### Component 3: Terraform Resource (`internal/provider/resources/ipv6_prefix/`)
 
-- **Purpose:** Terraform resource definition implementing CRUD lifecycle
+- **Purpose:** Terraform resource definition implementing CRUD lifecycle using Plugin Framework
+- **Files:**
+  - `resource.go` - Resource implementation with CRUD methods
+  - `model.go` - Data model with ToClient/FromClient conversion
 - **Interfaces:**
   ```go
-  func resourceRTXIPv6Prefix() *schema.Resource
-  func resourceRTXIPv6PrefixCreate(ctx, d, meta) diag.Diagnostics
-  func resourceRTXIPv6PrefixRead(ctx, d, meta) diag.Diagnostics
-  func resourceRTXIPv6PrefixUpdate(ctx, d, meta) diag.Diagnostics
-  func resourceRTXIPv6PrefixDelete(ctx, d, meta) diag.Diagnostics
-  func resourceRTXIPv6PrefixImport(ctx, d, meta) ([]*schema.ResourceData, error)
-  func validateIPv6PrefixConfig(ctx, d, meta) error  // CustomizeDiff
+  type IPv6PrefixResource struct {
+      client client.Client
+  }
+
+  func (r *IPv6PrefixResource) Metadata(ctx, req, resp)
+  func (r *IPv6PrefixResource) Schema(ctx, req, resp)
+  func (r *IPv6PrefixResource) Configure(ctx, req, resp)
+  func (r *IPv6PrefixResource) Create(ctx, req, resp)
+  func (r *IPv6PrefixResource) Read(ctx, req, resp)
+  func (r *IPv6PrefixResource) Update(ctx, req, resp)
+  func (r *IPv6PrefixResource) Delete(ctx, req, resp)
+  func (r *IPv6PrefixResource) ImportState(ctx, req, resp)
   ```
-- **Dependencies:** `client.Client`, Terraform SDK
+- **Dependencies:** `client.Client`, Terraform Plugin Framework
 
 ## Data Models
 
@@ -211,8 +219,11 @@ show config | grep "ipv6 prefix"
 ```
 internal/
 ├── provider/
-│   ├── resource_rtx_ipv6_prefix.go
-│   └── resource_rtx_ipv6_prefix_test.go
+│   └── resources/
+│       └── ipv6_prefix/
+│           ├── resource.go             # IPv6 prefix resource CRUD
+│           ├── resource_test.go        # Resource tests
+│           └── model.go                # Data model with ToClient/FromClient
 ├── client/
 │   ├── interfaces.go              # IPv6Prefix type definition
 │   ├── client.go                  # IPv6Prefix method implementations
@@ -255,3 +266,4 @@ internal/
 |------|-------------|---------|
 | 2026-01-23 | Implementation analysis | Initial master design creation from implementation code |
 | 2026-01-23 | terraform-plan-differences-fix | Documented IPv6 filter dynamic service delegation; added line wrapping handling notes |
+| 2026-02-01 | Structure Sync | Updated to Plugin Framework and resources/{name}/ modular structure |

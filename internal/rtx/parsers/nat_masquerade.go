@@ -289,8 +289,12 @@ func BuildNATDescriptorAddressInnerCommand(id int, network string) string {
 }
 
 // BuildNATMasqueradeStaticCommand generates static port mapping command
-// Format with ports: nat descriptor masquerade static <id> <entry> <outer:port>=<inner:port> [protocol]
-// Format protocol-only: nat descriptor masquerade static <id> <entry> <inner_ip> <protocol>
+// RTX routers have two different formats for static masquerade entries:
+//
+// Format A (specific outer IP): nat descriptor masquerade static <id> <entry> <outer:port>=<inner:port> [protocol]
+// Format B (ipcp/dynamic): nat descriptor masquerade static <id> <entry> <inner_ip> <protocol> <port>
+//                      or: nat descriptor masquerade static <id> <entry> <inner_ip> <protocol> <outer_port>=<inner_port>
+// Format C (protocol-only): nat descriptor masquerade static <id> <entry> <inner_ip> <protocol>
 func BuildNATMasqueradeStaticCommand(id int, entryNum int, entry MasqueradeStaticEntry) string {
 	// Protocol-only entries (ESP, AH, GRE, ICMP) don't have ports
 	if entry.InsideLocalPort == nil || entry.OutsideGlobalPort == nil {
@@ -298,7 +302,20 @@ func BuildNATMasqueradeStaticCommand(id int, entryNum int, entry MasqueradeStati
 			id, entryNum, entry.InsideLocal, strings.ToLower(entry.Protocol))
 	}
 
-	// Port-based entries
+	// When OutsideGlobal is "ipcp" or empty, use Format B (dynamic/PPPoE)
+	if entry.OutsideGlobal == "ipcp" || entry.OutsideGlobal == "" {
+		if *entry.OutsideGlobalPort == *entry.InsideLocalPort {
+			// Same port: nat descriptor masquerade static <id> <entry> <inner_ip> <protocol> <port>
+			return fmt.Sprintf("nat descriptor masquerade static %d %d %s %s %d",
+				id, entryNum, entry.InsideLocal, strings.ToLower(entry.Protocol), *entry.InsideLocalPort)
+		}
+		// Different ports: nat descriptor masquerade static <id> <entry> <inner_ip> <protocol> <outer_port>=<inner_port>
+		return fmt.Sprintf("nat descriptor masquerade static %d %d %s %s %d=%d",
+			id, entryNum, entry.InsideLocal, strings.ToLower(entry.Protocol),
+			*entry.OutsideGlobalPort, *entry.InsideLocalPort)
+	}
+
+	// Format A: When OutsideGlobal is a specific IP, use the full format
 	cmd := fmt.Sprintf("nat descriptor masquerade static %d %d %s:%d=%s:%d",
 		id, entryNum,
 		entry.OutsideGlobal, *entry.OutsideGlobalPort,
@@ -440,6 +457,11 @@ func ValidateOuterAddress(address string) error {
 		return nil
 	}
 
+	// "primary" and "secondary" are valid RTX values for using interface IP
+	if address == "primary" || address == "secondary" {
+		return nil
+	}
+
 	// Check if it's an interface name (starts with common prefixes)
 	if strings.HasPrefix(address, "pp") ||
 		strings.HasPrefix(address, "lan") ||
@@ -452,7 +474,7 @@ func ValidateOuterAddress(address string) error {
 		return nil
 	}
 
-	return fmt.Errorf("outer address must be 'ipcp', interface name, or valid IP address: %s", address)
+	return fmt.Errorf("outer address must be 'ipcp', 'primary', 'secondary', interface name, or valid IP address: %s", address)
 }
 
 // ValidateNATMasquerade validates a NAT masquerade configuration

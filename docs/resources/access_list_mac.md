@@ -23,7 +23,6 @@ Manages MAC address access lists on RTX routers. MAC ACLs filter traffic based o
 
 - `apply` (Block List) List of interface bindings. Each apply block binds this ACL to an interface in a specific direction. Multiple apply blocks are supported. (see [below for nested schema](#nestedblock--apply))
 - `entry` (Block List) List of MAC ACL entries (see [below for nested schema](#nestedblock--entry))
-- `filter_id` (Number) Optional RTX filter ID to enable numeric ethernet filter mode. If not specified, derived from first entry.
 - `sequence_start` (Number) Starting sequence number for automatic sequence calculation. When set, sequence numbers are automatically assigned to entries based on their definition order. Mutually exclusive with entry-level sequence attributes.
 - `sequence_step` (Number) Increment value for automatic sequence calculation. Only used when sequence_start is set. Default is 10.
 
@@ -37,7 +36,7 @@ Required:
 
 Optional:
 
-- `filter_ids` (List of Number) Specific filter IDs (sequence numbers) to apply in order. If omitted, all entry sequences are applied in order.
+- `sequences` (List of Number) Sequence numbers to apply in order. If omitted, all entry sequences are applied in order.
 
 
 <a id="nestedblock--entry"></a>

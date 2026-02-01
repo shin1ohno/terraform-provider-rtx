@@ -13,7 +13,7 @@ Admin resources provide Terraform management for RTX router authentication and u
 | Resource Name | `rtx_admin` |
 | Service File | `internal/client/admin_service.go` |
 | Parser File | `internal/rtx/parsers/admin.go` |
-| Resource File | `internal/provider/resource_rtx_admin.go` |
+| Resource Directory | `internal/provider/resources/admin/` |
 
 ### 2. rtx_admin_user
 
@@ -22,7 +22,7 @@ Admin resources provide Terraform management for RTX router authentication and u
 | Resource Name | `rtx_admin_user` |
 | Service File | `internal/client/admin_service.go` |
 | Parser File | `internal/rtx/parsers/admin.go` |
-| Resource File | `internal/provider/resource_rtx_admin_user.go` |
+| Resource Directory | `internal/provider/resources/admin_user/` |
 
 ---
 
@@ -35,7 +35,7 @@ Admin resources provide Terraform management for RTX router authentication and u
 - Password fields marked as sensitive for security
 
 ### Project Structure (structure.md)
-- Resources in `internal/provider/`
+- Resources in `internal/provider/resources/{name}/` (resource.go + model.go pattern)
 - Client services in `internal/client/`
 - Parsers in `internal/rtx/parsers/`
 - Tests co-located with implementation files
@@ -62,8 +62,8 @@ The admin resources follow the standard three-layer architecture with clear sepa
 ```mermaid
 graph TD
     subgraph "Provider Layer"
-        AdminResource["resource_rtx_admin.go"]
-        AdminUserResource["resource_rtx_admin_user.go"]
+        AdminResource["admin/resource.go"]
+        AdminUserResource["admin_user/resource.go"]
     end
 
     subgraph "Client Layer"
@@ -170,46 +170,76 @@ func ValidateUserConfig(user UserConfig) error
 
 **Reuses:** Standard regex parsing patterns
 
-### Component 3: rtx_admin Resource (`internal/provider/resource_rtx_admin.go`)
+### Component 3: rtx_admin Resource (`internal/provider/resources/admin/`)
 
 **Purpose:** Terraform resource definition for router-level password management.
 
-**Interfaces:**
+**resource.go:**
 ```go
-func resourceRTXAdmin() *schema.Resource
-func resourceRTXAdminCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics
-func resourceRTXAdminRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics
-func resourceRTXAdminUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics
-func resourceRTXAdminDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics
-func resourceRTXAdminImport(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error)
+type AdminResource struct {
+    client client.Client
+}
 
-// Helper
-func buildAdminConfigFromResourceData(d *schema.ResourceData) client.AdminConfig
+func (r *AdminResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse)
+func (r *AdminResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse)
+func (r *AdminResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse)
+func (r *AdminResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse)
+func (r *AdminResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse)
+func (r *AdminResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse)
+func (r *AdminResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse)
+func (r *AdminResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse)
 ```
 
-**Dependencies:** client.AdminConfig, apiClient
+**model.go:**
+```go
+type AdminModel struct {
+    LoginPassword types.String `tfsdk:"login_password"`
+    AdminPassword types.String `tfsdk:"admin_password"`
+}
 
-### Component 4: rtx_admin_user Resource (`internal/provider/resource_rtx_admin_user.go`)
+func (m *AdminModel) ToClient() client.AdminConfig
+func (m *AdminModel) FromClient(c *client.AdminConfig)
+```
+
+**Dependencies:** client.AdminConfig
+
+### Component 4: rtx_admin_user Resource (`internal/provider/resources/admin_user/`)
 
 **Purpose:** Terraform resource definition for user account management.
 
-**Interfaces:**
+**resource.go:**
 ```go
-func resourceRTXAdminUser() *schema.Resource
-func resourceRTXAdminUserCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics
-func resourceRTXAdminUserRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics
-func resourceRTXAdminUserUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics
-func resourceRTXAdminUserDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics
-func resourceRTXAdminUserImport(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error)
+type AdminUserResource struct {
+    client client.Client
+}
 
-// Validation
-func validateUsername(v interface{}, k string) ([]string, []error)
-
-// Helper
-func buildAdminUserFromResourceData(d *schema.ResourceData) client.AdminUser
+func (r *AdminUserResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse)
+func (r *AdminUserResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse)
+func (r *AdminUserResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse)
+func (r *AdminUserResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse)
+func (r *AdminUserResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse)
+func (r *AdminUserResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse)
+func (r *AdminUserResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse)
+func (r *AdminUserResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse)
 ```
 
-**Dependencies:** client.AdminUser, client.AdminUserAttributes, apiClient
+**model.go:**
+```go
+type AdminUserModel struct {
+    Username          types.String `tfsdk:"username"`
+    Password          types.String `tfsdk:"password"`
+    Encrypted         types.Bool   `tfsdk:"encrypted"`
+    Administrator     types.Bool   `tfsdk:"administrator"`
+    ConnectionMethods types.Set    `tfsdk:"connection_methods"`
+    GUIPages          types.Set    `tfsdk:"gui_pages"`
+    LoginTimer        types.Int64  `tfsdk:"login_timer"`
+}
+
+func (m *AdminUserModel) ToClient() client.AdminUser
+func (m *AdminUserModel) FromClient(u *client.AdminUser)
+```
+
+**Dependencies:** client.AdminUser, client.AdminUserAttributes
 
 ### Component 5: Client Interface Extension (`internal/client/interfaces.go`)
 
@@ -565,10 +595,13 @@ show config | grep "user attribute"
 ```
 internal/
 ├── provider/
-│   ├── resource_rtx_admin.go           # Singleton password resource
-│   ├── resource_rtx_admin_test.go      # Schema and CRUD tests
-│   ├── resource_rtx_admin_user.go      # User collection resource
-│   └── resource_rtx_admin_user_test.go # Schema, CRUD, validation tests
+│   └── resources/
+│       ├── admin/
+│       │   ├── resource.go             # Singleton password resource implementation
+│       │   └── model.go                # Data model with ToClient/FromClient
+│       └── admin_user/
+│           ├── resource.go             # User collection resource implementation
+│           └── model.go                # Data model with ToClient/FromClient
 ├── client/
 │   ├── interfaces.go                   # AdminConfig, AdminUser types + interface methods
 │   ├── client.go                       # Service initialization
@@ -712,3 +745,4 @@ sequenceDiagram
 | 2026-01-23 | Implementation Analysis | Initial master design created from implementation code |
 | 2026-01-23 | terraform-plan-differences-fix | RTX grep compatibility (no OR operator); documented attribute-only updates for imported users |
 | 2026-02-01 | Implementation Audit | Update to Plugin Framework |
+| 2026-02-01 | Structure Sync | Updated file paths to resources/{name}/ modular structure |

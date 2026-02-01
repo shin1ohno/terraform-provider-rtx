@@ -14,7 +14,6 @@ import (
 // AccessListMACModel describes the resource data model.
 type AccessListMACModel struct {
 	Name          types.String `tfsdk:"name"`
-	FilterID      types.Int64  `tfsdk:"filter_id"`
 	SequenceStart types.Int64  `tfsdk:"sequence_start"`
 	SequenceStep  types.Int64  `tfsdk:"sequence_step"`
 	Applies       []ApplyModel `tfsdk:"apply"`
@@ -25,7 +24,7 @@ type AccessListMACModel struct {
 type ApplyModel struct {
 	Interface types.String `tfsdk:"interface"`
 	Direction types.String `tfsdk:"direction"`
-	FilterIDs types.List   `tfsdk:"filter_ids"`
+	Sequences types.List   `tfsdk:"sequences"`
 }
 
 // EntryModel describes a single entry in a MAC access list.
@@ -56,9 +55,9 @@ type DHCPMatchModel struct {
 // ApplyAttrTypes returns the attribute types for ApplyModel.
 func ApplyAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
-		"interface":  types.StringType,
-		"direction":  types.StringType,
-		"filter_ids": types.ListType{ElemType: types.Int64Type},
+		"interface": types.StringType,
+		"direction": types.StringType,
+		"sequences": types.ListType{ElemType: types.Int64Type},
 	}
 }
 
@@ -107,7 +106,6 @@ func (m *AccessListMACModel) ToClient(ctx context.Context, diagnostics *diag.Dia
 
 	acl := client.AccessListMAC{
 		Name:          fwhelpers.GetStringValue(m.Name),
-		FilterID:      fwhelpers.GetInt64Value(m.FilterID),
 		SequenceStart: sequenceStart,
 		SequenceStep:  sequenceStep,
 		Entries:       make([]client.AccessListMACEntry, 0, len(m.Entries)),
@@ -142,10 +140,6 @@ func (m *AccessListMACModel) ToClient(ctx context.Context, diagnostics *diag.Dia
 			Offset:                 fwhelpers.GetInt64Value(entry.Offset),
 		}
 
-		if aclEntry.FilterID == 0 && acl.FilterID > 0 {
-			aclEntry.FilterID = acl.FilterID
-		}
-
 		// Handle byte_list
 		if !entry.ByteList.IsNull() && !entry.ByteList.IsUnknown() {
 			var byteList []types.String
@@ -167,17 +161,17 @@ func (m *AccessListMACModel) ToClient(ctx context.Context, diagnostics *diag.Dia
 	// Build applies list
 	for _, apply := range m.Applies {
 		var ids []int
-		if !apply.FilterIDs.IsNull() && !apply.FilterIDs.IsUnknown() {
-			var filterIDs []types.Int64
-			diagnostics.Append(apply.FilterIDs.ElementsAs(ctx, &filterIDs, false)...)
+		if !apply.Sequences.IsNull() && !apply.Sequences.IsUnknown() {
+			var sequences []types.Int64
+			diagnostics.Append(apply.Sequences.ElementsAs(ctx, &sequences, false)...)
 			if !diagnostics.HasError() {
-				for _, id := range filterIDs {
+				for _, id := range sequences {
 					ids = append(ids, int(id.ValueInt64()))
 				}
 			}
 		}
 
-		// If filter_ids is empty, populate with all entry sequences
+		// If sequences is empty, populate with all entry sequences
 		if len(ids) == 0 {
 			for _, entry := range acl.Entries {
 				ids = append(ids, entry.Sequence)
@@ -203,7 +197,6 @@ func (m *AccessListMACModel) ToClient(ctx context.Context, diagnostics *diag.Dia
 // FromClient updates the Terraform model from a client.AccessListMAC.
 func (m *AccessListMACModel) FromClient(ctx context.Context, acl *client.AccessListMAC, diagnostics *diag.Diagnostics) {
 	m.Name = types.StringValue(acl.Name)
-	m.FilterID = fwhelpers.Int64ValueOrNull(acl.FilterID)
 
 	// Set sequence_start and sequence_step if they were in the config
 	if acl.SequenceStart > 0 {
@@ -289,20 +282,20 @@ func (m *AccessListMACModel) FromClient(ctx context.Context, acl *client.AccessL
 				Direction: types.StringValue(apply.Direction),
 			}
 
-			// Build filter_ids list
+			// Build sequences list
 			if len(apply.FilterIDs) > 0 {
-				filterElements := make([]attr.Value, len(apply.FilterIDs))
+				sequenceElements := make([]attr.Value, len(apply.FilterIDs))
 				for i, id := range apply.FilterIDs {
-					filterElements[i] = types.Int64Value(int64(id))
+					sequenceElements[i] = types.Int64Value(int64(id))
 				}
-				list, diags := types.ListValue(types.Int64Type, filterElements)
+				list, diags := types.ListValue(types.Int64Type, sequenceElements)
 				diagnostics.Append(diags...)
 				if diagnostics.HasError() {
 					return
 				}
-				applyModel.FilterIDs = list
+				applyModel.Sequences = list
 			} else {
-				applyModel.FilterIDs = types.ListNull(types.Int64Type)
+				applyModel.Sequences = types.ListNull(types.Int64Type)
 			}
 
 			m.Applies = append(m.Applies, applyModel)
@@ -315,18 +308,18 @@ func (m *AccessListMACModel) FromClient(ctx context.Context, acl *client.AccessL
 		}
 
 		if len(acl.Apply.FilterIDs) > 0 {
-			filterElements := make([]attr.Value, len(acl.Apply.FilterIDs))
+			sequenceElements := make([]attr.Value, len(acl.Apply.FilterIDs))
 			for i, id := range acl.Apply.FilterIDs {
-				filterElements[i] = types.Int64Value(int64(id))
+				sequenceElements[i] = types.Int64Value(int64(id))
 			}
-			list, diags := types.ListValue(types.Int64Type, filterElements)
+			list, diags := types.ListValue(types.Int64Type, sequenceElements)
 			diagnostics.Append(diags...)
 			if diagnostics.HasError() {
 				return
 			}
-			applyModel.FilterIDs = list
+			applyModel.Sequences = list
 		} else {
-			applyModel.FilterIDs = types.ListNull(types.Int64Type)
+			applyModel.Sequences = types.ListNull(types.Int64Type)
 		}
 
 		m.Applies = []ApplyModel{applyModel}

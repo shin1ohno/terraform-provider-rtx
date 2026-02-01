@@ -36,7 +36,7 @@ Required:
 
 Optional:
 
-- `filter_ids` (List of Number) Specific filter IDs (sequence numbers) to apply in order. If omitted, all entry sequences are applied in order.
+- `sequences` (List of Number) Sequence numbers to apply in order. If omitted, all entry sequences are applied in order.
 
 
 <a id="nestedblock--entry"></a>

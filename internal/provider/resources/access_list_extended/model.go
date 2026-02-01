@@ -42,7 +42,7 @@ type EntryModel struct {
 type ApplyModel struct {
 	Interface types.String `tfsdk:"interface"`
 	Direction types.String `tfsdk:"direction"`
-	FilterIDs types.List   `tfsdk:"filter_ids"`
+	Sequences types.List   `tfsdk:"sequences"`
 }
 
 // Constants for sequence calculation.
@@ -77,9 +77,9 @@ func EntryAttrTypes() map[string]attr.Type {
 // ApplyAttrTypes returns the attribute types for ApplyModel.
 func ApplyAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
-		"interface":  types.StringType,
-		"direction":  types.StringType,
-		"filter_ids": types.ListType{ElemType: types.Int64Type},
+		"interface": types.StringType,
+		"direction": types.StringType,
+		"sequences": types.ListType{ElemType: types.Int64Type},
 	}
 }
 
@@ -159,11 +159,11 @@ func (m *AccessListExtendedModel) appliesToClient() []client.ExtendedApply {
 			Direction: fwhelpers.GetStringValue(apply.Direction),
 		}
 
-		// Extract filter_ids
-		if !apply.FilterIDs.IsNull() && !apply.FilterIDs.IsUnknown() {
-			var filterIDs []types.Int64
-			apply.FilterIDs.ElementsAs(context.TODO(), &filterIDs, false)
-			for _, id := range filterIDs {
+		// Extract sequences
+		if !apply.Sequences.IsNull() && !apply.Sequences.IsUnknown() {
+			var sequences []types.Int64
+			apply.Sequences.ElementsAs(context.TODO(), &sequences, false)
+			for _, id := range sequences {
 				clientApply.FilterIDs = append(clientApply.FilterIDs, int(id.ValueInt64()))
 			}
 		}
@@ -212,16 +212,16 @@ func (m *AccessListExtendedModel) SetAppliesFromClient(applies []client.Extended
 
 	applyValues := make([]attr.Value, len(applies))
 	for i, apply := range applies {
-		// Convert filter_ids
-		filterIDValues := make([]attr.Value, len(apply.FilterIDs))
+		// Convert sequences
+		sequenceValues := make([]attr.Value, len(apply.FilterIDs))
 		for j, id := range apply.FilterIDs {
-			filterIDValues[j] = types.Int64Value(int64(id))
+			sequenceValues[j] = types.Int64Value(int64(id))
 		}
 
 		applyValues[i] = types.ObjectValueMust(ApplyAttrTypes(), map[string]attr.Value{
-			"interface":  types.StringValue(apply.Interface),
-			"direction":  types.StringValue(apply.Direction),
-			"filter_ids": types.ListValueMust(types.Int64Type, filterIDValues),
+			"interface": types.StringValue(apply.Interface),
+			"direction": types.StringValue(apply.Direction),
+			"sequences": types.ListValueMust(types.Int64Type, sequenceValues),
 		})
 	}
 	m.Apply = types.ListValueMust(types.ObjectType{AttrTypes: ApplyAttrTypes()}, applyValues)

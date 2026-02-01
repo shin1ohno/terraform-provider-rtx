@@ -354,7 +354,7 @@ func TestBuildNATMasqueradeStaticCommand(t *testing.T) {
 			expected: "nat descriptor masquerade static 1 1 203.0.113.1:80=192.168.1.100:8080 tcp",
 		},
 		{
-			name:     "udp with ipcp",
+			name:     "udp with ipcp same ports",
 			id:       2,
 			entryNum: 3,
 			entry: MasqueradeStaticEntry{
@@ -364,7 +364,20 @@ func TestBuildNATMasqueradeStaticCommand(t *testing.T) {
 				InsideLocalPort:   intPtr(53),
 				Protocol:          "udp",
 			},
-			expected: "nat descriptor masquerade static 2 3 ipcp:53=10.0.0.1:53 udp",
+			expected: "nat descriptor masquerade static 2 3 10.0.0.1 udp 53",
+		},
+		{
+			name:     "tcp with ipcp different ports",
+			id:       1000,
+			entryNum: 4,
+			entry: MasqueradeStaticEntry{
+				OutsideGlobal:     "ipcp",
+				OutsideGlobalPort: intPtr(8080),
+				InsideLocal:       "192.168.1.100",
+				InsideLocalPort:   intPtr(80),
+				Protocol:          "tcp",
+			},
+			expected: "nat descriptor masquerade static 1000 4 192.168.1.100 tcp 8080=80",
 		},
 		{
 			name:     "without protocol",
@@ -1094,6 +1107,16 @@ func TestValidateOuterAddress(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name:    "primary",
+			address: "primary",
+			wantErr: false,
+		},
+		{
+			name:    "secondary",
+			address: "secondary",
+			wantErr: false,
+		},
+		{
 			name:    "pp1 interface",
 			address: "pp1",
 			wantErr: false,
@@ -1743,7 +1766,8 @@ func TestValidateOuterAddress_YAMLPatterns(t *testing.T) {
 	}{
 		// Valid cases from nat.yaml
 		{name: "ipcp keyword", address: "ipcp", wantErr: false},
-		{name: "primary keyword", address: "primary", wantErr: true}, // primary is not currently supported
+		{name: "primary keyword", address: "primary", wantErr: false},   // primary is a valid RTX outer address value
+		{name: "secondary keyword", address: "secondary", wantErr: false}, // secondary is a valid RTX outer address value
 		{name: "pp1 interface", address: "pp1", wantErr: false},
 		{name: "pp10 interface", address: "pp10", wantErr: false},
 		{name: "lan1 interface", address: "lan1", wantErr: false},
@@ -1804,7 +1828,7 @@ func TestBuildNATMasqueradeStaticCommand_YAMLPatterns(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "HTTP port forwarding same port",
+			name:     "HTTP port forwarding same port with ipcp",
 			id:       1,
 			entryNum: 1,
 			entry: MasqueradeStaticEntry{
@@ -1814,10 +1838,10 @@ func TestBuildNATMasqueradeStaticCommand_YAMLPatterns(t *testing.T) {
 				InsideLocalPort:   intPtr(80),
 				Protocol:          "tcp",
 			},
-			expected: "nat descriptor masquerade static 1 1 ipcp:80=192.168.1.100:80 tcp",
+			expected: "nat descriptor masquerade static 1 1 192.168.1.100 tcp 80",
 		},
 		{
-			name:     "HTTP port forwarding different ports",
+			name:     "HTTP port forwarding different ports with ipcp",
 			id:       1,
 			entryNum: 2,
 			entry: MasqueradeStaticEntry{
@@ -1827,10 +1851,10 @@ func TestBuildNATMasqueradeStaticCommand_YAMLPatterns(t *testing.T) {
 				InsideLocalPort:   intPtr(80),
 				Protocol:          "tcp",
 			},
-			expected: "nat descriptor masquerade static 1 2 ipcp:8080=192.168.1.100:80 tcp",
+			expected: "nat descriptor masquerade static 1 2 192.168.1.100 tcp 8080=80",
 		},
 		{
-			name:     "DNS UDP forwarding",
+			name:     "DNS UDP forwarding with ipcp",
 			id:       1,
 			entryNum: 3,
 			entry: MasqueradeStaticEntry{
@@ -1840,7 +1864,7 @@ func TestBuildNATMasqueradeStaticCommand_YAMLPatterns(t *testing.T) {
 				InsideLocalPort:   intPtr(53),
 				Protocol:          "udp",
 			},
-			expected: "nat descriptor masquerade static 1 3 ipcp:53=192.168.1.200:53 udp",
+			expected: "nat descriptor masquerade static 1 3 192.168.1.200 udp 53",
 		},
 		{
 			name:     "specific outer IP address",
@@ -2038,9 +2062,9 @@ func TestNATMasqueradePortBasedRoundTrip(t *testing.T) {
 		expected     MasqueradeStaticEntry
 	}{
 		{
-			name:         "TCP with same ports round-trip",
+			name:         "TCP with same ports round-trip (ipcp format)",
 			descriptorID: 1,
-			input:        "nat descriptor masquerade static 1 1 ipcp:80=192.168.1.100:80 tcp",
+			input:        "nat descriptor masquerade static 1 1 192.168.1.100 tcp 80",
 			expected: MasqueradeStaticEntry{
 				EntryNumber:       1,
 				OutsideGlobal:     "ipcp",
@@ -2051,7 +2075,20 @@ func TestNATMasqueradePortBasedRoundTrip(t *testing.T) {
 			},
 		},
 		{
-			name:         "UDP with different ports round-trip",
+			name:         "TCP with different ports round-trip (ipcp format)",
+			descriptorID: 1,
+			input:        "nat descriptor masquerade static 1 2 192.168.1.100 tcp 8080=80",
+			expected: MasqueradeStaticEntry{
+				EntryNumber:       2,
+				OutsideGlobal:     "ipcp",
+				OutsideGlobalPort: intPtr(8080),
+				InsideLocal:       "192.168.1.100",
+				InsideLocalPort:   intPtr(80),
+				Protocol:          "tcp",
+			},
+		},
+		{
+			name:         "UDP with different ports round-trip (specific IP)",
 			descriptorID: 2,
 			input:        "nat descriptor masquerade static 2 3 203.0.113.1:8080=10.0.0.50:80 udp",
 			expected: MasqueradeStaticEntry{

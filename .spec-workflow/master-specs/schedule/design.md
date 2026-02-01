@@ -11,8 +11,8 @@ The Schedule resources (rtx_kron_schedule and rtx_kron_policy) provide Terraform
 | Resource Names | `rtx_kron_schedule`, `rtx_kron_policy` |
 | Service File | `internal/client/schedule_service.go` |
 | Parser File | `internal/rtx/parsers/schedule.go` |
-| Resource Files | `internal/provider/resource_rtx_kron_schedule.go`, `internal/provider/resource_rtx_kron_policy.go` |
-| Last Updated | 2026-01-23 |
+| Resource Directories | `internal/provider/resources/kron_schedule/`, `internal/provider/resources/kron_policy/` |
+| Last Updated | 2026-02-01 |
 | Source | Implementation code analysis |
 
 ## Steering Document Alignment
@@ -24,7 +24,7 @@ The Schedule resources (rtx_kron_schedule and rtx_kron_policy) provide Terraform
 - Configuration is saved after each modification
 
 ### Project Structure (structure.md)
-- Resource files in `internal/provider/`
+- Resource files in `internal/provider/resources/{name}/resource.go + model.go`
 - Service files in `internal/client/`
 - Parser files in `internal/rtx/parsers/`
 - Test files alongside implementation files
@@ -49,8 +49,8 @@ The implementation follows a three-layer architecture with clear separation of c
 ```mermaid
 graph TD
     subgraph Provider Layer
-        KronSchedule[resource_rtx_kron_schedule.go]
-        KronPolicy[resource_rtx_kron_policy.go]
+        KronSchedule[kron_schedule/resource.go]
+        KronPolicy[kron_policy/resource.go]
     end
 
     subgraph Client Layer
@@ -146,46 +146,53 @@ graph TD
 
 ### Component 3: Terraform Resources
 
-#### rtx_kron_schedule (`internal/provider/resource_rtx_kron_schedule.go`)
+#### rtx_kron_schedule (`internal/provider/resources/kron_schedule/`)
 
-- **Purpose:** Terraform resource definition for scheduled tasks
+- **Purpose:** Terraform resource definition for scheduled tasks using Plugin Framework
+- **Files:**
+  - `resource.go` - Resource implementation with CRUD methods
+  - `model.go` - Data model with ToClient/FromClient conversion
 - **Interfaces:**
   ```go
-  func resourceRTXKronSchedule() *schema.Resource
-  func resourceRTXKronScheduleCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics
-  func resourceRTXKronScheduleRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics
-  func resourceRTXKronScheduleUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics
-  func resourceRTXKronScheduleDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics
-  func resourceRTXKronScheduleImport(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error)
+  type KronScheduleResource struct {
+      client client.Client
+  }
 
-  // Helper functions
-  func buildScheduleFromResourceData(d *schema.ResourceData) client.Schedule
-  func validateTimeFormat(v interface{}, k string) ([]string, []error)
-  func validateDateFormat(v interface{}, k string) ([]string, []error)
-  func validateDayOfWeek(v interface{}, k string) ([]string, []error)
+  func (r *KronScheduleResource) Metadata(ctx, req, resp)
+  func (r *KronScheduleResource) Schema(ctx, req, resp)
+  func (r *KronScheduleResource) Configure(ctx, req, resp)
+  func (r *KronScheduleResource) Create(ctx, req, resp)
+  func (r *KronScheduleResource) Read(ctx, req, resp)
+  func (r *KronScheduleResource) Update(ctx, req, resp)
+  func (r *KronScheduleResource) Delete(ctx, req, resp)
+  func (r *KronScheduleResource) ImportState(ctx, req, resp)
   ```
-- **Dependencies:** Terraform SDK, client package
-- **Reuses:** Standard Terraform resource patterns
+- **Dependencies:** Terraform Plugin Framework, client package
+- **Reuses:** Standard Plugin Framework resource patterns
 
-#### rtx_kron_policy (`internal/provider/resource_rtx_kron_policy.go`)
+#### rtx_kron_policy (`internal/provider/resources/kron_policy/`)
 
-- **Purpose:** Terraform resource definition for command lists
+- **Purpose:** Terraform resource definition for command lists using Plugin Framework
+- **Files:**
+  - `resource.go` - Resource implementation with CRUD methods
+  - `model.go` - Data model with ToClient/FromClient conversion
 - **Interfaces:**
   ```go
-  func resourceRTXKronPolicy() *schema.Resource
-  func resourceRTXKronPolicyCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics
-  func resourceRTXKronPolicyRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics
-  func resourceRTXKronPolicyUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics
-  func resourceRTXKronPolicyDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics
-  func resourceRTXKronPolicyImport(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error)
+  type KronPolicyResource struct {
+      client client.Client
+  }
 
-  // Helper functions
-  func buildKronPolicyFromResourceData(d *schema.ResourceData) client.KronPolicy
-  func validateKronPolicyName(v interface{}, k string) ([]string, []error)
-  func validateKronPolicyNameValue(name string) error
+  func (r *KronPolicyResource) Metadata(ctx, req, resp)
+  func (r *KronPolicyResource) Schema(ctx, req, resp)
+  func (r *KronPolicyResource) Configure(ctx, req, resp)
+  func (r *KronPolicyResource) Create(ctx, req, resp)
+  func (r *KronPolicyResource) Read(ctx, req, resp)
+  func (r *KronPolicyResource) Update(ctx, req, resp)
+  func (r *KronPolicyResource) Delete(ctx, req, resp)
+  func (r *KronPolicyResource) ImportState(ctx, req, resp)
   ```
-- **Dependencies:** Terraform SDK, client package
-- **Reuses:** Standard Terraform resource patterns
+- **Dependencies:** Terraform Plugin Framework, client package
+- **Reuses:** Standard Plugin Framework resource patterns
 
 ### Component 4: Client Interface Extension (`internal/client/interfaces.go`)
 
@@ -439,10 +446,15 @@ Builder: BuildShowScheduleByIDCommand(1)
 ```
 internal/
 ├── provider/
-│   ├── resource_rtx_kron_schedule.go       # Schedule resource definition
-│   ├── resource_rtx_kron_schedule_test.go  # Schema and validation tests
-│   ├── resource_rtx_kron_policy.go         # Policy resource definition
-│   └── resource_rtx_kron_policy_test.go    # Schema and validation tests
+│   └── resources/
+│       ├── kron_schedule/
+│       │   ├── resource.go                 # Schedule resource CRUD
+│       │   ├── resource_test.go            # Schema and validation tests
+│       │   └── model.go                    # Data model with ToClient/FromClient
+│       └── kron_policy/
+│           ├── resource.go                 # Policy resource CRUD
+│           ├── resource_test.go            # Schema and validation tests
+│           └── model.go                    # Data model with ToClient/FromClient
 ├── client/
 │   ├── interfaces.go                       # Schedule and KronPolicy types
 │   ├── client.go                           # Service initialization
@@ -485,3 +497,4 @@ internal/
 | Date | Source Spec | Changes |
 |------|-------------|---------|
 | 2026-01-23 | Implementation analysis | Initial master spec creation from existing code |
+| 2026-02-01 | Structure Sync | Updated to Plugin Framework and resources/{name}/ modular structure |

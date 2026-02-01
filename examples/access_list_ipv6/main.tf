@@ -160,7 +160,7 @@ resource "rtx_access_list_ipv6_apply" "shared_to_tunnel1" {
   access_list = rtx_access_list_ipv6.shared_filters.name
   interface   = "tunnel1"
   direction   = "in"
-  filter_ids  = [5100, 5000]
+  sequences   = [5100, 5000]
 }
 
 variable "rtx_host" {

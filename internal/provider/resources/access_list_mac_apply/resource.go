@@ -81,8 +81,8 @@ func (r *AccessListMACApplyResource) Schema(ctx context.Context, req resource.Sc
 					stringvalidator.OneOfCaseInsensitive("in", "out"),
 				},
 			},
-			"filter_ids": schema.ListAttribute{
-				Description: "List of filter IDs to apply in order. At least one filter ID must be specified.",
+			"sequences": schema.ListAttribute{
+				Description: "List of sequence numbers to apply in order. At least one sequence must be specified.",
 				Required:    true,
 				ElementType: types.Int64Type,
 				Validators: []validator.List{
@@ -198,19 +198,19 @@ func (r *AccessListMACApplyResource) Create(ctx context.Context, req resource.Cr
 		return
 	}
 
-	// Get filter IDs
-	filterIDs := data.GetFilterIDsAsInts()
+	// Get sequences
+	sequences := data.GetSequencesAsInts()
 
-	if len(filterIDs) == 0 {
+	if len(sequences) == 0 {
 		resp.Diagnostics.AddError(
 			"Invalid Configuration",
-			"filter_ids is required: at least one filter ID must be specified",
+			"sequences is required: at least one sequence must be specified",
 		)
 		return
 	}
 
 	// Apply filters to interface
-	if err := r.client.ApplyMACFiltersToInterface(ctx, iface, direction, filterIDs); err != nil {
+	if err := r.client.ApplyMACFiltersToInterface(ctx, iface, direction, sequences); err != nil {
 		resp.Diagnostics.AddError(
 			"Failed to apply MAC filters",
 			fmt.Sprintf("Could not apply MAC filters to interface %s %s: %v", iface, direction, err),
@@ -276,8 +276,8 @@ func (r *AccessListMACApplyResource) read(ctx context.Context, data *AccessListM
 		Str("direction", direction).
 		Msg("Reading MAC access list apply")
 
-	// Get current filter IDs from router
-	filterIDs, err := r.client.GetMACInterfaceFilters(ctx, iface, direction)
+	// Get current sequences from router
+	sequences, err := r.client.GetMACInterfaceFilters(ctx, iface, direction)
 	if err != nil {
 		// If not found, the resource has been removed
 		if strings.Contains(err.Error(), "not found") {
@@ -295,7 +295,7 @@ func (r *AccessListMACApplyResource) read(ctx context.Context, data *AccessListM
 	}
 
 	// If no filters are applied, resource doesn't exist
-	if len(filterIDs) == 0 {
+	if len(sequences) == 0 {
 		logger.Warn().
 			Str("resource", "rtx_access_list_mac_apply").
 			Str("interface", iface).
@@ -308,7 +308,7 @@ func (r *AccessListMACApplyResource) read(ctx context.Context, data *AccessListM
 	// Update state
 	data.Interface = types.StringValue(iface)
 	data.Direction = types.StringValue(direction)
-	data.SetFilterIDsFromInts(filterIDs)
+	data.SetSequencesFromInts(sequences)
 }
 
 // Update updates the resource and sets the updated Terraform state on success.
@@ -345,19 +345,19 @@ func (r *AccessListMACApplyResource) Update(ctx context.Context, req resource.Up
 		Str("access_list", aclName).
 		Msg("Updating MAC access list apply")
 
-	// Get filter IDs
-	filterIDs := data.GetFilterIDsAsInts()
+	// Get sequences
+	sequences := data.GetSequencesAsInts()
 
-	if len(filterIDs) == 0 {
+	if len(sequences) == 0 {
 		resp.Diagnostics.AddError(
 			"Invalid Configuration",
-			"filter_ids is required: at least one filter ID must be specified",
+			"sequences is required: at least one sequence must be specified",
 		)
 		return
 	}
 
 	// Apply filters to interface (this will replace existing filters)
-	if err := r.client.ApplyMACFiltersToInterface(ctx, iface, direction, filterIDs); err != nil {
+	if err := r.client.ApplyMACFiltersToInterface(ctx, iface, direction, sequences); err != nil {
 		resp.Diagnostics.AddError(
 			"Failed to update MAC filters",
 			fmt.Sprintf("Could not update MAC filters on interface %s %s: %v", iface, direction, err),

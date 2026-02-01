@@ -11,8 +11,8 @@ The PPPoE resource implementation enables Terraform-based management of PPP over
 | Resource Name | `rtx_pppoe` |
 | Service File | `internal/client/ppp_service.go` |
 | Parser File | `internal/rtx/parsers/ppp.go` |
-| Resource File | `internal/provider/resource_rtx_pppoe.go` |
-| Last Updated | 2026-01-23 |
+| Resource Directory | `internal/provider/resources/pppoe/` |
+| Last Updated | 2026-02-01 |
 | Source Specs | Implementation-based (primary source) |
 
 ## Steering Document Alignment
@@ -27,7 +27,7 @@ The PPPoE resource implementation enables Terraform-based management of PPP over
 
 ### Project Structure (structure.md)
 
-- **File Naming**: `resource_rtx_pppoe.go`, `ppp_service.go`, `ppp.go` follow conventions
+- **File Naming**: `resources/pppoe/resource.go + model.go`, `ppp_service.go`, `ppp.go` follow conventions
 - **Package Organization**: Provider, Client, Parsers packages properly separated
 - **Test Files**: `*_test.go` files present for all components
 - **Dependency Rules**: Parser has no internal dependencies; client depends on parser
@@ -526,11 +526,13 @@ no ip pp secure filter out
 ```
 internal/
 ├── provider/
-│   ├── resource_rtx_pppoe.go          # Terraform resource implementation
-│   └── resource_rtx_pppoe_test.go     # Resource unit tests
+│   └── resources/
+│       └── pppoe/
+│           ├── resource.go            # PPPoE resource implementation
+│           └── model.go               # Data model with ToClient/FromClient
 ├── client/
-│   ├── interfaces.go                   # MODIFIED: PPPoE methods added
-│   ├── client.go                       # MODIFIED: PPPService initialization
+│   ├── interfaces.go                   # PPPoE methods
+│   ├── client.go                       # PPPService initialization
 │   ├── ppp_service.go                  # PPP/PPPoE service implementation
 │   └── ppp_service_test.go             # Service unit tests
 └── rtx/
@@ -577,3 +579,4 @@ internal/
 | 2026-01-23 | Implementation-based | Initial master design created from existing implementation |
 | 2026-01-25 | Implementation Sync | Add computed `pp_interface` attribute for resource references |
 | 2026-02-01 | Implementation Audit | Update to Terraform Plugin Framework (not SDK v2) |
+| 2026-02-01 | Structure Sync | Updated file paths to resources/{name}/ modular structure |

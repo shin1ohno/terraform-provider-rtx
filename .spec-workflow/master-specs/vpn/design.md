@@ -6,14 +6,14 @@ This document describes the technical design and implementation of VPN resources
 
 ## Resources Summary
 
-| Resource | Service File | Parser File | Resource File | Status |
-|----------|--------------|-------------|---------------|--------|
-| `rtx_tunnel` | `tunnel_service.go` | `tunnel.go` | `resources/tunnel/resource.go` | **Recommended** |
-| `rtx_ipsec_tunnel` | `ipsec_tunnel_service.go` | `ipsec_tunnel.go` | `resource_rtx_ipsec_tunnel.go` | Deprecated |
-| `rtx_ipsec_transport` | `ipsec_transport_service.go` | `ipsec_transport.go` | `resource_rtx_ipsec_transport.go` | - |
-| `rtx_l2tp` | `l2tp_service.go` | `l2tp.go` | `resource_rtx_l2tp.go` | Deprecated |
-| `rtx_l2tp_service` | `l2tp_service.go` | `l2tp.go` | `resource_rtx_l2tp_service.go` | - |
-| `rtx_pptp` | `pptp_service.go` | `pptp.go` | `resource_rtx_pptp.go` | - |
+| Resource | Service File | Parser File | Resource Directory | Status |
+|----------|--------------|-------------|-------------------|--------|
+| `rtx_tunnel` | `tunnel_service.go` | `tunnel.go` | `resources/tunnel/` | **Recommended** |
+| `rtx_ipsec_tunnel` | `ipsec_tunnel_service.go` | `ipsec_tunnel.go` | `resources/ipsec_tunnel/` | Deprecated |
+| `rtx_ipsec_transport` | `ipsec_transport_service.go` | `ipsec_transport.go` | `resources/ipsec_transport/` | - |
+| `rtx_l2tp` | `l2tp_service.go` | `l2tp.go` | `resources/l2tp/` | Deprecated |
+| `rtx_l2tp_service` | `l2tp_service.go` | `l2tp.go` | `resources/l2tp_service/` | - |
+| `rtx_pptp` | `pptp_service.go` | `pptp.go` | `resources/pptp/` | - |
 
 ---
 
@@ -24,12 +24,12 @@ This document describes the technical design and implementation of VPN resources
 ```mermaid
 graph TD
     subgraph "Terraform Provider Layer"
-        TunnelRes[resources/tunnel/resource.go]
-        IPsecTunnelRes[resource_rtx_ipsec_tunnel.go]
-        IPsecTransportRes[resource_rtx_ipsec_transport.go]
-        L2TPRes[resource_rtx_l2tp.go]
-        L2TPServiceRes[resource_rtx_l2tp_service.go]
-        PPTPRes[resource_rtx_pptp.go]
+        TunnelRes[tunnel/resource.go]
+        IPsecTunnelRes[ipsec_tunnel/resource.go]
+        IPsecTransportRes[ipsec_transport/resource.go]
+        L2TPRes[l2tp/resource.go]
+        L2TPServiceRes[l2tp_service/resource.go]
+        PPTPRes[pptp/resource.go]
     end
 
     subgraph "Client Layer"
@@ -738,21 +738,31 @@ Test scenarios:
 ```
 internal/
 ├── provider/
-│   ├── resources/
-│   │   └── tunnel/
-│   │       ├── resource.go               # Unified tunnel resource (rtx_tunnel)
-│   │       ├── resource_test.go
-│   │       └── model.go                  # Data model with ToClient/FromClient
-│   ├── resource_rtx_ipsec_tunnel.go      # IPsec tunnel resource (deprecated)
-│   ├── resource_rtx_ipsec_tunnel_test.go
-│   ├── resource_rtx_ipsec_transport.go   # IPsec transport resource
-│   ├── resource_rtx_ipsec_transport_test.go
-│   ├── resource_rtx_l2tp.go              # L2TP resource (deprecated)
-│   ├── resource_rtx_l2tp_test.go
-│   ├── resource_rtx_l2tp_service.go      # L2TP service resource
-│   ├── resource_rtx_l2tp_service_test.go
-│   ├── resource_rtx_pptp.go              # PPTP resource
-│   └── resource_rtx_pptp_test.go
+│   └── resources/
+│       ├── tunnel/
+│       │   ├── resource.go               # Unified tunnel resource (rtx_tunnel)
+│       │   ├── resource_test.go
+│       │   └── model.go                  # Data model with ToClient/FromClient
+│       ├── ipsec_tunnel/
+│       │   ├── resource.go               # IPsec tunnel resource (deprecated)
+│       │   ├── resource_test.go
+│       │   └── model.go
+│       ├── ipsec_transport/
+│       │   ├── resource.go               # IPsec transport resource
+│       │   ├── resource_test.go
+│       │   └── model.go
+│       ├── l2tp/
+│       │   ├── resource.go               # L2TP resource (deprecated)
+│       │   ├── resource_test.go
+│       │   └── model.go
+│       ├── l2tp_service/
+│       │   ├── resource.go               # L2TP service resource
+│       │   ├── resource_test.go
+│       │   └── model.go
+│       └── pptp/
+│           ├── resource.go               # PPTP resource
+│           ├── resource_test.go
+│           └── model.go
 ├── client/
 │   ├── interfaces.go                      # Client interface with VPN methods
 │   ├── client.go                          # Client implementation
@@ -908,3 +918,4 @@ PPTP has known vulnerabilities:
 | 2026-01-23 | Implementation | Initial documentation from codebase |
 | 2026-01-25 | Implementation Sync | Add computed `tunnel_interface` for rtx_ipsec_tunnel and rtx_l2tp |
 | 2026-02-01 | rtx-tunnel-unified | Add TunnelService, Tunnel data model, and file structure for unified tunnel resource |
+| 2026-02-01 | Structure Sync | Updated all VPN resources to resources/{name}/ modular structure |

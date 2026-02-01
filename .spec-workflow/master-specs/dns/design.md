@@ -6,11 +6,11 @@ This document describes the design and implementation of DNS-related resources i
 
 ## Resource Summary
 
-| Resource | Service File | Parser File | Resource File |
-|----------|--------------|-------------|---------------|
-| rtx_dns_server | `internal/client/dns_service.go` | `internal/rtx/parsers/dns.go` | `internal/provider/resource_rtx_dns_server.go` |
-| rtx_netvolante_dns | `internal/client/ddns_service.go` | `internal/rtx/parsers/ddns.go` | `internal/provider/resource_rtx_netvolante_dns.go` |
-| rtx_ddns | `internal/client/ddns_service.go` | `internal/rtx/parsers/ddns.go` | `internal/provider/resource_rtx_ddns.go` |
+| Resource | Service File | Parser File | Resource Directory |
+|----------|--------------|-------------|-------------------|
+| rtx_dns_server | `internal/client/dns_service.go` | `internal/rtx/parsers/dns.go` | `internal/provider/resources/dns_server/` |
+| rtx_netvolante_dns | `internal/client/ddns_service.go` | `internal/rtx/parsers/ddns.go` | `internal/provider/resources/netvolante_dns/` |
+| rtx_ddns | `internal/client/ddns_service.go` | `internal/rtx/parsers/ddns.go` | `internal/provider/resources/ddns/` |
 
 ## Steering Document Alignment
 
@@ -25,7 +25,7 @@ This document describes the design and implementation of DNS-related resources i
 
 - Parser layer in `internal/rtx/parsers/` - RTX-specific command building and output parsing
 - Service layer in `internal/client/` - High-level CRUD operations
-- Provider layer in `internal/provider/` - Terraform schema and lifecycle
+- Provider layer in `internal/provider/resources/{name}/` (resource.go + model.go pattern)
 
 ## Code Reuse Analysis
 
@@ -46,9 +46,9 @@ This document describes the design and implementation of DNS-related resources i
 ```mermaid
 graph TD
     subgraph Provider Layer
-        DNS[resource_rtx_dns_server.go]
-        NV[resource_rtx_netvolante_dns.go]
-        DDNS[resource_rtx_ddns.go]
+        DNS[dns_server/resource.go]
+        NV[netvolante_dns/resource.go]
+        DDNS[ddns/resource.go]
     end
 
     subgraph Client Layer
@@ -523,12 +523,16 @@ With real RTX router:
 ```
 internal/
 ├── provider/
-│   ├── resource_rtx_dns_server.go
-│   ├── resource_rtx_dns_server_test.go
-│   ├── resource_rtx_netvolante_dns.go
-│   ├── resource_rtx_netvolante_dns_test.go
-│   ├── resource_rtx_ddns.go
-│   └── resource_rtx_ddns_test.go
+│   └── resources/
+│       ├── dns_server/
+│       │   ├── resource.go              # DNS server resource implementation
+│       │   └── model.go                 # Data model with ToClient/FromClient
+│       ├── netvolante_dns/
+│       │   ├── resource.go              # NetVolante DNS resource implementation
+│       │   └── model.go                 # Data model with ToClient/FromClient
+│       └── ddns/
+│           ├── resource.go              # DDNS resource implementation
+│           └── model.go                 # Data model with ToClient/FromClient
 ├── client/
 │   ├── interfaces.go          # DNSConfig, NetVolanteConfig, DDNSServerConfig types
 │   ├── client.go              # GetDNS, ConfigureDNS, etc. method dispatch
@@ -597,3 +601,4 @@ internal/
 | 2026-01-23 | Implementation code | Initial master design document |
 | 2026-01-23 | dns-server-select-per-server-edns | Updated DNSServerSelect to use `[]DNSServer` for per-server EDNS; aligned Client layer with Parser layer; updated EDNS handling notes |
 | 2026-02-01 | Implementation Audit | Update to Terraform Plugin Framework (not SDK v2) |
+| 2026-02-01 | Structure Sync | Updated file paths to resources/{name}/ modular structure |

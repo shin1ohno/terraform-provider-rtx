@@ -8,18 +8,18 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
 	"github.com/sh1/terraform-provider-rtx/internal/logging"
@@ -155,14 +155,14 @@ func (r *AccessListIPv6Resource) Schema(ctx context.Context, req resource.Schema
 								stringvalidator.OneOfCaseInsensitive("in", "out"),
 							},
 						},
-						"filter_ids": schema.ListAttribute{
-							Description: "Specific filter IDs (sequence numbers) to apply in order. If omitted, all entry sequences are applied in order.",
+						"sequences": schema.ListAttribute{
+							Description: "Sequence numbers to apply in order. If omitted, all entry sequences are applied in order.",
 							Optional:    true,
 							Computed:    true,
 							ElementType: types.Int64Type,
 						},
-						"dynamic_filter_ids": schema.ListAttribute{
-							Description: "Dynamic filter IDs to apply. These are appended after the 'dynamic' keyword in the secure filter command.",
+						"dynamic_sequences": schema.ListAttribute{
+							Description: "Dynamic sequence numbers to apply. These are appended after the 'dynamic' keyword in the secure filter command.",
 							Optional:    true,
 							Computed:    true,
 							ElementType: types.Int64Type,
@@ -441,6 +441,7 @@ func (r *AccessListIPv6Resource) Delete(ctx context.Context, req resource.Delete
 // ImportState imports an existing resource into Terraform.
 func (r *AccessListIPv6Resource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	// Import format: name:seq1,seq2,seq3 or just name
+	// When no sequences are provided, all IPv6 filters from the router will be imported
 	importID := req.ID
 	parts := strings.Split(importID, ":")
 
@@ -458,12 +459,25 @@ func (r *AccessListIPv6Resource) ImportState(ctx context.Context, req resource.I
 		}
 	}
 
+	// If no sequences provided, get all IPv6 filter sequences from the router
+	if len(sequences) == 0 {
+		allSeqs, err := r.client.GetAllIPv6FilterSequences(ctx)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Failed to get IPv6 filter sequences",
+				fmt.Sprintf("Could not get IPv6 filter sequences: %v", err),
+			)
+			return
+		}
+		sequences = allSeqs
+	}
+
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ipv6").Msgf("Importing IPv6 access list: %s with sequences %v", name, sequences)
 
 	// Set the name
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), name)...)
 
-	// If sequences provided, import those specific ones
+	// Import the specified sequences
 	if len(sequences) > 0 {
 		entries := make([]EntryModel, 0, len(sequences))
 
@@ -494,14 +508,17 @@ func (r *AccessListIPv6Resource) ImportState(ctx context.Context, req resource.I
 		}
 
 		if len(entries) == 0 {
-			resp.Diagnostics.AddError(
-				"No IPv6 filters found",
-				fmt.Sprintf("No IPv6 filters found with sequences %v", sequences),
-			)
+			// No filters found, just set the name
 			return
 		}
 
-		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("entry"), entries)...)
+		// Convert entries to ListValue for proper state storage
+		entryValues := make([]attr.Value, len(entries))
+		for i, entry := range entries {
+			entryValues[i] = entryToObjectValue(entry)
+		}
+		entryList := types.ListValueMust(types.ObjectType{AttrTypes: EntryAttrTypes()}, entryValues)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("entry"), entryList)...)
 	}
 }
 
@@ -515,8 +532,8 @@ func (r *AccessListIPv6Resource) applyFiltersToInterfaces(ctx context.Context, d
 		apply := &data.Apply[i]
 		iface := fwhelpers.GetStringValue(apply.Interface)
 		direction := strings.ToLower(fwhelpers.GetStringValue(apply.Direction))
-		staticIDs := data.GetApplyFilterIDs(apply)
-		dynamicIDs := data.GetApplyDynamicFilterIDs(apply)
+		staticIDs := data.GetApplySequences(apply)
+		dynamicIDs := data.GetApplyDynamicSequences(apply)
 
 		if len(staticIDs) > 0 || len(dynamicIDs) > 0 {
 			if err := r.client.ApplyIPv6FiltersWithDynamicToInterface(ctx, iface, direction, staticIDs, dynamicIDs); err != nil {
@@ -529,7 +546,7 @@ func (r *AccessListIPv6Resource) applyFiltersToInterfaces(ctx context.Context, d
 }
 
 // readApplyBlocks reads apply block state from the router.
-// It preserves user-specified dynamic_filter_ids to avoid state inconsistency.
+// It preserves user-specified dynamic_sequences to avoid state inconsistency.
 func (r *AccessListIPv6Resource) readApplyBlocks(ctx context.Context, data *AccessListIPv6Model) error {
 	if len(data.Apply) == 0 {
 		return nil
@@ -540,25 +557,25 @@ func (r *AccessListIPv6Resource) readApplyBlocks(ctx context.Context, data *Acce
 		iface := fwhelpers.GetStringValue(apply.Interface)
 		direction := strings.ToLower(fwhelpers.GetStringValue(apply.Direction))
 
-		filterIDs, err := r.client.GetIPv6InterfaceFilters(ctx, iface, direction)
+		sequences, err := r.client.GetIPv6InterfaceFilters(ctx, iface, direction)
 		if err != nil {
 			return fmt.Errorf("failed to get filters for interface %s %s: %w", iface, direction, err)
 		}
 
-		SetApplyFilterIDs(apply, filterIDs)
+		SetApplySequences(apply, sequences)
 
-		// Preserve user-specified dynamic_filter_ids to avoid state inconsistency.
-		// If user specified dynamic_filter_ids in config, keep that value.
+		// Preserve user-specified dynamic_sequences to avoid state inconsistency.
+		// If user specified dynamic_sequences in config, keep that value.
 		// Otherwise, read from router.
-		if apply.DynamicFilterIDs.IsNull() || apply.DynamicFilterIDs.IsUnknown() {
+		if apply.DynamicSequences.IsNull() || apply.DynamicSequences.IsUnknown() {
 			// Not specified, read from router
-			dynamicFilterIDs, err := r.client.GetIPv6InterfaceDynamicFilters(ctx, iface, direction)
+			dynamicSequences, err := r.client.GetIPv6InterfaceDynamicFilters(ctx, iface, direction)
 			if err != nil {
 				return fmt.Errorf("failed to get dynamic filters for interface %s %s: %w", iface, direction, err)
 			}
-			SetApplyDynamicFilterIDs(apply, dynamicFilterIDs)
+			SetApplyDynamicSequences(apply, dynamicSequences)
 		}
-		// If user specified dynamic_filter_ids, preserve it (don't overwrite)
+		// If user specified dynamic_sequences, preserve it (don't overwrite)
 	}
 
 	return nil

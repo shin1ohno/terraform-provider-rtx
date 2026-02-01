@@ -11,16 +11,16 @@ type AccessListMACApplyModel struct {
 	AccessList types.String `tfsdk:"access_list"`
 	Interface  types.String `tfsdk:"interface"`
 	Direction  types.String `tfsdk:"direction"`
-	FilterIDs  types.List   `tfsdk:"filter_ids"`
+	Sequences  types.List   `tfsdk:"sequences"`
 }
 
-// GetFilterIDsAsInts extracts filter IDs as a slice of integers.
-func (m *AccessListMACApplyModel) GetFilterIDsAsInts() []int {
-	if m.FilterIDs.IsNull() || m.FilterIDs.IsUnknown() {
+// GetSequencesAsInts extracts sequences as a slice of integers.
+func (m *AccessListMACApplyModel) GetSequencesAsInts() []int {
+	if m.Sequences.IsNull() || m.Sequences.IsUnknown() {
 		return nil
 	}
 
-	elements := m.FilterIDs.Elements()
+	elements := m.Sequences.Elements()
 	result := make([]int, 0, len(elements))
 	for _, elem := range elements {
 		if intVal, ok := elem.(types.Int64); ok && !intVal.IsNull() && !intVal.IsUnknown() {
@@ -30,16 +30,16 @@ func (m *AccessListMACApplyModel) GetFilterIDsAsInts() []int {
 	return result
 }
 
-// SetFilterIDsFromInts sets filter IDs from a slice of integers.
-func (m *AccessListMACApplyModel) SetFilterIDsFromInts(filterIDs []int) {
-	if len(filterIDs) == 0 {
-		m.FilterIDs = types.ListValueMust(types.Int64Type, []attr.Value{})
+// SetSequencesFromInts sets sequences from a slice of integers.
+func (m *AccessListMACApplyModel) SetSequencesFromInts(sequences []int) {
+	if len(sequences) == 0 {
+		m.Sequences = types.ListValueMust(types.Int64Type, []attr.Value{})
 		return
 	}
 
-	elements := make([]attr.Value, len(filterIDs))
-	for i, id := range filterIDs {
+	elements := make([]attr.Value, len(sequences))
+	for i, id := range sequences {
 		elements[i] = types.Int64Value(int64(id))
 	}
-	m.FilterIDs = types.ListValueMust(types.Int64Type, elements)
+	m.Sequences = types.ListValueMust(types.Int64Type, elements)
 }

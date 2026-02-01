@@ -181,8 +181,8 @@ func (r *AccessListExtendedResource) Schema(ctx context.Context, req resource.Sc
 								stringvalidator.OneOfCaseInsensitive("in", "out"),
 							},
 						},
-						"filter_ids": schema.ListAttribute{
-							Description: "Specific filter IDs (sequence numbers) to apply in order. If omitted, all entry sequences are applied in order.",
+						"sequences": schema.ListAttribute{
+							Description: "Sequence numbers to apply in order. If omitted, all entry sequences are applied in order.",
 							Optional:    true,
 							Computed:    true,
 							ElementType: types.Int64Type,
@@ -618,18 +618,18 @@ func equalIntSlices(a, b []int) bool {
 	return true
 }
 
-// SetApplyValuesFromEntries populates filter_ids from entries when not explicitly set.
+// SetApplyValuesFromEntries populates sequences from entries when not explicitly set.
 func SetApplyValuesFromEntries(applies []ApplyModel, entries []client.AccessListExtendedEntry) []ApplyModel {
 	result := make([]ApplyModel, len(applies))
 	for i, apply := range applies {
 		result[i] = apply
-		if apply.FilterIDs.IsNull() || apply.FilterIDs.IsUnknown() {
+		if apply.Sequences.IsNull() || apply.Sequences.IsUnknown() {
 			// Populate with all entry sequences
-			filterIDValues := make([]attr.Value, len(entries))
+			sequenceValues := make([]attr.Value, len(entries))
 			for j, entry := range entries {
-				filterIDValues[j] = types.Int64Value(int64(entry.Sequence))
+				sequenceValues[j] = types.Int64Value(int64(entry.Sequence))
 			}
-			result[i].FilterIDs = types.ListValueMust(types.Int64Type, filterIDValues)
+			result[i].Sequences = types.ListValueMust(types.Int64Type, sequenceValues)
 		}
 	}
 	return result

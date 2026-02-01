@@ -73,8 +73,8 @@ func (r *AccessListIPApplyResource) Schema(ctx context.Context, req resource.Sch
 					stringvalidator.OneOfCaseInsensitive("in", "out"),
 				},
 			},
-			"filter_ids": schema.ListAttribute{
-				Description: "List of filter IDs to apply in order. At least one filter ID must be specified.",
+			"sequences": schema.ListAttribute{
+				Description: "List of sequence numbers to apply in order. At least one sequence must be specified.",
 				Optional:    true,
 				ElementType: types.Int64Type,
 				Validators: []validator.List{
@@ -149,19 +149,19 @@ func (r *AccessListIPApplyResource) Create(ctx context.Context, req resource.Cre
 		Str("access_list", aclName).
 		Msg("Creating IP access list apply")
 
-	// Get filter IDs
-	filterIDs := data.GetFilterIDsAsInts()
+	// Get sequences
+	sequences := data.GetSequencesAsInts()
 
-	if len(filterIDs) == 0 {
+	if len(sequences) == 0 {
 		resp.Diagnostics.AddError(
-			"Invalid filter_ids",
-			"filter_ids is required: at least one filter ID must be specified",
+			"Invalid sequences",
+			"sequences is required: at least one sequence must be specified",
 		)
 		return
 	}
 
 	// Apply filters to interface
-	if err := r.client.ApplyIPFiltersToInterface(ctx, iface, direction, filterIDs); err != nil {
+	if err := r.client.ApplyIPFiltersToInterface(ctx, iface, direction, sequences); err != nil {
 		resp.Diagnostics.AddError(
 			"Failed to apply IP filters",
 			fmt.Sprintf("Could not apply IP filters to interface %s %s: %v", iface, direction, err),
@@ -249,7 +249,7 @@ func (r *AccessListIPApplyResource) read(ctx context.Context, data *AccessListIP
 	// Update state
 	data.Interface = types.StringValue(iface)
 	data.Direction = types.StringValue(direction)
-	data.SetFilterIDsFromInts(filterIDs)
+	data.SetSequencesFromInts(filterIDs)
 }
 
 // Update updates the resource and sets the updated Terraform state on success.
@@ -276,19 +276,19 @@ func (r *AccessListIPApplyResource) Update(ctx context.Context, req resource.Upd
 		Str("access_list", aclName).
 		Msg("Updating IP access list apply")
 
-	// Get filter IDs
-	filterIDs := data.GetFilterIDsAsInts()
+	// Get sequences
+	sequences := data.GetSequencesAsInts()
 
-	if len(filterIDs) == 0 {
+	if len(sequences) == 0 {
 		resp.Diagnostics.AddError(
-			"Invalid filter_ids",
-			"filter_ids is required: at least one filter ID must be specified",
+			"Invalid sequences",
+			"sequences is required: at least one sequence must be specified",
 		)
 		return
 	}
 
 	// Apply filters to interface (this will replace existing filters)
-	if err := r.client.ApplyIPFiltersToInterface(ctx, iface, direction, filterIDs); err != nil {
+	if err := r.client.ApplyIPFiltersToInterface(ctx, iface, direction, sequences); err != nil {
 		resp.Diagnostics.AddError(
 			"Failed to update IP filters",
 			fmt.Sprintf("Could not update IP filters on interface %s %s: %v", iface, direction, err),

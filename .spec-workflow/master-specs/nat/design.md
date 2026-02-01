@@ -13,8 +13,8 @@ This document describes the technical design and architecture of NAT resources i
 | Resource Name | `rtx_nat_static` |
 | Service File | `internal/client/nat_static_service.go` |
 | Parser File | `internal/rtx/parsers/nat_static.go` |
-| Resource File | `internal/provider/resource_rtx_nat_static.go` |
-| Last Updated | 2026-01-23 |
+| Resource Directory | `internal/provider/resources/nat_static/` |
+| Last Updated | 2026-02-01 |
 | Source Specs | Implementation-derived |
 
 ### rtx_nat_masquerade
@@ -24,8 +24,8 @@ This document describes the technical design and architecture of NAT resources i
 | Resource Name | `rtx_nat_masquerade` |
 | Service File | `internal/client/nat_masquerade_service.go` |
 | Parser File | `internal/rtx/parsers/nat_masquerade.go` |
-| Resource File | `internal/provider/resource_rtx_nat_masquerade.go` |
-| Last Updated | 2026-01-23 |
+| Resource Directory | `internal/provider/resources/nat_masquerade/` |
+| Last Updated | 2026-02-01 |
 | Source Specs | Implementation-derived |
 
 ## Steering Document Alignment
@@ -40,7 +40,7 @@ This document describes the technical design and architecture of NAT resources i
 
 ### Project Structure (structure.md)
 
-- Provider layer: `internal/provider/resource_rtx_nat_*.go`
+- Provider layer: `internal/provider/resources/nat_*/` (resource.go + model.go pattern)
 - Client layer: `internal/client/nat_*_service.go`
 - Parser layer: `internal/rtx/parsers/nat_*.go`
 - Interfaces: `internal/client/interfaces.go`
@@ -71,8 +71,8 @@ The NAT resources follow a three-tier architecture with clear responsibilities:
 +------------------------------------------------------------------+
 |                     Terraform Provider Layer                       |
 |  +------------------------------+  +-----------------------------+  |
-|  | resource_rtx_nat_static.go   |  | resource_rtx_nat_masquerade |  |
-|  |                              |  |            .go              |  |
+|  | nat_static/resource.go       |  | nat_masquerade/resource.go  |  |
+|  |                              |  |                             |  |
 |  | - Schema definition          |  | - Schema definition         |  |
 |  | - CRUD handlers              |  | - CRUD handlers             |  |
 |  | - Import support             |  | - Import support            |  |
@@ -248,50 +248,69 @@ The NAT resources follow a three-tier architecture with clear responsibilities:
 - **Dependencies:** Standard library (regexp, strconv, strings, net)
 - **Reuses:** Shared validation functions
 
-### Component 5: Terraform Resource - NAT Static (`internal/provider/resource_rtx_nat_static.go`)
+### Component 5: Terraform Resource - NAT Static (`internal/provider/resources/nat_static/`)
 
 - **Purpose:** Terraform resource implementation for static NAT
-- **Interfaces:**
+- **resource.go:**
   ```go
-  func resourceRTXNATStatic() *schema.Resource
-  func resourceRTXNATStaticCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics
-  func resourceRTXNATStaticRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics
-  func resourceRTXNATStaticUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics
-  func resourceRTXNATStaticDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics
-  func resourceRTXNATStaticImport(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error)
+  type NATStaticResource struct {
+      client client.Client
+  }
 
-  // Helper functions
-  func buildNATStaticFromResourceData(d *schema.ResourceData) client.NATStatic
-  func expandNATStaticEntries(entries []interface{}) []client.NATStaticEntry
-  func flattenNATStaticEntries(entries []client.NATStaticEntry) []interface{}
-  func validateNATIPAddress(v interface{}, k string) ([]string, []error)
-  func validateNATStaticEntries(ctx context.Context, diff *schema.ResourceDiff, meta interface{}) error
+  func (r *NATStaticResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse)
+  func (r *NATStaticResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse)
+  func (r *NATStaticResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse)
+  func (r *NATStaticResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse)
+  func (r *NATStaticResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse)
+  func (r *NATStaticResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse)
+  func (r *NATStaticResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse)
+  func (r *NATStaticResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse)
   ```
-- **Dependencies:** terraform-plugin-sdk/v2, client package
-- **Reuses:** apiClient pattern, logging package
+- **model.go:**
+  ```go
+  type NATStaticModel struct {
+      DescriptorID types.Int64 `tfsdk:"descriptor_id"`
+      Entries      types.List  `tfsdk:"entry"`
+  }
 
-### Component 6: Terraform Resource - NAT Masquerade (`internal/provider/resource_rtx_nat_masquerade.go`)
+  func (m *NATStaticModel) ToClient() client.NATStatic
+  func (m *NATStaticModel) FromClient(n *client.NATStatic)
+  ```
+- **Dependencies:** Terraform Plugin Framework, client package
+- **Reuses:** fwhelpers, logging package
+
+### Component 6: Terraform Resource - NAT Masquerade (`internal/provider/resources/nat_masquerade/`)
 
 - **Purpose:** Terraform resource implementation for NAT masquerade
-- **Interfaces:**
+- **resource.go:**
   ```go
-  func resourceRTXNATMasquerade() *schema.Resource
-  func resourceRTXNATMasqueradeCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics
-  func resourceRTXNATMasqueradeRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics
-  func resourceRTXNATMasqueradeUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics
-  func resourceRTXNATMasqueradeDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics
-  func resourceRTXNATMasqueradeImport(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error)
+  type NATMasqueradeResource struct {
+      client client.Client
+  }
 
-  // Helper functions
-  func buildNATMasqueradeFromResourceData(d *schema.ResourceData) client.NATMasquerade
-  func expandStaticEntries(entries []interface{}) []client.MasqueradeStaticEntry
-  func flattenStaticEntries(entries []client.MasqueradeStaticEntry) []interface{}
-  func parseNATMasqueradeID(id string) (int, error)
-  func validateIPRange(v interface{}, k string) ([]string, []error)
-  func validateIPAddress(v interface{}, k string) ([]string, []error)
+  func (r *NATMasqueradeResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse)
+  func (r *NATMasqueradeResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse)
+  func (r *NATMasqueradeResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse)
+  func (r *NATMasqueradeResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse)
+  func (r *NATMasqueradeResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse)
+  func (r *NATMasqueradeResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse)
+  func (r *NATMasqueradeResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse)
+  func (r *NATMasqueradeResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse)
   ```
-- **Dependencies:** terraform-plugin-sdk/v2, client package
-- **Reuses:** apiClient pattern, logging package
+- **model.go:**
+  ```go
+  type NATMasqueradeModel struct {
+      DescriptorID  types.Int64  `tfsdk:"descriptor_id"`
+      OuterAddress  types.String `tfsdk:"outer_address"`
+      InnerNetwork  types.String `tfsdk:"inner_network"`
+      StaticEntries types.List   `tfsdk:"static_entry"`
+  }
+
+  func (m *NATMasqueradeModel) ToClient() client.NATMasquerade
+  func (m *NATMasqueradeModel) FromClient(n *client.NATMasquerade)
+  ```
+- **Dependencies:** Terraform Plugin Framework, client package
+- **Reuses:** fwhelpers, logging package
 
 ### Component 7: Client Interface Extension (`internal/client/interfaces.go`)
 
@@ -570,10 +589,13 @@ show config | grep "nat descriptor"                                 # Show all d
 ```
 internal/
 ├── provider/
-│   ├── resource_rtx_nat_static.go           # Static NAT resource
-│   ├── resource_rtx_nat_static_test.go      # Resource unit tests
-│   ├── resource_rtx_nat_masquerade.go       # Masquerade resource
-│   └── resource_rtx_nat_masquerade_test.go  # Resource unit tests
+│   └── resources/
+│       ├── nat_static/
+│       │   ├── resource.go                  # Static NAT resource implementation
+│       │   └── model.go                     # Data model with ToClient/FromClient
+│       └── nat_masquerade/
+│           ├── resource.go                  # Masquerade resource implementation
+│           └── model.go                     # Data model with ToClient/FromClient
 ├── client/
 │   ├── interfaces.go                        # NAT types and interface methods
 │   ├── client.go                            # Service initialization
@@ -636,3 +658,4 @@ internal/
 | 2026-01-23 | Implementation Analysis | Initial master design created from implementation code |
 | 2026-01-23 | terraform-plan-differences-fix | Updated grep patterns for RTX compatibility; documented OutsideGlobal default to "ipcp" |
 | 2026-02-01 | Implementation Audit | Update to Terraform Plugin Framework (not SDK v2) |
+| 2026-02-01 | Structure Sync | Updated file paths to resources/{name}/ modular structure |

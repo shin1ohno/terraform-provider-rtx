@@ -376,3 +376,198 @@ Changed "Terraform Plugin SDK v2" to "**Terraform Plugin Framework**" in:
    - Management: rtx_sftpd resource
 3. **File structure has been modernized** to `internal/provider/resources/{name}/` pattern
 4. **Attribute naming issues** in routing spec (id vs index, id vs area_id)
+
+---
+
+## Session: 2026-02-01 - Validation Fixes and ACL Naming Unification
+
+### Objective
+Fix validation issues blocking `terraform apply` after import and continue ACL naming unification.
+
+### Completed Tasks
+
+#### 1. NAT Masquerade "primary" Validation Fix
+**Problem**: `outer_address = "primary"` was rejected during validation.
+
+**Root Cause**: `ValidateOuterAddress` in `internal/rtx/parsers/nat_masquerade.go` didn't include "primary" or "secondary" as valid values.
+
+**Solution**: Added check for "primary" and "secondary" values:
+```go
+// "primary" and "secondary" are valid RTX values for using interface IP
+if address == "primary" || address == "secondary" {
+    return nil
+}
+```
+
+**Files Modified**:
+- `internal/rtx/parsers/nat_masquerade.go:443-446`
+- `internal/rtx/parsers/nat_masquerade_test.go:1756-1757` - Updated test to expect success
+
+#### 2. Admin User Password Validation Analysis
+**Problem**: Bug report claimed "password is required" error during import.
+
+**Analysis**: Reviewed the code flow:
+- `admin_user/resource.go`: `password` is defined as `Optional`
+- `admin_service.go:GetAdminUser`: Does NOT call validation
+- `admin_service.go:UpdateAdminUser`: Uses `ValidateUserConfigForAttributeUpdate` when password is empty
+
+**Conclusion**: The code already handles password-less operations correctly. Password is only required for `CreateAdminUser`. For imported resources where password is unknown, `UpdateAdminUser` works without password validation.
+
+#### 3. ACL Import Entry Loading Analysis
+**Problem**: Bug report claimed entries are not saved to state after import.
+
+**Analysis**:
+- Static ACLs (`access_list_ip`, `access_list_ipv6`) support importing with sequence numbers: `terraform import rtx_access_list_ip.test name:1,2,3`
+- Dynamic ACLs (`access_list_ip_dynamic`, `access_list_ipv6_dynamic`) intentionally don't import entries because RTX doesn't track filter-to-list associations
+- Current terraform.tfstate shows all entries are properly populated
+
+**Code**: Import functions use `entryToObjectValue()` to properly convert entries to ListValue for state storage (lines 504-510 in `access_list_ipv6/resource.go`)
+
+#### 4. Terraform State Attribute Naming Update
+**Problem**: State file used old attribute names (`filter_ids`, `dynamic_filter_ids`) while schema uses new names (`sequences`, `dynamic_sequences`).
+
+**Solution**: Updated terraform.tfstate to use new attribute names:
+- `filter_ids` → `sequences`
+- `dynamic_filter_ids` → `dynamic_sequences`
+
+#### 5. Example Configuration Update
+**File**: `examples/import/main.tf`
+
+Updated MAC ACL apply blocks:
+```hcl
+# Before
+apply {
+  filter_ids = [1, 100]
+}
+
+# After
+apply {
+  sequences = [1, 100]
+}
+```
+
+### Test Results
+All tests pass:
+```
+ok  github.com/sh1/terraform-provider-rtx/internal/rtx/parsers  0.305s
+```
+
+### Summary of Validation Fixes
+
+| Issue | Status | Resolution |
+|-------|--------|------------|
+| NAT Masquerade "primary" | ✅ Fixed | Added "primary"/"secondary" to valid values |
+| Admin User password | ✅ Already Working | Code already uses password-less validation for updates |
+| ACL import entries | ✅ Working | Static ACLs support sequence import, dynamic ACLs by design |
+
+### Files Modified
+- `internal/rtx/parsers/nat_masquerade.go`
+- `internal/rtx/parsers/nat_masquerade_test.go`
+- `examples/import/main.tf`
+- `examples/import/terraform.tfstate`
+
+---
+
+## Session: 2026-02-01 - NAT Masquerade Static Entry Command Fix
+
+### Objective
+Fix NAT masquerade static entry command format when `outside_global = "ipcp"`.
+
+### Problem
+When `outside_global = "ipcp"`, the command was generated as:
+```
+nat descriptor masquerade static 1000 2 ipcp:500=192.168.1.253:500 udp
+```
+This format is **not valid** on RTX routers and produces:
+```
+エラー: IPアドレスが認識できません
+```
+
+### Solution
+RTX routers have two different formats for static masquerade entries:
+
+| Scenario | Format |
+|----------|--------|
+| Specific outer IP | `nat descriptor masquerade static <id> <entry> <outer:port>=<inner:port> [protocol]` |
+| ipcp (PPPoE dynamic) | `nat descriptor masquerade static <id> <entry> <inner_ip> <protocol> <port>` |
+| ipcp (different ports) | `nat descriptor masquerade static <id> <entry> <inner_ip> <protocol> <outer_port>=<inner_port>` |
+| Protocol-only (ESP, AH, GRE) | `nat descriptor masquerade static <id> <entry> <inner_ip> <protocol>` |
+
+Updated `BuildNATMasqueradeStaticCommand` in `internal/rtx/parsers/nat_masquerade.go` to:
+1. Check if `OutsideGlobal` is "ipcp" or empty
+2. If yes, generate the alternate format: `<inner_ip> <protocol> <port>`
+3. If ports differ, use: `<inner_ip> <protocol> <outer_port>=<inner_port>`
+4. If specific IP, use original format: `<outer:port>=<inner:port> [protocol]`
+
+### Test Cases Updated
+
+| Entry | Expected Command |
+|-------|------------------|
+| inside=192.168.1.253, outside=ipcp, port=500, protocol=udp | `nat descriptor masquerade static 1000 2 192.168.1.253 udp 500` |
+| inside=192.168.1.100, outside=ipcp, outer=8080, inner=80, protocol=tcp | `nat descriptor masquerade static 1000 3 192.168.1.100 tcp 8080=80` |
+| inside=192.168.1.253, protocol=esp (no ports) | `nat descriptor masquerade static 1000 1 192.168.1.253 esp` |
+| inside=192.168.1.100, outside=203.0.113.1, port=80, protocol=tcp | `nat descriptor masquerade static 1000 4 203.0.113.1:80=192.168.1.100:80 tcp` |
+
+### Files Modified
+- `internal/rtx/parsers/nat_masquerade.go` - Fixed command generation for ipcp
+- `internal/rtx/parsers/nat_masquerade_test.go` - Updated test cases for new format
+
+### Test Results
+All NAT tests pass (100+ test cases).
+
+---
+
+## Session: 2026-02-01 - Master Spec File Path Sync
+
+### Objective
+Update all master specs to reflect the new modular file structure (`resources/{name}/resource.go + model.go`).
+
+### Background
+All 49 resources have been migrated from the old `resource_rtx_*.go` pattern to the new modular structure:
+```
+internal/provider/resources/{name}/
+├── resource.go  # Resource CRUD implementation
+├── model.go     # Data model with ToClient/FromClient
+└── resource_test.go  # Tests
+```
+
+### Updated Master Specs
+
+| Spec | Key Changes |
+|------|-------------|
+| **routing** | Updated bgp/, ospf/, static_route/ paths; Fixed architecture diagram |
+| **vpn** | Updated ipsec_tunnel/, ipsec_transport/, l2tp/, l2tp_service/, pptp/ paths; tunnel/ already correct |
+| **schedule** | Updated kron_schedule/, kron_policy/ paths; Updated to Plugin Framework interfaces |
+| **filter** | Updated to access_list_ip_apply/, access_list_mac_apply/, access_list_ip_dynamic/, access_list_ipv6_dynamic/ |
+| **system** | Updated system/ path; Updated to Plugin Framework; Fixed datasources/ path |
+| **ipv6** | Updated ipv6_prefix/ path; Updated to Plugin Framework interfaces |
+
+### Pattern Applied
+For each spec:
+1. Changed "Resource File" → "Resource Directory" in Resource Summary
+2. Updated architecture mermaid diagrams with new file names
+3. Updated File Structure section with modular directories
+4. Updated component interfaces to show Plugin Framework pattern
+5. Added Change History entry: "2026-02-01 | Structure Sync | Updated file paths..."
+
+### Files Modified
+- `.spec-workflow/master-specs/routing/design.md`
+- `.spec-workflow/master-specs/vpn/design.md`
+- `.spec-workflow/master-specs/schedule/design.md`
+- `.spec-workflow/master-specs/filter/design.md`
+- `.spec-workflow/master-specs/system/design.md`
+- `.spec-workflow/master-specs/ipv6/design.md`
+
+### Previously Updated Specs (in earlier session)
+- access-list/design.md
+- admin/design.md
+- nat/design.md
+- dhcp/design.md
+- dns/design.md
+- ppp/design.md
+- qos/design.md
+- interface/design.md
+- management/design.md
+
+### Verification
+All 16 master specs now reference the correct modular file structure.

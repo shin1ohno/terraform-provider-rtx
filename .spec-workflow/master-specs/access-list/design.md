@@ -6,13 +6,18 @@ This document describes the technical design and implementation of access list r
 
 ## Resource Summary
 
-| Resource Name | Service File | Resource File |
-|---------------|--------------|---------------|
-| `rtx_access_list_extended` | `internal/client/ip_filter_service.go` | `internal/provider/resource_rtx_access_list_extended.go` |
-| `rtx_access_list_extended_ipv6` | `internal/client/ip_filter_service.go` | `internal/provider/resource_rtx_access_list_extended_ipv6.go` |
-| `rtx_access_list_ip` | `internal/client/ip_filter_service.go` | `internal/provider/resource_rtx_access_list_ip.go` |
-| `rtx_access_list_ipv6` | `internal/client/ip_filter_service.go` | `internal/provider/resource_rtx_access_list_ipv6.go` |
-| `rtx_access_list_mac` | `internal/client/ethernet_filter_service.go` | `internal/provider/resource_rtx_access_list_mac.go` |
+| Resource Name | Service File | Resource Directory |
+|---------------|--------------|-------------------|
+| `rtx_access_list_extended` | `internal/client/ip_filter_service.go` | `internal/provider/resources/access_list_extended/` |
+| `rtx_access_list_extended_ipv6` | `internal/client/ip_filter_service.go` | `internal/provider/resources/access_list_extended_ipv6/` |
+| `rtx_access_list_ip` | `internal/client/ip_filter_service.go` | `internal/provider/resources/access_list_ip/` |
+| `rtx_access_list_ip_apply` | `internal/client/ip_filter_service.go` | `internal/provider/resources/access_list_ip_apply/` |
+| `rtx_access_list_ip_dynamic` | `internal/client/ip_filter_service.go` | `internal/provider/resources/access_list_ip_dynamic/` |
+| `rtx_access_list_ipv6` | `internal/client/ip_filter_service.go` | `internal/provider/resources/access_list_ipv6/` |
+| `rtx_access_list_ipv6_apply` | `internal/client/ip_filter_service.go` | `internal/provider/resources/access_list_ipv6_apply/` |
+| `rtx_access_list_ipv6_dynamic` | `internal/client/ip_filter_service.go` | `internal/provider/resources/access_list_ipv6_dynamic/` |
+| `rtx_access_list_mac` | `internal/client/ethernet_filter_service.go` | `internal/provider/resources/access_list_mac/` |
+| `rtx_access_list_mac_apply` | `internal/client/ethernet_filter_service.go` | `internal/provider/resources/access_list_mac_apply/` |
 
 ---
 
@@ -21,11 +26,16 @@ This document describes the technical design and implementation of access list r
 ```mermaid
 graph TD
     subgraph Provider Layer
-        ACLExtended[resource_rtx_access_list_extended.go]
-        ACLExtendedIPv6[resource_rtx_access_list_extended_ipv6.go]
-        ACLIP[resource_rtx_access_list_ip.go]
-        ACLIPv6[resource_rtx_access_list_ipv6.go]
-        ACLMAC[resource_rtx_access_list_mac.go]
+        ACLExtended[access_list_extended/resource.go]
+        ACLExtendedIPv6[access_list_extended_ipv6/resource.go]
+        ACLIP[access_list_ip/resource.go]
+        ACLIPApply[access_list_ip_apply/resource.go]
+        ACLIPDynamic[access_list_ip_dynamic/resource.go]
+        ACLIPv6[access_list_ipv6/resource.go]
+        ACLIPv6Apply[access_list_ipv6_apply/resource.go]
+        ACLIPv6Dynamic[access_list_ipv6_dynamic/resource.go]
+        ACLMAC[access_list_mac/resource.go]
+        ACLMACApply[access_list_mac_apply/resource.go]
     end
 
     subgraph Client Layer
@@ -42,8 +52,13 @@ graph TD
     ACLExtended --> ClientInterface
     ACLExtendedIPv6 --> ClientInterface
     ACLIP --> ClientInterface
+    ACLIPApply --> ClientInterface
+    ACLIPDynamic --> ClientInterface
     ACLIPv6 --> ClientInterface
+    ACLIPv6Apply --> ClientInterface
+    ACLIPv6Dynamic --> ClientInterface
     ACLMAC --> ClientInterface
+    ACLMACApply --> ClientInterface
 
     ClientInterface --> IPFilterService
     ClientInterface --> EthernetFilterService
@@ -51,7 +66,6 @@ graph TD
     EthernetFilterService --> RTX
 
     Interfaces -.-> ACLExtended
-    Interfaces -.-> ACLExtendedIPv6
     Interfaces -.-> ACLIP
     Interfaces -.-> ACLIPv6
     Interfaces -.-> ACLMAC
@@ -239,30 +253,43 @@ DeleteAccessListMAC(ctx context.Context, name string, filterNums []int) error
 
 ### Component 3: Terraform Resources
 
-Each resource follows the same pattern:
+Each resource follows the Terraform Plugin Framework pattern with `resource.go` + `model.go`:
 
+**resource.go:**
 ```go
-// Resource schema definition
-func resourceRTX{ResourceName}() *schema.Resource {
-    return &schema.Resource{
-        Description:   "...",
-        CreateContext: resourceRTX{ResourceName}Create,
-        ReadContext:   resourceRTX{ResourceName}Read,
-        UpdateContext: resourceRTX{ResourceName}Update,
-        DeleteContext: resourceRTX{ResourceName}Delete,
-        Importer: &schema.ResourceImporter{
-            StateContext: resourceRTX{ResourceName}Import,
-        },
-        Schema: map[string]*schema.Schema{...},
-        CustomizeDiff: validate{ResourceName}Entries, // Optional validation
-    }
+// Resource struct implementing resource.Resource interface
+type AccessListIPResource struct {
+    client client.Client
 }
 
-// Builder: Terraform state -> Go struct
-func build{ResourceName}FromResourceData(d *schema.ResourceData) client.{Type}
+// Required interface methods
+func (r *AccessListIPResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse)
+func (r *AccessListIPResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse)
+func (r *AccessListIPResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse)
+func (r *AccessListIPResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse)
+func (r *AccessListIPResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse)
+func (r *AccessListIPResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse)
+func (r *AccessListIPResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse)
+func (r *AccessListIPResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse)
+```
 
-// Flattener: Go struct -> Terraform state
-func flatten{ResourceName}Entries(entries []client.{EntryType}) []interface{}
+**model.go:**
+```go
+// Model struct with tfsdk tags for Terraform state mapping
+type AccessListIPModel struct {
+    Sequence    types.Int64  `tfsdk:"sequence"`
+    Action      types.String `tfsdk:"action"`
+    // ...
+}
+
+// ToClient converts Terraform model to client struct
+func (m *AccessListIPModel) ToClient() client.IPFilter
+
+// FromClient updates Terraform model from client struct
+func (m *AccessListIPModel) FromClient(f *client.IPFilter)
+
+// ID returns the resource identifier
+func (m *AccessListIPModel) ID() string
 ```
 
 ---
@@ -623,16 +650,37 @@ func TestBuildAccessListExtendedFromResourceData(t *testing.T) {
 ```
 internal/
 ├── provider/
-│   ├── resource_rtx_access_list_extended.go
-│   ├── resource_rtx_access_list_extended_test.go
-│   ├── resource_rtx_access_list_extended_ipv6.go
-│   ├── resource_rtx_access_list_extended_ipv6_test.go
-│   ├── resource_rtx_access_list_ip.go
-│   ├── resource_rtx_access_list_ip_test.go
-│   ├── resource_rtx_access_list_ipv6.go
-│   ├── resource_rtx_access_list_ipv6_test.go
-│   ├── resource_rtx_access_list_mac.go
-│   └── resource_rtx_access_list_mac_test.go
+│   └── resources/
+│       ├── access_list_extended/
+│       │   ├── resource.go         # Resource implementation (CRUD, schema, validation)
+│       │   └── model.go            # Data model with ToClient/FromClient conversion
+│       ├── access_list_extended_ipv6/
+│       │   ├── resource.go
+│       │   └── model.go
+│       ├── access_list_ip/
+│       │   ├── resource.go
+│       │   └── model.go
+│       ├── access_list_ip_apply/
+│       │   ├── resource.go         # Apply IP filters to interface
+│       │   └── model.go
+│       ├── access_list_ip_dynamic/
+│       │   ├── resource.go         # Dynamic IP filter rules
+│       │   └── model.go
+│       ├── access_list_ipv6/
+│       │   ├── resource.go
+│       │   └── model.go
+│       ├── access_list_ipv6_apply/
+│       │   ├── resource.go         # Apply IPv6 filters to interface
+│       │   └── model.go
+│       ├── access_list_ipv6_dynamic/
+│       │   ├── resource.go         # Dynamic IPv6 filter rules
+│       │   └── model.go
+│       ├── access_list_mac/
+│       │   ├── resource.go
+│       │   └── model.go
+│       └── access_list_mac_apply/
+│           ├── resource.go         # Apply MAC filters to interface
+│           └── model.go
 └── client/
     ├── interfaces.go              # Data types and Client interface
     ├── ip_filter_service.go       # IP/IPv6 filter service implementation
@@ -685,3 +733,4 @@ internal/
 |------|--------|---------|
 | 2026-01-23 | Implementation Analysis | Initial master design created from implementation |
 | 2026-02-01 | Implementation Audit | Verified alignment with Terraform Plugin Framework implementation |
+| 2026-02-01 | Structure Sync | Updated file paths to resources/{name}/ structure, added _apply and _dynamic resources |

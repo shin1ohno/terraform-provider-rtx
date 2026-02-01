@@ -11,8 +11,8 @@ This document specifies the technical design and implementation details for Qual
 | Resources | `rtx_class_map`, `rtx_policy_map`, `rtx_service_policy`, `rtx_shape` |
 | Service File | `internal/client/qos_service.go` |
 | Parser File | `internal/rtx/parsers/qos.go` |
-| Resource Files | `internal/provider/resource_rtx_*.go` |
-| Last Updated | 2026-01-23 |
+| Resource Directories | `internal/provider/resources/class_map/`, `policy_map/`, `service_policy/`, `shape/` |
+| Last Updated | 2026-02-01 |
 | Source Specs | Implementation code analysis |
 
 ## Steering Document Alignment
@@ -26,7 +26,7 @@ This document specifies the technical design and implementation details for Qual
 
 ### Project Structure (structure.md)
 
-- Provider layer: `internal/provider/`
+- Provider layer: `internal/provider/resources/{name}/` (resource.go + model.go pattern)
 - Client layer: `internal/client/`
 - Parser layer: `internal/rtx/parsers/`
 - Tests co-located with implementation files
@@ -55,10 +55,10 @@ The QoS implementation follows a clean layered architecture with clear separatio
 ```mermaid
 graph TD
     subgraph "Provider Layer"
-        CM[resource_rtx_class_map.go]
-        PM[resource_rtx_policy_map.go]
-        SP[resource_rtx_service_policy.go]
-        SH[resource_rtx_shape.go]
+        CM[class_map/resource.go]
+        PM[policy_map/resource.go]
+        SP[service_policy/resource.go]
+        SH[shape/resource.go]
     end
 
     subgraph "Client Layer"
@@ -687,14 +687,19 @@ Test scenarios:
 ```
 internal/
 ├── provider/
-│   ├── resource_rtx_class_map.go        # Class-map resource definition
-│   ├── resource_rtx_class_map_test.go   # Class-map resource tests
-│   ├── resource_rtx_policy_map.go       # Policy-map resource definition
-│   ├── resource_rtx_policy_map_test.go  # Policy-map resource tests
-│   ├── resource_rtx_service_policy.go   # Service-policy resource definition
-│   ├── resource_rtx_service_policy_test.go
-│   ├── resource_rtx_shape.go            # Shape resource definition
-│   └── resource_rtx_shape_test.go       # Shape resource tests
+│   └── resources/
+│       ├── class_map/
+│       │   ├── resource.go              # Class-map resource implementation
+│       │   └── model.go                 # Data model with ToClient/FromClient
+│       ├── policy_map/
+│       │   ├── resource.go              # Policy-map resource implementation
+│       │   └── model.go                 # Data model with ToClient/FromClient
+│       ├── service_policy/
+│       │   ├── resource.go              # Service-policy resource implementation
+│       │   └── model.go                 # Data model with ToClient/FromClient
+│       └── shape/
+│           ├── resource.go              # Shape resource implementation
+│           └── model.go                 # Data model with ToClient/FromClient
 ├── client/
 │   ├── interfaces.go                    # Client interface with QoS methods
 │   ├── client.go                        # rtxClient delegates to QoSService
@@ -748,3 +753,4 @@ internal/
 |------|--------|---------|
 | 2026-01-23 | Implementation analysis | Initial master design from existing code |
 | 2026-02-01 | Implementation Audit | Update to Terraform Plugin Framework (not SDK v2) |
+| 2026-02-01 | Structure Sync | Updated file paths to resources/{name}/ modular structure |

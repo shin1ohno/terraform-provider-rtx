@@ -11,8 +11,8 @@ The DHCP resources (`rtx_dhcp_scope` and `rtx_dhcp_binding`) implement complete 
 | Resource Names | `rtx_dhcp_scope`, `rtx_dhcp_binding` |
 | Service Files | `internal/client/dhcp_scope_service.go`, `internal/client/dhcp_service.go` |
 | Parser Files | `internal/rtx/parsers/dhcp_scope.go`, `internal/rtx/parsers/dhcp_bindings.go` |
-| Resource Files | `internal/provider/resource_rtx_dhcp_scope.go`, `internal/provider/resource_rtx_dhcp_binding.go` |
-| Last Updated | 2026-01-23 |
+| Resource Directories | `internal/provider/resources/dhcp_scope/`, `internal/provider/resources/dhcp_binding/` |
+| Last Updated | 2026-02-01 |
 | Source Specs | Implementation code analysis |
 
 ## Steering Document Alignment
@@ -25,7 +25,7 @@ The DHCP resources (`rtx_dhcp_scope` and `rtx_dhcp_binding`) implement complete 
 - Configuration persisted to router memory after each operation
 
 ### Project Structure (structure.md)
-- Provider resources in `internal/provider/`
+- Provider resources in `internal/provider/resources/{name}/` (resource.go + model.go pattern)
 - Client services in `internal/client/`
 - RTX parsers in `internal/rtx/parsers/`
 - Clear separation between layers
@@ -52,8 +52,8 @@ The DHCP resources (`rtx_dhcp_scope` and `rtx_dhcp_binding`) implement complete 
 ```mermaid
 graph TD
     subgraph Provider Layer
-        TFScope[resource_rtx_dhcp_scope.go]
-        TFBinding[resource_rtx_dhcp_binding.go]
+        TFScope[dhcp_scope/resource.go]
+        TFBinding[dhcp_binding/resource.go]
     end
 
     subgraph Client Layer
@@ -669,13 +669,13 @@ show config | grep "dhcp scope bind <scope_id>"
 ```
 internal/
 ├── provider/
-│   ├── resource_rtx_dhcp_scope.go           # Terraform DHCP scope resource
-│   ├── resource_rtx_dhcp_scope_test.go      # Unit tests
-│   ├── resource_rtx_dhcp_scope_acc_test.go  # Acceptance tests
-│   ├── resource_rtx_dhcp_binding.go         # Terraform DHCP binding resource
-│   ├── resource_rtx_dhcp_binding_test.go    # Unit tests
-│   ├── dhcp_binding_schema_test.go          # Schema tests
-│   └── dhcp_identifier_validate_test.go     # Validation tests
+│   └── resources/
+│       ├── dhcp_scope/
+│       │   ├── resource.go                   # DHCP scope resource implementation
+│       │   └── model.go                      # Data model with ToClient/FromClient
+│       └── dhcp_binding/
+│           ├── resource.go                   # DHCP binding resource implementation
+│           └── model.go                      # Data model with ToClient/FromClient
 ├── client/
 │   ├── interfaces.go                         # DHCP types and Client interface
 │   ├── client.go                             # Client implementation (DHCP methods)
@@ -741,3 +741,4 @@ internal/
 | 2026-01-23 | Implementation analysis | Initial master design creation from implementation code |
 | 2026-01-23 | terraform-plan-differences-fix | Added network address calculation from IP range; documented line wrapping handling; added range_start/range_end to data model |
 | 2026-02-01 | Implementation Audit | Update to Plugin Framework, clarify hostname/description are Terraform-only |
+| 2026-02-01 | Structure Sync | Updated file paths to resources/{name}/ modular structure |

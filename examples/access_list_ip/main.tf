@@ -171,15 +171,15 @@ resource "rtx_access_list_ip_apply" "shared_to_pp1" {
   access_list = rtx_access_list_ip.shared_filters.name
   interface   = "pp1"
   direction   = "in"
-  # filter_ids is optional - if omitted, all entry sequences are applied
+  # sequences is optional - if omitted, all entry sequences are applied
 }
 
 resource "rtx_access_list_ip_apply" "shared_to_tunnel1" {
   access_list = rtx_access_list_ip.shared_filters.name
   interface   = "tunnel1"
   direction   = "in"
-  # Apply specific filter IDs in custom order
-  filter_ids = [5100, 5000]
+  # Apply specific sequences in custom order
+  sequences = [5100, 5000]
 }
 
 variable "rtx_host" {

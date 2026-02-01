@@ -72,8 +72,8 @@ func (r *AccessListIPv6ApplyResource) Schema(ctx context.Context, req resource.S
 					stringvalidator.OneOfCaseInsensitive("in", "out"),
 				},
 			},
-			"filter_ids": schema.ListAttribute{
-				Description: "List of filter IDs to apply in order. At least one filter ID must be specified.",
+			"sequences": schema.ListAttribute{
+				Description: "List of sequence numbers to apply in order. At least one sequence must be specified.",
 				Optional:    true,
 				ElementType: types.Int64Type,
 				Validators: []validator.List{
@@ -127,16 +127,16 @@ func (r *AccessListIPv6ApplyResource) Create(ctx context.Context, req resource.C
 		Str("access_list", data.AccessList.ValueString()).
 		Msg("Creating IPv6 access list apply")
 
-	filterIDs := data.GetFilterIDsAsInts()
-	if len(filterIDs) == 0 {
+	sequences := data.GetSequencesAsInts()
+	if len(sequences) == 0 {
 		resp.Diagnostics.AddError(
-			"Invalid filter_ids",
-			"filter_ids is required: at least one filter ID must be specified",
+			"Invalid sequences",
+			"sequences is required: at least one sequence must be specified",
 		)
 		return
 	}
 
-	err := r.client.ApplyIPv6FiltersToInterface(ctx, data.Interface.ValueString(), data.Direction.ValueString(), filterIDs)
+	err := r.client.ApplyIPv6FiltersToInterface(ctx, data.Interface.ValueString(), data.Direction.ValueString(), sequences)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Failed to apply IPv6 filters",
@@ -192,7 +192,7 @@ func (r *AccessListIPv6ApplyResource) read(ctx context.Context, data *AccessList
 		Str("direction", direction).
 		Msg("Reading IPv6 access list apply")
 
-	filterIDs, err := r.client.GetIPv6InterfaceFilters(ctx, iface, direction)
+	sequences, err := r.client.GetIPv6InterfaceFilters(ctx, iface, direction)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			logger.Warn().
@@ -209,7 +209,7 @@ func (r *AccessListIPv6ApplyResource) read(ctx context.Context, data *AccessList
 		return
 	}
 
-	if len(filterIDs) == 0 {
+	if len(sequences) == 0 {
 		logger.Warn().
 			Str("resource", "rtx_access_list_ipv6_apply").
 			Str("interface", iface).
@@ -222,7 +222,7 @@ func (r *AccessListIPv6ApplyResource) read(ctx context.Context, data *AccessList
 
 	data.Interface = types.StringValue(iface)
 	data.Direction = types.StringValue(direction)
-	data.SetFilterIDsFromInts(filterIDs)
+	data.SetSequencesFromInts(sequences)
 }
 
 // Update updates the resource and sets the updated Terraform state on success.
@@ -248,16 +248,16 @@ func (r *AccessListIPv6ApplyResource) Update(ctx context.Context, req resource.U
 		Str("access_list", data.AccessList.ValueString()).
 		Msg("Updating IPv6 access list apply")
 
-	filterIDs := data.GetFilterIDsAsInts()
-	if len(filterIDs) == 0 {
+	sequences := data.GetSequencesAsInts()
+	if len(sequences) == 0 {
 		resp.Diagnostics.AddError(
-			"Invalid filter_ids",
-			"filter_ids is required: at least one filter ID must be specified",
+			"Invalid sequences",
+			"sequences is required: at least one sequence must be specified",
 		)
 		return
 	}
 
-	err := r.client.ApplyIPv6FiltersToInterface(ctx, data.Interface.ValueString(), data.Direction.ValueString(), filterIDs)
+	err := r.client.ApplyIPv6FiltersToInterface(ctx, data.Interface.ValueString(), data.Direction.ValueString(), sequences)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Failed to update IPv6 filters",

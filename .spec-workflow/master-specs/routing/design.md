@@ -13,8 +13,8 @@ The routing resources provide comprehensive IP routing management for Yamaha RTX
 | Resource Name | `rtx_bgp` |
 | Service File | `internal/client/bgp_service.go` |
 | Parser File | `internal/rtx/parsers/bgp.go` |
-| Resource File | `internal/provider/resource_rtx_bgp.go` |
-| Last Updated | 2025-01-23 |
+| Resource Directory | `internal/provider/resources/bgp/` |
+| Last Updated | 2026-02-01 |
 | Source Specs | Implementation code analysis |
 
 ### rtx_ospf
@@ -24,8 +24,8 @@ The routing resources provide comprehensive IP routing management for Yamaha RTX
 | Resource Name | `rtx_ospf` |
 | Service File | `internal/client/ospf_service.go` |
 | Parser File | `internal/rtx/parsers/ospf.go` |
-| Resource File | `internal/provider/resource_rtx_ospf.go` |
-| Last Updated | 2025-01-23 |
+| Resource Directory | `internal/provider/resources/ospf/` |
+| Last Updated | 2026-02-01 |
 | Source Specs | Implementation code analysis |
 
 ### rtx_static_route
@@ -35,8 +35,8 @@ The routing resources provide comprehensive IP routing management for Yamaha RTX
 | Resource Name | `rtx_static_route` |
 | Service File | `internal/client/static_route_service.go` |
 | Parser File | `internal/rtx/parsers/static_route.go` |
-| Resource File | `internal/provider/resource_rtx_static_route.go` |
-| Last Updated | 2025-01-23 |
+| Resource Directory | `internal/provider/resources/static_route/` |
+| Last Updated | 2026-02-01 |
 | Source Specs | Implementation code analysis |
 
 ## Steering Document Alignment
@@ -48,8 +48,8 @@ The routing resources provide comprehensive IP routing management for Yamaha RTX
 - **Parser Registry Pattern**: Parsers are modular and isolated for testability
 
 ### Project Structure (structure.md)
-- **File Naming**: `resource_rtx_<feature>.go`, `<feature>_service.go`, `<feature>.go` (parser)
-- **Package Organization**: `provider/` -> `client/` -> `rtx/parsers/`
+- **File Naming**: `resources/{name}/resource.go + model.go`, `<feature>_service.go`, `<feature>.go` (parser)
+- **Package Organization**: `provider/resources/` -> `client/` -> `rtx/parsers/`
 - **Import Order**: Standard library, external dependencies, internal packages
 - **No Circular Dependencies**: Parsers have no internal dependencies
 
@@ -80,9 +80,9 @@ The routing resources follow a consistent three-layer architecture pattern used 
 ```mermaid
 graph TD
     subgraph Provider Layer
-        TFResourceBGP[resource_rtx_bgp.go]
-        TFResourceOSPF[resource_rtx_ospf.go]
-        TFResourceRoute[resource_rtx_static_route.go]
+        TFResourceBGP[bgp/resource.go]
+        TFResourceOSPF[ospf/resource.go]
+        TFResourceRoute[static_route/resource.go]
     end
 
     subgraph Client Layer
@@ -538,12 +538,19 @@ resource "rtx_static_route" "example" {
 ```
 internal/
 ├── provider/
-│   ├── resource_rtx_bgp.go           # BGP resource CRUD
-│   ├── resource_rtx_bgp_test.go      # BGP resource tests
-│   ├── resource_rtx_ospf.go          # OSPF resource CRUD
-│   ├── resource_rtx_ospf_test.go     # OSPF resource tests
-│   ├── resource_rtx_static_route.go  # Static route resource CRUD
-│   └── resource_rtx_static_route_test.go
+│   └── resources/
+│       ├── bgp/
+│       │   ├── resource.go           # BGP resource CRUD
+│       │   ├── resource_test.go      # BGP resource tests
+│       │   └── model.go              # Data model with ToClient/FromClient
+│       ├── ospf/
+│       │   ├── resource.go           # OSPF resource CRUD
+│       │   ├── resource_test.go      # OSPF resource tests
+│       │   └── model.go              # Data model with ToClient/FromClient
+│       └── static_route/
+│           ├── resource.go           # Static route resource CRUD
+│           ├── resource_test.go      # Static route resource tests
+│           └── model.go              # Data model with ToClient/FromClient
 ├── client/
 │   ├── interfaces.go                  # Data models (BGPConfig, etc.)
 │   ├── bgp_service.go                 # BGP service implementation
@@ -590,3 +597,4 @@ internal/
 |------|-------------|---------|
 | 2025-01-23 | Implementation | Initial design from code analysis |
 | 2026-02-01 | Implementation Audit | Update to Plugin Framework, fix attribute names (neighbor.index, area.area_id) |
+| 2026-02-01 | Structure Sync | Updated file paths to resources/{name}/ modular structure |

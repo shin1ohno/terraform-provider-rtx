@@ -98,8 +98,8 @@ func (r *AccessListIPResource) Schema(ctx context.Context, req resource.SchemaRe
 								stringvalidator.OneOfCaseInsensitive("in", "out"),
 							},
 						},
-						"filter_ids": schema.ListAttribute{
-							Description: "Specific filter IDs (sequence numbers) to apply in order. If omitted, all entry sequences are applied in order.",
+						"sequences": schema.ListAttribute{
+							Description: "Sequence numbers to apply in order. If omitted, all entry sequences are applied in order.",
 							Optional:    true,
 							Computed:    true,
 							ElementType: types.Int64Type,
@@ -109,8 +109,8 @@ func (r *AccessListIPResource) Schema(ctx context.Context, req resource.SchemaRe
 								),
 							},
 						},
-						"dynamic_filter_ids": schema.ListAttribute{
-							Description: "Dynamic filter IDs to apply. These are appended after the 'dynamic' keyword in the secure filter command.",
+						"dynamic_sequences": schema.ListAttribute{
+							Description: "Dynamic sequence numbers to apply. These are appended after the 'dynamic' keyword in the secure filter command.",
 							Optional:    true,
 							Computed:    true,
 							ElementType: types.Int64Type,
@@ -407,8 +407,8 @@ func (r *AccessListIPResource) Update(ctx context.Context, req resource.UpdateRe
 	for _, a := range newApplies {
 		iface := fwhelpers.GetStringValue(a.Interface)
 		direction := strings.ToLower(fwhelpers.GetStringValue(a.Direction))
-		staticIDs := r.extractFilterIDs(a, &data)
-		dynamicIDs := r.extractDynamicFilterIDs(a)
+		staticIDs := r.extractSequences(a, &data)
+		dynamicIDs := r.extractDynamicSequences(a)
 
 		if len(staticIDs) > 0 || len(dynamicIDs) > 0 {
 			if err := r.client.ApplyIPFiltersWithDynamicToInterface(ctx, iface, direction, staticIDs, dynamicIDs); err != nil {
@@ -475,6 +475,7 @@ func (r *AccessListIPResource) Delete(ctx context.Context, req resource.DeleteRe
 // ImportState imports an existing resource into Terraform.
 func (r *AccessListIPResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	// Import format: name:seq1,seq2,seq3 or just name
+	// When no sequences are provided, all IP filters from the router will be imported
 	importID := req.ID
 	parts := strings.Split(importID, ":")
 
@@ -492,12 +493,25 @@ func (r *AccessListIPResource) ImportState(ctx context.Context, req resource.Imp
 		}
 	}
 
+	// If no sequences provided, get all IP filter sequences from the router
+	if len(sequences) == 0 {
+		allSeqs, err := r.client.GetAllIPFilterSequences(ctx)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Failed to get IP filter sequences",
+				fmt.Sprintf("Could not get IP filter sequences: %v", err),
+			)
+			return
+		}
+		sequences = allSeqs
+	}
+
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ip").Msgf("Importing IP access list: %s with sequences %v", name, sequences)
 
 	// Set name in state
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), name)...)
 
-	// If sequences provided, import those specific ones
+	// Import the specified sequences
 	if len(sequences) > 0 {
 		filters := make([]client.IPFilter, 0, len(sequences))
 
@@ -517,10 +531,7 @@ func (r *AccessListIPResource) ImportState(ctx context.Context, req resource.Imp
 		}
 
 		if len(filters) == 0 {
-			resp.Diagnostics.AddError(
-				"No IP filters found",
-				fmt.Sprintf("No IP filters found with sequences %v", sequences),
-			)
+			// No filters found, just set the name
 			return
 		}
 
@@ -658,8 +669,8 @@ func (r *AccessListIPResource) applyFiltersToInterfaces(ctx context.Context, dat
 	for _, a := range applies {
 		iface := fwhelpers.GetStringValue(a.Interface)
 		direction := strings.ToLower(fwhelpers.GetStringValue(a.Direction))
-		staticIDs := r.extractFilterIDs(a, data)
-		dynamicIDs := r.extractDynamicFilterIDs(a)
+		staticIDs := r.extractSequences(a, data)
+		dynamicIDs := r.extractDynamicSequences(a)
 
 		if len(staticIDs) > 0 || len(dynamicIDs) > 0 {
 			if err := r.client.ApplyIPFiltersWithDynamicToInterface(ctx, iface, direction, staticIDs, dynamicIDs); err != nil {
@@ -695,30 +706,30 @@ func (r *AccessListIPResource) readApplyBlocks(ctx context.Context, data *Access
 			filterIDValues[i] = types.Int64Value(int64(id))
 		}
 
-		// Preserve user-specified dynamic_filter_ids to avoid state inconsistency.
-		// If user specified dynamic_filter_ids in config, use that value.
+		// Preserve user-specified dynamic_sequences to avoid state inconsistency.
+		// If user specified dynamic_sequences in config, use that value.
 		// Otherwise, read from router.
-		var dynamicFilterIDValues []attr.Value
-		if !a.DynamicFilterIDs.IsNull() && !a.DynamicFilterIDs.IsUnknown() {
-			// User specified dynamic_filter_ids, preserve it
-			dynamicFilterIDValues = a.DynamicFilterIDs.Elements()
+		var dynamicSequenceValues []attr.Value
+		if !a.DynamicSequences.IsNull() && !a.DynamicSequences.IsUnknown() {
+			// User specified dynamic_sequences, preserve it
+			dynamicSequenceValues = a.DynamicSequences.Elements()
 		} else {
 			// Not specified, read from router
-			dynamicFilterIDs, err := r.client.GetIPInterfaceDynamicFilters(ctx, iface, direction)
+			dynamicSequences, err := r.client.GetIPInterfaceDynamicFilters(ctx, iface, direction)
 			if err != nil {
 				return fmt.Errorf("failed to get dynamic filters for interface %s %s: %w", iface, direction, err)
 			}
-			dynamicFilterIDValues = make([]attr.Value, len(dynamicFilterIDs))
-			for i, id := range dynamicFilterIDs {
-				dynamicFilterIDValues[i] = types.Int64Value(int64(id))
+			dynamicSequenceValues = make([]attr.Value, len(dynamicSequences))
+			for i, id := range dynamicSequences {
+				dynamicSequenceValues[i] = types.Int64Value(int64(id))
 			}
 		}
 
 		updatedApply := ApplyModel{
 			Interface:        types.StringValue(iface),
 			Direction:        types.StringValue(direction),
-			FilterIDs:        types.ListValueMust(types.Int64Type, filterIDValues),
-			DynamicFilterIDs: types.ListValueMust(types.Int64Type, dynamicFilterIDValues),
+			Sequences:        types.ListValueMust(types.Int64Type, filterIDValues),
+			DynamicSequences: types.ListValueMust(types.Int64Type, dynamicSequenceValues),
 		}
 		updatedApplies = append(updatedApplies, updatedApply)
 	}
@@ -727,14 +738,14 @@ func (r *AccessListIPResource) readApplyBlocks(ctx context.Context, data *Access
 	return nil
 }
 
-// extractFilterIDs extracts filter IDs from apply config, falling back to entry sequences.
-func (r *AccessListIPResource) extractFilterIDs(apply ApplyModel, data *AccessListIPModel) []int {
-	if !apply.FilterIDs.IsNull() && !apply.FilterIDs.IsUnknown() {
-		var filterIDs []int64
-		apply.FilterIDs.ElementsAs(context.TODO(), &filterIDs, false)
-		if len(filterIDs) > 0 {
-			ids := make([]int, len(filterIDs))
-			for i, id := range filterIDs {
+// extractSequences extracts sequences from apply config, falling back to entry sequences.
+func (r *AccessListIPResource) extractSequences(apply ApplyModel, data *AccessListIPModel) []int {
+	if !apply.Sequences.IsNull() && !apply.Sequences.IsUnknown() {
+		var sequences []int64
+		apply.Sequences.ElementsAs(context.TODO(), &sequences, false)
+		if len(sequences) > 0 {
+			ids := make([]int, len(sequences))
+			for i, id := range sequences {
 				ids[i] = int(id)
 			}
 			return ids
@@ -745,20 +756,20 @@ func (r *AccessListIPResource) extractFilterIDs(apply ApplyModel, data *AccessLi
 	return data.GetExpectedSequences()
 }
 
-// extractDynamicFilterIDs extracts dynamic filter IDs from apply config.
-func (r *AccessListIPResource) extractDynamicFilterIDs(apply ApplyModel) []int {
-	if apply.DynamicFilterIDs.IsNull() || apply.DynamicFilterIDs.IsUnknown() {
+// extractDynamicSequences extracts dynamic sequences from apply config.
+func (r *AccessListIPResource) extractDynamicSequences(apply ApplyModel) []int {
+	if apply.DynamicSequences.IsNull() || apply.DynamicSequences.IsUnknown() {
 		return nil
 	}
 
-	var filterIDs []int64
-	apply.DynamicFilterIDs.ElementsAs(context.TODO(), &filterIDs, false)
-	if len(filterIDs) == 0 {
+	var sequences []int64
+	apply.DynamicSequences.ElementsAs(context.TODO(), &sequences, false)
+	if len(sequences) == 0 {
 		return nil
 	}
 
-	ids := make([]int, len(filterIDs))
-	for i, id := range filterIDs {
+	ids := make([]int, len(sequences))
+	for i, id := range sequences {
 		ids[i] = int(id)
 	}
 	return ids

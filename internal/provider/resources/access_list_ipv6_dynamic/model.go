@@ -65,6 +65,7 @@ func (m *AccessListIPv6DynamicModel) ToClient() client.AccessListIPv6Dynamic {
 
 // FromClient updates the Terraform model from a client.AccessListIPv6Dynamic.
 // currentSeqs specifies which sequences to include (for filtering during read).
+// When currentSeqs is empty (during import), it includes all entries from the router.
 func (m *AccessListIPv6DynamicModel) FromClient(acl *client.AccessListIPv6Dynamic, currentSeqs map[int]bool) {
 	m.Name = types.StringValue(acl.Name)
 
@@ -78,6 +79,24 @@ func (m *AccessListIPv6DynamicModel) FromClient(acl *client.AccessListIPv6Dynami
 	entryMap := make(map[int]client.AccessListIPv6DynamicEntry)
 	for _, entry := range acl.Entries {
 		entryMap[entry.Sequence] = entry
+	}
+
+	// During import (currentSeqs is empty and no entries in model), include all router entries
+	isImport := len(currentSeqs) == 0 && len(m.Entries) == 0
+	if isImport {
+		entries := make([]EntryModel, 0, len(acl.Entries))
+		for _, entry := range acl.Entries {
+			e := EntryModel{
+				Sequence:    types.Int64Value(int64(entry.Sequence)),
+				Source:      types.StringValue(entry.Source),
+				Destination: types.StringValue(entry.Destination),
+				Protocol:    types.StringValue(entry.Protocol),
+				Syslog:      types.BoolValue(entry.Syslog),
+			}
+			entries = append(entries, e)
+		}
+		m.Entries = entries
+		return
 	}
 
 	entries := make([]EntryModel, 0, len(m.Entries))

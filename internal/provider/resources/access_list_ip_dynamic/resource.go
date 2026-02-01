@@ -320,11 +320,25 @@ func (r *AccessListIPDynamicResource) ImportState(ctx context.Context, req resou
 
 	logging.FromContext(ctx).Debug().Str("resource", "rtx_access_list_ip_dynamic").Msgf("Importing dynamic IP access list: %s", name)
 
-	// Import only sets the name - entries are intentionally NOT imported.
-	// This is because RTX doesn't track which filters belong to which "named list".
-	// The Terraform configuration defines which entries belong to this access list.
-	// After import, run `terraform apply` to bind the configured entries to this resource.
+	// Set the name first
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), name)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Create a model and read entries from the router
+	// This populates the state with all existing dynamic IP filters
+	data := AccessListIPDynamicModel{
+		Name: types.StringValue(name),
+	}
+
+	r.read(ctx, &data, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Set the full state including entries
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
 // checkSequenceConflicts checks for sequence conflicts with existing dynamic filters on the router.

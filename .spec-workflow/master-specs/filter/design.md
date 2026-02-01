@@ -11,7 +11,7 @@ This document describes the technical design and architecture for filter-related
 | Resource Names | `rtx_interface_acl`, `rtx_interface_mac_acl`, `rtx_ip_filter_dynamic`, `rtx_ipv6_filter_dynamic` |
 | Service Files | `internal/client/ethernet_filter_service.go`, `internal/client/ip_filter_service.go` |
 | Parser Files | `internal/rtx/parsers/ethernet_filter.go`, `internal/rtx/parsers/ip_filter.go` |
-| Resource Files | `resource_rtx_interface_acl.go`, `resource_rtx_interface_mac_acl.go`, `resource_rtx_ip_filter_dynamic.go`, `resource_rtx_ipv6_filter_dynamic.go` |
+| Resource Directories | `resources/access_list_ip_apply/`, `resources/access_list_mac_apply/`, `resources/access_list_ip_dynamic/`, `resources/access_list_ipv6_dynamic/` |
 | Last Updated | 2026-01-25 |
 | Source Specs | Implementation code, Test files |
 
@@ -26,7 +26,7 @@ This document describes the technical design and architecture for filter-related
 - Consistent error handling using `diag.Diagnostics`
 
 ### Project Structure (structure.md)
-- Resource files in `internal/provider/`
+- Resource files in `internal/provider/resources/{name}/resource.go + model.go`
 - Service files in `internal/client/`
 - Parser files in `internal/rtx/parsers/`
 - Test files co-located with implementation files
@@ -61,10 +61,10 @@ The filter resources follow a three-layer architecture pattern consistent with o
 ```mermaid
 graph TD
     subgraph Provider Layer
-        InterfaceACL[resource_rtx_interface_acl.go]
-        InterfaceMACACL[resource_rtx_interface_mac_acl.go]
-        IPFilterDynamic[resource_rtx_ip_filter_dynamic.go]
-        IPv6FilterDynamic[resource_rtx_ipv6_filter_dynamic.go]
+        InterfaceACL[access_list_ip_apply/resource.go]
+        InterfaceMACACL[access_list_mac_apply/resource.go]
+        IPFilterDynamic[access_list_ip_dynamic/resource.go]
+        IPv6FilterDynamic[access_list_ipv6_dynamic/resource.go]
     end
 
     subgraph Client Layer
@@ -251,17 +251,22 @@ graph LR
 - **Dependencies:** regexp, strings, strconv
 - **Reuses:** Common regex patterns, int list parsing
 
-### Component 5: Terraform Resources (`internal/provider/resource_rtx_*.go`)
+### Component 5: Terraform Resources (`internal/provider/resources/{name}/`)
 
-- **Purpose:** Terraform resource definitions implementing CRUD lifecycle
+- **Purpose:** Terraform resource definitions implementing CRUD lifecycle using Plugin Framework
+- **Files per resource:**
+  - `resource.go` - Resource implementation with CRUD methods
+  - `model.go` - Data model with ToClient/FromClient conversion
 - **Common Pattern:**
   ```go
-  func (r *resourceType) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse)
-  func (r *resourceType) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse)
-  func (r *resourceType) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse)
-  func (r *resourceType) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse)
-  func (r *resourceType) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse)
-  func (r *resourceType) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse)
+  func (r *resourceType) Metadata(ctx, req, resp)
+  func (r *resourceType) Schema(ctx, req, resp)
+  func (r *resourceType) Configure(ctx, req, resp)
+  func (r *resourceType) Create(ctx, req, resp)
+  func (r *resourceType) Read(ctx, req, resp)
+  func (r *resourceType) Update(ctx, req, resp)
+  func (r *resourceType) Delete(ctx, req, resp)
+  func (r *resourceType) ImportState(ctx, req, resp)
   ```
 - **Dependencies:** terraform-plugin-framework, client services
 - **Reuses:** Common diagnostic helpers, attribute conversion utilities
@@ -536,14 +541,23 @@ Example: `no ipv6 lan1 secure filter in`
 ```
 internal/
 ├── provider/
-│   ├── resource_rtx_interface_acl.go
-│   ├── resource_rtx_interface_acl_test.go
-│   ├── resource_rtx_interface_mac_acl.go
-│   ├── resource_rtx_interface_mac_acl_test.go
-│   ├── resource_rtx_ip_filter_dynamic.go
-│   ├── resource_rtx_ip_filter_dynamic_test.go
-│   ├── resource_rtx_ipv6_filter_dynamic.go
-│   └── resource_rtx_ipv6_filter_dynamic_test.go
+│   └── resources/
+│       ├── access_list_ip_apply/
+│       │   ├── resource.go              # Interface ACL binding
+│       │   ├── resource_test.go
+│       │   └── model.go
+│       ├── access_list_mac_apply/
+│       │   ├── resource.go              # Interface MAC ACL binding
+│       │   ├── resource_test.go
+│       │   └── model.go
+│       ├── access_list_ip_dynamic/
+│       │   ├── resource.go              # IP filter dynamic
+│       │   ├── resource_test.go
+│       │   └── model.go
+│       └── access_list_ipv6_dynamic/
+│           ├── resource.go              # IPv6 filter dynamic
+│           ├── resource_test.go
+│           └── model.go
 ├── client/
 │   ├── interfaces.go                    # Interface definitions
 │   ├── client.go                        # Service initialization
@@ -599,3 +613,4 @@ internal/
 | 2026-01-23 | filter-number-parsing-fix | Documented smart line joining for RTX output line wrapping in preprocessWrappedLines |
 | 2026-01-23 | terraform-plan-differences-fix | Ethernet filter parser accepts `*:*:*:*:*:*` MAC wildcard format; regex patterns use `.*$` for line wrapping |
 | 2026-01-25 | Resource consolidation | Removed `rtx_ethernet_filter` resource; Layer 2 filtering now managed via `rtx_access_list_mac` |
+| 2026-02-01 | Structure Sync | Updated file paths to resources/{name}/ modular structure |

@@ -63,14 +63,6 @@ func (r *AccessListMACResource) Schema(ctx context.Context, req resource.SchemaR
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
-			"filter_id": schema.Int64Attribute{
-				Description: "Optional RTX filter ID to enable numeric ethernet filter mode. If not specified, derived from first entry.",
-				Optional:    true,
-				Computed:    true,
-				Validators: []validator.Int64{
-					int64validator.AtLeast(1),
-				},
-			},
 			"sequence_start": schema.Int64Attribute{
 				Description: "Starting sequence number for automatic sequence calculation. When set, sequence numbers are automatically assigned to entries based on their definition order. Mutually exclusive with entry-level sequence attributes.",
 				Optional:    true,
@@ -105,8 +97,8 @@ func (r *AccessListMACResource) Schema(ctx context.Context, req resource.SchemaR
 								stringvalidator.OneOfCaseInsensitive("in", "out"),
 							},
 						},
-						"filter_ids": schema.ListAttribute{
-							Description: "Specific filter IDs (sequence numbers) to apply in order. If omitted, all entry sequences are applied in order.",
+						"sequences": schema.ListAttribute{
+							Description: "Sequence numbers to apply in order. If omitted, all entry sequences are applied in order.",
 							Optional:    true,
 							Computed:    true,
 							ElementType: types.Int64Type,
@@ -376,19 +368,19 @@ func (r *AccessListMACResource) read(ctx context.Context, data *AccessListMACMod
 	// filters not managed by this resource
 	acl.Applies = make([]client.MACApply, 0, len(data.Applies))
 	for _, apply := range data.Applies {
-		var filterIDs []int
-		if !apply.FilterIDs.IsNull() && !apply.FilterIDs.IsUnknown() {
-			var tfFilterIDs []types.Int64
-			if diags := apply.FilterIDs.ElementsAs(ctx, &tfFilterIDs, false); !diags.HasError() {
-				for _, id := range tfFilterIDs {
-					filterIDs = append(filterIDs, int(id.ValueInt64()))
+		var sequences []int
+		if !apply.Sequences.IsNull() && !apply.Sequences.IsUnknown() {
+			var tfSequences []types.Int64
+			if diags := apply.Sequences.ElementsAs(ctx, &tfSequences, false); !diags.HasError() {
+				for _, id := range tfSequences {
+					sequences = append(sequences, int(id.ValueInt64()))
 				}
 			}
 		}
 		acl.Applies = append(acl.Applies, client.MACApply{
 			Interface: fwhelpers.GetStringValue(apply.Interface),
 			Direction: fwhelpers.GetStringValue(apply.Direction),
-			FilterIDs: filterIDs,
+			FilterIDs: sequences,
 		})
 	}
 

@@ -37,8 +37,8 @@ type EntryModel struct {
 type ApplyModel struct {
 	Interface        types.String `tfsdk:"interface"`
 	Direction        types.String `tfsdk:"direction"`
-	FilterIDs        types.List   `tfsdk:"filter_ids"`
-	DynamicFilterIDs types.List   `tfsdk:"dynamic_filter_ids"`
+	Sequences        types.List   `tfsdk:"sequences"`
+	DynamicSequences types.List   `tfsdk:"dynamic_sequences"`
 }
 
 // EntryAttrTypes returns the attribute types for EntryModel.
@@ -60,10 +60,10 @@ func ApplyAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
 		"interface": types.StringType,
 		"direction": types.StringType,
-		"filter_ids": types.ListType{
+		"sequences": types.ListType{
 			ElemType: types.Int64Type,
 		},
-		"dynamic_filter_ids": types.ListType{
+		"dynamic_sequences": types.ListType{
 			ElemType: types.Int64Type,
 		},
 	}
@@ -160,14 +160,14 @@ func (m *AccessListIPv6Model) FromFilters(ctx context.Context, filters []*client
 	}
 }
 
-// GetApplyFilterIDs extracts filter IDs from an apply block, falling back to entry sequences.
-func (m *AccessListIPv6Model) GetApplyFilterIDs(apply *ApplyModel) []int {
-	if apply.FilterIDs.IsNull() || apply.FilterIDs.IsUnknown() {
+// GetApplySequences extracts sequences from an apply block, falling back to entry sequences.
+func (m *AccessListIPv6Model) GetApplySequences(apply *ApplyModel) []int {
+	if apply.Sequences.IsNull() || apply.Sequences.IsUnknown() {
 		// Fall back to all entry sequences
 		return m.GetExpectedSequences()
 	}
 
-	elements := apply.FilterIDs.Elements()
+	elements := apply.Sequences.Elements()
 	if len(elements) == 0 {
 		return m.GetExpectedSequences()
 	}
@@ -181,27 +181,27 @@ func (m *AccessListIPv6Model) GetApplyFilterIDs(apply *ApplyModel) []int {
 	return ids
 }
 
-// SetApplyFilterIDs sets the filter IDs on an apply block.
-func SetApplyFilterIDs(apply *ApplyModel, filterIDs []int) {
-	if len(filterIDs) == 0 {
-		apply.FilterIDs = types.ListValueMust(types.Int64Type, []attr.Value{})
+// SetApplySequences sets the sequences on an apply block.
+func SetApplySequences(apply *ApplyModel, sequences []int) {
+	if len(sequences) == 0 {
+		apply.Sequences = types.ListValueMust(types.Int64Type, []attr.Value{})
 		return
 	}
 
-	elements := make([]attr.Value, len(filterIDs))
-	for i, id := range filterIDs {
+	elements := make([]attr.Value, len(sequences))
+	for i, id := range sequences {
 		elements[i] = types.Int64Value(int64(id))
 	}
-	apply.FilterIDs = types.ListValueMust(types.Int64Type, elements)
+	apply.Sequences = types.ListValueMust(types.Int64Type, elements)
 }
 
-// GetApplyDynamicFilterIDs extracts dynamic filter IDs from an apply block.
-func (m *AccessListIPv6Model) GetApplyDynamicFilterIDs(apply *ApplyModel) []int {
-	if apply.DynamicFilterIDs.IsNull() || apply.DynamicFilterIDs.IsUnknown() {
+// GetApplyDynamicSequences extracts dynamic sequences from an apply block.
+func (m *AccessListIPv6Model) GetApplyDynamicSequences(apply *ApplyModel) []int {
+	if apply.DynamicSequences.IsNull() || apply.DynamicSequences.IsUnknown() {
 		return nil
 	}
 
-	elements := apply.DynamicFilterIDs.Elements()
+	elements := apply.DynamicSequences.Elements()
 	if len(elements) == 0 {
 		return nil
 	}
@@ -215,18 +215,18 @@ func (m *AccessListIPv6Model) GetApplyDynamicFilterIDs(apply *ApplyModel) []int 
 	return ids
 }
 
-// SetApplyDynamicFilterIDs sets the dynamic filter IDs on an apply block.
-func SetApplyDynamicFilterIDs(apply *ApplyModel, filterIDs []int) {
-	if len(filterIDs) == 0 {
-		apply.DynamicFilterIDs = types.ListValueMust(types.Int64Type, []attr.Value{})
+// SetApplyDynamicSequences sets the dynamic sequences on an apply block.
+func SetApplyDynamicSequences(apply *ApplyModel, sequences []int) {
+	if len(sequences) == 0 {
+		apply.DynamicSequences = types.ListValueMust(types.Int64Type, []attr.Value{})
 		return
 	}
 
-	elements := make([]attr.Value, len(filterIDs))
-	for i, id := range filterIDs {
+	elements := make([]attr.Value, len(sequences))
+	for i, id := range sequences {
 		elements[i] = types.Int64Value(int64(id))
 	}
-	apply.DynamicFilterIDs = types.ListValueMust(types.Int64Type, elements)
+	apply.DynamicSequences = types.ListValueMust(types.Int64Type, elements)
 }
 
 // normalizePort normalizes port values for display.
@@ -235,6 +235,20 @@ func normalizePort(port string) string {
 		return "*"
 	}
 	return port
+}
+
+// entryToObjectValue converts an EntryModel to an attr.Value.
+func entryToObjectValue(e EntryModel) attr.Value {
+	return types.ObjectValueMust(EntryAttrTypes(), map[string]attr.Value{
+		"sequence":    e.Sequence,
+		"action":      e.Action,
+		"source":      e.Source,
+		"destination": e.Destination,
+		"protocol":    e.Protocol,
+		"source_port": e.SourcePort,
+		"dest_port":   e.DestPort,
+		"log":         e.Log,
+	})
 }
 
 // FindRemovedSequences finds sequences that were in old but not in new.

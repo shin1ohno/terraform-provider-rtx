@@ -75,6 +75,8 @@ func (m *AccessListIPDynamicModel) ToClient() client.AccessListIPDynamic {
 // FromClient updates the Terraform model from a client.AccessListIPDynamic.
 // It only updates entries that are already in the state (by sequence number)
 // to prevent filters from other access lists from leaking into this resource's state.
+// When currentSeqs is empty (during import), it includes all entries from the router
+// that match the configured sequence numbers in the model.
 func (m *AccessListIPDynamicModel) FromClient(acl *client.AccessListIPDynamic, currentSeqs map[int]bool) {
 	m.Name = types.StringValue(acl.Name)
 
@@ -88,6 +90,31 @@ func (m *AccessListIPDynamicModel) FromClient(acl *client.AccessListIPDynamic, c
 	entryMap := make(map[int]client.AccessListIPDynamicEntry)
 	for _, entry := range acl.Entries {
 		entryMap[entry.Sequence] = entry
+	}
+
+	// During import (currentSeqs is empty and no entries in model), include all router entries
+	isImport := len(currentSeqs) == 0 && len(m.Entries) == 0
+	if isImport {
+		newEntries := make([]EntryModel, 0, len(acl.Entries))
+		for _, entry := range acl.Entries {
+			newEntry := EntryModel{
+				Sequence:    types.Int64Value(int64(entry.Sequence)),
+				Source:      types.StringValue(entry.Source),
+				Destination: types.StringValue(entry.Destination),
+				Protocol:    types.StringValue(entry.Protocol),
+				Syslog:      types.BoolValue(entry.Syslog),
+			}
+
+			if entry.Timeout != nil {
+				newEntry.Timeout = types.Int64Value(int64(*entry.Timeout))
+			} else {
+				newEntry.Timeout = types.Int64Null()
+			}
+
+			newEntries = append(newEntries, newEntry)
+		}
+		m.Entries = newEntries
+		return
 	}
 
 	// Update entries that are in the state

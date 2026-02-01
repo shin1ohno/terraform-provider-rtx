@@ -11,14 +11,14 @@ This document describes the architecture and implementation design for system-le
 | Resource Name | `rtx_system`, `rtx_system_info`, `rtx_interfaces`, `rtx_routes`, `rtx_ddns_status` |
 | Service File | `internal/client/system_service.go` |
 | Parser File | `internal/rtx/parsers/system.go`, `interfaces.go`, `routes.go` |
-| Resource File | `internal/provider/resource_rtx_system.go`, `data_source_rtx_*.go` |
+| Resource Directory | `internal/provider/resources/system/`, `datasources/` |
 | Last Updated | 2026-01-23 |
 | Source Specs | Initial implementation |
 
 ## Steering Document Alignment
 
 ### Technical Standards (tech.md)
-- Uses Terraform Plugin SDK v2 with schema.Resource pattern
+- Uses Terraform Plugin Framework with resource.Resource pattern
 - Implements standard CRUD lifecycle (Create, Read, Update, Delete)
 - Follows Go idioms and error handling patterns
 - Context propagation for cancellation support
@@ -46,11 +46,11 @@ The system resources follow a three-layer architecture with clear separation of 
 ```mermaid
 graph TD
     subgraph "Provider Layer"
-        TFResource["resource_rtx_system.go"]
-        DSSystemInfo["data_source_rtx_system_info.go"]
-        DSInterfaces["data_source_rtx_interfaces.go"]
-        DSRoutes["data_source_rtx_routes.go"]
-        DSDDNSStatus["data_source_rtx_ddns_status.go"]
+        TFResource["system/resource.go"]
+        DSSystemInfo["datasources/system_info.go"]
+        DSInterfaces["datasources/interfaces.go"]
+        DSRoutes["datasources/routes.go"]
+        DSDDNSStatus["datasources/ddns_status.go"]
     end
 
     subgraph "Client Layer"
@@ -181,20 +181,29 @@ graph TD
 - **Dependencies:** Parser registry for model detection
 - **Reuses:** Parser interface pattern, registry pattern
 
-### Component 5: Terraform Resource (`internal/provider/resource_rtx_system.go`)
+### Component 5: Terraform Resource (`internal/provider/resources/system/`)
 
-- **Purpose:** Terraform resource definition implementing CRUD lifecycle
+- **Purpose:** Terraform resource definition implementing CRUD lifecycle using Plugin Framework
+- **Files:**
+  - `resource.go` - Resource implementation with CRUD methods
+  - `model.go` - Data model with ToClient/FromClient conversion
 - **Interfaces:**
   ```go
-  func resourceRTXSystem() *schema.Resource
-  func resourceRTXSystemCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics
-  func resourceRTXSystemRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics
-  func resourceRTXSystemUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics
-  func resourceRTXSystemDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics
-  func resourceRTXSystemImport(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error)
+  type SystemResource struct {
+      client client.Client
+  }
+
+  func (r *SystemResource) Metadata(ctx, req, resp)
+  func (r *SystemResource) Schema(ctx, req, resp)
+  func (r *SystemResource) Configure(ctx, req, resp)
+  func (r *SystemResource) Create(ctx, req, resp)
+  func (r *SystemResource) Read(ctx, req, resp)
+  func (r *SystemResource) Update(ctx, req, resp)
+  func (r *SystemResource) Delete(ctx, req, resp)
+  func (r *SystemResource) ImportState(ctx, req, resp)
   ```
-- **Dependencies:** apiClient, client.SystemConfig
-- **Reuses:** Standard Terraform SDK patterns
+- **Dependencies:** Terraform Plugin Framework, client.SystemConfig
+- **Reuses:** Standard Plugin Framework patterns
 
 ### Component 6: Terraform Data Sources
 
@@ -377,16 +386,20 @@ type DDNSStatus struct {
 ```
 internal/
 ├── provider/
-│   ├── resource_rtx_system.go          # System resource
-│   ├── resource_rtx_system_test.go     # Resource tests
-│   ├── data_source_rtx_system_info.go  # System info data source
-│   ├── data_source_rtx_system_info_test.go
-│   ├── data_source_rtx_interfaces.go   # Interfaces data source
-│   ├── data_source_rtx_interfaces_test.go
-│   ├── data_source_rtx_routes.go       # Routes data source
-│   ├── data_source_rtx_routes_test.go
-│   ├── data_source_rtx_ddns_status.go  # DDNS status data source
-│   └── data_source_rtx_ddns_status_test.go
+│   ├── resources/
+│   │   └── system/
+│   │       ├── resource.go             # System resource CRUD
+│   │       ├── resource_test.go        # Resource tests
+│   │       └── model.go                # Data model with ToClient/FromClient
+│   └── datasources/
+│       ├── system_info.go              # System info data source
+│       ├── system_info_test.go
+│       ├── interfaces.go               # Interfaces data source
+│       ├── interfaces_test.go
+│       ├── routes.go                   # Routes data source
+│       ├── routes_test.go
+│       ├── ddns_status.go              # DDNS status data source
+│       └── ddns_status_test.go
 ├── client/
 │   ├── interfaces.go                   # SystemConfig, Interface, Route types
 │   ├── client.go                       # Client interface & rtxClient
@@ -432,3 +445,4 @@ internal/
 | Date | Source Spec | Changes |
 |------|-------------|---------|
 | 2026-01-23 | Initial | Created master design from implementation |
+| 2026-02-01 | Structure Sync | Updated to Plugin Framework and resources/{name}/ modular structure |
