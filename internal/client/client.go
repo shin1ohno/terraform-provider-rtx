@@ -64,6 +64,7 @@ type rtxClient struct {
 	ddnsService           *DDNSService
 	pppService            *PPPService
 	aclApplyService       *ACLApplyService
+	tunnelService         *TunnelService
 }
 
 // NewClient creates a new RTX client instance
@@ -235,6 +236,7 @@ func (c *rtxClient) Dial(ctx context.Context) error {
 	c.ipsecTunnelService = NewIPsecTunnelService(c.executor, c)
 	c.ipsecTransportService = NewIPsecTransportService(c.executor, c)
 	c.l2tpService = NewL2TPService(c.executor, c)
+	c.tunnelService = NewTunnelService(c.executor, c)
 	c.pptpService = NewPPTPService(c.executor, c)
 	c.syslogService = NewSyslogService(c.executor, c)
 	c.snmpService = NewSNMPService(c.executor, c)
@@ -2122,6 +2124,91 @@ func (c *rtxClient) SetL2TPServiceState(ctx context.Context, enabled bool, proto
 	}
 
 	return l2tpService.SetL2TPServiceState(ctx, enabled, protocols)
+}
+
+// GetTunnel retrieves a unified tunnel configuration
+func (c *rtxClient) GetTunnel(ctx context.Context, tunnelID int) (*Tunnel, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	tunnelService := c.tunnelService
+	c.mu.Unlock()
+
+	if tunnelService == nil {
+		return nil, fmt.Errorf("tunnel service not initialized")
+	}
+
+	return tunnelService.Get(ctx, tunnelID)
+}
+
+// CreateTunnel creates a unified tunnel (IPsec/L2TPv3/L2TPv2)
+func (c *rtxClient) CreateTunnel(ctx context.Context, tunnel Tunnel) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	tunnelService := c.tunnelService
+	c.mu.Unlock()
+
+	if tunnelService == nil {
+		return fmt.Errorf("tunnel service not initialized")
+	}
+
+	return tunnelService.Create(ctx, tunnel)
+}
+
+// UpdateTunnel updates a unified tunnel
+func (c *rtxClient) UpdateTunnel(ctx context.Context, tunnel Tunnel) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	tunnelService := c.tunnelService
+	c.mu.Unlock()
+
+	if tunnelService == nil {
+		return fmt.Errorf("tunnel service not initialized")
+	}
+
+	return tunnelService.Update(ctx, tunnel)
+}
+
+// DeleteTunnel removes a unified tunnel
+func (c *rtxClient) DeleteTunnel(ctx context.Context, tunnelID int) error {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return fmt.Errorf("client not connected")
+	}
+	tunnelService := c.tunnelService
+	c.mu.Unlock()
+
+	if tunnelService == nil {
+		return fmt.Errorf("tunnel service not initialized")
+	}
+
+	return tunnelService.Delete(ctx, tunnelID)
+}
+
+// ListTunnels retrieves all unified tunnels
+func (c *rtxClient) ListTunnels(ctx context.Context) ([]Tunnel, error) {
+	c.mu.Lock()
+	if !c.active {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("client not connected")
+	}
+	tunnelService := c.tunnelService
+	c.mu.Unlock()
+
+	if tunnelService == nil {
+		return nil, fmt.Errorf("tunnel service not initialized")
+	}
+
+	return tunnelService.List(ctx)
 }
 
 // GetPPTP retrieves PPTP configuration

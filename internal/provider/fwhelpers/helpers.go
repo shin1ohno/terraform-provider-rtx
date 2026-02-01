@@ -66,6 +66,15 @@ func GetBoolValueWithDefault(b types.Bool, defaultValue bool) bool {
 	return b.ValueBool()
 }
 
+// GetStringValueWithDefault extracts a string from a types.String.
+// Returns the provided default if null or unknown.
+func GetStringValueWithDefault(s types.String, defaultValue string) string {
+	if s.IsNull() || s.IsUnknown() {
+		return defaultValue
+	}
+	return s.ValueString()
+}
+
 // SetStringListValue converts a []string to []types.String.
 func SetStringListValue(values []string) []types.String {
 	result := make([]types.String, len(values))

@@ -17,7 +17,7 @@ Manages IPsec VPN tunnel configuration on RTX routers. Supports IKEv2 with pre-s
 
 ### Required
 
-- `tunnel_id` (Number) Tunnel ID (1-6000).
+- `tunnel_id` (Number) Tunnel ID (tunnel select N, 1-6000).
 
 ### Optional
 
@@ -29,6 +29,7 @@ Manages IPsec VPN tunnel configuration on RTX routers. Supports IKEv2 with pre-s
 - `enabled` (Boolean) Enable the IPsec tunnel.
 - `ikev2_proposal` (Block, Optional) IKE Phase 1 proposal settings. (see [below for nested schema](#nestedblock--ikev2_proposal))
 - `ipsec_transform` (Block, Optional) IPsec Phase 2 transform settings. (see [below for nested schema](#nestedblock--ipsec_transform))
+- `ipsec_tunnel_id` (Number) IPsec tunnel ID (ipsec tunnel N). If not specified, defaults to tunnel_id.
 - `keepalive_mode` (String) Keepalive mode: 'dpd' (Dead Peer Detection) or 'heartbeat'. Defaults to 'dpd' if dpd_enabled is true.
 - `local_address` (String) Local endpoint IP address.
 - `local_network` (String) Local network in CIDR notation (e.g., '192.168.1.0/24').
@@ -36,6 +37,9 @@ Manages IPsec VPN tunnel configuration on RTX routers. Supports IKEv2 with pre-s
 - `pre_shared_key` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Pre-shared key for IKE authentication. This value is write-only and will not be stored in state.
 - `remote_address` (String) Remote endpoint IP address or hostname (for dynamic DNS).
 - `remote_network` (String) Remote network in CIDR notation (e.g., '10.0.0.0/24').
+- `secure_filter_in` (List of Number) IP filter IDs for incoming traffic on this tunnel (ip tunnel secure filter in).
+- `secure_filter_out` (List of Number) IP filter IDs for outgoing traffic on this tunnel (ip tunnel secure filter out).
+- `tcp_mss_limit` (String) TCP MSS limit for this tunnel: 'auto' or a numeric value (ip tunnel tcp mss limit).
 
 ### Read-Only
 

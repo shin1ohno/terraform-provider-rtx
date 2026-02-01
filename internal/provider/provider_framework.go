@@ -64,6 +64,7 @@ import (
 	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/static_route"
 	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/syslog"
 	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/system"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/tunnel"
 	"github.com/sh1/terraform-provider-rtx/internal/provider/resources/vlan"
 )
 
@@ -419,6 +420,7 @@ func (p *RTXFrameworkProvider) Resources(ctx context.Context) []func() resource.
 		l2tp_service.NewL2TPServiceResource,
 		pppoe.NewPPPoEResource,
 		pptp.NewPPTPResource,
+		tunnel.NewTunnelResource,
 
 		// DHCP
 		dhcp_binding.NewDHCPBindingResource,

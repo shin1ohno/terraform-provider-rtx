@@ -1,4 +1,9 @@
 # RTX IPsec Tunnel Configuration Examples
+#
+# DEPRECATED: This resource is deprecated. Use rtx_tunnel instead.
+# The rtx_tunnel resource provides a unified interface for all tunnel types
+# (IPsec, L2TPv3, L2TPv2) and better reflects the RTX command structure.
+# See examples/tunnel/ for the new resource examples.
 
 terraform {
   required_version = ">= 1.11"
