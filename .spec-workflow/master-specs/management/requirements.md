@@ -15,13 +15,13 @@ Management services are foundational for router administration and monitoring. T
 
 ## Resources Summary
 
-| Resource Name | Type | Import Support | Purpose |
-|--------------|------|----------------|---------|
-| `rtx_sshd` | singleton | Yes | SSH daemon configuration |
-| `rtx_httpd` | singleton | Yes | HTTP daemon configuration |
-| `rtx_sftpd` | singleton | Yes | SFTP daemon configuration |
-| `rtx_snmp_server` | singleton | Yes | SNMP server configuration |
-| `rtx_syslog` | singleton | Yes | Syslog forwarding configuration |
+| Resource Name | Type | Import Support | Status | Purpose |
+|--------------|------|----------------|--------|---------|
+| `rtx_sshd` | singleton | Yes | ✅ Implemented | SSH daemon configuration |
+| `rtx_httpd` | singleton | Yes | ✅ Implemented | HTTP daemon configuration |
+| `rtx_sftpd` | singleton | Yes | ❌ Not Implemented | SFTP daemon configuration |
+| `rtx_snmp_server` | singleton | Yes | ✅ Implemented | SNMP server configuration |
+| `rtx_syslog` | singleton | Yes | ✅ Implemented | Syslog forwarding configuration |
 
 ---
 
@@ -214,6 +214,8 @@ resource "rtx_httpd" "main" {
 
 ## Resource: rtx_sftpd
 
+> **Status: NOT YET IMPLEMENTED** - This resource is documented for future implementation but is not currently available in the provider.
+
 ### Resource Summary
 
 | Attribute | Value |
@@ -223,6 +225,7 @@ resource "rtx_httpd" "main" {
 | Import Support | Yes |
 | Import ID | `sftpd` |
 | Last Updated | 2026-01-23 |
+| **Implementation Status** | **Not Implemented** |
 
 ### Description
 
@@ -632,3 +635,4 @@ resource "rtx_syslog" "main" {
 | Date | Source Spec | Changes |
 |------|-------------|---------|
 | 2026-01-23 | Initial | Created from implementation code analysis |
+| 2026-02-01 | Implementation Audit | Mark rtx_sftpd as not implemented, add status column |

@@ -19,7 +19,7 @@ This document specifies the technical design and implementation details for Qual
 
 ### Technical Standards (tech.md)
 
-- Uses Terraform Plugin SDK v2 for resource definitions
+- Uses **Terraform Plugin Framework** for resource definitions
 - Follows Go naming conventions and project coding standards
 - Implements context-aware operations with proper cancellation support
 - Uses structured logging via the `logging` package
@@ -747,3 +747,4 @@ internal/
 | Date | Source | Changes |
 |------|--------|---------|
 | 2026-01-23 | Implementation analysis | Initial master design from existing code |
+| 2026-02-01 | Implementation Audit | Update to Terraform Plugin Framework (not SDK v2) |

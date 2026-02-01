@@ -219,9 +219,11 @@ pp always-on off                          # Reset always-on
 no ip pp address                          # Remove IP config
 no ip pp mtu                              # Remove MTU
 no ip pp nat descriptor                   # Remove NAT binding
-no ip pp secure filter in                 # Remove inbound filters
-no ip pp secure filter out                # Remove outbound filters
+no ip pp secure filter in                 # Remove inbound filters (not implemented)
+no ip pp secure filter out                # Remove outbound filters (not implemented)
 ```
+
+> **Note:** The `secure_filter_in` and `secure_filter_out` attributes are documented in the data model but **not yet implemented** in the Terraform resource schema. These commands are included for reference when the feature is added.
 
 ### Status Commands
 
@@ -326,3 +328,4 @@ resource "rtx_pppoe" "resilient" {
 |------|-------------|---------|
 | 2026-01-23 | Implementation-based | Initial master spec created from existing implementation |
 | 2026-01-25 | Implementation Sync | Add computed `pp_interface` attribute for resource references |
+| 2026-02-01 | Implementation Audit | Mark secure_filter_in/out as not implemented |

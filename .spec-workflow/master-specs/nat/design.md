@@ -32,7 +32,7 @@ This document describes the technical design and architecture of NAT resources i
 
 ### Technical Standards (tech.md)
 
-- Uses Terraform Plugin SDK v2 for resource implementation
+- Uses **Terraform Plugin Framework** for resource implementation
 - Follows Go standard project layout
 - Implements context-based cancellation pattern
 - Uses batch command execution for atomic operations
@@ -635,3 +635,4 @@ internal/
 |------|-------------|---------|
 | 2026-01-23 | Implementation Analysis | Initial master design created from implementation code |
 | 2026-01-23 | terraform-plan-differences-fix | Updated grep patterns for RTX compatibility; documented OutsideGlobal default to "ipcp" |
+| 2026-02-01 | Implementation Audit | Update to Terraform Plugin Framework (not SDK v2) |

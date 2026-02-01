@@ -38,12 +38,9 @@ Manages IPv4 network interface configuration on RTX routers including IP address
 ##### Create
 - Configure IP address (static CIDR or DHCP)
 - Set interface description
-- Apply inbound/outbound security filters
-- Apply dynamic filters for stateful inspection
 - Bind NAT descriptor
 - Enable/disable ProxyARP
 - Set MTU value
-- Apply Ethernet (L2) filters
 - Save configuration to router flash
 
 ##### Read
@@ -71,15 +68,12 @@ Manages IPv4 network interface configuration on RTX routers including IP address
 | `ip_address` | block | No | No | No | MaxItems: 1 | IP address configuration |
 | `ip_address.address` | string | No | No | No | CIDR notation | Static IP (e.g., "192.168.1.1/24") |
 | `ip_address.dhcp` | bool | No | No | Yes | - | Use DHCP for IP assignment |
-| `secure_filter_in` | list(int) | No | No | No | Each >= 1 | Inbound security filter numbers |
-| `secure_filter_out` | list(int) | No | No | No | Each >= 1 | Outbound security filter numbers |
-| `dynamic_filter_out` | list(int) | No | No | No | Each >= 1 | Dynamic filter numbers for stateful inspection |
 | `nat_descriptor` | int | No | No | Yes | >= 0 | NAT descriptor ID |
 | `proxyarp` | bool | No | No | Yes | - | Enable ProxyARP |
 | `mtu` | int | No | No | Yes | 0-65535 | MTU size (0 = default) |
-| `ethernet_filter_in` | list(int) | No | No | No | Each 1-512 | Inbound Ethernet filter numbers |
-| `ethernet_filter_out` | list(int) | No | No | No | Each 1-512 | Outbound Ethernet filter numbers |
 | `interface_name` | string | No | No | Yes | - | Computed interface name (same as `name`) |
+
+> **Note:** The following filter attributes are documented but **not yet implemented**: `secure_filter_in`, `secure_filter_out`, `dynamic_filter_out`, `ethernet_filter_in`, `ethernet_filter_out`. These may be added in a future release.
 
 ### Import Specification
 
@@ -508,3 +502,4 @@ resource "rtx_bridge" "internal" {
 |------|--------|---------|
 | 2025-01-23 | Implementation Analysis | Initial master spec from codebase analysis |
 | 2026-01-25 | Implementation Sync | Add computed `interface_name` for rtx_interface/rtx_bridge, `pp_interface` for rtx_pp_interface |
+| 2026-02-01 | Implementation Audit | Mark filter attributes as not yet implemented (secure_filter_*, dynamic_filter_out, ethernet_filter_*) |

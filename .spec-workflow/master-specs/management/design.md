@@ -6,19 +6,19 @@ This document describes the technical design and implementation details for the 
 
 ## Resources Summary
 
-| Resource Name | Service File | Parser File | Resource File |
-|--------------|--------------|-------------|---------------|
-| `rtx_sshd` | `internal/client/client.go` (embedded) | `internal/rtx/parsers/service.go` | `internal/provider/resource_rtx_sshd.go` |
-| `rtx_httpd` | `internal/client/client.go` (embedded) | `internal/rtx/parsers/service.go` | `internal/provider/resource_rtx_httpd.go` |
-| `rtx_sftpd` | `internal/client/client.go` (embedded) | `internal/rtx/parsers/service.go` | `internal/provider/resource_rtx_sftpd.go` |
-| `rtx_snmp_server` | `internal/client/snmp_service.go` | `internal/rtx/parsers/snmp.go` | `internal/provider/resource_rtx_snmp_server.go` |
-| `rtx_syslog` | `internal/client/syslog_service.go` | `internal/rtx/parsers/syslog.go` | `internal/provider/resource_rtx_syslog.go` |
+| Resource Name | Service File | Parser File | Resource Directory | Status |
+|--------------|--------------|-------------|-------------------|--------|
+| `rtx_sshd` | `internal/client/sshd_service.go` | `internal/rtx/parsers/service.go` | `internal/provider/resources/sshd/` | ✅ |
+| `rtx_httpd` | `internal/client/httpd_service.go` | `internal/rtx/parsers/service.go` | `internal/provider/resources/httpd/` | ✅ |
+| `rtx_sftpd` | - | - | - | ❌ Not Implemented |
+| `rtx_snmp_server` | `internal/client/snmp_service.go` | `internal/rtx/parsers/snmp.go` | `internal/provider/resources/snmp_server/` | ✅ |
+| `rtx_syslog` | `internal/client/syslog_service.go` | `internal/rtx/parsers/syslog.go` | `internal/provider/resources/syslog/` | ✅ |
 
 ## Steering Document Alignment
 
 ### Technical Standards (tech.md)
 
-- Terraform Plugin SDK v2 for resource definitions
+- **Terraform Plugin Framework** for resource definitions (NOT Plugin SDK v2)
 - Go standard library for core functionality
 - Structured logging with zerolog
 - Context-aware operations with cancellation support
@@ -860,3 +860,4 @@ internal/
 | Date | Source Spec | Changes |
 |------|-------------|---------|
 | 2026-01-23 | Initial | Created from implementation code analysis |
+| 2026-02-01 | Implementation Audit | Update to Plugin Framework, mark rtx_sftpd as not implemented, update file paths |

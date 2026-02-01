@@ -16,7 +16,7 @@ This document describes the design and implementation of DNS-related resources i
 
 ### Technical Standards (tech.md)
 
-- Uses Terraform Plugin SDK v2 for resource definitions
+- Uses **Terraform Plugin Framework** for resource definitions
 - Follows Go project layout conventions
 - Implements context-aware operations for cancellation support
 - Uses structured logging with zerolog
@@ -596,3 +596,4 @@ internal/
 |------|-------------|---------|
 | 2026-01-23 | Implementation code | Initial master design document |
 | 2026-01-23 | dns-server-select-per-server-edns | Updated DNSServerSelect to use `[]DNSServer` for per-server EDNS; aligned Client layer with Parser layer; updated EDNS handling notes |
+| 2026-02-01 | Implementation Audit | Update to Terraform Plugin Framework (not SDK v2) |

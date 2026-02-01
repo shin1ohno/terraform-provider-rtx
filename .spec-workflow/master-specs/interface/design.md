@@ -6,19 +6,19 @@ This document describes the technical design and implementation of network inter
 
 ## Resource Summary
 
-| Resource | Resource File | Service File | Parser File |
-|----------|--------------|--------------|-------------|
-| rtx_interface | resource_rtx_interface.go | interface_service.go | interface_config.go |
-| rtx_ipv6_interface | resource_rtx_ipv6_interface.go | ipv6_interface_service.go | ipv6_interface.go |
-| rtx_pp_interface | resource_rtx_pp_interface.go | ppp_service.go | ppp.go |
-| rtx_vlan | resource_rtx_vlan.go | vlan_service.go | vlan.go |
-| rtx_bridge | resource_rtx_bridge.go | bridge_service.go | bridge.go |
+| Resource | Resource Directory | Service File | Parser File |
+|----------|---------------------|--------------|-------------|
+| rtx_interface | `internal/provider/resources/interface/` | interface_service.go | interface_config.go |
+| rtx_ipv6_interface | `internal/provider/resources/ipv6_interface/` | ipv6_interface_service.go | ipv6_interface.go |
+| rtx_pp_interface | `internal/provider/resources/pp_interface/` | ppp_service.go | ppp.go |
+| rtx_vlan | `internal/provider/resources/vlan/` | vlan_service.go | vlan.go |
+| rtx_bridge | `internal/provider/resources/bridge/` | bridge_service.go | bridge.go |
 
 ## Steering Document Alignment
 
 ### Technical Standards (tech.md)
 
-- Go 1.21+ with Terraform Plugin SDK v2
+- Go 1.21+ with **Terraform Plugin Framework** (NOT Plugin SDK v2)
 - SSH-based communication with RTX routers
 - Layered architecture: Provider -> Client -> Parser
 - Comprehensive unit and acceptance testing
@@ -27,20 +27,31 @@ This document describes the technical design and implementation of network inter
 
 ```
 internal/
-├── provider/          # Terraform resource definitions
-│   ├── resource_rtx_interface.go
-│   ├── resource_rtx_ipv6_interface.go
-│   ├── resource_rtx_pp_interface.go
-│   ├── resource_rtx_vlan.go
-│   └── resource_rtx_bridge.go
-├── client/           # RTX client services
-│   ├── interfaces.go        # Type definitions
+├── provider/
+│   └── resources/                    # Terraform resource definitions
+│       ├── interface/
+│       │   ├── resource.go           # Resource implementation
+│       │   └── model.go              # Terraform model with ToClient/FromClient
+│       ├── ipv6_interface/
+│       │   ├── resource.go
+│       │   └── model.go
+│       ├── pp_interface/
+│       │   ├── resource.go
+│       │   └── model.go
+│       ├── vlan/
+│       │   ├── resource.go
+│       │   └── model.go
+│       └── bridge/
+│           ├── resource.go
+│           └── model.go
+├── client/                           # RTX client services
+│   ├── interfaces.go                 # Type definitions
 │   ├── interface_service.go
 │   ├── ipv6_interface_service.go
 │   ├── vlan_service.go
 │   └── bridge_service.go
 └── rtx/
-    └── parsers/      # RTX output parsers
+    └── parsers/                      # RTX output parsers
         ├── interface_config.go
         ├── ipv6_interface.go
         ├── vlan.go
@@ -221,17 +232,14 @@ func (s *BridgeService) ListBridges(ctx context.Context) ([]BridgeConfig, error)
 
 ```go
 type InterfaceConfig struct {
-    Name              string       `json:"name"`                   // Interface name
-    Description       string       `json:"description,omitempty"`
-    IPAddress         *InterfaceIP `json:"ip_address,omitempty"`
-    SecureFilterIn    []int        `json:"secure_filter_in,omitempty"`
-    SecureFilterOut   []int        `json:"secure_filter_out,omitempty"`
-    DynamicFilterOut  []int        `json:"dynamic_filter_out,omitempty"`
-    EthernetFilterIn  []int        `json:"ethernet_filter_in,omitempty"`
-    EthernetFilterOut []int        `json:"ethernet_filter_out,omitempty"`
-    NATDescriptor     int          `json:"nat_descriptor,omitempty"`
-    ProxyARP          bool         `json:"proxyarp"`
-    MTU               int          `json:"mtu,omitempty"`
+    Name          string       `json:"name"`                   // Interface name
+    Description   string       `json:"description,omitempty"`
+    IPAddress     *InterfaceIP `json:"ip_address,omitempty"`
+    NATDescriptor int          `json:"nat_descriptor,omitempty"`
+    ProxyARP      bool         `json:"proxyarp"`
+    MTU           int          `json:"mtu,omitempty"`
+    // Note: Filter attributes (SecureFilterIn/Out, DynamicFilterOut, EthernetFilterIn/Out)
+    // are not yet implemented
 }
 
 type InterfaceIP struct {
@@ -667,3 +675,4 @@ resource "rtx_bridge" "internal" {
 |------|--------|---------|
 | 2025-01-23 | Implementation Analysis | Initial master design from codebase analysis |
 | 2026-01-25 | Implementation Sync | Add computed `interface_name` for rtx_interface/rtx_bridge, `pp_interface` for rtx_pp_interface |
+| 2026-02-01 | Implementation Audit | Update to Plugin Framework, modular file structure, mark filter attributes as not implemented |

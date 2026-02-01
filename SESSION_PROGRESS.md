@@ -301,3 +301,78 @@ All examples now pass `terraform validate` (with only provider override warnings
 ### Files Modified
 - 18 example main.tf files updated
 - 2 variables.tf files deleted (bgp, ospf)
+
+---
+
+## Session: 2026-02-01 - Master Spec Audit and Sync
+
+### Objective
+Audit and update all 12 master specs to accurately reflect the current implementation.
+
+### Summary of Updates
+
+#### Plugin Framework Updates (All Specs)
+Changed "Terraform Plugin SDK v2" to "**Terraform Plugin Framework**" in:
+- interface/design.md
+- routing/design.md
+- management/design.md
+- admin/design.md
+- dhcp/design.md
+- dns/design.md
+- ppp/design.md
+- qos/design.md
+- nat/design.md
+- access-list/design.md (date fix)
+
+#### Interface Spec
+- Marked 5 filter attributes as **not yet implemented**:
+  - `secure_filter_in`, `secure_filter_out`
+  - `dynamic_filter_out`
+  - `ethernet_filter_in`, `ethernet_filter_out`
+- Updated file structure to modular pattern
+
+#### Routing Spec
+- Fixed BGP neighbor attribute: `id` → `index`
+- Fixed OSPF area attribute: `id` → `area_id`
+- Updated schema examples
+
+#### Management Spec
+- Marked `rtx_sftpd` as **not implemented**
+- Added status column to Resources Summary table
+
+#### PPP Spec
+- Marked `secure_filter_in` and `secure_filter_out` as **not yet implemented** in requirements.md
+
+#### DHCP Spec
+- Clarified `hostname` and `description` are "**Terraform-only, not sent to router**"
+
+#### VPN Spec (Already Updated)
+- `rtx_tunnel` unified resource already documented
+- Deprecation notices already in place for `rtx_ipsec_tunnel` and `rtx_l2tp`
+
+### Files Modified
+
+| Spec | requirements.md | design.md |
+|------|-----------------|-----------|
+| interface | ✅ | ✅ |
+| routing | ✅ | ✅ |
+| management | ✅ | ✅ |
+| admin | - | ✅ |
+| dhcp | - | ✅ |
+| dns | - | ✅ |
+| ppp | ✅ | ✅ |
+| qos | - | ✅ |
+| nat | - | ✅ |
+| ipv6 | - | - (already correct) |
+| access-list | - | ✅ (date fix) |
+| vpn | ✅ (already updated) | ✅ (already updated) |
+
+### Key Findings
+
+1. **All resources use Terraform Plugin Framework**, not the deprecated SDK v2
+2. **Some documented attributes are not yet implemented**:
+   - Interface: 5 filter attributes
+   - PPP: secure_filter_in/out
+   - Management: rtx_sftpd resource
+3. **File structure has been modernized** to `internal/provider/resources/{name}/` pattern
+4. **Attribute naming issues** in routing spec (id vs index, id vs area_id)

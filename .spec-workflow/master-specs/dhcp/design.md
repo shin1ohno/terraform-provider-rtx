@@ -18,7 +18,7 @@ The DHCP resources (`rtx_dhcp_scope` and `rtx_dhcp_binding`) implement complete 
 ## Steering Document Alignment
 
 ### Technical Standards (tech.md)
-- Uses terraform-plugin-sdk/v2 for provider implementation
+- Uses **Terraform Plugin Framework** (NOT terraform-plugin-sdk/v2)
 - Follows Go 1.23 module patterns
 - SSH-based communication with RTX routers
 - Stateless SSH sessions (new connection per operation)
@@ -370,8 +370,8 @@ func resourceRTXDHCPBinding() *schema.Resource
 | `mac_address` | String | Optional | Yes | Device MAC address |
 | `use_mac_as_client_id` | Bool | Optional | Yes | Use ethernet prefix |
 | `client_identifier` | String | Optional | Yes | Custom client identifier |
-| `hostname` | String | Optional | Yes | Device hostname (documentation) |
-| `description` | String | Optional | Yes | Binding description (documentation) |
+| `hostname` | String | Optional | Yes | Device hostname (Terraform-only, not sent to router) |
+| `description` | String | Optional | Yes | Binding description (Terraform-only, not sent to router) |
 
 ### Conflicts Configuration
 - `mac_address` conflicts with `client_identifier`
@@ -740,3 +740,4 @@ internal/
 |------|-------------|---------|
 | 2026-01-23 | Implementation analysis | Initial master design creation from implementation code |
 | 2026-01-23 | terraform-plan-differences-fix | Added network address calculation from IP range; documented line wrapping handling; added range_start/range_end to data model |
+| 2026-02-01 | Implementation Audit | Update to Plugin Framework, clarify hostname/description are Terraform-only |

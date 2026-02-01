@@ -431,7 +431,7 @@ resource "rtx_bgp" "main" {
   router_id = "10.0.0.1"
 
   neighbor {
-    id        = 1
+    index     = 1
     ip        = "10.0.0.2"
     remote_as = "65002"
     hold_time = 90
@@ -439,7 +439,7 @@ resource "rtx_bgp" "main" {
   }
 
   neighbor {
-    id        = 2
+    index     = 2
     ip        = "10.0.0.3"
     remote_as = "65003"
     multihop  = 2
@@ -468,12 +468,12 @@ resource "rtx_ospf" "backbone" {
   router_id = "1.1.1.1"
 
   area {
-    id   = "0"
-    type = "normal"
+    area_id = "0"
+    type    = "normal"
   }
 
   area {
-    id         = "1"
+    area_id    = "1"
     type       = "stub"
     no_summary = true
   }
@@ -566,3 +566,4 @@ resource "rtx_static_route" "vpn_route" {
 | Date | Source Spec | Changes |
 |------|-------------|---------|
 | 2025-01-23 | Initial | Created from implementation code analysis |
+| 2026-02-01 | Implementation Audit | Fix attribute names: neighbor.id→index, area.id→area_id |

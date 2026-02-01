@@ -29,7 +29,7 @@ Admin resources provide Terraform management for RTX router authentication and u
 ## Steering Document Alignment
 
 ### Technical Standards (tech.md)
-- Uses standard Terraform Plugin SDK v2
+- Uses **Terraform Plugin Framework** (NOT Plugin SDK v2)
 - Follows Go idiomatic error handling patterns
 - Implements context-aware operations with cancellation support
 - Password fields marked as sensitive for security
@@ -711,3 +711,4 @@ sequenceDiagram
 |------|-------------|---------|
 | 2026-01-23 | Implementation Analysis | Initial master design created from implementation code |
 | 2026-01-23 | terraform-plan-differences-fix | RTX grep compatibility (no OR operator); documented attribute-only updates for imported users |
+| 2026-02-01 | Implementation Audit | Update to Plugin Framework |

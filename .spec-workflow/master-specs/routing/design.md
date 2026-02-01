@@ -42,7 +42,7 @@ The routing resources provide comprehensive IP routing management for Yamaha RTX
 ## Steering Document Alignment
 
 ### Technical Standards (tech.md)
-- **terraform-plugin-sdk/v2**: All resources use SDK v2 for CRUD operations and schema definition
+- **Terraform Plugin Framework**: All resources use Plugin Framework for CRUD operations and schema definition
 - **SSH Communication**: Commands executed via SSH session using Executor interface
 - **Stateless Sessions**: Each operation creates fresh SSH connection for reliability
 - **Parser Registry Pattern**: Parsers are modular and isolated for testability
@@ -262,7 +262,7 @@ type BGPConfig struct {
 }
 
 type BGPNeighbor struct {
-    ID           int    `json:"id"`                      // Neighbor ID (1-based)
+    Index        int    `json:"index"`                   // Neighbor index (1-based)
     IP           string `json:"ip"`                      // Neighbor IP address
     RemoteAS     string `json:"remote_as"`               // Remote AS number
     HoldTime     int    `json:"hold_time,omitempty"`     // 3-65535 seconds
@@ -301,7 +301,7 @@ type OSPFNetwork struct {
 }
 
 type OSPFArea struct {
-    ID        string `json:"id"`                   // "0" or "0.0.0.0"
+    AreaID    string `json:"area_id"`              // "0" or "0.0.0.0"
     Type      string `json:"type,omitempty"`       // "normal", "stub", "nssa"
     NoSummary bool   `json:"no_summary,omitempty"` // Totally stubby/NSSA
 }
@@ -342,7 +342,7 @@ resource "rtx_bgp" "example" {
   router_id = "10.0.0.1"                 # Optional, IPv4 address
 
   neighbor {
-    id            = 1                    # Required, int >= 1
+    index         = 1                    # Required, int >= 1
     ip            = "10.0.0.2"           # Required, IPv4 address
     remote_as     = "65002"              # Required, string
     hold_time     = 90                   # Optional, 3-65535
@@ -371,7 +371,7 @@ resource "rtx_ospf" "example" {
   distance   = 110                       # Optional, 1-255, computed
 
   area {
-    id         = "0"                     # Required, decimal or dotted
+    area_id    = "0"                     # Required, decimal or dotted
     type       = "normal"                # Optional: normal/stub/nssa
     no_summary = false                   # Optional, computed
   }
@@ -589,3 +589,4 @@ internal/
 | Date | Source Spec | Changes |
 |------|-------------|---------|
 | 2025-01-23 | Implementation | Initial design from code analysis |
+| 2026-02-01 | Implementation Audit | Update to Plugin Framework, fix attribute names (neighbor.index, area.area_id) |

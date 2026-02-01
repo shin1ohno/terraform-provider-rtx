@@ -20,7 +20,7 @@ The PPPoE resource implementation enables Terraform-based management of PPP over
 ### Technical Standards (tech.md)
 
 - **Go 1.23**: Implementation uses standard Go patterns
-- **terraform-plugin-sdk/v2**: Resource uses standard SDK v2 schema and CRUD contexts
+- **Terraform Plugin Framework**: Resource uses modern Plugin Framework schema and CRUD contexts
 - **Stateless Communication**: Each operation establishes fresh SSH connection
 - **Credential Security**: Password marked sensitive; not logged or read from router
 - **State Handling**: Only configuration attributes persisted; no operational status
@@ -576,3 +576,4 @@ internal/
 |------|-------------|---------|
 | 2026-01-23 | Implementation-based | Initial master design created from existing implementation |
 | 2026-01-25 | Implementation Sync | Add computed `pp_interface` attribute for resource references |
+| 2026-02-01 | Implementation Audit | Update to Terraform Plugin Framework (not SDK v2) |
