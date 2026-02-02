@@ -7,17 +7,17 @@ Terraform Provider plugin for Yamaha RTX series routers. This is a Go-based infr
 ## Core Technologies
 
 ### Primary Language(s)
-- **Language**: Go 1.23
-- **Toolchain**: go1.23.12
+- **Language**: Go 1.24
+- **Toolchain**: go1.24.12
 - **Package Management**: Go modules (go.mod/go.sum)
 
 ### Key Dependencies/Libraries
-- **terraform-plugin-sdk/v2 v2.37.0**: HashiCorp's SDK for building Terraform providers
-- **terraform-plugin-go v0.27.0**: Low-level Terraform plugin protocol implementation
-- **terraform-plugin-log v0.9.0**: Structured logging for Terraform providers
-- **golang.org/x/crypto**: SSH client implementation for RTX router communication
-- **hcl/v2 v2.23.0**: HashiCorp Configuration Language parser
-- **go-cty v1.16.2**: Type system for Terraform values
+- **terraform-plugin-framework v1.16.1**: HashiCorp's Plugin Framework for building Terraform providers (next-gen replacement for SDK)
+- **terraform-plugin-framework-validators v0.19.0**: Validators for Plugin Framework schemas
+- **terraform-plugin-go v0.29.0**: Low-level Terraform plugin protocol implementation
+- **golang.org/x/crypto v0.42.0**: SSH client implementation for RTX router communication
+- **rs/zerolog v1.34.0**: Structured logging library
+- **pkg/sftp v1.13.10**: SFTP client for file operations
 - **stretchr/testify v1.10.0**: Testing utilities and assertions
 
 ### Application Architecture
@@ -100,10 +100,11 @@ Terraform Provider plugin for Yamaha RTX series routers. This is a Go-based infr
 ## Technical Decisions & Rationale
 
 ### Decision Log
-1. **terraform-plugin-sdk/v2 over plugin-framework**: SDK v2 chosen for mature ecosystem and extensive documentation; migration to framework possible in future
+1. **terraform-plugin-framework over SDK v2**: Migrated to Plugin Framework for better type safety, improved ergonomics, and HashiCorp's recommended approach for new providers
 2. **SSH over Telnet/API**: SSH provides encryption, authentication, and is universally supported on RTX routers; no REST API available on RTX
 3. **Parser Registry Pattern**: Enables modular parsing of different RTX CLI outputs; each feature can register its own parsers
-4. **SSH Session Pooling**: Reusable SSH session pool to reduce connection overhead; configurable via provider settings (max_sessions, idle_timeout)
+4. **SSH Session Pooling**: Reusable SSH session pool to reduce connection overhead; configurable via provider settings (max_parallelism)
+5. **Modular Resource Structure**: Each resource in `internal/provider/resources/{name}/` with `resource.go` + `model.go` pattern for clear separation of concerns
 
 ## Known Limitations
 

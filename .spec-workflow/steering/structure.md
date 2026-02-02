@@ -7,32 +7,37 @@ terraform-provider-rtx/
 ├── internal/                    # Private implementation packages
 │   ├── client/                  # RTX router SSH client and services
 │   │   ├── client.go            # Main RTX client implementation
-│   │   ├── ssh_dialer.go        # SSH connection management
+│   │   ├── ssh_dialer.go        # SSH connection management with key auth
 │   │   ├── ssh_session_pool.go  # SSH session pooling for connection reuse
 │   │   ├── rtx_session.go       # RTX terminal session handling
 │   │   ├── executor.go          # Command execution interface
 │   │   ├── *_service.go         # Feature-specific service implementations
 │   │   ├── errors.go            # Custom error types
 │   │   └── interfaces.go        # Shared interfaces
-│   ├── provider/                # Terraform provider implementation
-│   │   ├── provider.go          # Provider configuration and setup
-│   │   ├── resource_rtx_*.go    # Resource implementations
-│   │   └── data_source_rtx_*.go # Data source implementations
+│   ├── provider/                # Terraform provider implementation (Plugin Framework)
+│   │   ├── provider_framework.go # Main provider definition
+│   │   ├── resources/           # Resource implementations (modular structure)
+│   │   │   └── {name}/          # One directory per resource
+│   │   │       ├── resource.go  # Resource CRUD, schema, validators
+│   │   │       └── model.go     # Data model with ToClient/FromClient
+│   │   ├── datasources/         # Data source implementations
+│   │   ├── fwhelpers/           # Framework helper functions
+│   │   ├── validation/          # Custom schema validators
+│   │   ├── validators/          # Attribute validators
+│   │   ├── planmodifiers/       # Custom plan modifiers
+│   │   └── acctest/             # Acceptance test helpers
 │   ├── logging/                 # Structured logging utilities
 │   │   └── logger.go            # Zerolog-based logging with context
 │   └── rtx/                     # RTX-specific utilities
 │       ├── parsers/             # CLI output parsers
-│       │   ├── registry.go      # Parser registry pattern
-│       │   └── *.go             # Feature-specific parsers
+│       │   ├── service.go       # Parser implementations
+│       │   └── *_test.go        # Parser tests
 │       └── testdata/            # Test fixtures for parsers
 ├── examples/                    # Terraform configuration examples
-│   ├── provider/                # Provider configuration example
-│   ├── dhcp/                    # DHCP binding example
-│   └── dhcp_scope/              # DHCP scope example
-├── docs/                        # Documentation
-│   └── RTX-commands/            # RTX CLI command reference (Japanese)
-├── test/                        # Integration test infrastructure
-│   └── docker/                  # RTX simulator for testing
+│   └── {resource}/              # One directory per resource
+├── docs/                        # Generated documentation (tfplugindocs)
+│   ├── resources/               # Resource documentation
+│   └── data-sources/            # Data source documentation
 ├── main.go                      # Provider entry point
 ├── Makefile                     # Build automation
 ├── go.mod                       # Go module definition
@@ -42,10 +47,10 @@ terraform-provider-rtx/
 ## Naming Conventions
 
 ### Files
-- **Resources**: `resource_rtx_<feature>.go` (e.g., `resource_rtx_dhcp_binding.go`)
-- **Data Sources**: `data_source_rtx_<feature>.go` (e.g., `data_source_rtx_interfaces.go`)
-- **Services**: `<feature>_service.go` (e.g., `dhcp_service.go`, `config_service.go`)
-- **Parsers**: `<feature>.go` in parsers package (e.g., `dhcp_bindings.go`)
+- **Resources**: `internal/provider/resources/{name}/resource.go` + `model.go` (e.g., `resources/vlan/`)
+- **Data Sources**: `internal/provider/datasources/{name}.go`
+- **Services**: `internal/client/{feature}_service.go` (e.g., `dhcp_service.go`, `config_service.go`)
+- **Parsers**: Functions in `internal/rtx/parsers/service.go` (e.g., `ParseVLAN()`)
 - **Tests**: `<filename>_test.go` (standard Go convention)
 
 ### Code
@@ -87,31 +92,69 @@ main.go
 
 ## Code Structure Patterns
 
-### Resource Implementation Pattern
+### Resource Implementation Pattern (Plugin Framework)
 ```go
-// resource_rtx_<feature>.go
+// internal/provider/resources/{name}/resource.go
 
-func resourceRtx<Feature>() *schema.Resource {
-    return &schema.Resource{
-        CreateContext: resourceRtx<Feature>Create,
-        ReadContext:   resourceRtx<Feature>Read,
-        UpdateContext: resourceRtx<Feature>Update,
-        DeleteContext: resourceRtx<Feature>Delete,
-        Importer: &schema.ResourceImporter{
-            StateContext: resourceRtx<Feature>Import,
-        },
-        Schema: map[string]*schema.Schema{
-            // Field definitions
+type <Feature>Resource struct {
+    client *client.Client
+}
+
+var (
+    _ resource.Resource                = &<Feature>Resource{}
+    _ resource.ResourceWithImportState = &<Feature>Resource{}
+)
+
+func New<Feature>Resource() resource.Resource {
+    return &<Feature>Resource{}
+}
+
+func (r *<Feature>Resource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+    resp.TypeName = req.ProviderTypeName + "_<feature>"
+}
+
+func (r *<Feature>Resource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+    resp.Schema = schema.Schema{
+        Description: "...",
+        Attributes: map[string]schema.Attribute{
+            // Attribute definitions with validators
         },
     }
 }
 
-func resourceRtx<Feature>Create(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-    client := meta.(*client.RTXClient)
-    // 1. Extract values from ResourceData
-    // 2. Call client service method
-    // 3. Set resource ID
-    // 4. Call Read to populate state
+func (r *<Feature>Resource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+    // Extract client from fwhelpers.ProviderData
+}
+
+func (r *<Feature>Resource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+    // 1. Get plan data into model
+    // 2. Convert via model.ToClient()
+    // 3. Call client service method
+    // 4. Update model via model.FromClient()
+    // 5. Set state
+}
+```
+
+### Model Pattern (Plugin Framework)
+```go
+// internal/provider/resources/{name}/model.go
+
+type <Feature>Model struct {
+    ID          types.String `tfsdk:"id"`
+    Name        types.String `tfsdk:"name"`
+    // ... other fields
+}
+
+func (m *<Feature>Model) ToClient() *client.<Feature>Config {
+    // Convert Terraform model to client struct
+}
+
+func (m *<Feature>Model) FromClient(data *client.<Feature>) {
+    // Update Terraform model from client struct
+}
+
+func (m *<Feature>Model) ID() string {
+    return m.ID.ValueString()
 }
 ```
 
@@ -137,14 +180,9 @@ func (c *RTXClient) Create<Feature>(ctx context.Context, config *<Feature>Config
 
 ### Parser Implementation Pattern
 ```go
-// internal/rtx/parsers/<feature>.go
+// internal/rtx/parsers/service.go
 
-func init() {
-    // Register parser in global registry
-    RegisterParser("<feature>", Parse<Feature>)
-}
-
-func Parse<Feature>(output string) (interface{}, error) {
+func Parse<Feature>(output string) ([]<Feature>, error) {
     // 1. Split output into lines
     // 2. Apply regex patterns
     // 3. Build structured result
@@ -155,13 +193,16 @@ func Parse<Feature>(output string) (interface{}, error) {
 ## Module Boundaries
 
 ### Public API (Terraform Interface)
-- `provider.go`: Provider configuration schema
-- `resource_rtx_*.go`: Resource schemas and CRUD operations
-- `data_source_rtx_*.go`: Data source schemas and read operations
+- `provider_framework.go`: Provider configuration schema and resource/datasource registration
+- `resources/{name}/resource.go`: Resource schemas and CRUD operations
+- `datasources/{name}.go`: Data source schemas and read operations
 
 ### Internal Implementation
 - `client/`: SSH connection, command execution, RTX communication
-- `parsers/`: CLI output parsing (isolated, testable)
+- `rtx/parsers/`: CLI output parsing (isolated, testable)
+- `fwhelpers/`: Plugin Framework helper utilities
+- `validation/`, `validators/`: Custom schema validators
+- `planmodifiers/`: Custom plan modifiers
 
 ### Dependency Rules
 1. Provider package may import client and parsers
@@ -179,18 +220,21 @@ func Parse<Feature>(output string) (interface{}, error) {
 ## Adding New Features
 
 ### New Resource Checklist
-1. Create `internal/provider/resource_rtx_<feature>.go`
-2. Create `internal/client/<feature>_service.go`
-3. Create `internal/rtx/parsers/<feature>.go`
-4. Register resource in `provider.go` ResourcesMap
-5. Add example in `examples/<feature>/`
-6. Add tests for parser, service, and resource
+1. Create `internal/provider/resources/{name}/` directory
+2. Create `model.go` with data model and ToClient/FromClient conversion methods
+3. Create `resource.go` implementing the resource.Resource interface
+4. Add service method in `internal/client/{feature}_service.go` if needed
+5. Add parser function in `internal/rtx/parsers/service.go` if needed
+6. Register resource in `provider_framework.go` Resources() method
+7. Add example in `examples/{resource}/`
+8. Run `go generate ./...` to generate documentation
+9. Add tests for parser, service, and resource
 
 ### New Data Source Checklist
-1. Create `internal/provider/data_source_rtx_<feature>.go`
+1. Create `internal/provider/datasources/{name}.go`
 2. Add service method in `internal/client/`
-3. Create parser if needed in `internal/rtx/parsers/`
-4. Register data source in `provider.go` DataSourcesMap
+3. Create parser function in `internal/rtx/parsers/service.go` if needed
+4. Register data source in `provider_framework.go` DataSources() method
 5. Add tests
 
 ## Documentation Standards
