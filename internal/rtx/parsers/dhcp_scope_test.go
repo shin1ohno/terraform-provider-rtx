@@ -82,6 +82,7 @@ func TestParseScopeConfig(t *testing.T) {
 					RangeEnd:      "192.168.1.99",
 					LeaseTime:     "12h",
 					ExcludeRanges: []ExcludeRange{},
+					Options:       DHCPScopeOptions{Routers: []string{"192.168.1.253"}},
 				},
 			},
 		},

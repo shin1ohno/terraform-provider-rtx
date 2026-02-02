@@ -1,0 +1,768 @@
+# DHCP Scope Command Specification
+# Reference: RTX Command Reference 12.1.4, 12.1.8
+#
+# Design decisions:
+# - maxexpire フィールドは未実装 → struct_additions で追加、テストはRedから開始
+# - gateway（レガシー形式）は Options.Routers に変換して処理
+# - hostname (option 12), wins_server (option 44) は未実装 → struct_additions で追加
+# - vRX では netmask が /16〜/32 に制限
+
+command:
+  name: dhcp_scope
+  description: "DHCPスコープの定義"
+  reference: "12.1.4"
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  syntax:
+    set: "dhcp scope {scope_num} {ip_range}/{netmask} [except {ex_ip}...] [gateway {gw_ip}] [expire {time}] [maxexpire {time}]"
+    delete: "no dhcp scope {scope_num}"
+
+  terraform:
+    resource_name: rtx_dhcp_scope
+    struct_name: DHCPScope
+    package: parsers
+
+    # 既存構造体に追加が必要なフィールド
+    struct_additions:
+      DHCPScope:
+        - name: MaxLeaseTime
+          type: string
+          json_tag: "max_lease_time,omitempty"
+          description: "最大リース期間（DHCPクライアント要求時の上限）"
+
+      DHCPScopeOptions:
+        - name: Hostname
+          type: string
+          json_tag: "hostname,omitempty"
+          description: "ホスト名（DHCP option 12）"
+        - name: WINSServers
+          type: "[]string"
+          json_tag: "wins_servers,omitempty"
+          description: "WINSサーバー（DHCP option 44、最大3つ）"
+
+  parameters:
+    scope_num:
+      description: "スコープ番号"
+      required: true
+      type: integer
+      range: [1, 65535]
+      terraform_field: "scope_id"
+      boundaries: [1, 100, 1000, 65535]
+
+    ip_range:
+      description: "IPアドレス範囲"
+      required: true
+      variants:
+        - type: cidr
+          pattern: "{network}/{prefix}"
+          description: "ネットワーク/プレフィックス（例: 192.168.1.0/24）"
+          terraform_fields:
+            network: "network"
+        - type: pattern
+          pattern: "{start_ip}-{end_ip}/{prefix}"
+          description: "IP範囲/プレフィックス（例: 192.168.1.1-192.168.1.100/24）"
+          terraform_fields:
+            range_start: "range_start"
+            range_end: "range_end"
+            network: "network"  # calculated from start_ip and prefix
+
+    netmask:
+      description: "ネットマスク"
+      required: true
+      variants:
+        - type: pattern
+          pattern: "{prefix_length}"
+          description: "プレフィックス長（0-32）"
+        - type: pattern
+          pattern: "{dotted_decimal}"
+          description: "ドット十進数（例: 255.255.255.0）"
+        - type: pattern
+          pattern: "0x{hex}"
+          description: "16進数（例: 0xffffff00）"
+      model_constraints:
+        vRX:
+          prefix_range: [16, 32]
+          description: "vRXではプレフィックス長は/16〜/32のみ"
+
+    except:
+      description: "除外IPアドレス"
+      required: false
+      type: array
+      variants:
+        - type: ip_address
+          description: "単一IPアドレス"
+        - type: pattern
+          pattern: "{start_ip}-{end_ip}"
+          description: "IP範囲"
+      terraform_field: "exclude_ranges"
+
+    gateway:
+      description: "ゲートウェイIPアドレス（レガシー形式）"
+      required: false
+      type: ip_address
+      terraform_field: "options.routers"
+      note: "現在はdhcp scope optionのrouter=で設定することを推奨"
+
+    expire:
+      description: "リース期間"
+      required: false
+      variants:
+        - type: pattern
+          pattern: "{minutes}"
+          description: "分単位"
+          range: [1, 21474836]
+        - type: pattern
+          pattern: "{hours}:{minutes}"
+          description: "時:分形式"
+        - type: keyword
+          value: "infinity"
+          description: "無期限"
+      default: "72:00"
+      terraform_field: "lease_time"
+      boundaries: [1, 60, 1440, 21474836]  # 1分, 1時間, 1日, 最大値
+
+    maxexpire:
+      description: "最大リース期間（クライアント要求時の上限）"
+      required: false
+      variants:
+        - type: pattern
+          pattern: "{minutes}"
+          description: "分単位"
+          range: [1, 21474836]
+        - type: pattern
+          pattern: "{hours}:{minutes}"
+          description: "時:分形式"
+        - type: keyword
+          value: "infinity"
+          description: "無期限"
+      default: "72:00"
+      terraform_field: "max_lease_time"
+      note: "未実装 - struct_additionsで追加予定"
+
+  # =============================================================================
+  # Level 1: Syntax Pattern Tests (構文パターン網羅)
+  # =============================================================================
+  syntax_tests:
+    # --- Basic scope patterns ---
+    - name: basic_scope_cidr24
+      rtx: "dhcp scope 1 192.168.1.0/24"
+      terraform:
+        scope_id: 1
+        network: "192.168.1.0/24"
+        exclude_ranges: []
+
+    - name: basic_scope_cidr16
+      rtx: "dhcp scope 2 192.168.0.0/16"
+      terraform:
+        scope_id: 2
+        network: "192.168.0.0/16"
+        exclude_ranges: []
+
+    - name: basic_scope_cidr8
+      rtx: "dhcp scope 3 10.0.0.0/8"
+      terraform:
+        scope_id: 3
+        network: "10.0.0.0/8"
+        exclude_ranges: []
+      model_constraints:
+        invalid_for: [vRX]  # vRXでは/16未満は無効
+
+    # --- Scope with IP range format ---
+    - name: scope_ip_range_format
+      rtx: "dhcp scope 1 192.168.1.20-192.168.1.99/24"
+      terraform:
+        scope_id: 1
+        network: "192.168.1.0/24"
+        range_start: "192.168.1.20"
+        range_end: "192.168.1.99"
+        exclude_ranges: []
+
+    - name: scope_ip_range_format_16
+      rtx: "dhcp scope 1 192.168.1.20-192.168.1.99/16"
+      terraform:
+        scope_id: 1
+        network: "192.168.0.0/16"
+        range_start: "192.168.1.20"
+        range_end: "192.168.1.99"
+        exclude_ranges: []
+
+    # --- Scope with gateway (legacy format) ---
+    # Note: gateway in scope command is legacy; modern RTX uses "dhcp scope option" with router=
+    # Build output does NOT include gateway; gateway should be set via dhcp scope option command
+    - name: scope_with_gateway_legacy
+      rtx: "dhcp scope 1 192.168.1.0/24 gateway 192.168.1.1"
+      terraform:
+        scope_id: 1
+        network: "192.168.1.0/24"
+        options:
+          routers: ["192.168.1.1"]
+        exclude_ranges: []
+      parse_only: true  # Build does not output gateway
+
+    - name: scope_ip_range_with_gateway
+      rtx: "dhcp scope 1 192.168.1.20-192.168.1.99/16 gateway 192.168.1.253"
+      terraform:
+        scope_id: 1
+        network: "192.168.0.0/16"
+        range_start: "192.168.1.20"
+        range_end: "192.168.1.99"
+        options:
+          routers: ["192.168.1.253"]
+        exclude_ranges: []
+      parse_only: true  # Build does not output gateway
+
+    # --- Scope with expire ---
+    - name: scope_with_expire_hours_minutes
+      rtx: "dhcp scope 1 192.168.1.0/24 expire 24:00"
+      terraform:
+        scope_id: 1
+        network: "192.168.1.0/24"
+        lease_time: "24h"
+        exclude_ranges: []
+
+    - name: scope_with_expire_72h
+      rtx: "dhcp scope 1 192.168.1.0/24 expire 72:00"
+      terraform:
+        scope_id: 1
+        network: "192.168.1.0/24"
+        lease_time: "72h"
+        exclude_ranges: []
+
+    - name: scope_with_expire_minutes
+      rtx: "dhcp scope 1 192.168.1.0/24 expire 0:30"
+      terraform:
+        scope_id: 1
+        network: "192.168.1.0/24"
+        lease_time: "30m"
+        exclude_ranges: []
+
+    # Note: RTX uses "infinity" keyword but parser converts to "infinite" (convertRTXLeaseTimeToGo)
+    # Actually, parser returns raw value if not "h:mm" format, so "infinity" → "infinity"
+    - name: scope_with_expire_infinity
+      rtx: "dhcp scope 1 192.168.1.0/24 expire infinity"
+      terraform:
+        scope_id: 1
+        network: "192.168.1.0/24"
+        lease_time: "infinity"  # Parser returns "infinity" as-is (not h:mm format)
+        exclude_ranges: []
+
+    # --- Scope with maxexpire ---
+    - name: scope_with_maxexpire
+      rtx: "dhcp scope 1 192.168.1.0/24 expire 72:00 maxexpire 168:00"
+      terraform:
+        scope_id: 1
+        network: "192.168.1.0/24"
+        lease_time: "72h"
+        max_lease_time: "168h"
+        exclude_ranges: []
+
+    - name: scope_full_with_maxexpire
+      rtx: "dhcp scope 1 192.168.1.0/24 gateway 192.168.1.1 expire 72:00 maxexpire 168:00"
+      terraform:
+        scope_id: 1
+        network: "192.168.1.0/24"
+        options:
+          routers: ["192.168.1.1"]
+        lease_time: "72h"
+        max_lease_time: "168h"
+        exclude_ranges: []
+      parse_only: true  # Build does not output gateway
+
+    # --- Scope with gateway and expire ---
+    # Note: The scopeExpireOnlyPattern may match before scopePattern, causing gateway to be missed.
+    # This is a known limitation - gateway should be set via "dhcp scope option" instead.
+    - name: scope_with_gateway_and_expire
+      rtx: "dhcp scope 1 192.168.1.0/24 gateway 192.168.1.1 expire 72:00"
+      terraform:
+        scope_id: 1
+        network: "192.168.1.0/24"
+        options:
+          routers: ["192.168.1.1"]
+        lease_time: "72h"
+        exclude_ranges: []
+      parse_only: true  # Build does not output gateway
+
+    - name: scope_ip_range_with_gateway_and_expire
+      rtx: "dhcp scope 1 192.168.1.20-192.168.1.99/16 gateway 192.168.1.253 expire 12:00"
+      terraform:
+        scope_id: 1
+        network: "192.168.0.0/16"
+        range_start: "192.168.1.20"
+        range_end: "192.168.1.99"
+        options:
+          routers: ["192.168.1.253"]
+        lease_time: "12h"
+        exclude_ranges: []
+      parse_only: true  # Build does not output gateway
+
+    # --- Large scope_num values ---
+    - name: scope_max_id
+      rtx: "dhcp scope 65535 192.168.1.0/24"
+      terraform:
+        scope_id: 65535
+        network: "192.168.1.0/24"
+        exclude_ranges: []
+
+    - name: scope_large_id
+      rtx: "dhcp scope 10000 10.0.0.0/16"
+      terraform:
+        scope_id: 10000
+        network: "10.0.0.0/16"
+        exclude_ranges: []
+
+    # --- Delete command patterns (build_only) ---
+    - name: delete_scope
+      rtx: "no dhcp scope 1"
+      terraform:
+        scope_id: 1
+      build_only: true
+
+    - name: delete_scope_large_id
+      rtx: "no dhcp scope 65535"
+      terraform:
+        scope_id: 65535
+      build_only: true
+
+  # =============================================================================
+  # Level 2: Boundary Value Tests (境界値テスト)
+  # =============================================================================
+  boundary_tests:
+    scope_num:
+      - value: 1
+        valid: true
+        description: "最小値"
+      - value: 100
+        valid: true
+        description: "一般的な値"
+      - value: 65535
+        valid: true
+        description: "最大値"
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+      - value: 65536
+        valid: false
+        error_contains: "out of range"
+      - value: -1
+        valid: false
+        error_contains: "must be positive"
+
+    prefix_length:
+      - value: 8
+        valid: true
+        description: "クラスA"
+        invalid_for: [vRX]  # vRXでは/16未満は無効
+      - value: 16
+        valid: true
+        description: "クラスB（vRX最小）"
+      - value: 24
+        valid: true
+        description: "クラスC"
+      - value: 32
+        valid: true
+        description: "ホストアドレス（最大）"
+      - value: 0
+        valid: false
+        error_contains: "invalid prefix"
+      - value: 33
+        valid: false
+        error_contains: "invalid prefix"
+
+    expire_minutes:
+      - value: 1
+        valid: true
+        description: "最小値（1分）"
+      - value: 60
+        valid: true
+        description: "1時間"
+      - value: 1440
+        valid: true
+        description: "1日"
+      - value: 4320
+        valid: true
+        description: "72時間（デフォルト）"
+      - value: 21474836
+        valid: true
+        description: "最大値"
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+      - value: 21474837
+        valid: false
+        error_contains: "out of range"
+
+    dns_servers_count:
+      - value: 1
+        valid: true
+        description: "1台"
+      - value: 3
+        valid: true
+        description: "最大値（3台）"
+      - value: 4
+        valid: false
+        error_contains: "maximum 3"
+
+    routers_count:
+      - value: 1
+        valid: true
+        description: "1台"
+      - value: 3
+        valid: true
+        description: "最大値（3台）"
+      - value: 4
+        valid: false
+        error_contains: "maximum 3"
+
+  # =============================================================================
+  # Level 3: Pairwise Testing Configuration
+  # =============================================================================
+  pairwise:
+    enabled: true
+    parameters:
+      - network_format
+      - gateway
+      - expire
+      - maxexpire
+
+    parameter_values:
+      network_format:
+        - cidr          # 192.168.1.0/24
+        - ip_range      # 192.168.1.20-192.168.1.99/24
+      gateway:
+        - null          # omitted
+        - present       # gateway 192.168.1.1
+      expire:
+        - null          # omitted (default 72:00)
+        - hours_minutes # 24:00
+        - infinity      # infinity
+      maxexpire:
+        - null          # omitted
+        - hours_minutes # 168:00
+
+    constraints:
+      # maxexpire requires expire to be set
+      - condition: "maxexpire != null"
+        requires: "expire != null"
+      # expire must be <= maxexpire
+      - condition: "expire != null && maxexpire != null"
+        requires: "expire_value <= maxexpire_value"
+
+---
+# DHCP Scope Option Command Specification
+# Reference: RTX Command Reference 12.1.8
+
+command:
+  name: dhcp_scope_option
+  description: "DHCPスコープオプションの設定"
+  reference: "12.1.8"
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  syntax:
+    set: "dhcp scope option {scope_num} {option}={value} [{option}={value}...]"
+    delete: "no dhcp scope option {scope_num}"
+
+  terraform:
+    resource_name: rtx_dhcp_scope  # Same resource, different command
+    struct_name: DHCPScopeOptions
+    package: parsers
+
+  parameters:
+    scope_num:
+      description: "スコープ番号"
+      required: true
+      type: integer
+      range: [1, 65535]
+
+    option:
+      description: "オプション名またはオプション番号"
+      required: true
+      variants:
+        - type: keyword
+          value: "dns"
+          description: "DNSサーバー（option 6）"
+          terraform_field: "options.dns_servers"
+        - type: keyword
+          value: "router"
+          description: "デフォルトゲートウェイ（option 3）"
+          terraform_field: "options.routers"
+        - type: keyword
+          value: "domain"
+          description: "ドメイン名（option 15）"
+          terraform_field: "options.domain_name"
+        - type: keyword
+          value: "hostname"
+          description: "ホスト名（option 12）"
+          terraform_field: "options.hostname"
+          note: "未実装 - struct_additionsで追加予定"
+        - type: keyword
+          value: "wins_server"
+          description: "WINSサーバー（option 44）"
+          terraform_field: "options.wins_servers"
+          note: "未実装 - struct_additionsで追加予定"
+        - type: pattern
+          pattern: "{option_number}"
+          description: "オプション番号（1-49, 62-254）"
+
+  syntax_tests:
+    # --- DNS options ---
+    - name: option_dns_single
+      rtx: "dhcp scope option 1 dns=8.8.8.8"
+      terraform:
+        scope_id: 1
+        options:
+          dns_servers: ["8.8.8.8"]
+
+    - name: option_dns_multiple
+      rtx: "dhcp scope option 1 dns=8.8.8.8,8.8.4.4"
+      terraform:
+        scope_id: 1
+        options:
+          dns_servers: ["8.8.8.8", "8.8.4.4"]
+
+    - name: option_dns_three
+      rtx: "dhcp scope option 1 dns=8.8.8.8,8.8.4.4,1.1.1.1"
+      terraform:
+        scope_id: 1
+        options:
+          dns_servers: ["8.8.8.8", "8.8.4.4", "1.1.1.1"]
+
+    # --- Router options ---
+    - name: option_router_single
+      rtx: "dhcp scope option 1 router=192.168.1.1"
+      terraform:
+        scope_id: 1
+        options:
+          routers: ["192.168.1.1"]
+
+    - name: option_router_multiple
+      rtx: "dhcp scope option 1 router=192.168.1.1,192.168.1.2"
+      terraform:
+        scope_id: 1
+        options:
+          routers: ["192.168.1.1", "192.168.1.2"]
+
+    # --- Domain option ---
+    - name: option_domain
+      rtx: "dhcp scope option 1 domain=example.com"
+      terraform:
+        scope_id: 1
+        options:
+          domain_name: "example.com"
+
+    - name: option_domain_local
+      rtx: "dhcp scope option 1 domain=local.lan"
+      terraform:
+        scope_id: 1
+        options:
+          domain_name: "local.lan"
+
+    # --- Hostname option (option 12) ---
+    - name: option_hostname
+      rtx: "dhcp scope option 1 hostname=router"
+      terraform:
+        scope_id: 1
+        options:
+          hostname: "router"
+
+    # --- WINS server option (option 44) ---
+    - name: option_wins_server
+      rtx: "dhcp scope option 1 wins_server=192.168.1.10"
+      terraform:
+        scope_id: 1
+        options:
+          wins_servers: ["192.168.1.10"]
+
+    # --- Combined options ---
+    - name: option_dns_and_router
+      rtx: "dhcp scope option 1 dns=8.8.8.8 router=192.168.1.1"
+      terraform:
+        scope_id: 1
+        options:
+          dns_servers: ["8.8.8.8"]
+          routers: ["192.168.1.1"]
+
+    - name: option_all_common
+      rtx: "dhcp scope option 1 dns=192.168.1.1 router=192.168.1.254 domain=local.lan"
+      terraform:
+        scope_id: 1
+        options:
+          dns_servers: ["192.168.1.1"]
+          routers: ["192.168.1.254"]
+          domain_name: "local.lan"
+
+    - name: option_complex
+      rtx: "dhcp scope option 1 dns=8.8.8.8,8.8.4.4 router=192.168.1.1,192.168.1.2 domain=example.local"
+      terraform:
+        scope_id: 1
+        options:
+          dns_servers: ["8.8.8.8", "8.8.4.4"]
+          routers: ["192.168.1.1", "192.168.1.2"]
+          domain_name: "example.local"
+
+    # --- Option by number (option number can be used instead of keyword) ---
+    - name: option_by_number_3
+      rtx: "dhcp scope option 1 3=192.168.1.1"
+      terraform:
+        scope_id: 1
+        options:
+          routers: ["192.168.1.1"]
+      # option 3 = router (default gateway)
+
+    - name: option_by_number_6
+      rtx: "dhcp scope option 1 6=8.8.8.8,8.8.4.4"
+      terraform:
+        scope_id: 1
+        options:
+          dns_servers: ["8.8.8.8", "8.8.4.4"]
+      # option 6 = DNS servers
+
+    # --- Delete option ---
+    - name: delete_option
+      rtx: "no dhcp scope option 1"
+      terraform:
+        scope_id: 1
+      build_only: true
+
+---
+# DHCP Scope Except Command Specification
+# Reference: RTX Command Reference 12.1.4 (except clause)
+
+command:
+  name: dhcp_scope_except
+  description: "DHCPスコープの除外範囲設定"
+  reference: "12.1.4"
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  syntax:
+    set: "dhcp scope {scope_num} except {start_ip}-{end_ip}"
+    delete: "no dhcp scope {scope_num} except {start_ip}-{end_ip}"
+
+  terraform:
+    resource_name: rtx_dhcp_scope  # Same resource
+    struct_name: ExcludeRange
+    package: parsers
+
+  parameters:
+    scope_num:
+      description: "スコープ番号"
+      required: true
+      type: integer
+      range: [1, 65535]
+
+    start_ip:
+      description: "除外範囲の開始IPアドレス"
+      required: true
+      type: ip_address
+
+    end_ip:
+      description: "除外範囲の終了IPアドレス"
+      required: true
+      type: ip_address
+
+  syntax_tests:
+    - name: except_single_range
+      rtx: "dhcp scope 1 except 192.168.1.1-192.168.1.10"
+      terraform:
+        scope_id: 1
+        exclude_ranges:
+          - start: "192.168.1.1"
+            end: "192.168.1.10"
+
+    - name: except_gateway_range
+      rtx: "dhcp scope 1 except 192.168.1.250-192.168.1.254"
+      terraform:
+        scope_id: 1
+        exclude_ranges:
+          - start: "192.168.1.250"
+            end: "192.168.1.254"
+
+    - name: except_single_ip
+      rtx: "dhcp scope 1 except 192.168.1.1-192.168.1.1"
+      terraform:
+        scope_id: 1
+        exclude_ranges:
+          - start: "192.168.1.1"
+            end: "192.168.1.1"
+
+    # --- Delete except ---
+    - name: delete_except
+      rtx: "no dhcp scope 1 except 192.168.1.1-192.168.1.10"
+      terraform:
+        scope_id: 1
+        exclude_ranges:
+          - start: "192.168.1.1"
+            end: "192.168.1.10"
+      build_only: true
+
+  # Multi-line parsing tests
+  multiline_tests:
+    - name: scope_with_multiple_excepts
+      rtx: |
+        dhcp scope 1 192.168.1.0/24 expire 24:00
+        dhcp scope option 1 dns=8.8.8.8,8.8.4.4,1.1.1.1 router=192.168.1.1
+        dhcp scope 1 except 192.168.1.1-192.168.1.10
+        dhcp scope 1 except 192.168.1.250-192.168.1.254
+      terraform:
+        scope_id: 1
+        network: "192.168.1.0/24"
+        lease_time: "24h"
+        options:
+          dns_servers: ["8.8.8.8", "8.8.4.4", "1.1.1.1"]
+          routers: ["192.168.1.1"]
+        exclude_ranges:
+          - start: "192.168.1.1"
+            end: "192.168.1.10"
+          - start: "192.168.1.250"
+            end: "192.168.1.254"
+      parse_only: true
+      description: "複数行のDHCP設定をパースして1つのスコープに統合"
+
+    - name: multiple_scopes
+      rtx: |
+        dhcp scope 1 192.168.1.0/24
+        dhcp scope 2 192.168.2.0/24
+        dhcp scope option 1 dns=8.8.8.8 router=192.168.1.1
+        dhcp scope option 2 dns=1.1.1.1 router=192.168.2.1
+      terraform:
+        - scope_id: 1
+          network: "192.168.1.0/24"
+          options:
+            dns_servers: ["8.8.8.8"]
+            routers: ["192.168.1.1"]
+        - scope_id: 2
+          network: "192.168.2.0/24"
+          options:
+            dns_servers: ["1.1.1.1"]
+            routers: ["192.168.2.1"]
+      parse_only: true
+      description: "複数スコープのパース"

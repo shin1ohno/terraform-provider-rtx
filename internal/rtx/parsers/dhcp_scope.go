@@ -10,19 +10,22 @@ import (
 // DHCPScope represents a DHCP scope configuration on an RTX router
 type DHCPScope struct {
 	ScopeID       int              `json:"scope_id"`
-	Network       string           `json:"network"`                  // CIDR notation: "192.168.1.0/24"
-	RangeStart    string           `json:"range_start,omitempty"`    // Start IP of allocation range (if specified)
-	RangeEnd      string           `json:"range_end,omitempty"`      // End IP of allocation range (if specified)
-	LeaseTime     string           `json:"lease_time,omitempty"`     // Go duration format or "infinite"
-	ExcludeRanges []ExcludeRange   `json:"exclude_ranges,omitempty"` // Excluded IP ranges
-	Options       DHCPScopeOptions `json:"options,omitempty"`        // DHCP options (dns, routers, etc.)
+	Network       string           `json:"network"`                   // CIDR notation: "192.168.1.0/24"
+	RangeStart    string           `json:"range_start,omitempty"`     // Start IP of allocation range (if specified)
+	RangeEnd      string           `json:"range_end,omitempty"`       // End IP of allocation range (if specified)
+	LeaseTime     string           `json:"lease_time,omitempty"`      // Go duration format or "infinity"
+	MaxLeaseTime  string           `json:"max_lease_time,omitempty"`  // Maximum lease time when client requests longer (Go duration format or "infinity")
+	ExcludeRanges []ExcludeRange   `json:"exclude_ranges,omitempty"`  // Excluded IP ranges
+	Options       DHCPScopeOptions `json:"options,omitempty"`         // DHCP options (dns, routers, etc.)
 }
 
 // DHCPScopeOptions represents DHCP options for a scope (Cisco-compatible naming)
 type DHCPScopeOptions struct {
-	DNSServers []string `json:"dns_servers,omitempty"` // DNS servers (max 3)
-	Routers    []string `json:"routers,omitempty"`     // Default gateways (max 3)
-	DomainName string   `json:"domain_name,omitempty"` // Domain name
+	DNSServers  []string `json:"dns_servers,omitempty"`  // DNS servers (max 3, option 6)
+	Routers     []string `json:"routers,omitempty"`      // Default gateways (max 3, option 3)
+	DomainName  string   `json:"domain_name,omitempty"`  // Domain name (option 15)
+	Hostname    string   `json:"hostname,omitempty"`     // Hostname (option 12)
+	WINSServers []string `json:"wins_servers,omitempty"` // WINS/NetBIOS name servers (max 3, option 44)
 }
 
 // ExcludeRange represents an IP range excluded from DHCP allocation
@@ -46,19 +49,16 @@ func (p *DHCPScopeParser) ParseScopeConfig(raw string) ([]DHCPScope, error) {
 	lines := strings.Split(raw, "\n")
 
 	// Patterns for different scope configuration lines
-	// dhcp scope <id> <network>/<prefix> [gateway <ip>] [expire <time>]
-	// Note: gateway is now handled via "dhcp scope option <id> router=..."
+	// dhcp scope <id> <network>/<prefix> [gateway <ip>] [expire <time>] [maxexpire <time>]
+	// Note: gateway is legacy format; modern RTX uses "dhcp scope option <id> router=..."
 	// Both "dhcp scope 1 192.168.0.0/16 expire 24:00" (no gateway) and
 	// "dhcp scope 1 192.168.0.0/16 gateway 192.168.0.1 expire 24:00" must be supported
-	// Note: Terminal line wrapping may split "maxexpire" as "ma\nxexpire", so we handle both "maxexpire" and "xexpire"
-	scopePattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+(\d+)\s+([0-9.]+/\d+)(?:\s+gateway\s+([0-9.]+))?(?:\s+expire\s+(\S+))?(?:\s+(?:max)?x?expire\s+(\S+))?.*$`)
+	scopePattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+(\d+)\s+([0-9.]+/\d+)(?:\s+gateway\s+([0-9.]+))?(?:\s+expire\s+(\S+))?(?:\s+maxexpire\s+(\S+))?.*$`)
 	// Pattern for scope with expire but no gateway (expire comes right after network)
-	// Note: Terminal line wrapping may split "maxexpire" as "ma\nxexpire", so we handle both "maxexpire" and "xexpire"
-	scopeExpireOnlyPattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+(\d+)\s+([0-9.]+/\d+)\s+expire\s+(\S+)(?:\s+(?:max)?x?expire\s+(\S+))?.*$`)
+	scopeExpireOnlyPattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+(\d+)\s+([0-9.]+/\d+)\s+expire\s+(\S+)(?:\s+maxexpire\s+(\S+))?.*$`)
 	// Pattern for IP range format: dhcp scope <id> <start_ip>-<end_ip>/<mask> [gateway <ip>] [expire <time>] [maxexpire <time>]
 	// e.g., "dhcp scope 1 192.168.1.20-192.168.1.99/16 gateway 192.168.1.253 expire 12:00"
-	// Note: Terminal line wrapping may split "maxexpire" as "ma\nxexpire", so we handle both "maxexpire" and "xexpire"
-	scopeRangePattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+(\d+)\s+([0-9.]+)-([0-9.]+)/(\d+)(?:\s+gateway\s+([0-9.]+))?(?:\s+expire\s+(\S+))?(?:\s+(?:max)?x?expire\s+(\S+))?.*$`)
+	scopeRangePattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+(\d+)\s+([0-9.]+)-([0-9.]+)/(\d+)(?:\s+gateway\s+([0-9.]+))?(?:\s+expire\s+(\S+))?(?:\s+maxexpire\s+(\S+))?.*$`)
 	// dhcp scope option <id> dns=<dns1>[,<dns2>[,<dns3>]] [router=<gw1>[,<gw2>]] [domain=<domain>]
 	optionPattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+option\s+(\d+)\s+(.+)\s*$`)
 	// dhcp scope <id> except <start>-<end>
@@ -71,7 +71,7 @@ func (p *DHCPScopeParser) ParseScopeConfig(raw string) ([]DHCPScope, error) {
 		}
 
 		// Try IP range pattern first (most specific pattern)
-		// This handles "dhcp scope 1 192.168.1.20-192.168.1.99/16 gateway 192.168.1.253 expire 12:00"
+		// This handles "dhcp scope 1 192.168.1.20-192.168.1.99/16 gateway 192.168.1.253 expire 12:00 maxexpire 24:00"
 		if matches := scopeRangePattern.FindStringSubmatch(line); len(matches) >= 5 {
 			scopeID, err := strconv.Atoi(matches[1])
 			if err != nil {
@@ -90,17 +90,23 @@ func (p *DHCPScopeParser) ParseScopeConfig(raw string) ([]DHCPScope, error) {
 			scope.RangeStart = matches[2]
 			scope.RangeEnd = matches[3]
 			scope.Network = calculateNetworkAddress(matches[2], matches[4]) // Calculate proper network address from start IP and prefix
-			// Note: gateway from scope line is legacy format; modern RTX uses "dhcp scope option <id> router=..." instead
-			// We don't set Routers from gateway here to avoid duplicates with options
+			// Gateway (legacy format) - convert to Options.Routers
+			if len(matches) > 5 && matches[5] != "" {
+				scope.Options.Routers = []string{matches[5]}
+			}
 			// Expire time
 			if len(matches) > 6 && matches[6] != "" {
 				scope.LeaseTime = convertRTXLeaseTimeToGo(matches[6])
+			}
+			// Max expire time
+			if len(matches) > 7 && matches[7] != "" {
+				scope.MaxLeaseTime = convertRTXLeaseTimeToGo(matches[7])
 			}
 			continue
 		}
 
 		// Try scope with expire only pattern (more specific pattern)
-		// This handles "dhcp scope 1 192.168.0.0/16 expire 24:00" (no gateway)
+		// This handles "dhcp scope 1 192.168.0.0/16 expire 24:00 maxexpire 48:00" (no gateway)
 		if matches := scopeExpireOnlyPattern.FindStringSubmatch(line); len(matches) >= 4 {
 			scopeID, err := strconv.Atoi(matches[1])
 			if err != nil {
@@ -118,6 +124,10 @@ func (p *DHCPScopeParser) ParseScopeConfig(raw string) ([]DHCPScope, error) {
 
 			scope.Network = matches[2]
 			scope.LeaseTime = convertRTXLeaseTimeToGo(matches[3])
+			// Max expire time
+			if len(matches) > 4 && matches[4] != "" {
+				scope.MaxLeaseTime = convertRTXLeaseTimeToGo(matches[4])
+			}
 			continue
 		}
 
@@ -144,6 +154,10 @@ func (p *DHCPScopeParser) ParseScopeConfig(raw string) ([]DHCPScope, error) {
 			}
 			if len(matches) > 4 && matches[4] != "" {
 				scope.LeaseTime = convertRTXLeaseTimeToGo(matches[4])
+			}
+			// Max expire time
+			if len(matches) > 5 && matches[5] != "" {
+				scope.MaxLeaseTime = convertRTXLeaseTimeToGo(matches[5])
 			}
 			continue
 		}
@@ -219,7 +233,7 @@ func (p *DHCPScopeParser) ParseSingleScope(raw string, scopeID int) (*DHCPScope,
 	return nil, fmt.Errorf("scope %d not found", scopeID)
 }
 
-// parseOptions parses option string like "dns=1.1.1.1,8.8.8.8 router=192.168.1.1 domain=example.com"
+// parseOptions parses option string like "dns=1.1.1.1,8.8.8.8 router=192.168.1.1 domain=example.com hostname=router wins_server=192.168.1.10"
 func parseOptions(optionStr string, opts *DHCPScopeOptions) {
 	// Split by space to get individual key=value pairs
 	parts := strings.Fields(optionStr)
@@ -229,7 +243,7 @@ func parseOptions(optionStr string, opts *DHCPScopeOptions) {
 			value := part[idx+1:]
 
 			switch key {
-			case "dns":
+			case "dns", "6": // DNS servers (option 6)
 				servers := strings.Split(value, ",")
 				for _, s := range servers {
 					s = strings.TrimSpace(s)
@@ -237,7 +251,7 @@ func parseOptions(optionStr string, opts *DHCPScopeOptions) {
 						opts.DNSServers = append(opts.DNSServers, s)
 					}
 				}
-			case "router":
+			case "router", "3": // Default gateways (option 3)
 				routers := strings.Split(value, ",")
 				for _, r := range routers {
 					r = strings.TrimSpace(r)
@@ -245,8 +259,18 @@ func parseOptions(optionStr string, opts *DHCPScopeOptions) {
 						opts.Routers = append(opts.Routers, r)
 					}
 				}
-			case "domain":
+			case "domain", "15": // Domain name (option 15)
 				opts.DomainName = value
+			case "hostname", "12": // Hostname (option 12)
+				opts.Hostname = value
+			case "wins_server", "44": // WINS/NetBIOS name servers (option 44)
+				servers := strings.Split(value, ",")
+				for _, s := range servers {
+					s = strings.TrimSpace(s)
+					if s != "" {
+						opts.WINSServers = append(opts.WINSServers, s)
+					}
+				}
 			}
 		}
 	}
@@ -329,9 +353,9 @@ func convertGoLeaseTimeToRTX(goDuration string) string {
 }
 
 // BuildDHCPScopeCommand builds the command to create a DHCP scope
-// Command format: dhcp scope <id> <network>/<prefix> [expire <time>]
-// Or range format: dhcp scope <id> <start_ip>-<end_ip>/<prefix> [expire <time>]
-// Note: Gateway/routers are now configured via options command
+// Command format: dhcp scope <id> <network>/<prefix> [gateway <ip>] [expire <time>] [maxexpire <time>]
+// Or range format: dhcp scope <id> <start_ip>-<end_ip>/<prefix> [gateway <ip>] [expire <time>] [maxexpire <time>]
+// Note: Gateway/routers are preferably configured via options command, but legacy format is still supported
 func BuildDHCPScopeCommand(scope DHCPScope) string {
 	var networkPart string
 	if scope.RangeStart != "" && scope.RangeEnd != "" {
@@ -349,6 +373,10 @@ func BuildDHCPScopeCommand(scope DHCPScope) string {
 
 	cmd := fmt.Sprintf("dhcp scope %d %s", scope.ScopeID, networkPart)
 
+	// Gateway (legacy format) - only output if Routers is set and we want legacy output
+	// Note: Modern RTX prefers "dhcp scope option" for router settings
+	// We don't output gateway here to encourage use of dhcp scope option command
+
 	if scope.LeaseTime != "" {
 		rtxTime := convertGoLeaseTimeToRTX(scope.LeaseTime)
 		if rtxTime != "" {
@@ -356,15 +384,22 @@ func BuildDHCPScopeCommand(scope DHCPScope) string {
 		}
 	}
 
+	if scope.MaxLeaseTime != "" {
+		rtxTime := convertGoLeaseTimeToRTX(scope.MaxLeaseTime)
+		if rtxTime != "" {
+			cmd += fmt.Sprintf(" maxexpire %s", rtxTime)
+		}
+	}
+
 	return cmd
 }
 
 // BuildDHCPScopeOptionsCommand builds the command to set DHCP options for a scope
-// Command format: dhcp scope option <id> [dns=<dns1>,<dns2>] [router=<gw1>,<gw2>] [domain=<domain>]
+// Command format: dhcp scope option <id> [dns=<dns1>,<dns2>] [router=<gw1>,<gw2>] [domain=<domain>] [hostname=<name>] [wins_server=<ip1>,<ip2>]
 func BuildDHCPScopeOptionsCommand(scopeID int, opts DHCPScopeOptions) string {
 	var parts []string
 
-	// DNS servers (max 3)
+	// DNS servers (max 3, option 6)
 	if len(opts.DNSServers) > 0 {
 		servers := opts.DNSServers
 		if len(servers) > 3 {
@@ -373,7 +408,7 @@ func BuildDHCPScopeOptionsCommand(scopeID int, opts DHCPScopeOptions) string {
 		parts = append(parts, fmt.Sprintf("dns=%s", strings.Join(servers, ",")))
 	}
 
-	// Routers/default gateways (max 3)
+	// Routers/default gateways (max 3, option 3)
 	if len(opts.Routers) > 0 {
 		routers := opts.Routers
 		if len(routers) > 3 {
@@ -382,9 +417,23 @@ func BuildDHCPScopeOptionsCommand(scopeID int, opts DHCPScopeOptions) string {
 		parts = append(parts, fmt.Sprintf("router=%s", strings.Join(routers, ",")))
 	}
 
-	// Domain name
+	// Domain name (option 15)
 	if opts.DomainName != "" {
 		parts = append(parts, fmt.Sprintf("domain=%s", opts.DomainName))
+	}
+
+	// Hostname (option 12)
+	if opts.Hostname != "" {
+		parts = append(parts, fmt.Sprintf("hostname=%s", opts.Hostname))
+	}
+
+	// WINS/NetBIOS name servers (max 3, option 44)
+	if len(opts.WINSServers) > 0 {
+		servers := opts.WINSServers
+		if len(servers) > 3 {
+			servers = servers[:3]
+		}
+		parts = append(parts, fmt.Sprintf("wins_server=%s", strings.Join(servers, ",")))
 	}
 
 	if len(parts) == 0 {
