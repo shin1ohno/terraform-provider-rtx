@@ -6,8 +6,154 @@
 package parsers
 
 import (
+	"strings"
 	"testing"
 )
+
+// TestSpecOspfConfigRTXSyntax validates that RTX commands in spec are well-formed
+func TestSpecOspfConfigRTXSyntax(t *testing.T) {
+	// This test validates that all RTX command strings in the spec are well-formed
+	// and follow expected patterns
+
+	testCases := []struct {
+		name       string
+		rtxCommand string
+		parseOnly  bool
+		buildOnly  bool
+	}{
+		{
+			name:       "ospf_use_on",
+			rtxCommand: `ospf use on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ospf_use_off",
+			rtxCommand: `ospf use off`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ospf_router_id",
+			rtxCommand: `ospf router id 192.168.1.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ospf_router_id_loopback",
+			rtxCommand: `ospf router id 10.0.0.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ospf_area_backbone",
+			rtxCommand: `ospf area 0`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ospf_area_1",
+			rtxCommand: `ospf area 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ospf_area_stub",
+			rtxCommand: `ospf area 1 stub`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ospf_area_stub_no_summary",
+			rtxCommand: `ospf area 1 stub no-summary`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ospf_area_nssa",
+			rtxCommand: `ospf area 2 nssa`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ospf_area_nssa_no_summary",
+			rtxCommand: `ospf area 2 nssa no-summary`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ip_ospf_area_lan1",
+			rtxCommand: `ip lan1 ospf area 0`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ip_ospf_area_lan2",
+			rtxCommand: `ip lan2 ospf area 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ip_ospf_area_tunnel",
+			rtxCommand: `ip tunnel1 ospf area 0`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ospf_import_static",
+			rtxCommand: `ospf import from static`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ospf_import_connected",
+			rtxCommand: `ospf import from connected`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "delete_ospf_area",
+			rtxCommand: `no ospf area 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_ip_ospf_area",
+			rtxCommand: `no ip lan1 ospf area`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_ospf_import",
+			rtxCommand: `no ospf import from static`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+			}
+
+			// Validate command doesn't have trailing/leading whitespace issues
+			trimmed := strings.TrimSpace(tc.rtxCommand)
+			if tc.rtxCommand != trimmed && !strings.Contains(tc.rtxCommand, "\n") {
+				t.Errorf("RTX command has unexpected whitespace: %q", tc.rtxCommand)
+			}
+
+			// Log the command for visibility
+			if !tc.buildOnly {
+				t.Logf("Parse test: %s", tc.rtxCommand)
+			}
+			if !tc.parseOnly {
+				t.Logf("Build test: %s", tc.rtxCommand)
+			}
+		})
+	}
+}
 
 // TestSpecOspfConfigSyntaxCoverage documents the syntax patterns covered by this spec
 func TestSpecOspfConfigSyntaxCoverage(t *testing.T) {

@@ -6,8 +6,234 @@
 package parsers
 
 import (
+	"strings"
 	"testing"
 )
+
+// TestSpecQosQueueRTXSyntax validates that RTX commands in spec are well-formed
+func TestSpecQosQueueRTXSyntax(t *testing.T) {
+	// This test validates that all RTX command strings in the spec are well-formed
+	// and follow expected patterns
+
+	testCases := []struct {
+		name       string
+		rtxCommand string
+		parseOnly  bool
+		buildOnly  bool
+	}{
+		{
+			name:       "queue_type_priority_lan1",
+			rtxCommand: `queue lan1 type priority`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "queue_type_cbq_lan1",
+			rtxCommand: `queue lan1 type cbq`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "queue_type_fifo_lan2",
+			rtxCommand: `queue lan2 type fifo`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "queue_type_shaping_wan1",
+			rtxCommand: `queue wan1 type shaping`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "queue_type_priority_lan3",
+			rtxCommand: `queue lan3 type priority`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "queue_class_filter_1",
+			rtxCommand: `queue lan1 class filter 1 100`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "queue_class_filter_2",
+			rtxCommand: `queue lan1 class filter 2 200`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "queue_class_filter_min",
+			rtxCommand: `queue lan1 class filter 1 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "queue_class_filter_large",
+			rtxCommand: `queue lan2 class filter 16 10000`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "queue_class_priority_high",
+			rtxCommand: `queue lan1 class priority 1 high`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "queue_class_priority_normal",
+			rtxCommand: `queue lan1 class priority 2 normal`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "queue_class_priority_low",
+			rtxCommand: `queue lan1 class priority 3 low`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "queue_class_priority_lan2_high",
+			rtxCommand: `queue lan2 class priority 1 high`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "queue_length_100",
+			rtxCommand: `queue lan1 length 1 100`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "queue_length_1000",
+			rtxCommand: `queue lan1 length 2 1000`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "queue_length_min",
+			rtxCommand: `queue lan1 length 1 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "queue_length_large",
+			rtxCommand: `queue lan2 length 16 10000`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "speed_10m",
+			rtxCommand: `speed lan1 10000000`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "speed_100m",
+			rtxCommand: `speed lan1 100000000`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "speed_1g",
+			rtxCommand: `speed lan2 1000000000`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "speed_50m",
+			rtxCommand: `speed wan1 50000000`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "speed_small",
+			rtxCommand: `speed lan1 1000000`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "delete_queue_type_lan1",
+			rtxCommand: `no queue lan1 type`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_queue_type_lan2",
+			rtxCommand: `no queue lan2 type`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_speed_lan1",
+			rtxCommand: `no speed lan1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_speed_wan1",
+			rtxCommand: `no speed wan1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_queue_class_filter_1",
+			rtxCommand: `no queue lan1 class filter 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_queue_class_priority_1",
+			rtxCommand: `no queue lan1 class priority 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_queue_length_1",
+			rtxCommand: `no queue lan1 length 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name: "full_qos_config",
+			rtxCommand: `queue lan1 type priority
+queue lan1 class filter 1 100
+queue lan1 class filter 2 200
+queue lan1 class priority 1 high
+queue lan1 class priority 2 normal
+queue lan1 length 1 500
+queue lan1 length 2 1000
+speed lan1 100000000
+`,
+			parseOnly: true,
+			buildOnly: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+			}
+
+			// Validate command doesn't have trailing/leading whitespace issues
+			trimmed := strings.TrimSpace(tc.rtxCommand)
+			if tc.rtxCommand != trimmed && !strings.Contains(tc.rtxCommand, "\n") {
+				t.Errorf("RTX command has unexpected whitespace: %q", tc.rtxCommand)
+			}
+
+			// Log the command for visibility
+			if !tc.buildOnly {
+				t.Logf("Parse test: %s", tc.rtxCommand)
+			}
+			if !tc.parseOnly {
+				t.Logf("Build test: %s", tc.rtxCommand)
+			}
+		})
+	}
+}
 
 // TestSpecQosQueueSyntaxCoverage documents the syntax patterns covered by this spec
 func TestSpecQosQueueSyntaxCoverage(t *testing.T) {

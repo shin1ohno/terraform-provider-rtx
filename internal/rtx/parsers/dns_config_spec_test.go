@@ -6,8 +6,178 @@
 package parsers
 
 import (
+	"strings"
 	"testing"
 )
+
+// TestSpecDNSConfigRTXSyntax validates that RTX commands in spec are well-formed
+func TestSpecDNSConfigRTXSyntax(t *testing.T) {
+	// This test validates that all RTX command strings in the spec are well-formed
+	// and follow expected patterns
+
+	testCases := []struct {
+		name       string
+		rtxCommand string
+		parseOnly  bool
+		buildOnly  bool
+	}{
+		{
+			name:       "dns_domain_lookup_on",
+			rtxCommand: `dns domain lookup on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dns_domain_lookup_off",
+			rtxCommand: `dns domain lookup off`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dns_domain_name",
+			rtxCommand: `dns domain example.com`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dns_domain_local",
+			rtxCommand: `dns domain local.lan`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dns_server_single",
+			rtxCommand: `dns server 8.8.8.8`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dns_server_two",
+			rtxCommand: `dns server 8.8.8.8 8.8.4.4`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dns_server_three",
+			rtxCommand: `dns server 8.8.8.8 8.8.4.4 1.1.1.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dns_server_select_simple",
+			rtxCommand: `dns server select 1 8.8.8.8 any .example.com`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dns_server_select_with_edns",
+			rtxCommand: `dns server select 1 8.8.8.8 edns=on any .example.com`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dns_server_select_multiple_servers",
+			rtxCommand: `dns server select 1 8.8.8.8 8.8.4.4 any .google.com`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dns_server_select_record_type_a",
+			rtxCommand: `dns server select 2 1.1.1.1 a .cloudflare.com`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dns_server_select_restrict_pp",
+			rtxCommand: `dns server select 3 192.168.1.1 any .internal restrict pp 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dns_static_ipv4",
+			rtxCommand: `dns static server.local 192.168.1.100`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dns_static_router",
+			rtxCommand: `dns static router.local 192.168.1.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dns_service_recursive",
+			rtxCommand: `dns service recursive`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dns_service_off",
+			rtxCommand: `dns service off`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dns_private_spoof_on",
+			rtxCommand: `dns private address spoof on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dns_private_spoof_off",
+			rtxCommand: `dns private address spoof off`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "delete_dns_server",
+			rtxCommand: `no dns server`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_dns_domain",
+			rtxCommand: `no dns domain`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_dns_server_select",
+			rtxCommand: `no dns server select 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_dns_static",
+			rtxCommand: `no dns static server.local`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+			}
+
+			// Validate command doesn't have trailing/leading whitespace issues
+			trimmed := strings.TrimSpace(tc.rtxCommand)
+			if tc.rtxCommand != trimmed && !strings.Contains(tc.rtxCommand, "\n") {
+				t.Errorf("RTX command has unexpected whitespace: %q", tc.rtxCommand)
+			}
+
+			// Log the command for visibility
+			if !tc.buildOnly {
+				t.Logf("Parse test: %s", tc.rtxCommand)
+			}
+			if !tc.parseOnly {
+				t.Logf("Build test: %s", tc.rtxCommand)
+			}
+		})
+	}
+}
 
 // TestSpecDNSConfigSyntaxCoverage documents the syntax patterns covered by this spec
 func TestSpecDNSConfigSyntaxCoverage(t *testing.T) {

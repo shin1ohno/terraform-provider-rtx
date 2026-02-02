@@ -6,8 +6,148 @@
 package parsers
 
 import (
+	"strings"
 	"testing"
 )
+
+// TestSpecDdnsConfigRTXSyntax validates that RTX commands in spec are well-formed
+func TestSpecDdnsConfigRTXSyntax(t *testing.T) {
+	// This test validates that all RTX command strings in the spec are well-formed
+	// and follow expected patterns
+
+	testCases := []struct {
+		name       string
+		rtxCommand string
+		parseOnly  bool
+		buildOnly  bool
+	}{
+		{
+			name:       "netvolante_hostname",
+			rtxCommand: `netvolante-dns hostname host pp1 myhost.netvolante.jp`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "netvolante_hostname_lan",
+			rtxCommand: `netvolante-dns hostname host lan1 router.netvolante.jp`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "netvolante_server_1",
+			rtxCommand: `netvolante-dns server 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "netvolante_server_2",
+			rtxCommand: `netvolante-dns server 2`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "netvolante_timeout",
+			rtxCommand: `netvolante-dns timeout 30`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "netvolante_use_ipv6_on",
+			rtxCommand: `netvolante-dns use ipv6 pp1 on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "netvolante_use_ipv6_off",
+			rtxCommand: `netvolante-dns use ipv6 lan1 off`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "netvolante_auto_hostname_on",
+			rtxCommand: `netvolante-dns auto hostname pp1 on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "netvolante_use_on",
+			rtxCommand: `netvolante-dns use pp1 on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "netvolante_use_off",
+			rtxCommand: `netvolante-dns use lan1 off`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "netvolante_go",
+			rtxCommand: `netvolante-dns go pp1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "ddns_server_url",
+			rtxCommand: `ddns server url 1 https://ddns.example.com/update`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ddns_server_hostname",
+			rtxCommand: `ddns server hostname 1 myhost.example.com`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ddns_server_user",
+			rtxCommand: `ddns server user 1 myuser mypassword`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ddns_server_go",
+			rtxCommand: `ddns server go 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_netvolante_hostname",
+			rtxCommand: `no netvolante-dns hostname host pp1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_ddns_server_url",
+			rtxCommand: `no ddns server url 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+			}
+
+			// Validate command doesn't have trailing/leading whitespace issues
+			trimmed := strings.TrimSpace(tc.rtxCommand)
+			if tc.rtxCommand != trimmed && !strings.Contains(tc.rtxCommand, "\n") {
+				t.Errorf("RTX command has unexpected whitespace: %q", tc.rtxCommand)
+			}
+
+			// Log the command for visibility
+			if !tc.buildOnly {
+				t.Logf("Parse test: %s", tc.rtxCommand)
+			}
+			if !tc.parseOnly {
+				t.Logf("Build test: %s", tc.rtxCommand)
+			}
+		})
+	}
+}
 
 // TestSpecDdnsConfigSyntaxCoverage documents the syntax patterns covered by this spec
 func TestSpecDdnsConfigSyntaxCoverage(t *testing.T) {

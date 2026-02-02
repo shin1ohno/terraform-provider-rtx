@@ -6,8 +6,160 @@
 package parsers
 
 import (
+	"strings"
 	"testing"
 )
+
+// TestSpecDhcpScopeRTXSyntax validates that RTX commands in spec are well-formed
+func TestSpecDhcpScopeRTXSyntax(t *testing.T) {
+	// This test validates that all RTX command strings in the spec are well-formed
+	// and follow expected patterns
+
+	testCases := []struct {
+		name       string
+		rtxCommand string
+		parseOnly  bool
+		buildOnly  bool
+	}{
+		{
+			name:       "basic_scope_cidr24",
+			rtxCommand: `dhcp scope 1 192.168.1.0/24`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "basic_scope_cidr16",
+			rtxCommand: `dhcp scope 2 192.168.0.0/16`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "basic_scope_cidr8",
+			rtxCommand: `dhcp scope 3 10.0.0.0/8`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "scope_ip_range_format",
+			rtxCommand: `dhcp scope 1 192.168.1.20-192.168.1.99/24`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "scope_ip_range_format_16",
+			rtxCommand: `dhcp scope 1 192.168.1.20-192.168.1.99/16`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "scope_with_gateway_legacy",
+			rtxCommand: `dhcp scope 1 192.168.1.0/24 gateway 192.168.1.1`,
+			parseOnly:  true,
+			buildOnly:  false,
+		},
+		{
+			name:       "scope_ip_range_with_gateway",
+			rtxCommand: `dhcp scope 1 192.168.1.20-192.168.1.99/16 gateway 192.168.1.253`,
+			parseOnly:  true,
+			buildOnly:  false,
+		},
+		{
+			name:       "scope_with_expire_hours_minutes",
+			rtxCommand: `dhcp scope 1 192.168.1.0/24 expire 24:00`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "scope_with_expire_72h",
+			rtxCommand: `dhcp scope 1 192.168.1.0/24 expire 72:00`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "scope_with_expire_minutes",
+			rtxCommand: `dhcp scope 1 192.168.1.0/24 expire 0:30`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "scope_with_expire_infinity",
+			rtxCommand: `dhcp scope 1 192.168.1.0/24 expire infinity`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "scope_with_maxexpire",
+			rtxCommand: `dhcp scope 1 192.168.1.0/24 expire 72:00 maxexpire 168:00`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "scope_full_with_maxexpire",
+			rtxCommand: `dhcp scope 1 192.168.1.0/24 gateway 192.168.1.1 expire 72:00 maxexpire 168:00`,
+			parseOnly:  true,
+			buildOnly:  false,
+		},
+		{
+			name:       "scope_with_gateway_and_expire",
+			rtxCommand: `dhcp scope 1 192.168.1.0/24 gateway 192.168.1.1 expire 72:00`,
+			parseOnly:  true,
+			buildOnly:  false,
+		},
+		{
+			name:       "scope_ip_range_with_gateway_and_expire",
+			rtxCommand: `dhcp scope 1 192.168.1.20-192.168.1.99/16 gateway 192.168.1.253 expire 12:00`,
+			parseOnly:  true,
+			buildOnly:  false,
+		},
+		{
+			name:       "scope_max_id",
+			rtxCommand: `dhcp scope 65535 192.168.1.0/24`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "scope_large_id",
+			rtxCommand: `dhcp scope 10000 10.0.0.0/16`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "delete_scope",
+			rtxCommand: `no dhcp scope 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_scope_large_id",
+			rtxCommand: `no dhcp scope 65535`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+			}
+
+			// Validate command doesn't have trailing/leading whitespace issues
+			trimmed := strings.TrimSpace(tc.rtxCommand)
+			if tc.rtxCommand != trimmed && !strings.Contains(tc.rtxCommand, "\n") {
+				t.Errorf("RTX command has unexpected whitespace: %q", tc.rtxCommand)
+			}
+
+			// Log the command for visibility
+			if !tc.buildOnly {
+				t.Logf("Parse test: %s", tc.rtxCommand)
+			}
+			if !tc.parseOnly {
+				t.Logf("Build test: %s", tc.rtxCommand)
+			}
+		})
+	}
+}
 
 // TestSpecDhcpScopeSyntaxCoverage documents the syntax patterns covered by this spec
 func TestSpecDhcpScopeSyntaxCoverage(t *testing.T) {

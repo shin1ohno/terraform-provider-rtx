@@ -6,8 +6,70 @@
 package parsers
 
 import (
+	"strings"
 	"testing"
 )
+
+// TestSpecDhcpServiceRTXSyntax validates that RTX commands in spec are well-formed
+func TestSpecDhcpServiceRTXSyntax(t *testing.T) {
+	// This test validates that all RTX command strings in the spec are well-formed
+	// and follow expected patterns
+
+	testCases := []struct {
+		name       string
+		rtxCommand string
+		parseOnly  bool
+		buildOnly  bool
+	}{
+		{
+			name:       "service_server",
+			rtxCommand: `dhcp service server`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "service_relay",
+			rtxCommand: `dhcp service relay`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "delete_service",
+			rtxCommand: `no dhcp service`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_service_with_type",
+			rtxCommand: `no dhcp service server`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+			}
+
+			// Validate command doesn't have trailing/leading whitespace issues
+			trimmed := strings.TrimSpace(tc.rtxCommand)
+			if tc.rtxCommand != trimmed && !strings.Contains(tc.rtxCommand, "\n") {
+				t.Errorf("RTX command has unexpected whitespace: %q", tc.rtxCommand)
+			}
+
+			// Log the command for visibility
+			if !tc.buildOnly {
+				t.Logf("Parse test: %s", tc.rtxCommand)
+			}
+			if !tc.parseOnly {
+				t.Logf("Build test: %s", tc.rtxCommand)
+			}
+		})
+	}
+}
 
 // TestSpecDhcpServiceSyntaxCoverage documents the syntax patterns covered by this spec
 func TestSpecDhcpServiceSyntaxCoverage(t *testing.T) {

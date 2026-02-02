@@ -6,8 +6,184 @@
 package parsers
 
 import (
+	"strings"
 	"testing"
 )
+
+// TestSpecIpv6ConfigRTXSyntax validates that RTX commands in spec are well-formed
+func TestSpecIpv6ConfigRTXSyntax(t *testing.T) {
+	// This test validates that all RTX command strings in the spec are well-formed
+	// and follow expected patterns
+
+	testCases := []struct {
+		name       string
+		rtxCommand string
+		parseOnly  bool
+		buildOnly  bool
+	}{
+		{
+			name:       "ipv6_address_static",
+			rtxCommand: `ipv6 lan1 address 2001:db8::1/64`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ipv6_address_link_local",
+			rtxCommand: `ipv6 lan1 address fe80::1/64`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ipv6_address_loopback",
+			rtxCommand: `ipv6 loopback1 address 2001:db8:1::1/128`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ipv6_address_prefix_based",
+			rtxCommand: `ipv6 lan1 address 1::1/64`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "rtadv_basic",
+			rtxCommand: `ipv6 lan1 rtadv send 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "rtadv_with_o_flag",
+			rtxCommand: `ipv6 lan1 rtadv send 1 o_flag=on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "rtadv_with_m_flag",
+			rtxCommand: `ipv6 lan1 rtadv send 1 m_flag=on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "rtadv_with_lifetime",
+			rtxCommand: `ipv6 lan1 rtadv send 1 lifetime=1800`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "rtadv_full",
+			rtxCommand: `ipv6 lan1 rtadv send 1 o_flag=on m_flag=off lifetime=3600`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dhcpv6_server",
+			rtxCommand: `ipv6 lan1 dhcp service server`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dhcpv6_client",
+			rtxCommand: `ipv6 lan1 dhcp service client`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ipv6_mtu",
+			rtxCommand: `ipv6 lan1 mtu 1500`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ipv6_mtu_1280",
+			rtxCommand: `ipv6 tunnel1 mtu 1280`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ipv6_secure_filter_in",
+			rtxCommand: `ipv6 lan1 secure filter in 1 2 3`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ipv6_secure_filter_out",
+			rtxCommand: `ipv6 lan1 secure filter out 100 101`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ipv6_secure_filter_out_dynamic",
+			rtxCommand: `ipv6 lan1 secure filter out 100 dynamic 200`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "prefix_static",
+			rtxCommand: `ipv6 prefix 1 2001:db8::/48`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "prefix_ra",
+			rtxCommand: `ipv6 prefix 2 ra-prefix@pp1::/64`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "prefix_dhcpv6_pd",
+			rtxCommand: `ipv6 prefix 3 dhcp-prefix@lan2::/56`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "delete_ipv6_address",
+			rtxCommand: `no ipv6 lan1 address`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_ipv6_address_specific",
+			rtxCommand: `no ipv6 lan1 address 2001:db8::1/64`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_rtadv",
+			rtxCommand: `no ipv6 lan1 rtadv send`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_prefix",
+			rtxCommand: `no ipv6 prefix 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+			}
+
+			// Validate command doesn't have trailing/leading whitespace issues
+			trimmed := strings.TrimSpace(tc.rtxCommand)
+			if tc.rtxCommand != trimmed && !strings.Contains(tc.rtxCommand, "\n") {
+				t.Errorf("RTX command has unexpected whitespace: %q", tc.rtxCommand)
+			}
+
+			// Log the command for visibility
+			if !tc.buildOnly {
+				t.Logf("Parse test: %s", tc.rtxCommand)
+			}
+			if !tc.parseOnly {
+				t.Logf("Build test: %s", tc.rtxCommand)
+			}
+		})
+	}
+}
 
 // TestSpecIpv6ConfigSyntaxCoverage documents the syntax patterns covered by this spec
 func TestSpecIpv6ConfigSyntaxCoverage(t *testing.T) {

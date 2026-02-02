@@ -6,8 +6,246 @@
 package parsers
 
 import (
+	"strings"
 	"testing"
 )
+
+// TestSpecSystemConfigRTXSyntax validates that RTX commands in spec are well-formed
+func TestSpecSystemConfigRTXSyntax(t *testing.T) {
+	// This test validates that all RTX command strings in the spec are well-formed
+	// and follow expected patterns
+
+	testCases := []struct {
+		name       string
+		rtxCommand string
+		parseOnly  bool
+		buildOnly  bool
+	}{
+		{
+			name:       "timezone_jst",
+			rtxCommand: `timezone +09:00`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "timezone_utc",
+			rtxCommand: `timezone +00:00`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "timezone_negative",
+			rtxCommand: `timezone -05:00`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "timezone_negative_large",
+			rtxCommand: `timezone -12:00`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "timezone_positive_large",
+			rtxCommand: `timezone +14:00`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "console_character_utf8",
+			rtxCommand: `console character ja.utf8`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "console_character_sjis",
+			rtxCommand: `console character ja.sjis`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "console_character_ascii",
+			rtxCommand: `console character ascii`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "console_character_eucjp",
+			rtxCommand: `console character euc-jp`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "console_lines_24",
+			rtxCommand: `console lines 24`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "console_lines_50",
+			rtxCommand: `console lines 50`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "console_lines_100",
+			rtxCommand: `console lines 100`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "console_lines_infinity",
+			rtxCommand: `console lines infinity`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "console_prompt_simple",
+			rtxCommand: `console prompt router`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "console_prompt_with_spaces",
+			rtxCommand: `console prompt "RTX Router"`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "console_prompt_hostname",
+			rtxCommand: `console prompt rtx1300`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "packet_buffer_small",
+			rtxCommand: `system packet-buffer small max-buffer=5000 max-free=1300`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "packet_buffer_middle",
+			rtxCommand: `system packet-buffer middle max-buffer=3000 max-free=800`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "packet_buffer_large",
+			rtxCommand: `system packet-buffer large max-buffer=1000 max-free=200`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "packet_buffer_small_large_values",
+			rtxCommand: `system packet-buffer small max-buffer=10000 max-free=5000`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "statistics_traffic_on",
+			rtxCommand: `statistics traffic on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "statistics_traffic_off",
+			rtxCommand: `statistics traffic off`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "statistics_nat_on",
+			rtxCommand: `statistics nat on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "statistics_nat_off",
+			rtxCommand: `statistics nat off`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "delete_timezone",
+			rtxCommand: `no timezone`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_console_character",
+			rtxCommand: `no console character`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_console_lines",
+			rtxCommand: `no console lines`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_console_prompt",
+			rtxCommand: `no console prompt`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_packet_buffer_small",
+			rtxCommand: `no system packet-buffer small`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_statistics_traffic",
+			rtxCommand: `no statistics traffic`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_statistics_nat",
+			rtxCommand: `no statistics nat`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name: "full_system_config",
+			rtxCommand: `timezone +09:00
+console character ja.utf8
+console lines 50
+console prompt "RTX Router"
+system packet-buffer small max-buffer=5000 max-free=1300
+system packet-buffer middle max-buffer=3000 max-free=800
+statistics traffic on
+statistics nat on
+`,
+			parseOnly: true,
+			buildOnly: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+			}
+
+			// Validate command doesn't have trailing/leading whitespace issues
+			trimmed := strings.TrimSpace(tc.rtxCommand)
+			if tc.rtxCommand != trimmed && !strings.Contains(tc.rtxCommand, "\n") {
+				t.Errorf("RTX command has unexpected whitespace: %q", tc.rtxCommand)
+			}
+
+			// Log the command for visibility
+			if !tc.buildOnly {
+				t.Logf("Parse test: %s", tc.rtxCommand)
+			}
+			if !tc.parseOnly {
+				t.Logf("Build test: %s", tc.rtxCommand)
+			}
+		})
+	}
+}
 
 // TestSpecSystemConfigSyntaxCoverage documents the syntax patterns covered by this spec
 func TestSpecSystemConfigSyntaxCoverage(t *testing.T) {

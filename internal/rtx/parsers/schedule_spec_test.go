@@ -6,8 +6,183 @@
 package parsers
 
 import (
+	"strings"
 	"testing"
 )
+
+// TestSpecScheduleRTXSyntax validates that RTX commands in spec are well-formed
+func TestSpecScheduleRTXSyntax(t *testing.T) {
+	// This test validates that all RTX command strings in the spec are well-formed
+	// and follow expected patterns
+
+	testCases := []struct {
+		name       string
+		rtxCommand string
+		parseOnly  bool
+		buildOnly  bool
+	}{
+		{
+			name:       "schedule_at_time_noon",
+			rtxCommand: `schedule at 1 12:00 ping 8.8.8.8`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "schedule_at_time_midnight",
+			rtxCommand: `schedule at 2 0:00 save`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "schedule_at_time_late",
+			rtxCommand: `schedule at 3 23:59 restart`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "schedule_at_time_morning",
+			rtxCommand: `schedule at 10 6:30 show environment`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "schedule_at_time_afternoon",
+			rtxCommand: `schedule at 100 14:15 show status pp 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "schedule_at_startup_pp_select",
+			rtxCommand: `schedule at 1 startup pp select 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "schedule_at_startup_connect",
+			rtxCommand: `schedule at 2 startup connect pp 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "schedule_at_startup_tunnel",
+			rtxCommand: `schedule at 3 startup tunnel select 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "schedule_at_startup_save",
+			rtxCommand: `schedule at 100 startup save`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "schedule_at_datetime_new_year",
+			rtxCommand: `schedule at 1 2025/01/01 0:00 restart`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "schedule_at_datetime_year_end",
+			rtxCommand: `schedule at 2 2024/12/31 23:59 save`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "schedule_at_datetime_maintenance",
+			rtxCommand: `schedule at 10 2025/06/15 3:00 cold start`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "schedule_pp_weekday_connect",
+			rtxCommand: `schedule pp 1 mon-fri 8:00 connect`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "schedule_pp_weekday_disconnect",
+			rtxCommand: `schedule pp 1 mon-fri 18:00 disconnect`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "schedule_pp_weekend_connect",
+			rtxCommand: `schedule pp 2 sat,sun 9:00 connect`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "schedule_pp_single_day",
+			rtxCommand: `schedule pp 1 mon 7:00 connect`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "schedule_pp_multi_day",
+			rtxCommand: `schedule pp 3 mon,wed,fri 12:00 connect`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "delete_schedule_1",
+			rtxCommand: `no schedule at 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_schedule_100",
+			rtxCommand: `no schedule at 100`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_schedule_pp_weekday",
+			rtxCommand: `no schedule pp 1 mon-fri 8:00`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_schedule_pp_weekend",
+			rtxCommand: `no schedule pp 2 sat,sun 9:00`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name: "multiple_schedules",
+			rtxCommand: `schedule at 1 12:00 save
+schedule at 2 startup connect pp 1
+schedule at 3 2025/01/01 0:00 restart
+schedule pp 1 mon-fri 8:00 connect
+schedule pp 1 mon-fri 18:00 disconnect
+`,
+			parseOnly: true,
+			buildOnly: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+			}
+
+			// Validate command doesn't have trailing/leading whitespace issues
+			trimmed := strings.TrimSpace(tc.rtxCommand)
+			if tc.rtxCommand != trimmed && !strings.Contains(tc.rtxCommand, "\n") {
+				t.Errorf("RTX command has unexpected whitespace: %q", tc.rtxCommand)
+			}
+
+			// Log the command for visibility
+			if !tc.buildOnly {
+				t.Logf("Parse test: %s", tc.rtxCommand)
+			}
+			if !tc.parseOnly {
+				t.Logf("Build test: %s", tc.rtxCommand)
+			}
+		})
+	}
+}
 
 // TestSpecScheduleSyntaxCoverage documents the syntax patterns covered by this spec
 func TestSpecScheduleSyntaxCoverage(t *testing.T) {

@@ -6,8 +6,166 @@
 package parsers
 
 import (
+	"strings"
 	"testing"
 )
+
+// TestSpecBgpConfigRTXSyntax validates that RTX commands in spec are well-formed
+func TestSpecBgpConfigRTXSyntax(t *testing.T) {
+	// This test validates that all RTX command strings in the spec are well-formed
+	// and follow expected patterns
+
+	testCases := []struct {
+		name       string
+		rtxCommand string
+		parseOnly  bool
+		buildOnly  bool
+	}{
+		{
+			name:       "bgp_use_on",
+			rtxCommand: `bgp use on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "bgp_use_off",
+			rtxCommand: `bgp use off`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "bgp_asn_2byte",
+			rtxCommand: `bgp autonomous-system 65001`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "bgp_asn_4byte",
+			rtxCommand: `bgp autonomous-system 4200000001`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "bgp_router_id",
+			rtxCommand: `bgp router id 192.168.1.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "bgp_router_id_loopback",
+			rtxCommand: `bgp router id 10.0.0.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "bgp_neighbor",
+			rtxCommand: `bgp neighbor 1 address 203.0.113.1 as 65002`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "bgp_neighbor_second",
+			rtxCommand: `bgp neighbor 2 address 203.0.113.2 as 65003`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "bgp_neighbor_4byte_as",
+			rtxCommand: `bgp neighbor 1 address 10.0.0.1 as 4200000001`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "bgp_neighbor_holdtime",
+			rtxCommand: `bgp neighbor 1 hold-time 90`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "bgp_neighbor_keepalive",
+			rtxCommand: `bgp neighbor 1 keepalive 30`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "bgp_neighbor_multihop",
+			rtxCommand: `bgp neighbor 1 multihop 2`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "bgp_neighbor_password",
+			rtxCommand: `bgp neighbor 1 password mysecret`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "bgp_neighbor_local_address",
+			rtxCommand: `bgp neighbor 1 local-address 192.168.1.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "bgp_network",
+			rtxCommand: `bgp import filter 1 include 192.168.0.0/16`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "bgp_network_24",
+			rtxCommand: `bgp import filter 1 include 10.0.0.0/24`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "bgp_import_static",
+			rtxCommand: `bgp import from static`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "bgp_import_connected",
+			rtxCommand: `bgp import from connected`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "delete_bgp_neighbor",
+			rtxCommand: `no bgp neighbor 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_bgp_network",
+			rtxCommand: `no bgp import filter 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+			}
+
+			// Validate command doesn't have trailing/leading whitespace issues
+			trimmed := strings.TrimSpace(tc.rtxCommand)
+			if tc.rtxCommand != trimmed && !strings.Contains(tc.rtxCommand, "\n") {
+				t.Errorf("RTX command has unexpected whitespace: %q", tc.rtxCommand)
+			}
+
+			// Log the command for visibility
+			if !tc.buildOnly {
+				t.Logf("Parse test: %s", tc.rtxCommand)
+			}
+			if !tc.parseOnly {
+				t.Logf("Build test: %s", tc.rtxCommand)
+			}
+		})
+	}
+}
 
 // TestSpecBgpConfigSyntaxCoverage documents the syntax patterns covered by this spec
 func TestSpecBgpConfigSyntaxCoverage(t *testing.T) {

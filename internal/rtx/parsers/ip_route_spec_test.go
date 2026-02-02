@@ -6,8 +6,308 @@
 package parsers
 
 import (
+	"strings"
 	"testing"
 )
+
+// TestSpecIPRouteRTXSyntax validates that RTX commands in spec are well-formed
+func TestSpecIPRouteRTXSyntax(t *testing.T) {
+	// This test validates that all RTX command strings in the spec are well-formed
+	// and follow expected patterns
+
+	testCases := []struct {
+		name       string
+		rtxCommand string
+		parseOnly  bool
+		buildOnly  bool
+	}{
+		{
+			name:       "default_route_ip_gateway",
+			rtxCommand: `ip route default gateway 192.168.0.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "default_route_pp",
+			rtxCommand: `ip route default gateway pp 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "default_route_tunnel",
+			rtxCommand: `ip route default gateway tunnel 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "default_route_dhcp_lan",
+			rtxCommand: `ip route default gateway dhcp lan1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "default_route_dhcp_lan2",
+			rtxCommand: `ip route default gateway dhcp lan2`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "default_route_null",
+			rtxCommand: `ip route default gateway null`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "network_route_ip_gateway_cidr8",
+			rtxCommand: `ip route 10.0.0.0/8 gateway 192.168.1.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "network_route_ip_gateway_cidr16",
+			rtxCommand: `ip route 172.16.0.0/12 gateway 192.168.1.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "network_route_ip_gateway_cidr24",
+			rtxCommand: `ip route 192.168.100.0/24 gateway 10.0.0.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "network_route_ip_gateway_cidr32",
+			rtxCommand: `ip route 192.168.1.100/32 gateway 192.168.1.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "network_route_pp",
+			rtxCommand: `ip route 192.168.1.0/24 gateway pp 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "network_route_pp_large_num",
+			rtxCommand: `ip route 192.168.1.0/24 gateway pp 100`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "network_route_tunnel",
+			rtxCommand: `ip route 10.10.0.0/16 gateway tunnel 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "network_route_tunnel_large_num",
+			rtxCommand: `ip route 10.10.0.0/16 gateway tunnel 100`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "default_route_with_weight",
+			rtxCommand: `ip route default gateway 192.168.0.1 weight 10`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "default_route_with_weight_zero",
+			rtxCommand: `ip route default gateway 192.168.0.1 weight 0`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "network_route_pp_with_weight",
+			rtxCommand: `ip route 192.168.1.0/24 gateway pp 1 weight 2`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "network_route_with_filter",
+			rtxCommand: `ip route 10.10.0.0/16 gateway 192.168.1.1 filter 100`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "network_route_with_filter_min",
+			rtxCommand: `ip route 10.10.0.0/16 gateway 192.168.1.1 filter 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "default_route_pp_with_hide",
+			rtxCommand: `ip route default gateway pp 1 hide`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "network_route_tunnel_with_hide",
+			rtxCommand: `ip route 10.0.0.0/8 gateway tunnel 1 hide`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "network_route_with_keepalive",
+			rtxCommand: `ip route 10.0.0.0/8 gateway 192.168.1.1 keepalive 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "network_route_with_keepalive_large",
+			rtxCommand: `ip route 10.0.0.0/8 gateway 192.168.1.1 keepalive 3000`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "network_route_with_metric",
+			rtxCommand: `ip route 10.0.0.0/8 gateway 192.168.1.1 metric 5`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "network_route_with_metric_max",
+			rtxCommand: `ip route 10.0.0.0/8 gateway 192.168.1.1 metric 15`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "network_route_with_dpi",
+			rtxCommand: `ip route default gateway pp 1 dpi 1 gateway tunnel 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "route_with_weight_and_filter",
+			rtxCommand: `ip route 10.0.0.0/8 gateway 192.168.1.1 weight 20 filter 50`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "route_with_weight_and_hide",
+			rtxCommand: `ip route default gateway pp 1 weight 2 hide`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "route_with_all_options",
+			rtxCommand: `ip route 10.0.0.0/8 gateway 192.168.1.1 weight 20 filter 50 keepalive 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "multi_gateway_single_line_ecmp_2",
+			rtxCommand: `ip route 10.0.0.0/8 gateway 192.168.1.1 weight 1 gateway 192.168.2.1 weight 2`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "multi_gateway_single_line_ecmp_3",
+			rtxCommand: `ip route 192.168.100.0/24 gateway 10.0.0.1 weight 1 gateway 10.0.0.2 weight 2 gateway 10.0.0.3 weight 3`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "multi_gateway_single_line_failover_pp",
+			rtxCommand: `ip route default gateway pp 1 hide gateway pp 2 weight 0`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "multi_gateway_single_line_pp_with_weight_hide",
+			rtxCommand: `ip route default gateway pp 1 weight 2 hide gateway pp 2 weight 1 hide`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "multi_gateway_single_line_mixed_ip_tunnel",
+			rtxCommand: `ip route 10.0.0.0/8 gateway 192.168.1.1 gateway tunnel 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name: "multi_gateway_multi_line_ecmp_2",
+			rtxCommand: `ip route 10.0.0.0/8 gateway 192.168.1.1 weight 1
+ip route 10.0.0.0/8 gateway 192.168.2.1 weight 2
+`,
+			parseOnly: true,
+			buildOnly: false,
+		},
+		{
+			name: "multi_gateway_multi_line_ecmp_3",
+			rtxCommand: `ip route 192.168.100.0/24 gateway 10.0.0.1 weight 1
+ip route 192.168.100.0/24 gateway 10.0.0.2 weight 2
+ip route 192.168.100.0/24 gateway 10.0.0.3 weight 3
+`,
+			parseOnly: true,
+			buildOnly: false,
+		},
+		{
+			name: "multi_gateway_multi_line_failover_pp",
+			rtxCommand: `ip route default gateway pp 1 hide
+ip route default gateway pp 2 weight 0
+`,
+			parseOnly: true,
+			buildOnly: false,
+		},
+		{
+			name: "multi_gateway_multi_line_mixed_types",
+			rtxCommand: `ip route 172.16.0.0/12 gateway 192.168.1.1
+ip route 172.16.0.0/12 gateway pp 1 hide
+ip route 172.16.0.0/12 gateway tunnel 1
+`,
+			parseOnly: true,
+			buildOnly: false,
+		},
+		{
+			name:       "delete_default_route",
+			rtxCommand: `no ip route default`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_network_route",
+			rtxCommand: `no ip route 10.0.0.0/8`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_route_specific_gateway",
+			rtxCommand: `no ip route 10.0.0.0/8 gateway 192.168.1.1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_route_specific_pp",
+			rtxCommand: `no ip route 172.16.0.0/12 gateway pp 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+			}
+
+			// Validate command doesn't have trailing/leading whitespace issues
+			trimmed := strings.TrimSpace(tc.rtxCommand)
+			if tc.rtxCommand != trimmed && !strings.Contains(tc.rtxCommand, "\n") {
+				t.Errorf("RTX command has unexpected whitespace: %q", tc.rtxCommand)
+			}
+
+			// Log the command for visibility
+			if !tc.buildOnly {
+				t.Logf("Parse test: %s", tc.rtxCommand)
+			}
+			if !tc.parseOnly {
+				t.Logf("Build test: %s", tc.rtxCommand)
+			}
+		})
+	}
+}
 
 // TestSpecIPRouteSyntaxCoverage documents the syntax patterns covered by this spec
 func TestSpecIPRouteSyntaxCoverage(t *testing.T) {

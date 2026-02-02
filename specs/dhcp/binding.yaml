@@ -114,11 +114,10 @@ command:
       terraform_field: "mac_address"  # or client_identifier
 
     mac_address_with_oui:
-      description: "OUI付きMACアドレス"
+      description: "OUI付きMACアドレス（ベンダーID指定、例: 00:a0:de:*）"
       required: false
       type: pattern
       pattern: "{oui}:*"
-      description: "ベンダーID指定（例: 00:a0:de:*）"
       terraform_field: "oui"
       note: "未実装 - struct_additionsで追加予定"
       model_constraints:
@@ -236,12 +235,7 @@ command:
         ip_range_start: "192.168.1.20"
         ip_range_end: "192.168.1.30"
         oui: "00:a0:de"
-      model_constraints:
-        unavailable:
-          - model: RTX5000
-            revision: "Rev.14.00.25以前"
-          - model: RTX1210
-            revision: "Rev.14.01.27以前"
+      note: "RTX5000 Rev.14.00.25以前、RTX1210 Rev.14.01.27以前では利用不可"
 
     # --- IPCP binding ---
     - name: bind_ipcp

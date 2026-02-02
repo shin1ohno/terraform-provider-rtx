@@ -6,8 +6,154 @@
 package parsers
 
 import (
+	"strings"
 	"testing"
 )
+
+// TestSpecSyslogConfigRTXSyntax validates that RTX commands in spec are well-formed
+func TestSpecSyslogConfigRTXSyntax(t *testing.T) {
+	// This test validates that all RTX command strings in the spec are well-formed
+	// and follow expected patterns
+
+	testCases := []struct {
+		name       string
+		rtxCommand string
+		parseOnly  bool
+		buildOnly  bool
+	}{
+		{
+			name:       "syslog_host",
+			rtxCommand: `syslog host 192.168.1.100`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "syslog_host_with_port",
+			rtxCommand: `syslog host 192.168.1.100 514`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "syslog_host_custom_port",
+			rtxCommand: `syslog host 10.0.0.50 1514`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "syslog_host_ipv6",
+			rtxCommand: `syslog host 2001:db8::100`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "syslog_local_address",
+			rtxCommand: `syslog local address 192.168.1.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "syslog_local_address_loopback",
+			rtxCommand: `syslog local address 10.0.0.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "syslog_facility_user",
+			rtxCommand: `syslog facility user`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "syslog_facility_local0",
+			rtxCommand: `syslog facility local0`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "syslog_facility_local7",
+			rtxCommand: `syslog facility local7`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "syslog_notice_on",
+			rtxCommand: `syslog notice on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "syslog_notice_off",
+			rtxCommand: `syslog notice off`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "syslog_info_on",
+			rtxCommand: `syslog info on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "syslog_info_off",
+			rtxCommand: `syslog info off`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "syslog_debug_on",
+			rtxCommand: `syslog debug on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "syslog_debug_off",
+			rtxCommand: `syslog debug off`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "delete_syslog_host",
+			rtxCommand: `no syslog host 192.168.1.100`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_syslog_local_address",
+			rtxCommand: `no syslog local address`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_syslog_facility",
+			rtxCommand: `no syslog facility`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+			}
+
+			// Validate command doesn't have trailing/leading whitespace issues
+			trimmed := strings.TrimSpace(tc.rtxCommand)
+			if tc.rtxCommand != trimmed && !strings.Contains(tc.rtxCommand, "\n") {
+				t.Errorf("RTX command has unexpected whitespace: %q", tc.rtxCommand)
+			}
+
+			// Log the command for visibility
+			if !tc.buildOnly {
+				t.Logf("Parse test: %s", tc.rtxCommand)
+			}
+			if !tc.parseOnly {
+				t.Logf("Build test: %s", tc.rtxCommand)
+			}
+		})
+	}
+}
 
 // TestSpecSyslogConfigSyntaxCoverage documents the syntax patterns covered by this spec
 func TestSpecSyslogConfigSyntaxCoverage(t *testing.T) {

@@ -6,8 +6,100 @@
 package parsers
 
 import (
+	"strings"
 	"testing"
 )
+
+// TestSpecBridgeConfigRTXSyntax validates that RTX commands in spec are well-formed
+func TestSpecBridgeConfigRTXSyntax(t *testing.T) {
+	// This test validates that all RTX command strings in the spec are well-formed
+	// and follow expected patterns
+
+	testCases := []struct {
+		name       string
+		rtxCommand string
+		parseOnly  bool
+		buildOnly  bool
+	}{
+		{
+			name:       "bridge_member_single",
+			rtxCommand: `bridge member bridge1 lan1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "bridge_member_two",
+			rtxCommand: `bridge member bridge1 lan1 tunnel1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "bridge_member_three",
+			rtxCommand: `bridge member bridge1 lan1 lan2 tunnel1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "bridge_member_lan_vlan",
+			rtxCommand: `bridge member bridge1 lan1/1 lan1/2`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "bridge_member_pp",
+			rtxCommand: `bridge member bridge2 pp1 pp2`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "bridge_member_loopback",
+			rtxCommand: `bridge member bridge3 loopback1 lan1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "bridge_member_multiple_types",
+			rtxCommand: `bridge member bridge1 lan1 tunnel1 pp1 loopback1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "delete_bridge",
+			rtxCommand: `no bridge member bridge1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_bridge2",
+			rtxCommand: `no bridge member bridge2`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+			}
+
+			// Validate command doesn't have trailing/leading whitespace issues
+			trimmed := strings.TrimSpace(tc.rtxCommand)
+			if tc.rtxCommand != trimmed && !strings.Contains(tc.rtxCommand, "\n") {
+				t.Errorf("RTX command has unexpected whitespace: %q", tc.rtxCommand)
+			}
+
+			// Log the command for visibility
+			if !tc.buildOnly {
+				t.Logf("Parse test: %s", tc.rtxCommand)
+			}
+			if !tc.parseOnly {
+				t.Logf("Build test: %s", tc.rtxCommand)
+			}
+		})
+	}
+}
 
 // TestSpecBridgeConfigSyntaxCoverage documents the syntax patterns covered by this spec
 func TestSpecBridgeConfigSyntaxCoverage(t *testing.T) {

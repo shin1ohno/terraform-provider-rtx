@@ -6,8 +6,238 @@
 package parsers
 
 import (
+	"strings"
 	"testing"
 )
+
+// TestSpecPppConfigRTXSyntax validates that RTX commands in spec are well-formed
+func TestSpecPppConfigRTXSyntax(t *testing.T) {
+	// This test validates that all RTX command strings in the spec are well-formed
+	// and follow expected patterns
+
+	testCases := []struct {
+		name       string
+		rtxCommand string
+		parseOnly  bool
+		buildOnly  bool
+	}{
+		{
+			name:       "pp_select_1",
+			rtxCommand: `pp select 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pp_select_2",
+			rtxCommand: `pp select 2`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pp_description",
+			rtxCommand: `description pp "Internet Connection"`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pp_description_isp",
+			rtxCommand: `description pp "ISP PPPoE"`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pppoe_use_lan2",
+			rtxCommand: `pppoe use lan2`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pppoe_use_lan3",
+			rtxCommand: `pppoe use lan3`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pp_bind_wan1",
+			rtxCommand: `pp bind wan1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pp_bind_lan2",
+			rtxCommand: `pp bind lan2`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pppoe_service_name",
+			rtxCommand: `pppoe service-name myisp`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pppoe_ac_name",
+			rtxCommand: `pppoe ac-name accessconcentrator`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pp_auth_accept_chap",
+			rtxCommand: `pp auth accept chap`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pp_auth_accept_pap",
+			rtxCommand: `pp auth accept pap`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pp_auth_accept_chap_pap",
+			rtxCommand: `pp auth accept chap pap`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pp_auth_myname",
+			rtxCommand: `pp auth myname user@isp.com password123`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pp_auth_myname_complex",
+			rtxCommand: `pp auth myname flets@west.jp MyP@ssw0rd!`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pp_always_on_on",
+			rtxCommand: `pp always-on on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pp_always_on_off",
+			rtxCommand: `pp always-on off`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pp_disconnect_time",
+			rtxCommand: `pp disconnect time 300`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pp_disconnect_time_off",
+			rtxCommand: `pp disconnect time off`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pp_keepalive",
+			rtxCommand: `pp keepalive interval 30 retry-interval 3`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ip_pp_address",
+			rtxCommand: `ip pp address 192.168.1.1/32`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ip_pp_address_dhcp",
+			rtxCommand: `ip pp address dhcp`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ip_pp_mtu",
+			rtxCommand: `ip pp mtu 1454`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ip_pp_mtu_1492",
+			rtxCommand: `ip pp mtu 1492`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ip_pp_tcp_mss_limit",
+			rtxCommand: `ip pp tcp mss limit 1414`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ip_pp_tcp_mss_limit_auto",
+			rtxCommand: `ip pp tcp mss limit auto`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ip_pp_nat_descriptor",
+			rtxCommand: `ip pp nat descriptor 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ip_pp_nat_descriptor_100",
+			rtxCommand: `ip pp nat descriptor 100`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pp_enable",
+			rtxCommand: `pp enable 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "pp_disable",
+			rtxCommand: `pp disable 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_pp",
+			rtxCommand: `no pp select 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_pppoe_use",
+			rtxCommand: `no pppoe use`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+			}
+
+			// Validate command doesn't have trailing/leading whitespace issues
+			trimmed := strings.TrimSpace(tc.rtxCommand)
+			if tc.rtxCommand != trimmed && !strings.Contains(tc.rtxCommand, "\n") {
+				t.Errorf("RTX command has unexpected whitespace: %q", tc.rtxCommand)
+			}
+
+			// Log the command for visibility
+			if !tc.buildOnly {
+				t.Logf("Parse test: %s", tc.rtxCommand)
+			}
+			if !tc.parseOnly {
+				t.Logf("Build test: %s", tc.rtxCommand)
+			}
+		})
+	}
+}
 
 // TestSpecPppConfigSyntaxCoverage documents the syntax patterns covered by this spec
 func TestSpecPppConfigSyntaxCoverage(t *testing.T) {

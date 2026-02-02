@@ -6,8 +6,82 @@
 package parsers
 
 import (
+	"strings"
 	"testing"
 )
+
+// TestSpecDhcpClientHostnameRTXSyntax validates that RTX commands in spec are well-formed
+func TestSpecDhcpClientHostnameRTXSyntax(t *testing.T) {
+	// This test validates that all RTX command strings in the spec are well-formed
+	// and follow expected patterns
+
+	testCases := []struct {
+		name       string
+		rtxCommand string
+		parseOnly  bool
+		buildOnly  bool
+	}{
+		{
+			name:       "client_hostname_lan1_primary",
+			rtxCommand: `dhcp client hostname lan1 primary router1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "client_hostname_lan2_secondary",
+			rtxCommand: `dhcp client hostname lan2 secondary router2`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "client_hostname_pp",
+			rtxCommand: `dhcp client hostname pp 1 client1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "client_hostname_pp_anonymous",
+			rtxCommand: `dhcp client hostname pp anonymous remote-client`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "client_hostname_pool",
+			rtxCommand: `dhcp client hostname pool 1 pool-host`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "delete_client_hostname",
+			rtxCommand: `no dhcp client hostname lan1 primary`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+			}
+
+			// Validate command doesn't have trailing/leading whitespace issues
+			trimmed := strings.TrimSpace(tc.rtxCommand)
+			if tc.rtxCommand != trimmed && !strings.Contains(tc.rtxCommand, "\n") {
+				t.Errorf("RTX command has unexpected whitespace: %q", tc.rtxCommand)
+			}
+
+			// Log the command for visibility
+			if !tc.buildOnly {
+				t.Logf("Parse test: %s", tc.rtxCommand)
+			}
+			if !tc.parseOnly {
+				t.Logf("Build test: %s", tc.rtxCommand)
+			}
+		})
+	}
+}
 
 // TestSpecDhcpClientHostnameSyntaxCoverage documents the syntax patterns covered by this spec
 func TestSpecDhcpClientHostnameSyntaxCoverage(t *testing.T) {

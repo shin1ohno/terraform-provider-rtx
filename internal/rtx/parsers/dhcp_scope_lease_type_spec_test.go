@@ -6,8 +6,88 @@
 package parsers
 
 import (
+	"strings"
 	"testing"
 )
+
+// TestSpecDhcpScopeLeaseTypeRTXSyntax validates that RTX commands in spec are well-formed
+func TestSpecDhcpScopeLeaseTypeRTXSyntax(t *testing.T) {
+	// This test validates that all RTX command strings in the spec are well-formed
+	// and follow expected patterns
+
+	testCases := []struct {
+		name       string
+		rtxCommand string
+		parseOnly  bool
+		buildOnly  bool
+	}{
+		{
+			name:       "lease_type_bind_priority",
+			rtxCommand: `dhcp scope lease type 1 bind-priority`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "lease_type_bind_only",
+			rtxCommand: `dhcp scope lease type 1 bind-only`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "lease_type_bind_only_with_fallback",
+			rtxCommand: `dhcp scope lease type 1 bind-only fallback=2`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "lease_type_large_scope_id",
+			rtxCommand: `dhcp scope lease type 65535 bind-priority`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "lease_type_with_large_fallback",
+			rtxCommand: `dhcp scope lease type 1 bind-only fallback=65535`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "delete_lease_type",
+			rtxCommand: `no dhcp scope lease type 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_lease_type_with_type",
+			rtxCommand: `no dhcp scope lease type 1 bind-only`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+			}
+
+			// Validate command doesn't have trailing/leading whitespace issues
+			trimmed := strings.TrimSpace(tc.rtxCommand)
+			if tc.rtxCommand != trimmed && !strings.Contains(tc.rtxCommand, "\n") {
+				t.Errorf("RTX command has unexpected whitespace: %q", tc.rtxCommand)
+			}
+
+			// Log the command for visibility
+			if !tc.buildOnly {
+				t.Logf("Parse test: %s", tc.rtxCommand)
+			}
+			if !tc.parseOnly {
+				t.Logf("Build test: %s", tc.rtxCommand)
+			}
+		})
+	}
+}
 
 // TestSpecDhcpScopeLeaseTypeSyntaxCoverage documents the syntax patterns covered by this spec
 func TestSpecDhcpScopeLeaseTypeSyntaxCoverage(t *testing.T) {

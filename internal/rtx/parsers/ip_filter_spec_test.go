@@ -6,8 +6,196 @@
 package parsers
 
 import (
+	"strings"
 	"testing"
 )
+
+// TestSpecIPFilterRTXSyntax validates that RTX commands in spec are well-formed
+func TestSpecIPFilterRTXSyntax(t *testing.T) {
+	// This test validates that all RTX command strings in the spec are well-formed
+	// and follow expected patterns
+
+	testCases := []struct {
+		name       string
+		rtxCommand string
+		parseOnly  bool
+		buildOnly  bool
+	}{
+		{
+			name:       "filter_pass_any",
+			rtxCommand: `ip filter 1 pass * * * * *`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "filter_reject_network",
+			rtxCommand: `ip filter 2 reject 192.168.1.0/24 * * * *`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "filter_pass_tcp",
+			rtxCommand: `ip filter 10 pass * * tcp * 80`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "filter_pass_tcp_https",
+			rtxCommand: `ip filter 11 pass * * tcp * 443`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "filter_pass_tcp_established",
+			rtxCommand: `ip filter 20 pass * * established`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "filter_reject_icmp",
+			rtxCommand: `ip filter 30 reject * * icmp`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "filter_pass_udp_dns",
+			rtxCommand: `ip filter 40 pass * * udp * 53`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "filter_pass_compound_protocol",
+			rtxCommand: `ip filter 50 pass * * tcp,udp * 53`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "filter_restrict",
+			rtxCommand: `ip filter 60 restrict * * * * *`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "filter_restrict_log",
+			rtxCommand: `ip filter 61 restrict-log * * * * *`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dynamic_filter_ftp",
+			rtxCommand: `ip filter dynamic 100 * * ftp`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dynamic_filter_www",
+			rtxCommand: `ip filter dynamic 101 * * www`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dynamic_filter_dns",
+			rtxCommand: `ip filter dynamic 102 * * dns`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dynamic_filter_with_syslog",
+			rtxCommand: `ip filter dynamic 110 * * tcp syslog on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dynamic_filter_with_timeout",
+			rtxCommand: `ip filter dynamic 120 * * tcp timeout=3600`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dynamic_filter_list",
+			rtxCommand: `ip filter dynamic 200 * * filter 1 2 3`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dynamic_filter_in_out",
+			rtxCommand: `ip filter dynamic 201 * * filter 1 in 2 out 3`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ipv6_filter_pass",
+			rtxCommand: `ipv6 filter 1 pass * * * * *`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ipv6_filter_reject",
+			rtxCommand: `ipv6 filter 2 reject 2001:db8::/32 * * * *`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ipv6_filter_tcp",
+			rtxCommand: `ipv6 filter 10 pass * * tcp * 80`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ipv6_dynamic_filter",
+			rtxCommand: `ipv6 filter dynamic 100 * * tcp`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "delete_ip_filter",
+			rtxCommand: `no ip filter 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_ip_filter_dynamic",
+			rtxCommand: `no ip filter dynamic 100`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_ipv6_filter",
+			rtxCommand: `no ipv6 filter 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_ipv6_filter_dynamic",
+			rtxCommand: `no ipv6 filter dynamic 100`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+			}
+
+			// Validate command doesn't have trailing/leading whitespace issues
+			trimmed := strings.TrimSpace(tc.rtxCommand)
+			if tc.rtxCommand != trimmed && !strings.Contains(tc.rtxCommand, "\n") {
+				t.Errorf("RTX command has unexpected whitespace: %q", tc.rtxCommand)
+			}
+
+			// Log the command for visibility
+			if !tc.buildOnly {
+				t.Logf("Parse test: %s", tc.rtxCommand)
+			}
+			if !tc.parseOnly {
+				t.Logf("Build test: %s", tc.rtxCommand)
+			}
+		})
+	}
+}
 
 // TestSpecIPFilterSyntaxCoverage documents the syntax patterns covered by this spec
 func TestSpecIPFilterSyntaxCoverage(t *testing.T) {

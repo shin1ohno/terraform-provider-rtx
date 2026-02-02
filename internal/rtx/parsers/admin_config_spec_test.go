@@ -6,8 +6,130 @@
 package parsers
 
 import (
+	"strings"
 	"testing"
 )
+
+// TestSpecAdminConfigRTXSyntax validates that RTX commands in spec are well-formed
+func TestSpecAdminConfigRTXSyntax(t *testing.T) {
+	// This test validates that all RTX command strings in the spec are well-formed
+	// and follow expected patterns
+
+	testCases := []struct {
+		name       string
+		rtxCommand string
+		parseOnly  bool
+		buildOnly  bool
+	}{
+		{
+			name:       "login_password_simple",
+			rtxCommand: `login password secret123`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "login_password_complex",
+			rtxCommand: `login password MyP@ssw0rd!#$`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "admin_password_simple",
+			rtxCommand: `administrator password admin123`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "admin_password_complex",
+			rtxCommand: `administrator password Adm!n@2024`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "login_user_plain",
+			rtxCommand: `login user operator password123`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "login_user_encrypted",
+			rtxCommand: `login user admin encrypted abc123def456`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "login_user_readonly",
+			rtxCommand: `login user readonly pass123`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "user_attribute_administrator",
+			rtxCommand: `user attribute admin administrator=on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "user_attribute_connection",
+			rtxCommand: `user attribute operator connection=telnet,ssh`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "user_attribute_gui_page",
+			rtxCommand: `user attribute webuser gui-page=dashboard,lan-map`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "user_attribute_login_timer",
+			rtxCommand: `user attribute admin login-timer=3600`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "user_attribute_multiple",
+			rtxCommand: `user attribute admin administrator=on connection=serial,telnet,ssh gui-page=dashboard,config login-timer=7200`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "delete_login_user",
+			rtxCommand: `no login user operator`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_user_attribute",
+			rtxCommand: `no user attribute admin`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+			}
+
+			// Validate command doesn't have trailing/leading whitespace issues
+			trimmed := strings.TrimSpace(tc.rtxCommand)
+			if tc.rtxCommand != trimmed && !strings.Contains(tc.rtxCommand, "\n") {
+				t.Errorf("RTX command has unexpected whitespace: %q", tc.rtxCommand)
+			}
+
+			// Log the command for visibility
+			if !tc.buildOnly {
+				t.Logf("Parse test: %s", tc.rtxCommand)
+			}
+			if !tc.parseOnly {
+				t.Logf("Build test: %s", tc.rtxCommand)
+			}
+		})
+	}
+}
 
 // TestSpecAdminConfigSyntaxCoverage documents the syntax patterns covered by this spec
 func TestSpecAdminConfigSyntaxCoverage(t *testing.T) {

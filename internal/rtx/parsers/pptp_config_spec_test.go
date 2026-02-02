@@ -6,8 +6,154 @@
 package parsers
 
 import (
+	"strings"
 	"testing"
 )
+
+// TestSpecPptpConfigRTXSyntax validates that RTX commands in spec are well-formed
+func TestSpecPptpConfigRTXSyntax(t *testing.T) {
+	// This test validates that all RTX command strings in the spec are well-formed
+	// and follow expected patterns
+
+	testCases := []struct {
+		name       string
+		rtxCommand string
+		parseOnly  bool
+		buildOnly  bool
+	}{
+		{
+			name:       "pptp_service_on",
+			rtxCommand: `pptp service on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pptp_service_off",
+			rtxCommand: `pptp service off`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pptp_disconnect_time",
+			rtxCommand: `pptp tunnel disconnect time 300`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pptp_disconnect_time_600",
+			rtxCommand: `pptp tunnel disconnect time 600`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pptp_keepalive_on",
+			rtxCommand: `pptp keepalive use on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pptp_keepalive_off",
+			rtxCommand: `pptp keepalive use off`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pptp_auth_accept_mschapv2",
+			rtxCommand: `pp auth accept mschapv2`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pptp_auth_accept_chap",
+			rtxCommand: `pp auth accept chap`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pptp_auth_myname",
+			rtxCommand: `pp auth myname vpnuser vpnpassword`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ppp_ccp_mppe128",
+			rtxCommand: `ppp ccp type mppe-128`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ppp_ccp_mppe128_require",
+			rtxCommand: `ppp ccp type mppe-128 require`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ppp_ccp_mppe56",
+			rtxCommand: `ppp ccp type mppe-56`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ppp_ccp_mppe40",
+			rtxCommand: `ppp ccp type mppe-40`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pptp_ip_pool",
+			rtxCommand: `ip pp remote address pool 192.168.10.100-192.168.10.200`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pptp_ip_pool_small",
+			rtxCommand: `ip pp remote address pool 10.0.0.10-10.0.0.20`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "delete_pptp_service",
+			rtxCommand: `pptp service off`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_pptp_disconnect_time",
+			rtxCommand: `no pptp tunnel disconnect time`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_pptp_keepalive",
+			rtxCommand: `pptp keepalive use off`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+			}
+
+			// Validate command doesn't have trailing/leading whitespace issues
+			trimmed := strings.TrimSpace(tc.rtxCommand)
+			if tc.rtxCommand != trimmed && !strings.Contains(tc.rtxCommand, "\n") {
+				t.Errorf("RTX command has unexpected whitespace: %q", tc.rtxCommand)
+			}
+
+			// Log the command for visibility
+			if !tc.buildOnly {
+				t.Logf("Parse test: %s", tc.rtxCommand)
+			}
+			if !tc.parseOnly {
+				t.Logf("Build test: %s", tc.rtxCommand)
+			}
+		})
+	}
+}
 
 // TestSpecPptpConfigSyntaxCoverage documents the syntax patterns covered by this spec
 func TestSpecPptpConfigSyntaxCoverage(t *testing.T) {

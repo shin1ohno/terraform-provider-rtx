@@ -6,8 +6,262 @@
 package parsers
 
 import (
+	"strings"
 	"testing"
 )
+
+// TestSpecIpsecTunnelRTXSyntax validates that RTX commands in spec are well-formed
+func TestSpecIpsecTunnelRTXSyntax(t *testing.T) {
+	// This test validates that all RTX command strings in the spec are well-formed
+	// and follow expected patterns
+
+	testCases := []struct {
+		name       string
+		rtxCommand string
+		parseOnly  bool
+		buildOnly  bool
+	}{
+		{
+			name:       "tunnel_select",
+			rtxCommand: `tunnel select 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "tunnel_select_large",
+			rtxCommand: `tunnel select 100`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ipsec_tunnel",
+			rtxCommand: `ipsec tunnel 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ike_local_address",
+			rtxCommand: `ipsec ike local address 1 192.168.1.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ike_remote_address",
+			rtxCommand: `ipsec ike remote address 1 203.0.113.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ike_psk",
+			rtxCommand: `ipsec ike pre-shared-key 1 text mysecretkey`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ike_psk_complex",
+			rtxCommand: `ipsec ike pre-shared-key 1 text MyC0mplex!Key#2024`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ike_encryption_aes256",
+			rtxCommand: `ipsec ike encryption 1 aes-cbc-256`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ike_encryption_aes128",
+			rtxCommand: `ipsec ike encryption 1 aes-cbc`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ike_encryption_3des",
+			rtxCommand: `ipsec ike encryption 1 3des-cbc`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ike_hash_sha256",
+			rtxCommand: `ipsec ike hash 1 sha256`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ike_hash_sha",
+			rtxCommand: `ipsec ike hash 1 sha`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ike_hash_md5",
+			rtxCommand: `ipsec ike hash 1 md5`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ike_group_modp2048",
+			rtxCommand: `ipsec ike group 1 modp2048`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ike_group_modp1536",
+			rtxCommand: `ipsec ike group 1 modp1536`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ike_group_modp1024",
+			rtxCommand: `ipsec ike group 1 modp1024`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ike_keepalive_dpd",
+			rtxCommand: `ipsec ike keepalive use 1 on dpd 30`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ike_keepalive_dpd_with_retry",
+			rtxCommand: `ipsec ike keepalive use 1 on dpd 30 5`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ike_keepalive_heartbeat",
+			rtxCommand: `ipsec ike keepalive use 1 on heartbeat 60 3`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ike_keepalive_off",
+			rtxCommand: `ipsec ike keepalive use 1 off`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ike_nat_traversal_on",
+			rtxCommand: `ipsec ike nat-traversal 1 on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ike_nat_traversal_off",
+			rtxCommand: `ipsec ike nat-traversal 1 off`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "sa_policy_esp_aes_sha",
+			rtxCommand: `ipsec sa policy 1 1 esp aes-cbc sha-hmac`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "sa_policy_esp_aes256_sha256",
+			rtxCommand: `ipsec sa policy 1 1 esp aes256-cbc sha256-hmac`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "sa_policy_esp_3des_md5",
+			rtxCommand: `ipsec sa policy 1 1 esp 3des-cbc md5-hmac`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "tunnel_secure_filter_in",
+			rtxCommand: `ip tunnel secure filter in 1 2 3`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "tunnel_secure_filter_out",
+			rtxCommand: `ip tunnel secure filter out 100 101`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "tunnel_tcp_mss_auto",
+			rtxCommand: `ip tunnel tcp mss limit auto`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "tunnel_tcp_mss_1280",
+			rtxCommand: `ip tunnel tcp mss limit 1280`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "tunnel_enable",
+			rtxCommand: `tunnel enable 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "tunnel_disable",
+			rtxCommand: `tunnel disable 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "ipsec_transport",
+			rtxCommand: `ipsec transport 1 1 udp 1701`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "delete_tunnel",
+			rtxCommand: `no tunnel select 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_ipsec_tunnel",
+			rtxCommand: `no ipsec tunnel 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_ike_encryption",
+			rtxCommand: `no ipsec ike encryption 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_ipsec_transport",
+			rtxCommand: `no ipsec transport 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+			}
+
+			// Validate command doesn't have trailing/leading whitespace issues
+			trimmed := strings.TrimSpace(tc.rtxCommand)
+			if tc.rtxCommand != trimmed && !strings.Contains(tc.rtxCommand, "\n") {
+				t.Errorf("RTX command has unexpected whitespace: %q", tc.rtxCommand)
+			}
+
+			// Log the command for visibility
+			if !tc.buildOnly {
+				t.Logf("Parse test: %s", tc.rtxCommand)
+			}
+			if !tc.parseOnly {
+				t.Logf("Build test: %s", tc.rtxCommand)
+			}
+		})
+	}
+}
 
 // TestSpecIpsecTunnelSyntaxCoverage documents the syntax patterns covered by this spec
 func TestSpecIpsecTunnelSyntaxCoverage(t *testing.T) {

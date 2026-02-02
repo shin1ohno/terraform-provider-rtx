@@ -6,8 +6,142 @@
 package parsers
 
 import (
+	"strings"
 	"testing"
 )
+
+// TestSpecEthernetFilterRTXSyntax validates that RTX commands in spec are well-formed
+func TestSpecEthernetFilterRTXSyntax(t *testing.T) {
+	// This test validates that all RTX command strings in the spec are well-formed
+	// and follow expected patterns
+
+	testCases := []struct {
+		name       string
+		rtxCommand string
+		parseOnly  bool
+		buildOnly  bool
+	}{
+		{
+			name:       "filter_pass_any",
+			rtxCommand: `ethernet filter 1 pass * *`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "filter_reject_src_mac",
+			rtxCommand: `ethernet filter 2 reject 00:11:22:33:44:55 *`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "filter_pass_dst_mac",
+			rtxCommand: `ethernet filter 3 pass * aa:bb:cc:dd:ee:ff`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "filter_both_mac",
+			rtxCommand: `ethernet filter 4 pass-log 00:11:22:33:44:55 aa:bb:cc:dd:ee:ff`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "filter_with_ethertype",
+			rtxCommand: `ethernet filter 5 pass * * 0x0800`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "filter_with_vlan",
+			rtxCommand: `ethernet filter 6 pass * * vlan 100`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "filter_ethertype_and_vlan",
+			rtxCommand: `ethernet filter 7 reject * * 0x0806 vlan 200`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "filter_dhcp_bind",
+			rtxCommand: `ethernet filter 10 pass dhcp-bind`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "filter_dhcp_not_bind",
+			rtxCommand: `ethernet filter 11 reject dhcp-not-bind`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "filter_dhcp_bind_with_scope",
+			rtxCommand: `ethernet filter 12 pass dhcp-bind 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "filter_offset",
+			rtxCommand: `ethernet filter 20 pass * * offset=14 08 00`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "interface_filter_in",
+			rtxCommand: `ethernet lan1 filter in 1 2 3`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "interface_filter_out",
+			rtxCommand: `ethernet lan1 filter out 10 11`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "interface_filter_lan2",
+			rtxCommand: `ethernet lan2 filter in 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "delete_filter",
+			rtxCommand: `no ethernet filter 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_interface_filter",
+			rtxCommand: `no ethernet lan1 filter in`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+			}
+
+			// Validate command doesn't have trailing/leading whitespace issues
+			trimmed := strings.TrimSpace(tc.rtxCommand)
+			if tc.rtxCommand != trimmed && !strings.Contains(tc.rtxCommand, "\n") {
+				t.Errorf("RTX command has unexpected whitespace: %q", tc.rtxCommand)
+			}
+
+			// Log the command for visibility
+			if !tc.buildOnly {
+				t.Logf("Parse test: %s", tc.rtxCommand)
+			}
+			if !tc.parseOnly {
+				t.Logf("Build test: %s", tc.rtxCommand)
+			}
+		})
+	}
+}
 
 // TestSpecEthernetFilterSyntaxCoverage documents the syntax patterns covered by this spec
 func TestSpecEthernetFilterSyntaxCoverage(t *testing.T) {

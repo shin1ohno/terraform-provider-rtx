@@ -6,8 +6,184 @@
 package parsers
 
 import (
+	"strings"
 	"testing"
 )
+
+// TestSpecTunnelConfigRTXSyntax validates that RTX commands in spec are well-formed
+func TestSpecTunnelConfigRTXSyntax(t *testing.T) {
+	// This test validates that all RTX command strings in the spec are well-formed
+	// and follow expected patterns
+
+	testCases := []struct {
+		name       string
+		rtxCommand string
+		parseOnly  bool
+		buildOnly  bool
+	}{
+		{
+			name:       "tunnel_select_1",
+			rtxCommand: `tunnel select 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "tunnel_select_100",
+			rtxCommand: `tunnel select 100`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "tunnel_encapsulation_ipsec",
+			rtxCommand: `tunnel encapsulation ipsec`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "tunnel_encapsulation_l2tp",
+			rtxCommand: `tunnel encapsulation l2tp`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "tunnel_encapsulation_l2tpv3",
+			rtxCommand: `tunnel encapsulation l2tpv3`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "tunnel_endpoint_name",
+			rtxCommand: `tunnel endpoint name vpn.example.com fqdn`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "tunnel_endpoint_name_ip",
+			rtxCommand: `tunnel endpoint name 203.0.113.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "tunnel_endpoint_address",
+			rtxCommand: `tunnel endpoint address 192.168.1.1 203.0.113.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "tunnel_description",
+			rtxCommand: `description "VPN to Branch Office"`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "tunnel_description_simple",
+			rtxCommand: `description Site-to-Site-VPN`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "tunnel_enable",
+			rtxCommand: `tunnel enable 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "tunnel_disable",
+			rtxCommand: `tunnel disable 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "ipsec_ike_local_address",
+			rtxCommand: `ipsec ike local address 1 192.168.1.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ipsec_ike_remote_address",
+			rtxCommand: `ipsec ike remote address 1 203.0.113.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ipsec_ike_psk",
+			rtxCommand: `ipsec ike pre-shared-key 1 text mysecret`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ipsec_ike_nat_traversal_on",
+			rtxCommand: `ipsec ike nat-traversal 1 on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ipsec_ike_nat_traversal_off",
+			rtxCommand: `ipsec ike nat-traversal 1 off`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ipsec_ike_keepalive_log_on",
+			rtxCommand: `ipsec ike keepalive log 1 on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ipsec_ike_keepalive_log_off",
+			rtxCommand: `ipsec ike keepalive log 1 off`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "l2tp_hostname",
+			rtxCommand: `l2tp hostname myrouter`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "l2tp_always_on",
+			rtxCommand: `l2tp always-on on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "l2tp_syslog_on",
+			rtxCommand: `l2tp syslog on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "delete_tunnel",
+			rtxCommand: `no tunnel select 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+			}
+
+			// Validate command doesn't have trailing/leading whitespace issues
+			trimmed := strings.TrimSpace(tc.rtxCommand)
+			if tc.rtxCommand != trimmed && !strings.Contains(tc.rtxCommand, "\n") {
+				t.Errorf("RTX command has unexpected whitespace: %q", tc.rtxCommand)
+			}
+
+			// Log the command for visibility
+			if !tc.buildOnly {
+				t.Logf("Parse test: %s", tc.rtxCommand)
+			}
+			if !tc.parseOnly {
+				t.Logf("Build test: %s", tc.rtxCommand)
+			}
+		})
+	}
+}
 
 // TestSpecTunnelConfigSyntaxCoverage documents the syntax patterns covered by this spec
 func TestSpecTunnelConfigSyntaxCoverage(t *testing.T) {

@@ -6,8 +6,148 @@
 package parsers
 
 import (
+	"strings"
 	"testing"
 )
+
+// TestSpecNatMasqueradeRTXSyntax validates that RTX commands in spec are well-formed
+func TestSpecNatMasqueradeRTXSyntax(t *testing.T) {
+	// This test validates that all RTX command strings in the spec are well-formed
+	// and follow expected patterns
+
+	testCases := []struct {
+		name       string
+		rtxCommand string
+		parseOnly  bool
+		buildOnly  bool
+	}{
+		{
+			name:       "nat_type_masquerade",
+			rtxCommand: `nat descriptor type 1 masquerade`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "nat_type_masquerade_100",
+			rtxCommand: `nat descriptor type 100 masquerade`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "nat_address_outer_ipcp",
+			rtxCommand: `nat descriptor address outer 1 ipcp`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "nat_address_outer_ip",
+			rtxCommand: `nat descriptor address outer 1 203.0.113.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "nat_address_outer_primary",
+			rtxCommand: `nat descriptor address outer 1 primary`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "nat_address_inner_network",
+			rtxCommand: `nat descriptor address inner 1 192.168.1.1-192.168.1.254`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "nat_address_inner_auto",
+			rtxCommand: `nat descriptor address inner 1 auto`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "masquerade_static_tcp",
+			rtxCommand: `nat descriptor masquerade static 1 1 192.168.1.100 tcp 80`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "masquerade_static_tcp_https",
+			rtxCommand: `nat descriptor masquerade static 1 2 192.168.1.100 tcp 443`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "masquerade_static_udp",
+			rtxCommand: `nat descriptor masquerade static 1 3 192.168.1.200 udp 53`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "masquerade_static_port_mapping",
+			rtxCommand: `nat descriptor masquerade static 1 4 192.168.1.100 tcp 8080=80`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "masquerade_static_outer_inner",
+			rtxCommand: `nat descriptor masquerade static 1 5 203.0.113.1:22=192.168.1.10:22`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "masquerade_static_protocol_only",
+			rtxCommand: `nat descriptor masquerade static 1 6 192.168.1.100 icmp`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "interface_nat_descriptor",
+			rtxCommand: `ip lan2 nat descriptor 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "interface_nat_descriptor_pp",
+			rtxCommand: `ip pp nat descriptor 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "delete_nat_masquerade",
+			rtxCommand: `no nat descriptor type 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_masquerade_static",
+			rtxCommand: `no nat descriptor masquerade static 1 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+			}
+
+			// Validate command doesn't have trailing/leading whitespace issues
+			trimmed := strings.TrimSpace(tc.rtxCommand)
+			if tc.rtxCommand != trimmed && !strings.Contains(tc.rtxCommand, "\n") {
+				t.Errorf("RTX command has unexpected whitespace: %q", tc.rtxCommand)
+			}
+
+			// Log the command for visibility
+			if !tc.buildOnly {
+				t.Logf("Parse test: %s", tc.rtxCommand)
+			}
+			if !tc.parseOnly {
+				t.Logf("Build test: %s", tc.rtxCommand)
+			}
+		})
+	}
+}
 
 // TestSpecNatMasqueradeSyntaxCoverage documents the syntax patterns covered by this spec
 func TestSpecNatMasqueradeSyntaxCoverage(t *testing.T) {

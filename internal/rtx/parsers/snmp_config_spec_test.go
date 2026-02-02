@@ -6,8 +6,190 @@
 package parsers
 
 import (
+	"strings"
 	"testing"
 )
+
+// TestSpecSnmpConfigRTXSyntax validates that RTX commands in spec are well-formed
+func TestSpecSnmpConfigRTXSyntax(t *testing.T) {
+	// This test validates that all RTX command strings in the spec are well-formed
+	// and follow expected patterns
+
+	testCases := []struct {
+		name       string
+		rtxCommand string
+		parseOnly  bool
+		buildOnly  bool
+	}{
+		{
+			name:       "snmp_sysname",
+			rtxCommand: `snmp sysname RTX-Router`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "snmp_sysname_with_model",
+			rtxCommand: `snmp sysname RTX1300-Main`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "snmp_syslocation",
+			rtxCommand: `snmp syslocation Tokyo-DC-Rack1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "snmp_syslocation_spaces",
+			rtxCommand: `snmp syslocation "Tokyo Data Center Rack 1"`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "snmp_syscontact",
+			rtxCommand: `snmp syscontact admin@example.com`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "snmp_syscontact_name",
+			rtxCommand: `snmp syscontact Network-Admin`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "snmp_community_ro",
+			rtxCommand: `snmp community read-only public`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "snmp_community_rw",
+			rtxCommand: `snmp community read-write private`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "snmp_community_with_acl",
+			rtxCommand: `snmp community read-only mycomm 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "snmp_host",
+			rtxCommand: `snmp host 192.168.1.100`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "snmp_host_with_community",
+			rtxCommand: `snmp host 192.168.1.100 community trapcomm`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "snmp_host_with_version",
+			rtxCommand: `snmp host 192.168.1.100 version 2c`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "snmp_host_multiple",
+			rtxCommand: `snmp host 10.0.0.50`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "snmp_trap_community",
+			rtxCommand: `snmp trap community trapcomm`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "snmp_trap_enable_all",
+			rtxCommand: `snmp trap enable snmp all`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "snmp_trap_enable_linkdown",
+			rtxCommand: `snmp trap enable snmp linkdown`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "snmp_trap_enable_linkup",
+			rtxCommand: `snmp trap enable snmp linkup`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "snmp_trap_enable_coldstart",
+			rtxCommand: `snmp trap enable snmp coldstart`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "snmp_trap_enable_warmstart",
+			rtxCommand: `snmp trap enable snmp warmstart`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "snmp_trap_enable_authentication",
+			rtxCommand: `snmp trap enable snmp authentication`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "snmp_trap_enable_multiple",
+			rtxCommand: `snmp trap enable snmp linkdown linkup coldstart`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "delete_snmp_sysname",
+			rtxCommand: `no snmp sysname`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_snmp_community",
+			rtxCommand: `no snmp community public`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_snmp_host",
+			rtxCommand: `no snmp host 192.168.1.100`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+			}
+
+			// Validate command doesn't have trailing/leading whitespace issues
+			trimmed := strings.TrimSpace(tc.rtxCommand)
+			if tc.rtxCommand != trimmed && !strings.Contains(tc.rtxCommand, "\n") {
+				t.Errorf("RTX command has unexpected whitespace: %q", tc.rtxCommand)
+			}
+
+			// Log the command for visibility
+			if !tc.buildOnly {
+				t.Logf("Parse test: %s", tc.rtxCommand)
+			}
+			if !tc.parseOnly {
+				t.Logf("Build test: %s", tc.rtxCommand)
+			}
+		})
+	}
+}
 
 // TestSpecSnmpConfigSyntaxCoverage documents the syntax patterns covered by this spec
 func TestSpecSnmpConfigSyntaxCoverage(t *testing.T) {

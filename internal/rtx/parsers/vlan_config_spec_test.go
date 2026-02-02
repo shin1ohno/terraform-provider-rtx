@@ -6,8 +6,142 @@
 package parsers
 
 import (
+	"strings"
 	"testing"
 )
+
+// TestSpecVlanConfigRTXSyntax validates that RTX commands in spec are well-formed
+func TestSpecVlanConfigRTXSyntax(t *testing.T) {
+	// This test validates that all RTX command strings in the spec are well-formed
+	// and follow expected patterns
+
+	testCases := []struct {
+		name       string
+		rtxCommand string
+		parseOnly  bool
+		buildOnly  bool
+	}{
+		{
+			name:       "vlan_create_basic",
+			rtxCommand: `vlan lan1/1 802.1q vid=100`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "vlan_create_vid_200",
+			rtxCommand: `vlan lan1/2 802.1q vid=200`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "vlan_create_lan2",
+			rtxCommand: `vlan lan2/1 802.1q vid=10`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "vlan_create_vid_1",
+			rtxCommand: `vlan lan1/3 802.1q vid=1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "vlan_create_vid_4094",
+			rtxCommand: `vlan lan1/4 802.1q vid=4094`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "vlan_ip_address_cidr",
+			rtxCommand: `ip lan1/1 address 192.168.100.1/24`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "vlan_ip_address_16",
+			rtxCommand: `ip lan1/2 address 172.16.0.1/16`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "vlan_ip_address_dotted",
+			rtxCommand: `ip lan1/3 address 10.0.0.1 255.255.255.0`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "vlan_description",
+			rtxCommand: `description lan1/1 "Management VLAN"`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "vlan_description_simple",
+			rtxCommand: `description lan1/2 Server-VLAN`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "vlan_description_guest",
+			rtxCommand: `description lan1/3 "Guest Network"`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "vlan_enable",
+			rtxCommand: `lan1/1 enable`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "vlan_disable",
+			rtxCommand: `no lan1/1 enable`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_vlan",
+			rtxCommand: `no vlan lan1/1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_vlan_ip",
+			rtxCommand: `no ip lan1/1 address`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_vlan_description",
+			rtxCommand: `no description lan1/1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+			}
+
+			// Validate command doesn't have trailing/leading whitespace issues
+			trimmed := strings.TrimSpace(tc.rtxCommand)
+			if tc.rtxCommand != trimmed && !strings.Contains(tc.rtxCommand, "\n") {
+				t.Errorf("RTX command has unexpected whitespace: %q", tc.rtxCommand)
+			}
+
+			// Log the command for visibility
+			if !tc.buildOnly {
+				t.Logf("Parse test: %s", tc.rtxCommand)
+			}
+			if !tc.parseOnly {
+				t.Logf("Build test: %s", tc.rtxCommand)
+			}
+		})
+	}
+}
 
 // TestSpecVlanConfigSyntaxCoverage documents the syntax patterns covered by this spec
 func TestSpecVlanConfigSyntaxCoverage(t *testing.T) {

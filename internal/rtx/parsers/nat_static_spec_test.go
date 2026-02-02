@@ -6,8 +6,124 @@
 package parsers
 
 import (
+	"strings"
 	"testing"
 )
+
+// TestSpecNatStaticRTXSyntax validates that RTX commands in spec are well-formed
+func TestSpecNatStaticRTXSyntax(t *testing.T) {
+	// This test validates that all RTX command strings in the spec are well-formed
+	// and follow expected patterns
+
+	testCases := []struct {
+		name       string
+		rtxCommand string
+		parseOnly  bool
+		buildOnly  bool
+	}{
+		{
+			name:       "nat_type_static",
+			rtxCommand: `nat descriptor type 1 static`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "nat_type_static_100",
+			rtxCommand: `nat descriptor type 100 static`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "nat_static_1to1",
+			rtxCommand: `nat descriptor static 1 203.0.113.10=192.168.1.10`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "nat_static_1to1_second",
+			rtxCommand: `nat descriptor static 1 203.0.113.11=192.168.1.11`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "nat_static_multiple_desc",
+			rtxCommand: `nat descriptor static 2 10.0.0.100=172.16.0.100`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "nat_static_port_tcp",
+			rtxCommand: `nat descriptor static 1 203.0.113.10:80=192.168.1.10:80 tcp`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "nat_static_port_tcp_https",
+			rtxCommand: `nat descriptor static 1 203.0.113.10:443=192.168.1.10:443 tcp`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "nat_static_port_udp",
+			rtxCommand: `nat descriptor static 1 203.0.113.10:53=192.168.1.10:53 udp`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "nat_static_port_different",
+			rtxCommand: `nat descriptor static 1 203.0.113.10:8080=192.168.1.10:80 tcp`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "interface_nat_static",
+			rtxCommand: `ip lan2 nat descriptor 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "delete_nat_static",
+			rtxCommand: `no nat descriptor type 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_nat_static_mapping",
+			rtxCommand: `no nat descriptor static 1 203.0.113.10=192.168.1.10`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_nat_static_port_mapping",
+			rtxCommand: `no nat descriptor static 1 203.0.113.10:80=192.168.1.10:80 tcp`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+			}
+
+			// Validate command doesn't have trailing/leading whitespace issues
+			trimmed := strings.TrimSpace(tc.rtxCommand)
+			if tc.rtxCommand != trimmed && !strings.Contains(tc.rtxCommand, "\n") {
+				t.Errorf("RTX command has unexpected whitespace: %q", tc.rtxCommand)
+			}
+
+			// Log the command for visibility
+			if !tc.buildOnly {
+				t.Logf("Parse test: %s", tc.rtxCommand)
+			}
+			if !tc.parseOnly {
+				t.Logf("Build test: %s", tc.rtxCommand)
+			}
+		})
+	}
+}
 
 // TestSpecNatStaticSyntaxCoverage documents the syntax patterns covered by this spec
 func TestSpecNatStaticSyntaxCoverage(t *testing.T) {

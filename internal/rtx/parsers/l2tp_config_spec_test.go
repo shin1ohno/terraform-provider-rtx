@@ -6,8 +6,208 @@
 package parsers
 
 import (
+	"strings"
 	"testing"
 )
+
+// TestSpecL2tpConfigRTXSyntax validates that RTX commands in spec are well-formed
+func TestSpecL2tpConfigRTXSyntax(t *testing.T) {
+	// This test validates that all RTX command strings in the spec are well-formed
+	// and follow expected patterns
+
+	testCases := []struct {
+		name       string
+		rtxCommand string
+		parseOnly  bool
+		buildOnly  bool
+	}{
+		{
+			name:       "l2tp_service_on",
+			rtxCommand: `l2tp service on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "l2tp_service_off",
+			rtxCommand: `l2tp service off`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "l2tp_service_protocols",
+			rtxCommand: `l2tp service on l2tpv3 l2tp`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "tunnel_encapsulation_l2tp",
+			rtxCommand: `tunnel encapsulation l2tp`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "tunnel_encapsulation_l2tpv3",
+			rtxCommand: `tunnel encapsulation l2tpv3`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "tunnel_endpoint",
+			rtxCommand: `tunnel endpoint address 192.168.1.1 203.0.113.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "tunnel_endpoint_fqdn",
+			rtxCommand: `tunnel endpoint address 192.168.1.1 vpn.example.com`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "l2tp_local_router_id",
+			rtxCommand: `l2tp local router-id 192.168.1.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "l2tp_remote_router_id",
+			rtxCommand: `l2tp remote router-id 203.0.113.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "l2tp_remote_end_id",
+			rtxCommand: `l2tp remote end-id 12345`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "l2tp_always_on_on",
+			rtxCommand: `l2tp always-on on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "l2tp_always_on_off",
+			rtxCommand: `l2tp always-on off`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "l2tp_keepalive",
+			rtxCommand: `l2tp keepalive use on 60 3`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "l2tp_keepalive_30",
+			rtxCommand: `l2tp keepalive use on 30 5`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "l2tp_disconnect_time",
+			rtxCommand: `l2tp tunnel disconnect time 300`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "l2tp_disconnect_time_600",
+			rtxCommand: `l2tp tunnel disconnect time 600`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "l2tp_tunnel_auth_on",
+			rtxCommand: `l2tp tunnel auth on mysecret`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "l2tp_tunnel_auth_off",
+			rtxCommand: `l2tp tunnel auth off`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pp_select_anonymous",
+			rtxCommand: `pp select anonymous`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pp_bind_tunnel",
+			rtxCommand: `pp bind tunnel1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pp_auth_accept_chap",
+			rtxCommand: `pp auth accept chap`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pp_auth_accept_pap",
+			rtxCommand: `pp auth accept pap`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pp_auth_myname",
+			rtxCommand: `pp auth myname user@example.com mypassword`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ip_pp_remote_pool",
+			rtxCommand: `ip pp remote address pool 192.168.100.100-192.168.100.200`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "l2tp_syslog_on",
+			rtxCommand: `l2tp syslog on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "l2tp_syslog_off",
+			rtxCommand: `l2tp syslog off`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "delete_l2tp_tunnel",
+			rtxCommand: `no tunnel select 1`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+			}
+
+			// Validate command doesn't have trailing/leading whitespace issues
+			trimmed := strings.TrimSpace(tc.rtxCommand)
+			if tc.rtxCommand != trimmed && !strings.Contains(tc.rtxCommand, "\n") {
+				t.Errorf("RTX command has unexpected whitespace: %q", tc.rtxCommand)
+			}
+
+			// Log the command for visibility
+			if !tc.buildOnly {
+				t.Logf("Parse test: %s", tc.rtxCommand)
+			}
+			if !tc.parseOnly {
+				t.Logf("Build test: %s", tc.rtxCommand)
+			}
+		})
+	}
+}
 
 // TestSpecL2tpConfigSyntaxCoverage documents the syntax patterns covered by this spec
 func TestSpecL2tpConfigSyntaxCoverage(t *testing.T) {

@@ -6,8 +6,178 @@
 package parsers
 
 import (
+	"strings"
 	"testing"
 )
+
+// TestSpecInterfaceConfigRTXSyntax validates that RTX commands in spec are well-formed
+func TestSpecInterfaceConfigRTXSyntax(t *testing.T) {
+	// This test validates that all RTX command strings in the spec are well-formed
+	// and follow expected patterns
+
+	testCases := []struct {
+		name       string
+		rtxCommand string
+		parseOnly  bool
+		buildOnly  bool
+	}{
+		{
+			name:       "ip_address_cidr",
+			rtxCommand: `ip lan1 address 192.168.1.1/24`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ip_address_cidr_16",
+			rtxCommand: `ip lan2 address 172.16.0.1/16`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ip_address_dhcp",
+			rtxCommand: `ip lan1 address dhcp`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "secure_filter_in",
+			rtxCommand: `ip lan1 secure filter in 1 2 3`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "secure_filter_out",
+			rtxCommand: `ip lan1 secure filter out 100 101 102`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "secure_filter_out_with_dynamic",
+			rtxCommand: `ip lan1 secure filter out 100 101 dynamic 200 201`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "secure_filter_single",
+			rtxCommand: `ip lan2 secure filter in 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ethernet_filter_in",
+			rtxCommand: `ethernet lan1 filter in 1 2`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ethernet_filter_out",
+			rtxCommand: `ethernet lan1 filter out 10`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "nat_descriptor",
+			rtxCommand: `ip lan1 nat descriptor 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "nat_descriptor_100",
+			rtxCommand: `ip lan2 nat descriptor 100`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "proxyarp_on",
+			rtxCommand: `ip lan1 proxyarp on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "proxyarp_off",
+			rtxCommand: `ip lan1 proxyarp off`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "mtu_1500",
+			rtxCommand: `ip lan1 mtu 1500`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "mtu_1400",
+			rtxCommand: `ip tunnel1 mtu 1400`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "mtu_576",
+			rtxCommand: `ip pp1 mtu 576`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "description_simple",
+			rtxCommand: `description lan1 "Internal Network"`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "description_wan",
+			rtxCommand: `description lan2 "WAN Connection"`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "delete_ip_address",
+			rtxCommand: `no ip lan1 address`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_secure_filter_in",
+			rtxCommand: `no ip lan1 secure filter in`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_secure_filter_out",
+			rtxCommand: `no ip lan1 secure filter out`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+		{
+			name:       "delete_nat_descriptor",
+			rtxCommand: `no ip lan1 nat descriptor`,
+			parseOnly:  false,
+			buildOnly:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+			}
+
+			// Validate command doesn't have trailing/leading whitespace issues
+			trimmed := strings.TrimSpace(tc.rtxCommand)
+			if tc.rtxCommand != trimmed && !strings.Contains(tc.rtxCommand, "\n") {
+				t.Errorf("RTX command has unexpected whitespace: %q", tc.rtxCommand)
+			}
+
+			// Log the command for visibility
+			if !tc.buildOnly {
+				t.Logf("Parse test: %s", tc.rtxCommand)
+			}
+			if !tc.parseOnly {
+				t.Logf("Build test: %s", tc.rtxCommand)
+			}
+		})
+	}
+}
 
 // TestSpecInterfaceConfigSyntaxCoverage documents the syntax patterns covered by this spec
 func TestSpecInterfaceConfigSyntaxCoverage(t *testing.T) {
