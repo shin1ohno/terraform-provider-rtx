@@ -1,0 +1,223 @@
+# Ethernet Filter Configuration Command Specification
+# Reference: RTX Command Reference
+#
+# Covers:
+# - ethernet filter: レイヤー2フィルタ
+# - ethernet interface filter: インタフェースへのフィルタ適用
+
+command:
+  name: ethernet_filter
+  description: "イーサネットフィルタ設定"
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  terraform:
+    resource_name: rtx_ethernet_filter
+    struct_name: EthernetFilter
+    package: parsers
+
+  syntax_tests:
+    # =============================================================================
+    # MAC-based Filters
+    # =============================================================================
+    - name: filter_pass_any
+      rtx: "ethernet filter 1 pass * *"
+      terraform:
+        number: 1
+        action: "pass"
+        source_mac: "*"
+        destination_mac: "*"
+
+    - name: filter_reject_src_mac
+      rtx: "ethernet filter 2 reject 00:11:22:33:44:55 *"
+      terraform:
+        number: 2
+        action: "reject"
+        source_mac: "00:11:22:33:44:55"
+        destination_mac: "*"
+
+    - name: filter_pass_dst_mac
+      rtx: "ethernet filter 3 pass * aa:bb:cc:dd:ee:ff"
+      terraform:
+        number: 3
+        action: "pass"
+        source_mac: "*"
+        destination_mac: "aa:bb:cc:dd:ee:ff"
+
+    - name: filter_both_mac
+      rtx: "ethernet filter 4 pass-log 00:11:22:33:44:55 aa:bb:cc:dd:ee:ff"
+      terraform:
+        number: 4
+        action: "pass-log"
+        source_mac: "00:11:22:33:44:55"
+        destination_mac: "aa:bb:cc:dd:ee:ff"
+
+    - name: filter_with_ethertype
+      rtx: "ethernet filter 5 pass * * 0x0800"
+      terraform:
+        number: 5
+        action: "pass"
+        source_mac: "*"
+        destination_mac: "*"
+        ether_type: "0x0800"
+
+    - name: filter_with_vlan
+      rtx: "ethernet filter 6 pass * * vlan 100"
+      terraform:
+        number: 6
+        action: "pass"
+        source_mac: "*"
+        destination_mac: "*"
+        vlan_id: 100
+
+    - name: filter_ethertype_and_vlan
+      rtx: "ethernet filter 7 reject * * 0x0806 vlan 200"
+      terraform:
+        number: 7
+        action: "reject"
+        source_mac: "*"
+        destination_mac: "*"
+        ether_type: "0x0806"
+        vlan_id: 200
+
+    # =============================================================================
+    # DHCP-based Filters
+    # =============================================================================
+    - name: filter_dhcp_bind
+      rtx: "ethernet filter 10 pass dhcp-bind"
+      terraform:
+        number: 10
+        action: "pass"
+        dhcp_type: "dhcp-bind"
+
+    - name: filter_dhcp_not_bind
+      rtx: "ethernet filter 11 reject dhcp-not-bind"
+      terraform:
+        number: 11
+        action: "reject"
+        dhcp_type: "dhcp-not-bind"
+
+    - name: filter_dhcp_bind_with_scope
+      rtx: "ethernet filter 12 pass dhcp-bind 1"
+      terraform:
+        number: 12
+        action: "pass"
+        dhcp_type: "dhcp-bind"
+        dhcp_scope: 1
+
+    # =============================================================================
+    # Offset-based Filters
+    # =============================================================================
+    - name: filter_offset
+      rtx: "ethernet filter 20 pass * * offset=14 08 00"
+      terraform:
+        number: 20
+        action: "pass"
+        source_mac: "*"
+        destination_mac: "*"
+        offset: 14
+        byte_list: ["08", "00"]
+
+    # =============================================================================
+    # Interface Application
+    # =============================================================================
+    - name: interface_filter_in
+      rtx: "ethernet lan1 filter in 1 2 3"
+      terraform:
+        interface: "lan1"
+        direction: "in"
+        filters: [1, 2, 3]
+
+    - name: interface_filter_out
+      rtx: "ethernet lan1 filter out 10 11"
+      terraform:
+        interface: "lan1"
+        direction: "out"
+        filters: [10, 11]
+
+    - name: interface_filter_lan2
+      rtx: "ethernet lan2 filter in 1"
+      terraform:
+        interface: "lan2"
+        direction: "in"
+        filters: [1]
+
+    # =============================================================================
+    # Delete Commands (build_only)
+    # =============================================================================
+    - name: delete_filter
+      rtx: "no ethernet filter 1"
+      terraform:
+        number: 1
+      build_only: true
+
+    - name: delete_interface_filter
+      rtx: "no ethernet lan1 filter in"
+      terraform:
+        interface: "lan1"
+        direction: "in"
+      build_only: true
+
+  boundary_tests:
+    filter_number:
+      - value: 1
+        valid: true
+      - value: 256
+        valid: true
+      - value: 512
+        valid: true
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+      - value: 513
+        valid: false
+        error_contains: "must be 1-512"
+
+    action:
+      - value: "pass"
+        valid: true
+      - value: "reject"
+        valid: true
+      - value: "pass-log"
+        valid: true
+      - value: "pass-nolog"
+        valid: true
+      - value: "reject-log"
+        valid: true
+      - value: "reject-nolog"
+        valid: true
+      - value: "drop"
+        valid: false
+        error_contains: "invalid action"
+
+    vlan_id:
+      - value: 1
+        valid: true
+      - value: 100
+        valid: true
+      - value: 4094
+        valid: true
+      - value: 0
+        valid: false
+        error_contains: "must be 1-4094"
+      - value: 4095
+        valid: false
+        error_contains: "must be 1-4094"
+
+    direction:
+      - value: "in"
+        valid: true
+      - value: "out"
+        valid: true
+      - value: "both"
+        valid: false
+        error_contains: "must be in or out"

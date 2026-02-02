@@ -1,0 +1,193 @@
+# VLAN Configuration Command Specification
+# Reference: RTX Command Reference
+#
+# Covers:
+# - vlan interface 802.1q: VLAN作成
+# - ip vlan address: VLANインタフェースIPアドレス
+# - description: VLAN説明
+# - vlan enable/disable: 有効化/無効化
+
+command:
+  name: vlan_config
+  description: "VLAN設定"
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  terraform:
+    resource_name: rtx_vlan
+    struct_name: VLAN
+    package: parsers
+
+  syntax_tests:
+    # =============================================================================
+    # VLAN Creation
+    # =============================================================================
+    - name: vlan_create_basic
+      rtx: "vlan lan1/1 802.1q vid=100"
+      terraform:
+        interface: "lan1"
+        slot: 1
+        vlan_id: 100
+
+    - name: vlan_create_vid_200
+      rtx: "vlan lan1/2 802.1q vid=200"
+      terraform:
+        interface: "lan1"
+        slot: 2
+        vlan_id: 200
+
+    - name: vlan_create_lan2
+      rtx: "vlan lan2/1 802.1q vid=10"
+      terraform:
+        interface: "lan2"
+        slot: 1
+        vlan_id: 10
+
+    - name: vlan_create_vid_1
+      rtx: "vlan lan1/3 802.1q vid=1"
+      terraform:
+        interface: "lan1"
+        slot: 3
+        vlan_id: 1
+
+    - name: vlan_create_vid_4094
+      rtx: "vlan lan1/4 802.1q vid=4094"
+      terraform:
+        interface: "lan1"
+        slot: 4
+        vlan_id: 4094
+
+    # =============================================================================
+    # VLAN IP Address
+    # =============================================================================
+    - name: vlan_ip_address_cidr
+      rtx: "ip lan1/1 address 192.168.100.1/24"
+      terraform:
+        vlan_interface: "lan1/1"
+        ip_address: "192.168.100.1"
+        ip_mask: "255.255.255.0"
+
+    - name: vlan_ip_address_16
+      rtx: "ip lan1/2 address 172.16.0.1/16"
+      terraform:
+        vlan_interface: "lan1/2"
+        ip_address: "172.16.0.1"
+        ip_mask: "255.255.0.0"
+
+    - name: vlan_ip_address_dotted
+      rtx: "ip lan1/3 address 10.0.0.1 255.255.255.0"
+      terraform:
+        vlan_interface: "lan1/3"
+        ip_address: "10.0.0.1"
+        ip_mask: "255.255.255.0"
+
+    # =============================================================================
+    # VLAN Description
+    # =============================================================================
+    - name: vlan_description
+      rtx: 'description lan1/1 "Management VLAN"'
+      terraform:
+        vlan_interface: "lan1/1"
+        name: "Management VLAN"
+
+    - name: vlan_description_simple
+      rtx: "description lan1/2 Server-VLAN"
+      terraform:
+        vlan_interface: "lan1/2"
+        name: "Server-VLAN"
+
+    - name: vlan_description_guest
+      rtx: 'description lan1/3 "Guest Network"'
+      terraform:
+        vlan_interface: "lan1/3"
+        name: "Guest Network"
+
+    # =============================================================================
+    # VLAN Enable/Disable
+    # =============================================================================
+    - name: vlan_enable
+      rtx: "lan1/1 enable"
+      terraform:
+        vlan_interface: "lan1/1"
+        shutdown: false
+      build_only: true
+
+    - name: vlan_disable
+      rtx: "no lan1/1 enable"
+      terraform:
+        vlan_interface: "lan1/1"
+        shutdown: true
+      build_only: true
+
+    # =============================================================================
+    # Delete Commands (build_only)
+    # =============================================================================
+    - name: delete_vlan
+      rtx: "no vlan lan1/1"
+      terraform:
+        vlan_interface: "lan1/1"
+      build_only: true
+
+    - name: delete_vlan_ip
+      rtx: "no ip lan1/1 address"
+      terraform:
+        vlan_interface: "lan1/1"
+      build_only: true
+
+    - name: delete_vlan_description
+      rtx: "no description lan1/1"
+      terraform:
+        vlan_interface: "lan1/1"
+      build_only: true
+
+  boundary_tests:
+    vlan_id:
+      - value: 1
+        valid: true
+        description: "最小値"
+      - value: 100
+        valid: true
+        description: "一般的な値"
+      - value: 4094
+        valid: true
+        description: "最大値"
+      - value: 0
+        valid: false
+        error_contains: "must be 1-4094"
+      - value: 4095
+        valid: false
+        error_contains: "must be 1-4094"
+
+    slot:
+      - value: 1
+        valid: true
+      - value: 2
+        valid: true
+      - value: 8
+        valid: true
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+
+    interface:
+      - value: "lan1"
+        valid: true
+      - value: "lan2"
+        valid: true
+      - value: "lan3"
+        valid: true
+      - value: "wan1"
+        valid: false
+        error_contains: "VLAN not supported on WAN"
+      - value: "pp1"
+        valid: false
+        error_contains: "VLAN not supported on PP"

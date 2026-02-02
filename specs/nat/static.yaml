@@ -1,0 +1,188 @@
+# NAT Static Configuration Command Specification
+# Reference: RTX Command Reference
+#
+# Covers:
+# - nat descriptor type static: 静的NAT設定
+# - nat descriptor static: 1:1 NATマッピング
+
+command:
+  name: nat_static
+  description: "静的NAT設定"
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  terraform:
+    resource_name: rtx_nat_static
+    struct_name: NATStatic
+    package: parsers
+
+  syntax_tests:
+    # =============================================================================
+    # NAT Descriptor Type Static
+    # =============================================================================
+    - name: nat_type_static
+      rtx: "nat descriptor type 1 static"
+      terraform:
+        descriptor_id: 1
+
+    - name: nat_type_static_100
+      rtx: "nat descriptor type 100 static"
+      terraform:
+        descriptor_id: 100
+
+    # =============================================================================
+    # NAT Static Mapping (1:1)
+    # =============================================================================
+    - name: nat_static_1to1
+      rtx: "nat descriptor static 1 203.0.113.10=192.168.1.10"
+      terraform:
+        descriptor_id: 1
+        entries:
+          - outside_global: "203.0.113.10"
+            inside_local: "192.168.1.10"
+
+    - name: nat_static_1to1_second
+      rtx: "nat descriptor static 1 203.0.113.11=192.168.1.11"
+      terraform:
+        descriptor_id: 1
+        entries:
+          - outside_global: "203.0.113.11"
+            inside_local: "192.168.1.11"
+
+    - name: nat_static_multiple_desc
+      rtx: "nat descriptor static 2 10.0.0.100=172.16.0.100"
+      terraform:
+        descriptor_id: 2
+        entries:
+          - outside_global: "10.0.0.100"
+            inside_local: "172.16.0.100"
+
+    # =============================================================================
+    # NAT Static Port Mapping
+    # =============================================================================
+    - name: nat_static_port_tcp
+      rtx: "nat descriptor static 1 203.0.113.10:80=192.168.1.10:80 tcp"
+      terraform:
+        descriptor_id: 1
+        entries:
+          - outside_global: "203.0.113.10"
+            outside_global_port: 80
+            inside_local: "192.168.1.10"
+            inside_local_port: 80
+            protocol: "tcp"
+
+    - name: nat_static_port_tcp_https
+      rtx: "nat descriptor static 1 203.0.113.10:443=192.168.1.10:443 tcp"
+      terraform:
+        descriptor_id: 1
+        entries:
+          - outside_global: "203.0.113.10"
+            outside_global_port: 443
+            inside_local: "192.168.1.10"
+            inside_local_port: 443
+            protocol: "tcp"
+
+    - name: nat_static_port_udp
+      rtx: "nat descriptor static 1 203.0.113.10:53=192.168.1.10:53 udp"
+      terraform:
+        descriptor_id: 1
+        entries:
+          - outside_global: "203.0.113.10"
+            outside_global_port: 53
+            inside_local: "192.168.1.10"
+            inside_local_port: 53
+            protocol: "udp"
+
+    - name: nat_static_port_different
+      rtx: "nat descriptor static 1 203.0.113.10:8080=192.168.1.10:80 tcp"
+      terraform:
+        descriptor_id: 1
+        entries:
+          - outside_global: "203.0.113.10"
+            outside_global_port: 8080
+            inside_local: "192.168.1.10"
+            inside_local_port: 80
+            protocol: "tcp"
+
+    # =============================================================================
+    # Interface NAT Descriptor
+    # =============================================================================
+    - name: interface_nat_static
+      rtx: "ip lan2 nat descriptor 1"
+      terraform:
+        interface: "lan2"
+        descriptor_id: 1
+
+    # =============================================================================
+    # Delete Commands (build_only)
+    # =============================================================================
+    - name: delete_nat_static
+      rtx: "no nat descriptor type 1"
+      terraform:
+        descriptor_id: 1
+      build_only: true
+
+    - name: delete_nat_static_mapping
+      rtx: "no nat descriptor static 1 203.0.113.10=192.168.1.10"
+      terraform:
+        descriptor_id: 1
+        outside_global: "203.0.113.10"
+        inside_local: "192.168.1.10"
+      build_only: true
+
+    - name: delete_nat_static_port_mapping
+      rtx: "no nat descriptor static 1 203.0.113.10:80=192.168.1.10:80 tcp"
+      terraform:
+        descriptor_id: 1
+        outside_global: "203.0.113.10"
+        outside_global_port: 80
+        inside_local: "192.168.1.10"
+        inside_local_port: 80
+        protocol: "tcp"
+      build_only: true
+
+  boundary_tests:
+    descriptor_id:
+      - value: 1
+        valid: true
+      - value: 100
+        valid: true
+      - value: 1000
+        valid: true
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+
+    port:
+      - value: 1
+        valid: true
+      - value: 80
+        valid: true
+      - value: 443
+        valid: true
+      - value: 65535
+        valid: true
+      - value: 0
+        valid: false
+        error_contains: "must be 1-65535"
+      - value: 65536
+        valid: false
+        error_contains: "must be 1-65535"
+
+    protocol:
+      - value: "tcp"
+        valid: true
+      - value: "udp"
+        valid: true
+      - value: "invalid"
+        valid: false
+        error_contains: "invalid protocol"

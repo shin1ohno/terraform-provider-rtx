@@ -1,0 +1,274 @@
+# L2TP Configuration Command Specification
+# Reference: RTX Command Reference
+#
+# Covers:
+# - l2tp service: L2TPサービス
+# - tunnel encapsulation l2tp/l2tpv3: トンネルカプセル化
+# - l2tp local/remote router-id: L2TPv3ルーターID
+# - l2tp keepalive: キープアライブ
+# - l2tp tunnel auth: トンネル認証
+
+command:
+  name: l2tp_config
+  description: "L2TP設定"
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  terraform:
+    resource_name: rtx_l2tp
+    struct_name: L2TPConfig
+    package: parsers
+
+  syntax_tests:
+    # =============================================================================
+    # L2TP Service
+    # =============================================================================
+    - name: l2tp_service_on
+      rtx: "l2tp service on"
+      terraform:
+        enabled: true
+
+    - name: l2tp_service_off
+      rtx: "l2tp service off"
+      terraform:
+        enabled: false
+
+    - name: l2tp_service_protocols
+      rtx: "l2tp service on l2tpv3 l2tp"
+      terraform:
+        enabled: true
+        protocols: ["l2tpv3", "l2tp"]
+
+    # =============================================================================
+    # Tunnel Encapsulation
+    # =============================================================================
+    - name: tunnel_encapsulation_l2tp
+      rtx: "tunnel encapsulation l2tp"
+      terraform:
+        version: "l2tp"
+
+    - name: tunnel_encapsulation_l2tpv3
+      rtx: "tunnel encapsulation l2tpv3"
+      terraform:
+        version: "l2tpv3"
+
+    # =============================================================================
+    # Tunnel Endpoint
+    # =============================================================================
+    - name: tunnel_endpoint
+      rtx: "tunnel endpoint address 192.168.1.1 203.0.113.1"
+      terraform:
+        tunnel_source: "192.168.1.1"
+        tunnel_dest: "203.0.113.1"
+
+    - name: tunnel_endpoint_fqdn
+      rtx: "tunnel endpoint address 192.168.1.1 vpn.example.com"
+      terraform:
+        tunnel_source: "192.168.1.1"
+        tunnel_dest: "vpn.example.com"
+
+    # =============================================================================
+    # L2TPv3 Router ID
+    # =============================================================================
+    - name: l2tp_local_router_id
+      rtx: "l2tp local router-id 192.168.1.1"
+      terraform:
+        l2tpv3_config:
+          local_router_id: "192.168.1.1"
+
+    - name: l2tp_remote_router_id
+      rtx: "l2tp remote router-id 203.0.113.1"
+      terraform:
+        l2tpv3_config:
+          remote_router_id: "203.0.113.1"
+
+    - name: l2tp_remote_end_id
+      rtx: "l2tp remote end-id 12345"
+      terraform:
+        l2tpv3_config:
+          remote_end_id: "12345"
+
+    # =============================================================================
+    # L2TP Always On
+    # =============================================================================
+    - name: l2tp_always_on_on
+      rtx: "l2tp always-on on"
+      terraform:
+        always_on: true
+
+    - name: l2tp_always_on_off
+      rtx: "l2tp always-on off"
+      terraform:
+        always_on: false
+
+    # =============================================================================
+    # L2TP Keepalive
+    # =============================================================================
+    - name: l2tp_keepalive
+      rtx: "l2tp keepalive use on 60 3"
+      terraform:
+        keepalive_enabled: true
+        keepalive_interval: 60
+        keepalive_retry: 3
+
+    - name: l2tp_keepalive_30
+      rtx: "l2tp keepalive use on 30 5"
+      terraform:
+        keepalive_enabled: true
+        keepalive_interval: 30
+        keepalive_retry: 5
+
+    # =============================================================================
+    # L2TP Tunnel Disconnect Time
+    # =============================================================================
+    - name: l2tp_disconnect_time
+      rtx: "l2tp tunnel disconnect time 300"
+      terraform:
+        disconnect_time: 300
+
+    - name: l2tp_disconnect_time_600
+      rtx: "l2tp tunnel disconnect time 600"
+      terraform:
+        disconnect_time: 600
+
+    # =============================================================================
+    # L2TP Tunnel Authentication
+    # =============================================================================
+    - name: l2tp_tunnel_auth_on
+      rtx: "l2tp tunnel auth on mysecret"
+      terraform:
+        l2tpv3_config:
+          tunnel_auth:
+            enabled: true
+            password: "mysecret"
+
+    - name: l2tp_tunnel_auth_off
+      rtx: "l2tp tunnel auth off"
+      terraform:
+        l2tpv3_config:
+          tunnel_auth:
+            enabled: false
+
+    # =============================================================================
+    # PP Bind (L2TPv2 LNS)
+    # =============================================================================
+    - name: pp_select_anonymous
+      rtx: "pp select anonymous"
+      terraform:
+        mode: "lns"
+
+    - name: pp_bind_tunnel
+      rtx: "pp bind tunnel1"
+      terraform:
+        tunnel_id: 1
+
+    # =============================================================================
+    # PP Authentication
+    # =============================================================================
+    - name: pp_auth_accept_chap
+      rtx: "pp auth accept chap"
+      terraform:
+        authentication:
+          method: "chap"
+
+    - name: pp_auth_accept_pap
+      rtx: "pp auth accept pap"
+      terraform:
+        authentication:
+          method: "pap"
+
+    - name: pp_auth_myname
+      rtx: "pp auth myname user@example.com mypassword"
+      terraform:
+        authentication:
+          username: "user@example.com"
+          password: "mypassword"
+
+    # =============================================================================
+    # IP Pool (L2TPv2)
+    # =============================================================================
+    - name: ip_pp_remote_pool
+      rtx: "ip pp remote address pool 192.168.100.100-192.168.100.200"
+      terraform:
+        ip_pool:
+          start: "192.168.100.100"
+          end: "192.168.100.200"
+
+    # =============================================================================
+    # L2TP Syslog
+    # =============================================================================
+    - name: l2tp_syslog_on
+      rtx: "l2tp syslog on"
+      terraform:
+        syslog_enabled: true
+
+    - name: l2tp_syslog_off
+      rtx: "l2tp syslog off"
+      terraform:
+        syslog_enabled: false
+
+    # =============================================================================
+    # Delete Commands (build_only)
+    # =============================================================================
+    - name: delete_l2tp_tunnel
+      rtx: "no tunnel select 1"
+      terraform:
+        id: 1
+      build_only: true
+
+  boundary_tests:
+    keepalive_interval:
+      - value: 1
+        valid: true
+      - value: 30
+        valid: true
+      - value: 60
+        valid: true
+        description: "標準値"
+      - value: 300
+        valid: true
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+
+    keepalive_retry:
+      - value: 1
+        valid: true
+      - value: 3
+        valid: true
+        description: "標準値"
+      - value: 10
+        valid: true
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+
+    disconnect_time:
+      - value: 60
+        valid: true
+      - value: 300
+        valid: true
+        description: "標準値"
+      - value: 3600
+        valid: true
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+
+    tunnel_id:
+      - value: 1
+        valid: true
+      - value: 100
+        valid: true
+      - value: 0
+        valid: false
+        error_contains: "must be positive"

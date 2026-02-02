@@ -1,0 +1,186 @@
+# Syslog Configuration Command Specification
+# Reference: RTX Command Reference
+#
+# Covers:
+# - syslog host: Syslogサーバー設定
+# - syslog local address: ローカルアドレス設定
+# - syslog facility: ファシリティ設定
+# - syslog notice/info/debug: ログレベル設定
+
+command:
+  name: syslog_config
+  description: "Syslog設定"
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  terraform:
+    resource_name: rtx_syslog
+    struct_name: SyslogConfig
+    package: parsers
+
+  syntax_tests:
+    # =============================================================================
+    # Syslog Host
+    # =============================================================================
+    - name: syslog_host
+      rtx: "syslog host 192.168.1.100"
+      terraform:
+        hosts:
+          - address: "192.168.1.100"
+
+    - name: syslog_host_with_port
+      rtx: "syslog host 192.168.1.100 514"
+      terraform:
+        hosts:
+          - address: "192.168.1.100"
+            port: 514
+
+    - name: syslog_host_custom_port
+      rtx: "syslog host 10.0.0.50 1514"
+      terraform:
+        hosts:
+          - address: "10.0.0.50"
+            port: 1514
+
+    - name: syslog_host_ipv6
+      rtx: "syslog host 2001:db8::100"
+      terraform:
+        hosts:
+          - address: "2001:db8::100"
+
+    # =============================================================================
+    # Syslog Local Address
+    # =============================================================================
+    - name: syslog_local_address
+      rtx: "syslog local address 192.168.1.1"
+      terraform:
+        local_address: "192.168.1.1"
+
+    - name: syslog_local_address_loopback
+      rtx: "syslog local address 10.0.0.1"
+      terraform:
+        local_address: "10.0.0.1"
+
+    # =============================================================================
+    # Syslog Facility
+    # =============================================================================
+    - name: syslog_facility_user
+      rtx: "syslog facility user"
+      terraform:
+        facility: "user"
+
+    - name: syslog_facility_local0
+      rtx: "syslog facility local0"
+      terraform:
+        facility: "local0"
+
+    - name: syslog_facility_local7
+      rtx: "syslog facility local7"
+      terraform:
+        facility: "local7"
+
+    # =============================================================================
+    # Syslog Log Level
+    # =============================================================================
+    - name: syslog_notice_on
+      rtx: "syslog notice on"
+      terraform:
+        notice: true
+
+    - name: syslog_notice_off
+      rtx: "syslog notice off"
+      terraform:
+        notice: false
+
+    - name: syslog_info_on
+      rtx: "syslog info on"
+      terraform:
+        info: true
+
+    - name: syslog_info_off
+      rtx: "syslog info off"
+      terraform:
+        info: false
+
+    - name: syslog_debug_on
+      rtx: "syslog debug on"
+      terraform:
+        debug: true
+
+    - name: syslog_debug_off
+      rtx: "syslog debug off"
+      terraform:
+        debug: false
+
+    # =============================================================================
+    # Delete Commands (build_only)
+    # =============================================================================
+    - name: delete_syslog_host
+      rtx: "no syslog host 192.168.1.100"
+      terraform:
+        address: "192.168.1.100"
+      build_only: true
+
+    - name: delete_syslog_local_address
+      rtx: "no syslog local address"
+      terraform: {}
+      build_only: true
+
+    - name: delete_syslog_facility
+      rtx: "no syslog facility"
+      terraform: {}
+      build_only: true
+
+  boundary_tests:
+    port:
+      - value: 1
+        valid: true
+      - value: 514
+        valid: true
+        description: "標準Syslogポート"
+      - value: 1514
+        valid: true
+        description: "代替ポート"
+      - value: 65535
+        valid: true
+      - value: 0
+        valid: false
+        error_contains: "must be 1-65535"
+      - value: 65536
+        valid: false
+        error_contains: "must be 1-65535"
+
+    facility:
+      - value: "user"
+        valid: true
+      - value: "local0"
+        valid: true
+      - value: "local1"
+        valid: true
+      - value: "local2"
+        valid: true
+      - value: "local3"
+        valid: true
+      - value: "local4"
+        valid: true
+      - value: "local5"
+        valid: true
+      - value: "local6"
+        valid: true
+      - value: "local7"
+        valid: true
+      - value: "invalid"
+        valid: false
+        error_contains: "invalid facility"
+      - value: "kern"
+        valid: false
+        error_contains: "invalid facility"

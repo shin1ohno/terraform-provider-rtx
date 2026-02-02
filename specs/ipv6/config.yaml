@@ -1,0 +1,275 @@
+# IPv6 Configuration Command Specification
+# Reference: RTX Command Reference
+#
+# Covers:
+# - ipv6 interface address: IPv6アドレス設定
+# - ipv6 interface rtadv: Router Advertisement設定
+# - ipv6 interface dhcp service: DHCPv6設定
+# - ipv6 prefix: IPv6プレフィックス設定
+
+command:
+  name: ipv6_config
+  description: "IPv6設定"
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  terraform:
+    resource_name: rtx_ipv6_interface
+    struct_name: IPv6InterfaceConfig
+    package: parsers
+
+  syntax_tests:
+    # =============================================================================
+    # IPv6 Address (Static)
+    # =============================================================================
+    - name: ipv6_address_static
+      rtx: "ipv6 lan1 address 2001:db8::1/64"
+      terraform:
+        interface: "lan1"
+        addresses:
+          - address: "2001:db8::1/64"
+            static: true
+
+    - name: ipv6_address_link_local
+      rtx: "ipv6 lan1 address fe80::1/64"
+      terraform:
+        interface: "lan1"
+        addresses:
+          - address: "fe80::1/64"
+            static: true
+
+    - name: ipv6_address_loopback
+      rtx: "ipv6 loopback1 address 2001:db8:1::1/128"
+      terraform:
+        interface: "loopback1"
+        addresses:
+          - address: "2001:db8:1::1/128"
+            static: true
+
+    # =============================================================================
+    # IPv6 Address (Prefix-based)
+    # =============================================================================
+    - name: ipv6_address_prefix_based
+      rtx: "ipv6 lan1 address 1::1/64"
+      terraform:
+        interface: "lan1"
+        addresses:
+          - prefix_ref: "1"
+            interface_id: "::1"
+            prefix_length: 64
+
+    # =============================================================================
+    # IPv6 RTADV (Router Advertisement)
+    # =============================================================================
+    - name: rtadv_basic
+      rtx: "ipv6 lan1 rtadv send 1"
+      terraform:
+        interface: "lan1"
+        rtadv:
+          prefix_id: 1
+
+    - name: rtadv_with_o_flag
+      rtx: "ipv6 lan1 rtadv send 1 o_flag=on"
+      terraform:
+        interface: "lan1"
+        rtadv:
+          prefix_id: 1
+          o_flag: true
+
+    - name: rtadv_with_m_flag
+      rtx: "ipv6 lan1 rtadv send 1 m_flag=on"
+      terraform:
+        interface: "lan1"
+        rtadv:
+          prefix_id: 1
+          m_flag: true
+
+    - name: rtadv_with_lifetime
+      rtx: "ipv6 lan1 rtadv send 1 lifetime=1800"
+      terraform:
+        interface: "lan1"
+        rtadv:
+          prefix_id: 1
+          router_lifetime: 1800
+
+    - name: rtadv_full
+      rtx: "ipv6 lan1 rtadv send 1 o_flag=on m_flag=off lifetime=3600"
+      terraform:
+        interface: "lan1"
+        rtadv:
+          prefix_id: 1
+          o_flag: true
+          m_flag: false
+          router_lifetime: 3600
+
+    # =============================================================================
+    # DHCPv6 Service
+    # =============================================================================
+    - name: dhcpv6_server
+      rtx: "ipv6 lan1 dhcp service server"
+      terraform:
+        interface: "lan1"
+        dhcpv6_service: "server"
+
+    - name: dhcpv6_client
+      rtx: "ipv6 lan1 dhcp service client"
+      terraform:
+        interface: "lan1"
+        dhcpv6_service: "client"
+
+    # =============================================================================
+    # IPv6 MTU
+    # =============================================================================
+    - name: ipv6_mtu
+      rtx: "ipv6 lan1 mtu 1500"
+      terraform:
+        interface: "lan1"
+        mtu: 1500
+
+    - name: ipv6_mtu_1280
+      rtx: "ipv6 tunnel1 mtu 1280"
+      terraform:
+        interface: "tunnel1"
+        mtu: 1280
+
+    # =============================================================================
+    # IPv6 Secure Filter
+    # =============================================================================
+    - name: ipv6_secure_filter_in
+      rtx: "ipv6 lan1 secure filter in 1 2 3"
+      terraform:
+        interface: "lan1"
+        secure_filter_in: [1, 2, 3]
+
+    - name: ipv6_secure_filter_out
+      rtx: "ipv6 lan1 secure filter out 100 101"
+      terraform:
+        interface: "lan1"
+        secure_filter_out: [100, 101]
+
+    - name: ipv6_secure_filter_out_dynamic
+      rtx: "ipv6 lan1 secure filter out 100 dynamic 200"
+      terraform:
+        interface: "lan1"
+        secure_filter_out: [100]
+        dynamic_filter_out: [200]
+
+    # =============================================================================
+    # IPv6 Prefix
+    # =============================================================================
+    - name: prefix_static
+      rtx: "ipv6 prefix 1 2001:db8::/48"
+      terraform:
+        id: 1
+        prefix: "2001:db8::"
+        prefix_length: 48
+        source: "static"
+
+    - name: prefix_ra
+      rtx: "ipv6 prefix 2 ra-prefix@pp1::/64"
+      terraform:
+        id: 2
+        prefix_length: 64
+        source: "ra"
+        interface: "pp1"
+
+    - name: prefix_dhcpv6_pd
+      rtx: "ipv6 prefix 3 dhcp-prefix@lan2::/56"
+      terraform:
+        id: 3
+        prefix_length: 56
+        source: "dhcpv6-pd"
+        interface: "lan2"
+
+    # =============================================================================
+    # Delete Commands (build_only)
+    # =============================================================================
+    - name: delete_ipv6_address
+      rtx: "no ipv6 lan1 address"
+      terraform:
+        interface: "lan1"
+      build_only: true
+
+    - name: delete_ipv6_address_specific
+      rtx: "no ipv6 lan1 address 2001:db8::1/64"
+      terraform:
+        interface: "lan1"
+        address: "2001:db8::1/64"
+      build_only: true
+
+    - name: delete_rtadv
+      rtx: "no ipv6 lan1 rtadv send"
+      terraform:
+        interface: "lan1"
+      build_only: true
+
+    - name: delete_prefix
+      rtx: "no ipv6 prefix 1"
+      terraform:
+        id: 1
+      build_only: true
+
+  boundary_tests:
+    prefix_id:
+      - value: 1
+        valid: true
+      - value: 128
+        valid: true
+      - value: 255
+        valid: true
+      - value: 0
+        valid: false
+        error_contains: "must be 1-255"
+      - value: 256
+        valid: false
+        error_contains: "must be 1-255"
+
+    prefix_length:
+      - value: 0
+        valid: true
+      - value: 48
+        valid: true
+      - value: 64
+        valid: true
+        description: "標準値"
+      - value: 128
+        valid: true
+      - value: 129
+        valid: false
+        error_contains: "must be 0-128"
+
+    router_lifetime:
+      - value: 0
+        valid: true
+        description: "ルーターとして機能しない"
+      - value: 1800
+        valid: true
+        description: "標準値"
+      - value: 9000
+        valid: true
+      - value: -1
+        valid: false
+        error_contains: "must be non-negative"
+
+    mtu:
+      - value: 1280
+        valid: true
+        description: "IPv6最小MTU"
+      - value: 1500
+        valid: true
+        description: "Ethernet標準"
+      - value: 9000
+        valid: true
+        description: "Jumbo frame"
+      - value: 1279
+        valid: false
+        error_contains: "must be at least 1280"

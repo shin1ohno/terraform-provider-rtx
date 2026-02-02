@@ -1,0 +1,329 @@
+# IP Filter Configuration Command Specification
+# Reference: RTX Command Reference
+#
+# Covers:
+# - ip filter: 静的IPフィルタ
+# - ip filter dynamic: 動的IPフィルタ
+# - ipv6 filter: IPv6静的フィルタ
+# - ipv6 filter dynamic: IPv6動的フィルタ
+
+command:
+  name: ip_filter
+  description: "IPフィルタ設定"
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  terraform:
+    resource_name: rtx_ip_filter
+    struct_name: IPFilter
+    package: parsers
+
+  syntax_tests:
+    # =============================================================================
+    # Static IP Filter (IPv4)
+    # =============================================================================
+    - name: filter_pass_any
+      rtx: "ip filter 1 pass * * * * *"
+      terraform:
+        number: 1
+        action: "pass"
+        source_address: "*"
+        dest_address: "*"
+        protocol: "*"
+        source_port: "*"
+        dest_port: "*"
+
+    - name: filter_reject_network
+      rtx: "ip filter 2 reject 192.168.1.0/24 * * * *"
+      terraform:
+        number: 2
+        action: "reject"
+        source_address: "192.168.1.0/24"
+        dest_address: "*"
+        protocol: "*"
+
+    - name: filter_pass_tcp
+      rtx: "ip filter 10 pass * * tcp * 80"
+      terraform:
+        number: 10
+        action: "pass"
+        source_address: "*"
+        dest_address: "*"
+        protocol: "tcp"
+        dest_port: "80"
+
+    - name: filter_pass_tcp_https
+      rtx: "ip filter 11 pass * * tcp * 443"
+      terraform:
+        number: 11
+        action: "pass"
+        source_address: "*"
+        dest_address: "*"
+        protocol: "tcp"
+        dest_port: "443"
+
+    - name: filter_pass_tcp_established
+      rtx: "ip filter 20 pass * * established"
+      terraform:
+        number: 20
+        action: "pass"
+        source_address: "*"
+        dest_address: "*"
+        established: true
+
+    - name: filter_reject_icmp
+      rtx: "ip filter 30 reject * * icmp"
+      terraform:
+        number: 30
+        action: "reject"
+        source_address: "*"
+        dest_address: "*"
+        protocol: "icmp"
+
+    - name: filter_pass_udp_dns
+      rtx: "ip filter 40 pass * * udp * 53"
+      terraform:
+        number: 40
+        action: "pass"
+        source_address: "*"
+        dest_address: "*"
+        protocol: "udp"
+        dest_port: "53"
+
+    - name: filter_pass_compound_protocol
+      rtx: "ip filter 50 pass * * tcp,udp * 53"
+      terraform:
+        number: 50
+        action: "pass"
+        source_address: "*"
+        dest_address: "*"
+        protocol: "tcp,udp"
+        dest_port: "53"
+
+    - name: filter_restrict
+      rtx: "ip filter 60 restrict * * * * *"
+      terraform:
+        number: 60
+        action: "restrict"
+        source_address: "*"
+        dest_address: "*"
+        protocol: "*"
+
+    - name: filter_restrict_log
+      rtx: "ip filter 61 restrict-log * * * * *"
+      terraform:
+        number: 61
+        action: "restrict-log"
+        source_address: "*"
+        dest_address: "*"
+        protocol: "*"
+
+    # =============================================================================
+    # Dynamic IP Filter (IPv4) - Form 1 (Protocol-based)
+    # =============================================================================
+    - name: dynamic_filter_ftp
+      rtx: "ip filter dynamic 100 * * ftp"
+      terraform:
+        number: 100
+        source: "*"
+        dest: "*"
+        protocol: "ftp"
+
+    - name: dynamic_filter_www
+      rtx: "ip filter dynamic 101 * * www"
+      terraform:
+        number: 101
+        source: "*"
+        dest: "*"
+        protocol: "www"
+
+    - name: dynamic_filter_dns
+      rtx: "ip filter dynamic 102 * * dns"
+      terraform:
+        number: 102
+        source: "*"
+        dest: "*"
+        protocol: "dns"
+
+    - name: dynamic_filter_with_syslog
+      rtx: "ip filter dynamic 110 * * tcp syslog on"
+      terraform:
+        number: 110
+        source: "*"
+        dest: "*"
+        protocol: "tcp"
+        syslog_on: true
+
+    - name: dynamic_filter_with_timeout
+      rtx: "ip filter dynamic 120 * * tcp timeout=3600"
+      terraform:
+        number: 120
+        source: "*"
+        dest: "*"
+        protocol: "tcp"
+        timeout: 3600
+
+    # =============================================================================
+    # Dynamic IP Filter (IPv4) - Form 2 (Filter-list-based)
+    # =============================================================================
+    - name: dynamic_filter_list
+      rtx: "ip filter dynamic 200 * * filter 1 2 3"
+      terraform:
+        number: 200
+        source: "*"
+        dest: "*"
+        filter_list: [1, 2, 3]
+
+    - name: dynamic_filter_in_out
+      rtx: "ip filter dynamic 201 * * filter 1 in 2 out 3"
+      terraform:
+        number: 201
+        source: "*"
+        dest: "*"
+        filter_list: [1]
+        in_filter_list: [2]
+        out_filter_list: [3]
+
+    # =============================================================================
+    # IPv6 Filter (Static)
+    # =============================================================================
+    - name: ipv6_filter_pass
+      rtx: "ipv6 filter 1 pass * * * * *"
+      terraform:
+        number: 1
+        action: "pass"
+        source_address: "*"
+        dest_address: "*"
+        protocol: "*"
+        ipv6: true
+
+    - name: ipv6_filter_reject
+      rtx: "ipv6 filter 2 reject 2001:db8::/32 * * * *"
+      terraform:
+        number: 2
+        action: "reject"
+        source_address: "2001:db8::/32"
+        dest_address: "*"
+        protocol: "*"
+        ipv6: true
+
+    - name: ipv6_filter_tcp
+      rtx: "ipv6 filter 10 pass * * tcp * 80"
+      terraform:
+        number: 10
+        action: "pass"
+        source_address: "*"
+        dest_address: "*"
+        protocol: "tcp"
+        dest_port: "80"
+        ipv6: true
+
+    # =============================================================================
+    # IPv6 Dynamic Filter
+    # =============================================================================
+    - name: ipv6_dynamic_filter
+      rtx: "ipv6 filter dynamic 100 * * tcp"
+      terraform:
+        number: 100
+        source: "*"
+        dest: "*"
+        protocol: "tcp"
+        ipv6: true
+
+    # =============================================================================
+    # Delete Commands (build_only)
+    # =============================================================================
+    - name: delete_ip_filter
+      rtx: "no ip filter 1"
+      terraform:
+        number: 1
+      build_only: true
+
+    - name: delete_ip_filter_dynamic
+      rtx: "no ip filter dynamic 100"
+      terraform:
+        number: 100
+      build_only: true
+
+    - name: delete_ipv6_filter
+      rtx: "no ipv6 filter 1"
+      terraform:
+        number: 1
+        ipv6: true
+      build_only: true
+
+    - name: delete_ipv6_filter_dynamic
+      rtx: "no ipv6 filter dynamic 100"
+      terraform:
+        number: 100
+        ipv6: true
+      build_only: true
+
+  boundary_tests:
+    filter_number:
+      - value: 1
+        valid: true
+      - value: 65535
+        valid: true
+      - value: 2147483647
+        valid: true
+        description: "最大値"
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+
+    action:
+      - value: "pass"
+        valid: true
+      - value: "reject"
+        valid: true
+      - value: "restrict"
+        valid: true
+      - value: "restrict-log"
+        valid: true
+      - value: "restrict-nolog"
+        valid: true
+      - value: "drop"
+        valid: false
+        error_contains: "invalid action"
+
+    protocol:
+      - value: "tcp"
+        valid: true
+      - value: "udp"
+        valid: true
+      - value: "icmp"
+        valid: true
+      - value: "ip"
+        valid: true
+      - value: "*"
+        valid: true
+      - value: "tcp,udp"
+        valid: true
+        description: "Compound protocol"
+
+    timeout:
+      - value: 1
+        valid: true
+      - value: 3600
+        valid: true
+      - value: 86400
+        valid: true
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+
+    direction:
+      - value: "in"
+        valid: true
+      - value: "out"
+        valid: true

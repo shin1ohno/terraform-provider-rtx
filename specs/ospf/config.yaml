@@ -1,0 +1,197 @@
+# OSPF Configuration Command Specification
+# Reference: RTX Command Reference
+#
+# Covers:
+# - ospf use: OSPF有効化
+# - ospf router id: ルーターID設定
+# - ospf area: エリア設定
+# - ip interface ospf area: インタフェースエリア割り当て
+# - ospf import: 経路再配布
+
+command:
+  name: ospf_config
+  description: "OSPF設定"
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  terraform:
+    resource_name: rtx_ospf
+    struct_name: OSPFConfig
+    package: parsers
+
+  syntax_tests:
+    # =============================================================================
+    # OSPF Enable/Disable
+    # =============================================================================
+    - name: ospf_use_on
+      rtx: "ospf use on"
+      terraform:
+        enabled: true
+
+    - name: ospf_use_off
+      rtx: "ospf use off"
+      terraform:
+        enabled: false
+
+    # =============================================================================
+    # OSPF Router ID
+    # =============================================================================
+    - name: ospf_router_id
+      rtx: "ospf router id 192.168.1.1"
+      terraform:
+        router_id: "192.168.1.1"
+
+    - name: ospf_router_id_loopback
+      rtx: "ospf router id 10.0.0.1"
+      terraform:
+        router_id: "10.0.0.1"
+
+    # =============================================================================
+    # OSPF Area
+    # =============================================================================
+    - name: ospf_area_backbone
+      rtx: "ospf area 0"
+      terraform:
+        areas:
+          - id: "0"
+            type: "normal"
+
+    - name: ospf_area_1
+      rtx: "ospf area 1"
+      terraform:
+        areas:
+          - id: "1"
+            type: "normal"
+
+    - name: ospf_area_stub
+      rtx: "ospf area 1 stub"
+      terraform:
+        areas:
+          - id: "1"
+            type: "stub"
+
+    - name: ospf_area_stub_no_summary
+      rtx: "ospf area 1 stub no-summary"
+      terraform:
+        areas:
+          - id: "1"
+            type: "stub"
+            no_summary: true
+
+    - name: ospf_area_nssa
+      rtx: "ospf area 2 nssa"
+      terraform:
+        areas:
+          - id: "2"
+            type: "nssa"
+
+    - name: ospf_area_nssa_no_summary
+      rtx: "ospf area 2 nssa no-summary"
+      terraform:
+        areas:
+          - id: "2"
+            type: "nssa"
+            no_summary: true
+
+    # =============================================================================
+    # Interface OSPF Area
+    # =============================================================================
+    - name: ip_ospf_area_lan1
+      rtx: "ip lan1 ospf area 0"
+      terraform:
+        networks:
+          - interface: "lan1"
+            area: "0"
+
+    - name: ip_ospf_area_lan2
+      rtx: "ip lan2 ospf area 1"
+      terraform:
+        networks:
+          - interface: "lan2"
+            area: "1"
+
+    - name: ip_ospf_area_tunnel
+      rtx: "ip tunnel1 ospf area 0"
+      terraform:
+        networks:
+          - interface: "tunnel1"
+            area: "0"
+
+    # =============================================================================
+    # OSPF Import (Redistribution)
+    # =============================================================================
+    - name: ospf_import_static
+      rtx: "ospf import from static"
+      terraform:
+        redistribute_static: true
+
+    - name: ospf_import_connected
+      rtx: "ospf import from connected"
+      terraform:
+        redistribute_connected: true
+
+    # =============================================================================
+    # Delete Commands (build_only)
+    # =============================================================================
+    - name: delete_ospf_area
+      rtx: "no ospf area 1"
+      terraform:
+        area_id: "1"
+      build_only: true
+
+    - name: delete_ip_ospf_area
+      rtx: "no ip lan1 ospf area"
+      terraform:
+        interface: "lan1"
+      build_only: true
+
+    - name: delete_ospf_import
+      rtx: "no ospf import from static"
+      terraform:
+        redistribute_static: false
+      build_only: true
+
+  boundary_tests:
+    area_id:
+      - value: "0"
+        valid: true
+        description: "バックボーン"
+      - value: "1"
+        valid: true
+      - value: "255"
+        valid: true
+      - value: "0.0.0.0"
+        valid: true
+        description: "ドット形式バックボーン"
+      - value: "0.0.0.1"
+        valid: true
+        description: "ドット形式"
+
+    area_type:
+      - value: "normal"
+        valid: true
+      - value: "stub"
+        valid: true
+      - value: "nssa"
+        valid: true
+      - value: "invalid"
+        valid: false
+        error_contains: "invalid area type"
+
+    router_id:
+      - value: "192.168.1.1"
+        valid: true
+      - value: "10.0.0.1"
+        valid: true
+      - value: "0.0.0.0"
+        valid: false
+        error_contains: "invalid router id"

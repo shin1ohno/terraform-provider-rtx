@@ -1,0 +1,220 @@
+# Tunnel Configuration Command Specification
+# Reference: RTX Command Reference
+#
+# Covers:
+# - tunnel select: トンネル選択
+# - tunnel encapsulation: カプセル化方式
+# - tunnel endpoint: エンドポイント設定
+# - tunnel enable/disable: 有効化/無効化
+
+command:
+  name: tunnel_config
+  description: "トンネル設定"
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  terraform:
+    resource_name: rtx_tunnel
+    struct_name: Tunnel
+    package: parsers
+
+  syntax_tests:
+    # =============================================================================
+    # Tunnel Selection
+    # =============================================================================
+    - name: tunnel_select_1
+      rtx: "tunnel select 1"
+      terraform:
+        id: 1
+
+    - name: tunnel_select_100
+      rtx: "tunnel select 100"
+      terraform:
+        id: 100
+
+    # =============================================================================
+    # Tunnel Encapsulation
+    # =============================================================================
+    - name: tunnel_encapsulation_ipsec
+      rtx: "tunnel encapsulation ipsec"
+      terraform:
+        encapsulation: "ipsec"
+
+    - name: tunnel_encapsulation_l2tp
+      rtx: "tunnel encapsulation l2tp"
+      terraform:
+        encapsulation: "l2tp"
+
+    - name: tunnel_encapsulation_l2tpv3
+      rtx: "tunnel encapsulation l2tpv3"
+      terraform:
+        encapsulation: "l2tpv3"
+
+    # =============================================================================
+    # Tunnel Endpoint (Name/Address)
+    # =============================================================================
+    - name: tunnel_endpoint_name
+      rtx: "tunnel endpoint name vpn.example.com fqdn"
+      terraform:
+        endpoint_name: "vpn.example.com"
+        endpoint_name_type: "fqdn"
+
+    - name: tunnel_endpoint_name_ip
+      rtx: "tunnel endpoint name 203.0.113.1"
+      terraform:
+        endpoint_name: "203.0.113.1"
+
+    - name: tunnel_endpoint_address
+      rtx: "tunnel endpoint address 192.168.1.1 203.0.113.1"
+      terraform:
+        ipsec:
+          local_address: "192.168.1.1"
+          remote_address: "203.0.113.1"
+
+    # =============================================================================
+    # Description
+    # =============================================================================
+    - name: tunnel_description
+      rtx: 'description "VPN to Branch Office"'
+      terraform:
+        name: "VPN to Branch Office"
+
+    - name: tunnel_description_simple
+      rtx: "description Site-to-Site-VPN"
+      terraform:
+        name: "Site-to-Site-VPN"
+
+    # =============================================================================
+    # Tunnel Enable/Disable
+    # =============================================================================
+    - name: tunnel_enable
+      rtx: "tunnel enable 1"
+      terraform:
+        id: 1
+        enabled: true
+      build_only: true
+
+    - name: tunnel_disable
+      rtx: "tunnel disable 1"
+      terraform:
+        id: 1
+        enabled: false
+      build_only: true
+
+    # =============================================================================
+    # IPsec IKE Settings (within tunnel context)
+    # =============================================================================
+    - name: ipsec_ike_local_address
+      rtx: "ipsec ike local address 1 192.168.1.1"
+      terraform:
+        ipsec:
+          local_address: "192.168.1.1"
+
+    - name: ipsec_ike_remote_address
+      rtx: "ipsec ike remote address 1 203.0.113.1"
+      terraform:
+        ipsec:
+          remote_address: "203.0.113.1"
+
+    - name: ipsec_ike_psk
+      rtx: "ipsec ike pre-shared-key 1 text mysecret"
+      terraform:
+        ipsec:
+          pre_shared_key: "mysecret"
+
+    - name: ipsec_ike_nat_traversal_on
+      rtx: "ipsec ike nat-traversal 1 on"
+      terraform:
+        ipsec:
+          nat_traversal: true
+
+    - name: ipsec_ike_nat_traversal_off
+      rtx: "ipsec ike nat-traversal 1 off"
+      terraform:
+        ipsec:
+          nat_traversal: false
+
+    - name: ipsec_ike_keepalive_log_on
+      rtx: "ipsec ike keepalive log 1 on"
+      terraform:
+        ipsec:
+          ike_keepalive_log: true
+
+    - name: ipsec_ike_keepalive_log_off
+      rtx: "ipsec ike keepalive log 1 off"
+      terraform:
+        ipsec:
+          ike_keepalive_log: false
+
+    # =============================================================================
+    # L2TP Settings (within tunnel context)
+    # =============================================================================
+    - name: l2tp_hostname
+      rtx: "l2tp hostname myrouter"
+      terraform:
+        l2tp:
+          hostname: "myrouter"
+
+    - name: l2tp_always_on
+      rtx: "l2tp always-on on"
+      terraform:
+        l2tp:
+          always_on: true
+
+    - name: l2tp_syslog_on
+      rtx: "l2tp syslog on"
+      terraform:
+        l2tp:
+          syslog_enabled: true
+
+    # =============================================================================
+    # Delete Commands (build_only)
+    # =============================================================================
+    - name: delete_tunnel
+      rtx: "no tunnel select 1"
+      terraform:
+        id: 1
+      build_only: true
+
+  boundary_tests:
+    tunnel_id:
+      - value: 1
+        valid: true
+      - value: 20
+        valid: true
+        description: "基本ライセンス最大"
+      - value: 100
+        valid: true
+        description: "拡張ライセンス"
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+
+    encapsulation:
+      - value: "ipsec"
+        valid: true
+      - value: "l2tp"
+        valid: true
+      - value: "l2tpv3"
+        valid: true
+      - value: "gre"
+        valid: false
+        error_contains: "unsupported encapsulation"
+
+    endpoint_name_type:
+      - value: "fqdn"
+        valid: true
+      - value: "ipv4"
+        valid: true
+      - value: "invalid"
+        valid: false
+        error_contains: "invalid endpoint name type"

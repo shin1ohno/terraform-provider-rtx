@@ -1,0 +1,240 @@
+# BGP Configuration Command Specification
+# Reference: RTX Command Reference
+#
+# Covers:
+# - bgp use: BGP有効化
+# - bgp autonomous-system: AS番号設定
+# - bgp router id: ルーターID設定
+# - bgp neighbor: ネイバー設定
+# - bgp import: 経路広報
+
+command:
+  name: bgp_config
+  description: "BGP設定"
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  terraform:
+    resource_name: rtx_bgp
+    struct_name: BGPConfig
+    package: parsers
+
+  syntax_tests:
+    # =============================================================================
+    # BGP Enable/Disable
+    # =============================================================================
+    - name: bgp_use_on
+      rtx: "bgp use on"
+      terraform:
+        enabled: true
+
+    - name: bgp_use_off
+      rtx: "bgp use off"
+      terraform:
+        enabled: false
+
+    # =============================================================================
+    # BGP Autonomous System
+    # =============================================================================
+    - name: bgp_asn_2byte
+      rtx: "bgp autonomous-system 65001"
+      terraform:
+        asn: "65001"
+
+    - name: bgp_asn_4byte
+      rtx: "bgp autonomous-system 4200000001"
+      terraform:
+        asn: "4200000001"
+
+    # =============================================================================
+    # BGP Router ID
+    # =============================================================================
+    - name: bgp_router_id
+      rtx: "bgp router id 192.168.1.1"
+      terraform:
+        router_id: "192.168.1.1"
+
+    - name: bgp_router_id_loopback
+      rtx: "bgp router id 10.0.0.1"
+      terraform:
+        router_id: "10.0.0.1"
+
+    # =============================================================================
+    # BGP Neighbor
+    # =============================================================================
+    - name: bgp_neighbor
+      rtx: "bgp neighbor 1 address 203.0.113.1 as 65002"
+      terraform:
+        neighbors:
+          - id: 1
+            ip: "203.0.113.1"
+            remote_as: "65002"
+
+    - name: bgp_neighbor_second
+      rtx: "bgp neighbor 2 address 203.0.113.2 as 65003"
+      terraform:
+        neighbors:
+          - id: 2
+            ip: "203.0.113.2"
+            remote_as: "65003"
+
+    - name: bgp_neighbor_4byte_as
+      rtx: "bgp neighbor 1 address 10.0.0.1 as 4200000001"
+      terraform:
+        neighbors:
+          - id: 1
+            ip: "10.0.0.1"
+            remote_as: "4200000001"
+
+    # =============================================================================
+    # BGP Neighbor Options
+    # =============================================================================
+    - name: bgp_neighbor_holdtime
+      rtx: "bgp neighbor 1 hold-time 90"
+      terraform:
+        neighbors:
+          - id: 1
+            hold_time: 90
+
+    - name: bgp_neighbor_keepalive
+      rtx: "bgp neighbor 1 keepalive 30"
+      terraform:
+        neighbors:
+          - id: 1
+            keepalive: 30
+
+    - name: bgp_neighbor_multihop
+      rtx: "bgp neighbor 1 multihop 2"
+      terraform:
+        neighbors:
+          - id: 1
+            multihop: 2
+
+    - name: bgp_neighbor_password
+      rtx: "bgp neighbor 1 password mysecret"
+      terraform:
+        neighbors:
+          - id: 1
+            password: "mysecret"
+
+    - name: bgp_neighbor_local_address
+      rtx: "bgp neighbor 1 local-address 192.168.1.1"
+      terraform:
+        neighbors:
+          - id: 1
+            local_address: "192.168.1.1"
+
+    # =============================================================================
+    # BGP Network (Import Filter)
+    # =============================================================================
+    - name: bgp_network
+      rtx: "bgp import filter 1 include 192.168.0.0/16"
+      terraform:
+        networks:
+          - prefix: "192.168.0.0"
+            mask: "255.255.0.0"
+
+    - name: bgp_network_24
+      rtx: "bgp import filter 1 include 10.0.0.0/24"
+      terraform:
+        networks:
+          - prefix: "10.0.0.0"
+            mask: "255.255.255.0"
+
+    # =============================================================================
+    # BGP Redistribution
+    # =============================================================================
+    - name: bgp_import_static
+      rtx: "bgp import from static"
+      terraform:
+        redistribute_static: true
+
+    - name: bgp_import_connected
+      rtx: "bgp import from connected"
+      terraform:
+        redistribute_connected: true
+
+    # =============================================================================
+    # Delete Commands (build_only)
+    # =============================================================================
+    - name: delete_bgp_neighbor
+      rtx: "no bgp neighbor 1"
+      terraform:
+        neighbor_id: 1
+      build_only: true
+
+    - name: delete_bgp_network
+      rtx: "no bgp import filter 1"
+      terraform:
+        filter_id: 1
+      build_only: true
+
+  boundary_tests:
+    asn:
+      - value: "1"
+        valid: true
+        description: "最小値"
+      - value: "65535"
+        valid: true
+        description: "2バイトAS最大値"
+      - value: "4294967295"
+        valid: true
+        description: "4バイトAS最大値"
+      - value: "0"
+        valid: false
+        error_contains: "invalid AS number"
+
+    neighbor_id:
+      - value: 1
+        valid: true
+      - value: 100
+        valid: true
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+
+    hold_time:
+      - value: 0
+        valid: true
+        description: "無効化"
+      - value: 3
+        valid: true
+        description: "最小値"
+      - value: 90
+        valid: true
+        description: "標準値"
+      - value: 65535
+        valid: true
+        description: "最大値"
+
+    keepalive:
+      - value: 1
+        valid: true
+      - value: 30
+        valid: true
+        description: "標準値"
+      - value: 21845
+        valid: true
+        description: "最大値（hold_time/3）"
+
+    multihop:
+      - value: 1
+        valid: true
+      - value: 2
+        valid: true
+        description: "標準値"
+      - value: 255
+        valid: true
+        description: "最大値"
+      - value: 0
+        valid: false
+        error_contains: "must be positive"

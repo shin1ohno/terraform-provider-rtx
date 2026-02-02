@@ -1,0 +1,181 @@
+# Admin Configuration Command Specification
+# Reference: RTX Command Reference
+#
+# Covers:
+# - login password: ログインパスワード設定
+# - administrator password: 管理者パスワード設定
+# - login user: ユーザー作成
+# - user attribute: ユーザー属性設定
+
+command:
+  name: admin_config
+  description: "管理者・ユーザー設定"
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  terraform:
+    resource_name: rtx_admin_config
+    struct_name: AdminConfig
+    package: parsers
+
+  syntax_tests:
+    # =============================================================================
+    # Login Password
+    # =============================================================================
+    - name: login_password_simple
+      rtx: "login password secret123"
+      terraform:
+        login_password: "secret123"
+
+    - name: login_password_complex
+      rtx: "login password MyP@ssw0rd!#$"
+      terraform:
+        login_password: "MyP@ssw0rd!#$"
+
+    # =============================================================================
+    # Administrator Password
+    # =============================================================================
+    - name: admin_password_simple
+      rtx: "administrator password admin123"
+      terraform:
+        admin_password: "admin123"
+
+    - name: admin_password_complex
+      rtx: "administrator password Adm!n@2024"
+      terraform:
+        admin_password: "Adm!n@2024"
+
+    # =============================================================================
+    # Login User
+    # =============================================================================
+    - name: login_user_plain
+      rtx: "login user operator password123"
+      terraform:
+        users:
+          - username: "operator"
+            password: "password123"
+            encrypted: false
+
+    - name: login_user_encrypted
+      rtx: "login user admin encrypted abc123def456"
+      terraform:
+        users:
+          - username: "admin"
+            password: "abc123def456"
+            encrypted: true
+
+    - name: login_user_readonly
+      rtx: "login user readonly pass123"
+      terraform:
+        users:
+          - username: "readonly"
+            password: "pass123"
+            encrypted: false
+
+    # =============================================================================
+    # User Attribute
+    # =============================================================================
+    - name: user_attribute_administrator
+      rtx: "user attribute admin administrator=on"
+      terraform:
+        user_attributes:
+          username: "admin"
+          administrator: true
+
+    - name: user_attribute_connection
+      rtx: "user attribute operator connection=telnet,ssh"
+      terraform:
+        user_attributes:
+          username: "operator"
+          connection: ["telnet", "ssh"]
+
+    - name: user_attribute_gui_page
+      rtx: "user attribute webuser gui-page=dashboard,lan-map"
+      terraform:
+        user_attributes:
+          username: "webuser"
+          gui_page: ["dashboard", "lan-map"]
+
+    - name: user_attribute_login_timer
+      rtx: "user attribute admin login-timer=3600"
+      terraform:
+        user_attributes:
+          username: "admin"
+          login_timer: 3600
+
+    - name: user_attribute_multiple
+      rtx: "user attribute admin administrator=on connection=serial,telnet,ssh gui-page=dashboard,config login-timer=7200"
+      terraform:
+        user_attributes:
+          username: "admin"
+          administrator: true
+          connection: ["serial", "telnet", "ssh"]
+          gui_page: ["dashboard", "config"]
+          login_timer: 7200
+
+    # =============================================================================
+    # Delete Commands (build_only)
+    # =============================================================================
+    - name: delete_login_user
+      rtx: "no login user operator"
+      terraform:
+        username: "operator"
+      build_only: true
+
+    - name: delete_user_attribute
+      rtx: "no user attribute admin"
+      terraform:
+        username: "admin"
+      build_only: true
+
+  boundary_tests:
+    login_timer:
+      - value: 60
+        valid: true
+        description: "最小値（1分）"
+      - value: 3600
+        valid: true
+        description: "標準値（1時間）"
+      - value: 86400
+        valid: true
+        description: "1日"
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+
+    connection:
+      - value: "serial"
+        valid: true
+      - value: "telnet"
+        valid: true
+      - value: "remote"
+        valid: true
+      - value: "ssh"
+        valid: true
+      - value: "sftp"
+        valid: true
+      - value: "http"
+        valid: true
+      - value: "invalid"
+        valid: false
+        error_contains: "invalid connection type"
+
+    gui_page:
+      - value: "dashboard"
+        valid: true
+      - value: "lan-map"
+        valid: true
+      - value: "config"
+        valid: true
+      - value: "invalid"
+        valid: false
+        error_contains: "invalid gui-page"

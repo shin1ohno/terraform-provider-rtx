@@ -1,0 +1,360 @@
+# IPsec Tunnel Configuration Command Specification
+# Reference: RTX Command Reference
+#
+# Covers:
+# - tunnel select / ipsec tunnel: トンネル設定
+# - ipsec ike: IKE Phase 1設定
+# - ipsec sa policy: SA Policy設定
+# - ipsec transport: トランスポートモード
+
+command:
+  name: ipsec_tunnel
+  description: "IPsecトンネル設定"
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  terraform:
+    resource_name: rtx_ipsec_tunnel
+    struct_name: IPsecTunnel
+    package: parsers
+
+  syntax_tests:
+    # =============================================================================
+    # Tunnel Selection
+    # =============================================================================
+    - name: tunnel_select
+      rtx: "tunnel select 1"
+      terraform:
+        id: 1
+
+    - name: tunnel_select_large
+      rtx: "tunnel select 100"
+      terraform:
+        id: 100
+
+    # =============================================================================
+    # IPsec Tunnel
+    # =============================================================================
+    - name: ipsec_tunnel
+      rtx: "ipsec tunnel 1"
+      terraform:
+        ipsec_tunnel_id: 1
+
+    # =============================================================================
+    # IKE Local/Remote Address
+    # =============================================================================
+    - name: ike_local_address
+      rtx: "ipsec ike local address 1 192.168.1.1"
+      terraform:
+        id: 1
+        local_address: "192.168.1.1"
+
+    - name: ike_remote_address
+      rtx: "ipsec ike remote address 1 203.0.113.1"
+      terraform:
+        id: 1
+        remote_address: "203.0.113.1"
+
+    # =============================================================================
+    # IKE Pre-shared Key
+    # =============================================================================
+    - name: ike_psk
+      rtx: "ipsec ike pre-shared-key 1 text mysecretkey"
+      terraform:
+        id: 1
+        pre_shared_key: "mysecretkey"
+
+    - name: ike_psk_complex
+      rtx: "ipsec ike pre-shared-key 1 text MyC0mplex!Key#2024"
+      terraform:
+        id: 1
+        pre_shared_key: "MyC0mplex!Key#2024"
+
+    # =============================================================================
+    # IKE Encryption
+    # =============================================================================
+    - name: ike_encryption_aes256
+      rtx: "ipsec ike encryption 1 aes-cbc-256"
+      terraform:
+        id: 1
+        ikev2_proposal:
+          encryption_aes256: true
+
+    - name: ike_encryption_aes128
+      rtx: "ipsec ike encryption 1 aes-cbc"
+      terraform:
+        id: 1
+        ikev2_proposal:
+          encryption_aes128: true
+
+    - name: ike_encryption_3des
+      rtx: "ipsec ike encryption 1 3des-cbc"
+      terraform:
+        id: 1
+        ikev2_proposal:
+          encryption_3des: true
+
+    # =============================================================================
+    # IKE Hash
+    # =============================================================================
+    - name: ike_hash_sha256
+      rtx: "ipsec ike hash 1 sha256"
+      terraform:
+        id: 1
+        ikev2_proposal:
+          integrity_sha256: true
+
+    - name: ike_hash_sha
+      rtx: "ipsec ike hash 1 sha"
+      terraform:
+        id: 1
+        ikev2_proposal:
+          integrity_sha1: true
+
+    - name: ike_hash_md5
+      rtx: "ipsec ike hash 1 md5"
+      terraform:
+        id: 1
+        ikev2_proposal:
+          integrity_md5: true
+
+    # =============================================================================
+    # IKE DH Group
+    # =============================================================================
+    - name: ike_group_modp2048
+      rtx: "ipsec ike group 1 modp2048"
+      terraform:
+        id: 1
+        ikev2_proposal:
+          group_fourteen: true
+
+    - name: ike_group_modp1536
+      rtx: "ipsec ike group 1 modp1536"
+      terraform:
+        id: 1
+        ikev2_proposal:
+          group_five: true
+
+    - name: ike_group_modp1024
+      rtx: "ipsec ike group 1 modp1024"
+      terraform:
+        id: 1
+        ikev2_proposal:
+          group_two: true
+
+    # =============================================================================
+    # IKE Keepalive (DPD)
+    # =============================================================================
+    - name: ike_keepalive_dpd
+      rtx: "ipsec ike keepalive use 1 on dpd 30"
+      terraform:
+        id: 1
+        dpd_enabled: true
+        dpd_interval: 30
+
+    - name: ike_keepalive_dpd_with_retry
+      rtx: "ipsec ike keepalive use 1 on dpd 30 5"
+      terraform:
+        id: 1
+        dpd_enabled: true
+        dpd_interval: 30
+        dpd_retry: 5
+
+    - name: ike_keepalive_heartbeat
+      rtx: "ipsec ike keepalive use 1 on heartbeat 60 3"
+      terraform:
+        id: 1
+        keepalive_mode: "heartbeat"
+        dpd_interval: 60
+        dpd_retry: 3
+
+    - name: ike_keepalive_off
+      rtx: "ipsec ike keepalive use 1 off"
+      terraform:
+        id: 1
+        dpd_enabled: false
+
+    # =============================================================================
+    # IKE NAT Traversal
+    # =============================================================================
+    - name: ike_nat_traversal_on
+      rtx: "ipsec ike nat-traversal 1 on"
+      terraform:
+        id: 1
+        nat_traversal: true
+
+    - name: ike_nat_traversal_off
+      rtx: "ipsec ike nat-traversal 1 off"
+      terraform:
+        id: 1
+        nat_traversal: false
+
+    # =============================================================================
+    # SA Policy
+    # =============================================================================
+    - name: sa_policy_esp_aes_sha
+      rtx: "ipsec sa policy 1 1 esp aes-cbc sha-hmac"
+      terraform:
+        sa_policy: 1
+        ipsec_transform:
+          protocol: "esp"
+          encryption_aes128: true
+          integrity_sha1: true
+
+    - name: sa_policy_esp_aes256_sha256
+      rtx: "ipsec sa policy 1 1 esp aes256-cbc sha256-hmac"
+      terraform:
+        sa_policy: 1
+        ipsec_transform:
+          protocol: "esp"
+          encryption_aes256: true
+          integrity_sha256: true
+
+    - name: sa_policy_esp_3des_md5
+      rtx: "ipsec sa policy 1 1 esp 3des-cbc md5-hmac"
+      terraform:
+        sa_policy: 1
+        ipsec_transform:
+          protocol: "esp"
+          encryption_3des: true
+          integrity_md5: true
+
+    # =============================================================================
+    # IP Tunnel Secure Filter
+    # =============================================================================
+    - name: tunnel_secure_filter_in
+      rtx: "ip tunnel secure filter in 1 2 3"
+      terraform:
+        secure_filter_in: [1, 2, 3]
+
+    - name: tunnel_secure_filter_out
+      rtx: "ip tunnel secure filter out 100 101"
+      terraform:
+        secure_filter_out: [100, 101]
+
+    # =============================================================================
+    # IP Tunnel TCP MSS
+    # =============================================================================
+    - name: tunnel_tcp_mss_auto
+      rtx: "ip tunnel tcp mss limit auto"
+      terraform:
+        tcp_mss_limit: "auto"
+
+    - name: tunnel_tcp_mss_1280
+      rtx: "ip tunnel tcp mss limit 1280"
+      terraform:
+        tcp_mss_limit: "1280"
+
+    # =============================================================================
+    # Tunnel Enable/Disable
+    # =============================================================================
+    - name: tunnel_enable
+      rtx: "tunnel enable 1"
+      terraform:
+        id: 1
+        enabled: true
+      build_only: true
+
+    - name: tunnel_disable
+      rtx: "tunnel disable 1"
+      terraform:
+        id: 1
+        enabled: false
+      build_only: true
+
+    # =============================================================================
+    # IPsec Transport
+    # =============================================================================
+    - name: ipsec_transport
+      rtx: "ipsec transport 1 1 udp 1701"
+      terraform:
+        transport_id: 1
+        tunnel_id: 1
+        protocol: "udp"
+        port: 1701
+
+    # =============================================================================
+    # Delete Commands (build_only)
+    # =============================================================================
+    - name: delete_tunnel
+      rtx: "no tunnel select 1"
+      terraform:
+        id: 1
+      build_only: true
+
+    - name: delete_ipsec_tunnel
+      rtx: "no ipsec tunnel 1"
+      terraform:
+        ipsec_tunnel_id: 1
+      build_only: true
+
+    - name: delete_ike_encryption
+      rtx: "no ipsec ike encryption 1"
+      terraform:
+        id: 1
+      build_only: true
+
+    - name: delete_ipsec_transport
+      rtx: "no ipsec transport 1"
+      terraform:
+        transport_id: 1
+      build_only: true
+
+  boundary_tests:
+    tunnel_id:
+      - value: 1
+        valid: true
+      - value: 100
+        valid: true
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+
+    dpd_interval:
+      - value: 1
+        valid: true
+      - value: 30
+        valid: true
+        description: "標準値"
+      - value: 300
+        valid: true
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+
+    dpd_retry:
+      - value: 1
+        valid: true
+      - value: 5
+        valid: true
+        description: "標準値"
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+
+    port:
+      - value: 1
+        valid: true
+      - value: 1701
+        valid: true
+        description: "L2TP"
+      - value: 4500
+        valid: true
+        description: "NAT-T"
+      - value: 65535
+        valid: true
+      - value: 0
+        valid: false
+        error_contains: "must be 1-65535"
+      - value: 65536
+        valid: false
+        error_contains: "must be 1-65535"

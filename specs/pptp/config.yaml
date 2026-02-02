@@ -1,0 +1,193 @@
+# PPTP Configuration Command Specification
+# Reference: RTX Command Reference
+#
+# Covers:
+# - pptp service: PPTPサービス
+# - pptp tunnel: PPTPトンネル設定
+# - pptp keepalive: キープアライブ
+# - ppp ccp type: MPPE暗号化
+
+command:
+  name: pptp_config
+  description: "PPTP設定"
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  terraform:
+    resource_name: rtx_pptp
+    struct_name: PPTPConfig
+    package: parsers
+
+  syntax_tests:
+    # =============================================================================
+    # PPTP Service
+    # =============================================================================
+    - name: pptp_service_on
+      rtx: "pptp service on"
+      terraform:
+        enabled: true
+
+    - name: pptp_service_off
+      rtx: "pptp service off"
+      terraform:
+        enabled: false
+
+    # =============================================================================
+    # PPTP Tunnel Disconnect Time
+    # =============================================================================
+    - name: pptp_disconnect_time
+      rtx: "pptp tunnel disconnect time 300"
+      terraform:
+        disconnect_time: 300
+
+    - name: pptp_disconnect_time_600
+      rtx: "pptp tunnel disconnect time 600"
+      terraform:
+        disconnect_time: 600
+
+    # =============================================================================
+    # PPTP Keepalive
+    # =============================================================================
+    - name: pptp_keepalive_on
+      rtx: "pptp keepalive use on"
+      terraform:
+        keepalive_enabled: true
+
+    - name: pptp_keepalive_off
+      rtx: "pptp keepalive use off"
+      terraform:
+        keepalive_enabled: false
+
+    # =============================================================================
+    # PP Authentication (PPTP)
+    # =============================================================================
+    - name: pptp_auth_accept_mschapv2
+      rtx: "pp auth accept mschapv2"
+      terraform:
+        authentication:
+          method: "mschapv2"
+
+    - name: pptp_auth_accept_chap
+      rtx: "pp auth accept chap"
+      terraform:
+        authentication:
+          method: "chap"
+
+    - name: pptp_auth_myname
+      rtx: "pp auth myname vpnuser vpnpassword"
+      terraform:
+        authentication:
+          username: "vpnuser"
+          password: "vpnpassword"
+
+    # =============================================================================
+    # MPPE Encryption (ppp ccp type)
+    # =============================================================================
+    - name: ppp_ccp_mppe128
+      rtx: "ppp ccp type mppe-128"
+      terraform:
+        encryption:
+          mppe_bits: 128
+
+    - name: ppp_ccp_mppe128_require
+      rtx: "ppp ccp type mppe-128 require"
+      terraform:
+        encryption:
+          mppe_bits: 128
+          required: true
+
+    - name: ppp_ccp_mppe56
+      rtx: "ppp ccp type mppe-56"
+      terraform:
+        encryption:
+          mppe_bits: 56
+
+    - name: ppp_ccp_mppe40
+      rtx: "ppp ccp type mppe-40"
+      terraform:
+        encryption:
+          mppe_bits: 40
+
+    # =============================================================================
+    # IP Pool for PPTP Clients
+    # =============================================================================
+    - name: pptp_ip_pool
+      rtx: "ip pp remote address pool 192.168.10.100-192.168.10.200"
+      terraform:
+        ip_pool:
+          start: "192.168.10.100"
+          end: "192.168.10.200"
+
+    - name: pptp_ip_pool_small
+      rtx: "ip pp remote address pool 10.0.0.10-10.0.0.20"
+      terraform:
+        ip_pool:
+          start: "10.0.0.10"
+          end: "10.0.0.20"
+
+    # =============================================================================
+    # Delete Commands (build_only)
+    # =============================================================================
+    - name: delete_pptp_service
+      rtx: "pptp service off"
+      terraform:
+        enabled: false
+      build_only: true
+
+    - name: delete_pptp_disconnect_time
+      rtx: "no pptp tunnel disconnect time"
+      terraform: {}
+      build_only: true
+
+    - name: delete_pptp_keepalive
+      rtx: "pptp keepalive use off"
+      terraform:
+        keepalive_enabled: false
+      build_only: true
+
+  boundary_tests:
+    disconnect_time:
+      - value: 60
+        valid: true
+      - value: 300
+        valid: true
+        description: "標準値"
+      - value: 3600
+        valid: true
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+
+    mppe_bits:
+      - value: 40
+        valid: true
+        description: "40ビット暗号化"
+      - value: 56
+        valid: true
+        description: "56ビット暗号化"
+      - value: 128
+        valid: true
+        description: "128ビット暗号化（推奨）"
+      - value: 64
+        valid: false
+        error_contains: "must be 40, 56, or 128"
+
+    max_connections:
+      - value: 1
+        valid: true
+      - value: 10
+        valid: true
+      - value: 100
+        valid: true
+      - value: 0
+        valid: false
+        error_contains: "must be positive"

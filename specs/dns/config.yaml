@@ -1,0 +1,224 @@
+# DNS Configuration Command Specification
+# Reference: RTX Command Reference
+#
+# Covers:
+# - dns domain: ドメイン設定
+# - dns server: DNSサーバー設定
+# - dns server select: ドメイン別DNS選択
+# - dns static: 静的DNSエントリ
+# - dns service: DNSサービス設定
+
+command:
+  name: dns_config
+  description: "DNS設定"
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  terraform:
+    resource_name: rtx_dns
+    struct_name: DNSConfig
+    package: parsers
+
+  syntax_tests:
+    # =============================================================================
+    # DNS Domain Lookup
+    # =============================================================================
+    - name: dns_domain_lookup_on
+      rtx: "dns domain lookup on"
+      terraform:
+        domain_lookup: true
+
+    - name: dns_domain_lookup_off
+      rtx: "dns domain lookup off"
+      terraform:
+        domain_lookup: false
+
+    # =============================================================================
+    # DNS Domain Name
+    # =============================================================================
+    - name: dns_domain_name
+      rtx: "dns domain example.com"
+      terraform:
+        domain_name: "example.com"
+
+    - name: dns_domain_local
+      rtx: "dns domain local.lan"
+      terraform:
+        domain_name: "local.lan"
+
+    # =============================================================================
+    # DNS Server
+    # =============================================================================
+    - name: dns_server_single
+      rtx: "dns server 8.8.8.8"
+      terraform:
+        name_servers: ["8.8.8.8"]
+
+    - name: dns_server_two
+      rtx: "dns server 8.8.8.8 8.8.4.4"
+      terraform:
+        name_servers: ["8.8.8.8", "8.8.4.4"]
+
+    - name: dns_server_three
+      rtx: "dns server 8.8.8.8 8.8.4.4 1.1.1.1"
+      terraform:
+        name_servers: ["8.8.8.8", "8.8.4.4", "1.1.1.1"]
+
+    # =============================================================================
+    # DNS Server Select (Domain-based routing)
+    # =============================================================================
+    - name: dns_server_select_simple
+      rtx: "dns server select 1 8.8.8.8 any .example.com"
+      terraform:
+        server_select:
+          - id: 1
+            servers: ["8.8.8.8"]
+            record_type: "any"
+            query_pattern: ".example.com"
+
+    - name: dns_server_select_with_edns
+      rtx: "dns server select 1 8.8.8.8 edns=on any .example.com"
+      terraform:
+        server_select:
+          - id: 1
+            servers:
+              - address: "8.8.8.8"
+                edns: true
+            record_type: "any"
+            query_pattern: ".example.com"
+
+    - name: dns_server_select_multiple_servers
+      rtx: "dns server select 1 8.8.8.8 8.8.4.4 any .google.com"
+      terraform:
+        server_select:
+          - id: 1
+            servers: ["8.8.8.8", "8.8.4.4"]
+            record_type: "any"
+            query_pattern: ".google.com"
+
+    - name: dns_server_select_record_type_a
+      rtx: "dns server select 2 1.1.1.1 a .cloudflare.com"
+      terraform:
+        server_select:
+          - id: 2
+            servers: ["1.1.1.1"]
+            record_type: "a"
+            query_pattern: ".cloudflare.com"
+
+    - name: dns_server_select_restrict_pp
+      rtx: "dns server select 3 192.168.1.1 any .internal restrict pp 1"
+      terraform:
+        server_select:
+          - id: 3
+            servers: ["192.168.1.1"]
+            record_type: "any"
+            query_pattern: ".internal"
+            restrict_pp: 1
+
+    # =============================================================================
+    # DNS Static (Host entries)
+    # =============================================================================
+    - name: dns_static_ipv4
+      rtx: "dns static server.local 192.168.1.100"
+      terraform:
+        hosts:
+          - name: "server.local"
+            address: "192.168.1.100"
+
+    - name: dns_static_router
+      rtx: "dns static router.local 192.168.1.1"
+      terraform:
+        hosts:
+          - name: "router.local"
+            address: "192.168.1.1"
+
+    # =============================================================================
+    # DNS Service
+    # =============================================================================
+    - name: dns_service_recursive
+      rtx: "dns service recursive"
+      terraform:
+        service_on: true
+
+    - name: dns_service_off
+      rtx: "dns service off"
+      terraform:
+        service_on: false
+
+    # =============================================================================
+    # DNS Private Address Spoof
+    # =============================================================================
+    - name: dns_private_spoof_on
+      rtx: "dns private address spoof on"
+      terraform:
+        private_spoof: true
+
+    - name: dns_private_spoof_off
+      rtx: "dns private address spoof off"
+      terraform:
+        private_spoof: false
+
+    # =============================================================================
+    # Delete Commands (build_only)
+    # =============================================================================
+    - name: delete_dns_server
+      rtx: "no dns server"
+      terraform: {}
+      build_only: true
+
+    - name: delete_dns_domain
+      rtx: "no dns domain"
+      terraform: {}
+      build_only: true
+
+    - name: delete_dns_server_select
+      rtx: "no dns server select 1"
+      terraform:
+        id: 1
+      build_only: true
+
+    - name: delete_dns_static
+      rtx: "no dns static server.local"
+      terraform:
+        name: "server.local"
+      build_only: true
+
+  boundary_tests:
+    server_select_id:
+      - value: 1
+        valid: true
+      - value: 100
+        valid: true
+      - value: 65535
+        valid: true
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+
+    record_type:
+      - value: "a"
+        valid: true
+      - value: "aaaa"
+        valid: true
+      - value: "ptr"
+        valid: true
+      - value: "mx"
+        valid: true
+      - value: "ns"
+        valid: true
+      - value: "cname"
+        valid: true
+      - value: "any"
+        valid: true
+      - value: "invalid"
+        valid: false
+        error_contains: "invalid record type"

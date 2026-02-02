@@ -1,0 +1,236 @@
+# Interface Configuration Command Specification
+# Reference: RTX Command Reference
+#
+# Covers:
+# - ip interface address: IPアドレス設定
+# - ip interface secure filter: セキュリティフィルタ
+# - ip interface nat descriptor: NAT設定
+# - ip interface proxyarp: ProxyARP設定
+# - ip interface mtu: MTU設定
+# - description: インタフェース説明
+
+command:
+  name: interface_config
+  description: "インタフェース設定"
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  terraform:
+    resource_name: rtx_interface
+    struct_name: InterfaceConfig
+    package: parsers
+
+  syntax_tests:
+    # =============================================================================
+    # IP Address
+    # =============================================================================
+    - name: ip_address_cidr
+      rtx: "ip lan1 address 192.168.1.1/24"
+      terraform:
+        name: "lan1"
+        ip_address:
+          address: "192.168.1.1/24"
+          dhcp: false
+
+    - name: ip_address_cidr_16
+      rtx: "ip lan2 address 172.16.0.1/16"
+      terraform:
+        name: "lan2"
+        ip_address:
+          address: "172.16.0.1/16"
+          dhcp: false
+
+    - name: ip_address_dhcp
+      rtx: "ip lan1 address dhcp"
+      terraform:
+        name: "lan1"
+        ip_address:
+          dhcp: true
+
+    # =============================================================================
+    # Secure Filter
+    # =============================================================================
+    - name: secure_filter_in
+      rtx: "ip lan1 secure filter in 1 2 3"
+      terraform:
+        name: "lan1"
+        secure_filter_in: [1, 2, 3]
+
+    - name: secure_filter_out
+      rtx: "ip lan1 secure filter out 100 101 102"
+      terraform:
+        name: "lan1"
+        secure_filter_out: [100, 101, 102]
+
+    - name: secure_filter_out_with_dynamic
+      rtx: "ip lan1 secure filter out 100 101 dynamic 200 201"
+      terraform:
+        name: "lan1"
+        secure_filter_out: [100, 101]
+        dynamic_filter_out: [200, 201]
+
+    - name: secure_filter_single
+      rtx: "ip lan2 secure filter in 1"
+      terraform:
+        name: "lan2"
+        secure_filter_in: [1]
+
+    # =============================================================================
+    # Ethernet Filter
+    # =============================================================================
+    - name: ethernet_filter_in
+      rtx: "ethernet lan1 filter in 1 2"
+      terraform:
+        name: "lan1"
+        ethernet_filter_in: [1, 2]
+
+    - name: ethernet_filter_out
+      rtx: "ethernet lan1 filter out 10"
+      terraform:
+        name: "lan1"
+        ethernet_filter_out: [10]
+
+    # =============================================================================
+    # NAT Descriptor
+    # =============================================================================
+    - name: nat_descriptor
+      rtx: "ip lan1 nat descriptor 1"
+      terraform:
+        name: "lan1"
+        nat_descriptor: 1
+
+    - name: nat_descriptor_100
+      rtx: "ip lan2 nat descriptor 100"
+      terraform:
+        name: "lan2"
+        nat_descriptor: 100
+
+    # =============================================================================
+    # ProxyARP
+    # =============================================================================
+    - name: proxyarp_on
+      rtx: "ip lan1 proxyarp on"
+      terraform:
+        name: "lan1"
+        proxy_arp: true
+
+    - name: proxyarp_off
+      rtx: "ip lan1 proxyarp off"
+      terraform:
+        name: "lan1"
+        proxy_arp: false
+
+    # =============================================================================
+    # MTU
+    # =============================================================================
+    - name: mtu_1500
+      rtx: "ip lan1 mtu 1500"
+      terraform:
+        name: "lan1"
+        mtu: 1500
+
+    - name: mtu_1400
+      rtx: "ip tunnel1 mtu 1400"
+      terraform:
+        name: "tunnel1"
+        mtu: 1400
+
+    - name: mtu_576
+      rtx: "ip pp1 mtu 576"
+      terraform:
+        name: "pp1"
+        mtu: 576
+
+    # =============================================================================
+    # Description
+    # =============================================================================
+    - name: description_simple
+      rtx: 'description lan1 "Internal Network"'
+      terraform:
+        name: "lan1"
+        description: "Internal Network"
+
+    - name: description_wan
+      rtx: 'description lan2 "WAN Connection"'
+      terraform:
+        name: "lan2"
+        description: "WAN Connection"
+
+    # =============================================================================
+    # Delete Commands (build_only)
+    # =============================================================================
+    - name: delete_ip_address
+      rtx: "no ip lan1 address"
+      terraform:
+        name: "lan1"
+      build_only: true
+
+    - name: delete_secure_filter_in
+      rtx: "no ip lan1 secure filter in"
+      terraform:
+        name: "lan1"
+        direction: "in"
+      build_only: true
+
+    - name: delete_secure_filter_out
+      rtx: "no ip lan1 secure filter out"
+      terraform:
+        name: "lan1"
+        direction: "out"
+      build_only: true
+
+    - name: delete_nat_descriptor
+      rtx: "no ip lan1 nat descriptor"
+      terraform:
+        name: "lan1"
+      build_only: true
+
+  boundary_tests:
+    mtu:
+      - value: 68
+        valid: true
+        description: "最小値"
+      - value: 576
+        valid: true
+        description: "PPP標準"
+      - value: 1500
+        valid: true
+        description: "Ethernet標準"
+      - value: 9000
+        valid: true
+        description: "Jumbo frame"
+      - value: 65535
+        valid: true
+        description: "最大値"
+      - value: 67
+        valid: false
+        error_contains: "must be 68-65535"
+
+    nat_descriptor:
+      - value: 1
+        valid: true
+      - value: 100
+        valid: true
+      - value: 1000
+        valid: true
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+
+    filter_number:
+      - value: 1
+        valid: true
+      - value: 65535
+        valid: true
+      - value: 0
+        valid: false
+        error_contains: "must be positive"

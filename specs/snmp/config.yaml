@@ -1,0 +1,226 @@
+# SNMP Configuration Command Specification
+# Reference: RTX Command Reference
+#
+# Covers:
+# - snmp sysname/syslocation/syscontact: システム情報
+# - snmp community: コミュニティ設定
+# - snmp host: トラップホスト設定
+# - snmp trap: トラップ設定
+
+command:
+  name: snmp_config
+  description: "SNMP設定"
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  terraform:
+    resource_name: rtx_snmp
+    struct_name: SNMPConfig
+    package: parsers
+
+  syntax_tests:
+    # =============================================================================
+    # SNMP System Information
+    # =============================================================================
+    - name: snmp_sysname
+      rtx: "snmp sysname RTX-Router"
+      terraform:
+        sysname: "RTX-Router"
+
+    - name: snmp_sysname_with_model
+      rtx: "snmp sysname RTX1300-Main"
+      terraform:
+        sysname: "RTX1300-Main"
+
+    - name: snmp_syslocation
+      rtx: "snmp syslocation Tokyo-DC-Rack1"
+      terraform:
+        syslocation: "Tokyo-DC-Rack1"
+
+    - name: snmp_syslocation_spaces
+      rtx: 'snmp syslocation "Tokyo Data Center Rack 1"'
+      terraform:
+        syslocation: "Tokyo Data Center Rack 1"
+
+    - name: snmp_syscontact
+      rtx: "snmp syscontact admin@example.com"
+      terraform:
+        syscontact: "admin@example.com"
+
+    - name: snmp_syscontact_name
+      rtx: "snmp syscontact Network-Admin"
+      terraform:
+        syscontact: "Network-Admin"
+
+    # =============================================================================
+    # SNMP Community
+    # =============================================================================
+    - name: snmp_community_ro
+      rtx: "snmp community read-only public"
+      terraform:
+        communities:
+          - name: "public"
+            permission: "ro"
+
+    - name: snmp_community_rw
+      rtx: "snmp community read-write private"
+      terraform:
+        communities:
+          - name: "private"
+            permission: "rw"
+
+    - name: snmp_community_with_acl
+      rtx: "snmp community read-only mycomm 1"
+      terraform:
+        communities:
+          - name: "mycomm"
+            permission: "ro"
+            acl: "1"
+
+    # =============================================================================
+    # SNMP Host (Trap Destination)
+    # =============================================================================
+    - name: snmp_host
+      rtx: "snmp host 192.168.1.100"
+      terraform:
+        hosts:
+          - address: "192.168.1.100"
+
+    - name: snmp_host_with_community
+      rtx: "snmp host 192.168.1.100 community trapcomm"
+      terraform:
+        hosts:
+          - address: "192.168.1.100"
+            community: "trapcomm"
+
+    - name: snmp_host_with_version
+      rtx: "snmp host 192.168.1.100 version 2c"
+      terraform:
+        hosts:
+          - address: "192.168.1.100"
+            version: "2c"
+
+    - name: snmp_host_multiple
+      rtx: "snmp host 10.0.0.50"
+      terraform:
+        hosts:
+          - address: "10.0.0.50"
+
+    # =============================================================================
+    # SNMP Trap Community
+    # =============================================================================
+    - name: snmp_trap_community
+      rtx: "snmp trap community trapcomm"
+      terraform:
+        trap_community: "trapcomm"
+
+    # =============================================================================
+    # SNMP Trap Enable
+    # =============================================================================
+    - name: snmp_trap_enable_all
+      rtx: "snmp trap enable snmp all"
+      terraform:
+        trap_enable: ["all"]
+
+    - name: snmp_trap_enable_linkdown
+      rtx: "snmp trap enable snmp linkdown"
+      terraform:
+        trap_enable: ["linkdown"]
+
+    - name: snmp_trap_enable_linkup
+      rtx: "snmp trap enable snmp linkup"
+      terraform:
+        trap_enable: ["linkup"]
+
+    - name: snmp_trap_enable_coldstart
+      rtx: "snmp trap enable snmp coldstart"
+      terraform:
+        trap_enable: ["coldstart"]
+
+    - name: snmp_trap_enable_warmstart
+      rtx: "snmp trap enable snmp warmstart"
+      terraform:
+        trap_enable: ["warmstart"]
+
+    - name: snmp_trap_enable_authentication
+      rtx: "snmp trap enable snmp authentication"
+      terraform:
+        trap_enable: ["authentication"]
+
+    - name: snmp_trap_enable_multiple
+      rtx: "snmp trap enable snmp linkdown linkup coldstart"
+      terraform:
+        trap_enable: ["linkdown", "linkup", "coldstart"]
+
+    # =============================================================================
+    # Delete Commands (build_only)
+    # =============================================================================
+    - name: delete_snmp_sysname
+      rtx: "no snmp sysname"
+      terraform: {}
+      build_only: true
+
+    - name: delete_snmp_community
+      rtx: "no snmp community public"
+      terraform:
+        community: "public"
+      build_only: true
+
+    - name: delete_snmp_host
+      rtx: "no snmp host 192.168.1.100"
+      terraform:
+        address: "192.168.1.100"
+      build_only: true
+
+  boundary_tests:
+    permission:
+      - value: "ro"
+        valid: true
+        description: "読み取り専用"
+      - value: "rw"
+        valid: true
+        description: "読み書き"
+      - value: "read-only"
+        valid: true
+      - value: "read-write"
+        valid: true
+      - value: "invalid"
+        valid: false
+        error_contains: "invalid permission"
+
+    trap_type:
+      - value: "all"
+        valid: true
+      - value: "authentication"
+        valid: true
+      - value: "coldstart"
+        valid: true
+      - value: "warmstart"
+        valid: true
+      - value: "linkdown"
+        valid: true
+      - value: "linkup"
+        valid: true
+      - value: "enterprise"
+        valid: true
+      - value: "invalid"
+        valid: false
+        error_contains: "invalid trap type"
+
+    version:
+      - value: "1"
+        valid: true
+      - value: "2c"
+        valid: true
+      - value: "3"
+        valid: false
+        error_contains: "SNMPv3 not supported"

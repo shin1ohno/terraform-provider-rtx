@@ -1,0 +1,323 @@
+# PPP/PPPoE Configuration Command Specification
+# Reference: RTX Command Reference
+#
+# Covers:
+# - pp select: PP選択
+# - pppoe use: PPPoE使用インタフェース
+# - pp auth: 認証設定
+# - pp always-on: 常時接続
+# - ip pp: PP IPアドレス設定
+
+command:
+  name: ppp_config
+  description: "PPP/PPPoE設定"
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  terraform:
+    resource_name: rtx_pppoe
+    struct_name: PPPoEConfig
+    package: parsers
+
+  syntax_tests:
+    # =============================================================================
+    # PP Selection
+    # =============================================================================
+    - name: pp_select_1
+      rtx: "pp select 1"
+      terraform:
+        number: 1
+
+    - name: pp_select_2
+      rtx: "pp select 2"
+      terraform:
+        number: 2
+
+    # =============================================================================
+    # Description
+    # =============================================================================
+    - name: pp_description
+      rtx: 'description pp "Internet Connection"'
+      terraform:
+        number: 1
+        name: "Internet Connection"
+
+    - name: pp_description_isp
+      rtx: 'description pp "ISP PPPoE"'
+      terraform:
+        number: 1
+        name: "ISP PPPoE"
+
+    # =============================================================================
+    # PPPoE Use Interface
+    # =============================================================================
+    - name: pppoe_use_lan2
+      rtx: "pppoe use lan2"
+      terraform:
+        interface: "lan2"
+
+    - name: pppoe_use_lan3
+      rtx: "pppoe use lan3"
+      terraform:
+        interface: "lan3"
+
+    # =============================================================================
+    # PP Bind Interface
+    # =============================================================================
+    - name: pp_bind_wan1
+      rtx: "pp bind wan1"
+      terraform:
+        bind_interface: "wan1"
+
+    - name: pp_bind_lan2
+      rtx: "pp bind lan2"
+      terraform:
+        bind_interface: "lan2"
+
+    # =============================================================================
+    # PPPoE Service Name / AC Name
+    # =============================================================================
+    - name: pppoe_service_name
+      rtx: "pppoe service-name myisp"
+      terraform:
+        service_name: "myisp"
+
+    - name: pppoe_ac_name
+      rtx: "pppoe ac-name accessconcentrator"
+      terraform:
+        ac_name: "accessconcentrator"
+
+    # =============================================================================
+    # PP Authentication
+    # =============================================================================
+    - name: pp_auth_accept_chap
+      rtx: "pp auth accept chap"
+      terraform:
+        authentication:
+          method: "chap"
+
+    - name: pp_auth_accept_pap
+      rtx: "pp auth accept pap"
+      terraform:
+        authentication:
+          method: "pap"
+
+    - name: pp_auth_accept_chap_pap
+      rtx: "pp auth accept chap pap"
+      terraform:
+        authentication:
+          method: "chap pap"
+
+    - name: pp_auth_myname
+      rtx: "pp auth myname user@isp.com password123"
+      terraform:
+        authentication:
+          username: "user@isp.com"
+          password: "password123"
+
+    - name: pp_auth_myname_complex
+      rtx: "pp auth myname flets@west.jp MyP@ssw0rd!"
+      terraform:
+        authentication:
+          username: "flets@west.jp"
+          password: "MyP@ssw0rd!"
+
+    # =============================================================================
+    # PP Always On
+    # =============================================================================
+    - name: pp_always_on_on
+      rtx: "pp always-on on"
+      terraform:
+        always_on: true
+
+    - name: pp_always_on_off
+      rtx: "pp always-on off"
+      terraform:
+        always_on: false
+
+    # =============================================================================
+    # PP Disconnect Time
+    # =============================================================================
+    - name: pp_disconnect_time
+      rtx: "pp disconnect time 300"
+      terraform:
+        disconnect_timeout: 300
+
+    - name: pp_disconnect_time_off
+      rtx: "pp disconnect time off"
+      terraform:
+        disconnect_timeout: 0
+
+    # =============================================================================
+    # PP Keepalive (LCP Echo)
+    # =============================================================================
+    - name: pp_keepalive
+      rtx: "pp keepalive interval 30 retry-interval 3"
+      terraform:
+        lcp_echo_config:
+          interval: 30
+          max_retries: 3
+          enabled: true
+
+    # =============================================================================
+    # IP PP Address
+    # =============================================================================
+    - name: ip_pp_address
+      rtx: "ip pp address 192.168.1.1/32"
+      terraform:
+        ip_config:
+          address: "192.168.1.1/32"
+
+    - name: ip_pp_address_dhcp
+      rtx: "ip pp address dhcp"
+      terraform:
+        ip_config:
+          address: "dhcp"
+
+    # =============================================================================
+    # IP PP MTU
+    # =============================================================================
+    - name: ip_pp_mtu
+      rtx: "ip pp mtu 1454"
+      terraform:
+        ip_config:
+          mtu: 1454
+
+    - name: ip_pp_mtu_1492
+      rtx: "ip pp mtu 1492"
+      terraform:
+        ip_config:
+          mtu: 1492
+
+    # =============================================================================
+    # IP PP TCP MSS Limit
+    # =============================================================================
+    - name: ip_pp_tcp_mss_limit
+      rtx: "ip pp tcp mss limit 1414"
+      terraform:
+        ip_config:
+          tcp_mss_limit: 1414
+
+    - name: ip_pp_tcp_mss_limit_auto
+      rtx: "ip pp tcp mss limit auto"
+      terraform:
+        ip_config:
+          tcp_mss_limit: "auto"
+
+    # =============================================================================
+    # IP PP NAT Descriptor
+    # =============================================================================
+    - name: ip_pp_nat_descriptor
+      rtx: "ip pp nat descriptor 1"
+      terraform:
+        ip_config:
+          nat_descriptor: 1
+
+    - name: ip_pp_nat_descriptor_100
+      rtx: "ip pp nat descriptor 100"
+      terraform:
+        ip_config:
+          nat_descriptor: 100
+
+    # =============================================================================
+    # PP Enable/Disable
+    # =============================================================================
+    - name: pp_enable
+      rtx: "pp enable 1"
+      terraform:
+        number: 1
+        enabled: true
+      build_only: true
+
+    - name: pp_disable
+      rtx: "pp disable 1"
+      terraform:
+        number: 1
+        enabled: false
+      build_only: true
+
+    # =============================================================================
+    # Delete Commands (build_only)
+    # =============================================================================
+    - name: delete_pp
+      rtx: "no pp select 1"
+      terraform:
+        number: 1
+      build_only: true
+
+    - name: delete_pppoe_use
+      rtx: "no pppoe use"
+      terraform: {}
+      build_only: true
+
+  boundary_tests:
+    pp_number:
+      - value: 1
+        valid: true
+      - value: 30
+        valid: true
+        description: "RTX830/840最大値"
+      - value: 100
+        valid: true
+        description: "RTX1300系最大値"
+      - value: 150
+        valid: true
+        description: "RTX5000系最大値"
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+
+    mtu:
+      - value: 576
+        valid: true
+        description: "最小値"
+      - value: 1454
+        valid: true
+        description: "PPPoE+IPv4"
+      - value: 1492
+        valid: true
+        description: "PPPoE最大"
+      - value: 1500
+        valid: true
+
+    tcp_mss_limit:
+      - value: 536
+        valid: true
+        description: "最小値"
+      - value: 1414
+        valid: true
+        description: "PPPoE標準"
+      - value: 1460
+        valid: true
+
+    disconnect_timeout:
+      - value: 0
+        valid: true
+        description: "無効（off）"
+      - value: 60
+        valid: true
+      - value: 300
+        valid: true
+        description: "標準値"
+      - value: 3600
+        valid: true
+
+    nat_descriptor:
+      - value: 1
+        valid: true
+      - value: 100
+        valid: true
+      - value: 1000
+        valid: true
+      - value: 0
+        valid: false
+        error_contains: "must be positive"

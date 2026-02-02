@@ -1,0 +1,122 @@
+# Bridge Configuration Command Specification
+# Reference: RTX Command Reference
+#
+# Covers:
+# - bridge member: ブリッジメンバー設定
+
+command:
+  name: bridge_config
+  description: "ブリッジ設定"
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  terraform:
+    resource_name: rtx_bridge
+    struct_name: BridgeConfig
+    package: parsers
+
+  syntax_tests:
+    # =============================================================================
+    # Bridge Member Commands
+    # =============================================================================
+    - name: bridge_member_single
+      rtx: "bridge member bridge1 lan1"
+      terraform:
+        name: "bridge1"
+        members: ["lan1"]
+
+    - name: bridge_member_two
+      rtx: "bridge member bridge1 lan1 tunnel1"
+      terraform:
+        name: "bridge1"
+        members: ["lan1", "tunnel1"]
+
+    - name: bridge_member_three
+      rtx: "bridge member bridge1 lan1 lan2 tunnel1"
+      terraform:
+        name: "bridge1"
+        members: ["lan1", "lan2", "tunnel1"]
+
+    - name: bridge_member_lan_vlan
+      rtx: "bridge member bridge1 lan1/1 lan1/2"
+      terraform:
+        name: "bridge1"
+        members: ["lan1/1", "lan1/2"]
+
+    - name: bridge_member_pp
+      rtx: "bridge member bridge2 pp1 pp2"
+      terraform:
+        name: "bridge2"
+        members: ["pp1", "pp2"]
+
+    - name: bridge_member_loopback
+      rtx: "bridge member bridge3 loopback1 lan1"
+      terraform:
+        name: "bridge3"
+        members: ["loopback1", "lan1"]
+
+    - name: bridge_member_multiple_types
+      rtx: "bridge member bridge1 lan1 tunnel1 pp1 loopback1"
+      terraform:
+        name: "bridge1"
+        members: ["lan1", "tunnel1", "pp1", "loopback1"]
+
+    # =============================================================================
+    # Delete Commands (build_only)
+    # =============================================================================
+    - name: delete_bridge
+      rtx: "no bridge member bridge1"
+      terraform:
+        name: "bridge1"
+      build_only: true
+
+    - name: delete_bridge2
+      rtx: "no bridge member bridge2"
+      terraform:
+        name: "bridge2"
+      build_only: true
+
+  boundary_tests:
+    bridge_name:
+      - value: "bridge1"
+        valid: true
+      - value: "bridge2"
+        valid: true
+      - value: "bridge99"
+        valid: true
+      - value: "bridge"
+        valid: false
+        error_contains: "invalid bridge name"
+      - value: "bridge0"
+        valid: false
+        error_contains: "invalid bridge name"
+      - value: "lan1"
+        valid: false
+        error_contains: "invalid bridge name"
+
+    member_interface:
+      - value: "lan1"
+        valid: true
+      - value: "lan1/1"
+        valid: true
+      - value: "tunnel1"
+        valid: true
+      - value: "pp1"
+        valid: true
+      - value: "loopback1"
+        valid: true
+      - value: "bridge1"
+        valid: true
+        description: "Nested bridge"
+      - value: "invalid"
+        valid: false
+        error_contains: "invalid member interface"

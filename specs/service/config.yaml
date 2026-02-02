@@ -1,0 +1,188 @@
+# Service Configuration Command Specification
+# Reference: RTX Command Reference
+#
+# Covers:
+# - httpd: HTTPデーモン設定
+# - sshd: SSHデーモン設定
+# - sftpd: SFTPデーモン設定
+
+command:
+  name: service_config
+  description: "サービス設定（HTTP/SSH/SFTP）"
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  terraform:
+    resource_name: rtx_service
+    struct_name: ServiceConfig
+    package: parsers
+
+  syntax_tests:
+    # =============================================================================
+    # HTTPD Host
+    # =============================================================================
+    - name: httpd_host_any
+      rtx: "httpd host any"
+      terraform:
+        httpd:
+          host: "any"
+
+    - name: httpd_host_lan1
+      rtx: "httpd host lan1"
+      terraform:
+        httpd:
+          host: "lan1"
+
+    - name: httpd_host_lan2
+      rtx: "httpd host lan2"
+      terraform:
+        httpd:
+          host: "lan2"
+
+    # =============================================================================
+    # HTTPD Proxy Access
+    # =============================================================================
+    - name: httpd_proxy_access_on
+      rtx: "httpd proxy-access l2ms permit on"
+      terraform:
+        httpd:
+          proxy_access: true
+
+    - name: httpd_proxy_access_off
+      rtx: "httpd proxy-access l2ms permit off"
+      terraform:
+        httpd:
+          proxy_access: false
+
+    # =============================================================================
+    # SSHD Service
+    # =============================================================================
+    - name: sshd_service_on
+      rtx: "sshd service on"
+      terraform:
+        sshd:
+          enabled: true
+
+    - name: sshd_service_off
+      rtx: "sshd service off"
+      terraform:
+        sshd:
+          enabled: false
+
+    # =============================================================================
+    # SSHD Host
+    # =============================================================================
+    - name: sshd_host_single
+      rtx: "sshd host lan1"
+      terraform:
+        sshd:
+          hosts: ["lan1"]
+
+    - name: sshd_host_multiple
+      rtx: "sshd host lan1 lan2"
+      terraform:
+        sshd:
+          hosts: ["lan1", "lan2"]
+
+    - name: sshd_host_any
+      rtx: "sshd host any"
+      terraform:
+        sshd:
+          hosts: ["any"]
+
+    # =============================================================================
+    # SSHD Auth Method
+    # =============================================================================
+    - name: sshd_auth_password
+      rtx: "sshd auth method password"
+      terraform:
+        sshd:
+          auth_method: "password"
+
+    - name: sshd_auth_publickey
+      rtx: "sshd auth method publickey"
+      terraform:
+        sshd:
+          auth_method: "publickey"
+
+    # =============================================================================
+    # SSHD Host Key Generate
+    # =============================================================================
+    - name: sshd_host_key_generate
+      rtx: "sshd host key generate"
+      terraform: {}
+      build_only: true
+
+    # =============================================================================
+    # SFTPD Host
+    # =============================================================================
+    - name: sftpd_host_single
+      rtx: "sftpd host lan1"
+      terraform:
+        sftpd:
+          hosts: ["lan1"]
+
+    - name: sftpd_host_multiple
+      rtx: "sftpd host lan1 lan2"
+      terraform:
+        sftpd:
+          hosts: ["lan1", "lan2"]
+
+    # =============================================================================
+    # Delete Commands (build_only)
+    # =============================================================================
+    - name: delete_httpd_host
+      rtx: "no httpd host"
+      terraform: {}
+      build_only: true
+
+    - name: delete_sshd_service
+      rtx: "no sshd service"
+      terraform: {}
+      build_only: true
+
+    - name: delete_sshd_host
+      rtx: "no sshd host"
+      terraform: {}
+      build_only: true
+
+    - name: delete_sftpd_host
+      rtx: "no sftpd host"
+      terraform: {}
+      build_only: true
+
+  boundary_tests:
+    auth_method:
+      - value: "password"
+        valid: true
+      - value: "publickey"
+        valid: true
+      - value: "keyboard-interactive"
+        valid: false
+        error_contains: "invalid auth method"
+
+    host:
+      - value: "any"
+        valid: true
+      - value: "lan1"
+        valid: true
+      - value: "lan2"
+        valid: true
+      - value: "lan3"
+        valid: true
+      - value: "pp1"
+        valid: true
+      - value: "tunnel1"
+        valid: true
+      - value: "invalid"
+        valid: false
+        error_contains: "invalid interface"
