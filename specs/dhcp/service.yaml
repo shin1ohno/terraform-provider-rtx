@@ -1,0 +1,383 @@
+# DHCP Service Command Specification
+# Reference: RTX Command Reference 12.1.1
+#
+# Note: This command is NOT YET IMPLEMENTED in the parser.
+# All tests will start as Red (failing) per TDD principles.
+
+command:
+  name: dhcp_service
+  description: "DHCPの動作設定"
+  reference: "12.1.1"
+  # implementation_status: implemented
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  syntax:
+    set: "dhcp service {type}"
+    delete: "no dhcp service [{type}]"
+
+  terraform:
+    resource_name: rtx_dhcp_service
+    struct_name: DHCPServiceConfig
+    package: parsers
+
+    # 新規構造体の定義
+    struct_definition:
+      DHCPServiceConfig:
+        - name: ServiceType
+          type: string
+          json_tag: "service_type"
+          description: "DHCP動作モード（server/relay）"
+          enum: ["server", "relay", ""]
+
+  parameters:
+    type:
+      description: "DHCP動作タイプ"
+      required: true
+      type: enum
+      enum_values:
+        - value: "server"
+          description: "DHCPサーバーとして機能"
+        - value: "relay"
+          description: "DHCPリレーエージェントとして機能"
+      terraform_field: "service_type"
+
+  notes:
+    - "DHCPリレーエージェント機能使用時にはNAT機能を使用することはできない"
+    - "工場出荷状態の設定値は機種により異なる（1.7参照）"
+
+  # =============================================================================
+  # Level 1: Syntax Pattern Tests (構文パターン網羅)
+  # All tests are Red (not implemented)
+  # =============================================================================
+  syntax_tests:
+    - name: service_server
+      rtx: "dhcp service server"
+      terraform:
+        service_type: "server"
+      note: "未実装 - テストはRedから開始"
+
+    - name: service_relay
+      rtx: "dhcp service relay"
+      terraform:
+        service_type: "relay"
+      note: "未実装 - テストはRedから開始"
+
+    - name: delete_service
+      rtx: "no dhcp service"
+      terraform:
+        service_type: ""
+      build_only: true
+      note: "未実装 - テストはRedから開始"
+
+    - name: delete_service_with_type
+      rtx: "no dhcp service server"
+      terraform:
+        service_type: "server"
+      build_only: true
+      note: "未実装 - テストはRedから開始"
+
+  # =============================================================================
+  # Level 2: Boundary Value Tests (境界値テスト)
+  # =============================================================================
+  boundary_tests:
+    type:
+      - value: "server"
+        valid: true
+        description: "サーバーモード"
+      - value: "relay"
+        valid: true
+        description: "リレーモード"
+      - value: "invalid"
+        valid: false
+        error_contains: "invalid service type"
+      - value: ""
+        valid: false
+        error_contains: "service type required"
+
+---
+# DHCP Server RFC2131 Compliant Command Specification
+# Reference: RTX Command Reference 12.1.2
+#
+# Note: This command is NOT YET IMPLEMENTED in the parser.
+
+command:
+  name: dhcp_server_rfc2131_compliant
+  description: "RFC2131対応動作の設定"
+  reference: "12.1.2"
+  # implementation_status: implemented
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  syntax:
+    set:
+      - "dhcp server rfc2131 compliant {comp}"
+      - "dhcp server rfc2131 compliant [except] {function} [{function}...]"
+    delete: "no dhcp server rfc2131 compliant"
+
+  terraform:
+    resource_name: rtx_dhcp_rfc2131
+    struct_name: DHCPRFC2131Config
+    package: parsers
+
+    struct_definition:
+      DHCPRFC2131Config:
+        - name: Compliant
+          type: string
+          json_tag: "compliant"
+          description: "RFC2131準拠モード（on/off）"
+          enum: ["on", "off"]
+        - name: Except
+          type: bool
+          json_tag: "except,omitempty"
+          description: "指定機能以外をRFC2131対応にする"
+        - name: Functions
+          type: "[]string"
+          json_tag: "functions,omitempty"
+          description: "個別機能リスト"
+
+  parameters:
+    comp:
+      description: "RFC2131準拠設定"
+      required: false
+      type: enum
+      enum_values:
+        - value: "on"
+          description: "RFC2131準拠"
+        - value: "off"
+          description: "RFC1541準拠"
+      default: "on"
+      terraform_field: "compliant"
+
+    except:
+      description: "指定機能以外をRFC2131対応にするキーワード"
+      required: false
+      type: flag
+      terraform_field: "except"
+
+    function:
+      description: "個別機能"
+      required: false
+      type: enum
+      enum_values:
+        - value: "broadcast-nak"
+          description: "DHCPNAKをブロードキャストで送る"
+        - value: "none-domain-null"
+          description: "ドメイン名の最後にNULL文字を付加しない"
+        - value: "remain-silent"
+          description: "リース情報を持たないクライアントからのDHCPREQUESTを無視"
+        - value: "reply-ack"
+          description: "DHCPNAKの代わりに許容値を格納したDHCPACKを返す"
+        - value: "use-clientid"
+          description: "クライアントの識別にClient-Identifierオプションを優先"
+      terraform_field: "functions"
+
+  syntax_tests:
+    - name: rfc2131_on
+      rtx: "dhcp server rfc2131 compliant on"
+      terraform:
+        compliant: "on"
+      note: "未実装 - テストはRedから開始"
+
+    - name: rfc2131_off
+      rtx: "dhcp server rfc2131 compliant off"
+      terraform:
+        compliant: "off"
+      note: "未実装 - テストはRedから開始"
+
+    - name: rfc2131_use_clientid
+      rtx: "dhcp server rfc2131 compliant use-clientid"
+      terraform:
+        compliant: "off"
+        functions: ["use-clientid"]
+      note: "未実装 - テストはRedから開始"
+
+    - name: rfc2131_multiple_functions
+      rtx: "dhcp server rfc2131 compliant broadcast-nak remain-silent"
+      terraform:
+        compliant: "off"
+        functions: ["broadcast-nak", "remain-silent"]
+      note: "未実装 - テストはRedから開始"
+
+    - name: rfc2131_except_broadcast_nak
+      rtx: "dhcp server rfc2131 compliant except broadcast-nak"
+      terraform:
+        compliant: "on"
+        except: true
+        functions: ["broadcast-nak"]
+      note: "未実装 - テストはRedから開始"
+
+    - name: delete_rfc2131
+      rtx: "no dhcp server rfc2131 compliant"
+      terraform: {}
+      build_only: true
+      note: "未実装 - テストはRedから開始"
+
+---
+# DHCP Duplicate Check Command Specification
+# Reference: RTX Command Reference 12.1.3
+#
+# Note: This command is NOT YET IMPLEMENTED in the parser.
+
+command:
+  name: dhcp_duplicate_check
+  description: "リースするIPアドレスの重複をチェックするか否かの設定"
+  reference: "12.1.3"
+  # implementation_status: implemented
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  syntax:
+    set: "dhcp duplicate check {check1} {check2}"
+    delete: "no dhcp duplicate check"
+
+  terraform:
+    resource_name: rtx_dhcp_duplicate_check
+    struct_name: DHCPDuplicateCheckConfig
+    package: parsers
+
+    struct_definition:
+      DHCPDuplicateCheckConfig:
+        - name: LANCheckMs
+          type: "*int"
+          json_tag: "lan_check_ms,omitempty"
+          description: "LAN内チェック待ち時間（ミリ秒）"
+        - name: RelayCheckMs
+          type: "*int"
+          json_tag: "relay_check_ms,omitempty"
+          description: "LAN外（リレー経由）チェック待ち時間（ミリ秒）"
+
+  parameters:
+    check1:
+      description: "LAN内を対象とするチェックの確認用待ち時間"
+      required: true
+      variants:
+        - type: integer
+          range: [1, 1000]
+          description: "ミリ秒"
+        - type: keyword
+          value: "off"
+          description: "LAN内チェックを行わない"
+      default: 100
+      terraform_field: "lan_check_ms"
+
+    check2:
+      description: "LAN外（DHCPリレーエージェント経由）を対象とするチェックの確認用待ち時間"
+      required: true
+      variants:
+        - type: integer
+          range: [1, 3000]
+          description: "ミリ秒"
+        - type: keyword
+          value: "off"
+          description: "LAN外チェックを行わない"
+      default: 500
+      terraform_field: "relay_check_ms"
+
+  notes:
+    - "LAN内のスコープに対してはARPを使用してチェック"
+    - "DHCPリレーエージェント経由のスコープに対してはPINGを使用してチェック"
+
+  syntax_tests:
+    - name: duplicate_check_default
+      rtx: "dhcp duplicate check 100 500"
+      terraform:
+        lan_check_ms: 100
+        relay_check_ms: 500
+      note: "未実装 - テストはRedから開始"
+
+    - name: duplicate_check_custom
+      rtx: "dhcp duplicate check 200 1000"
+      terraform:
+        lan_check_ms: 200
+        relay_check_ms: 1000
+      note: "未実装 - テストはRedから開始"
+
+    - name: duplicate_check_off_off
+      rtx: "dhcp duplicate check off off"
+      terraform:
+        lan_check_ms: null
+        relay_check_ms: null
+      note: "未実装 - テストはRedから開始"
+
+    - name: duplicate_check_lan_only
+      rtx: "dhcp duplicate check 100 off"
+      terraform:
+        lan_check_ms: 100
+        relay_check_ms: null
+      note: "未実装 - テストはRedから開始"
+
+    - name: duplicate_check_relay_only
+      rtx: "dhcp duplicate check off 500"
+      terraform:
+        lan_check_ms: null
+        relay_check_ms: 500
+      note: "未実装 - テストはRedから開始"
+
+    - name: delete_duplicate_check
+      rtx: "no dhcp duplicate check"
+      terraform: {}
+      build_only: true
+      note: "未実装 - テストはRedから開始"
+
+  boundary_tests:
+    check1:
+      - value: 1
+        valid: true
+        description: "最小値"
+      - value: 100
+        valid: true
+        description: "デフォルト値"
+      - value: 1000
+        valid: true
+        description: "最大値"
+      - value: 0
+        valid: false
+        error_contains: "must be between 1 and 1000"
+      - value: 1001
+        valid: false
+        error_contains: "must be between 1 and 1000"
+
+    check2:
+      - value: 1
+        valid: true
+        description: "最小値"
+      - value: 500
+        valid: true
+        description: "デフォルト値"
+      - value: 3000
+        valid: true
+        description: "最大値"
+      - value: 0
+        valid: false
+        error_contains: "must be between 1 and 3000"
+      - value: 3001
+        valid: false
+        error_contains: "must be between 1 and 3000"

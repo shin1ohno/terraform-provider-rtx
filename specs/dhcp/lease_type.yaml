@@ -1,0 +1,200 @@
+# DHCP Scope Lease Type Command Specification
+# Reference: RTX Command Reference 12.1.6
+#
+# Note: This command is NOT YET IMPLEMENTED in the parser.
+# All tests will start as Red (failing) per TDD principles.
+
+command:
+  name: dhcp_scope_lease_type
+  description: "DHCPアドレス割り当て動作の設定"
+  reference: "12.1.6"
+  # implementation_status: implemented
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  syntax:
+    set: "dhcp scope lease type {scope_num} {type} [fallback={fallback_scope_num}]"
+    delete: "no dhcp scope lease type {scope_num} [{type}...]"
+
+  terraform:
+    resource_name: rtx_dhcp_scope_lease_type
+    struct_name: DHCPScopeLeaseType
+    package: parsers
+
+    struct_definition:
+      DHCPScopeLeaseType:
+        - name: ScopeID
+          type: int
+          json_tag: "scope_id"
+          description: "スコープ番号"
+        - name: LeaseType
+          type: string
+          json_tag: "lease_type"
+          description: "割り当て動作タイプ"
+          enum: ["bind-priority", "bind-only"]
+        - name: FallbackScope
+          type: "*int"
+          json_tag: "fallback_scope,omitempty"
+          description: "フォールバックスコープ番号"
+
+  parameters:
+    scope_num:
+      description: "スコープ番号"
+      required: true
+      type: integer
+      range: [1, 65535]
+      terraform_field: "scope_id"
+
+    type:
+      description: "割り当ての動作"
+      required: true
+      type: enum
+      enum_values:
+        - value: "bind-priority"
+          description: "予約情報を優先して割り当てる"
+        - value: "bind-only"
+          description: "予約情報だけに制限して割り当てる"
+      default: "bind-priority"
+      terraform_field: "lease_type"
+
+    fallback_scope_num:
+      description: "フォールバックスコープ番号"
+      required: false
+      type: integer
+      range: [1, 65535]
+      terraform_field: "fallback_scope"
+      note: "typeがbind-onlyの場合のみ指定可能"
+
+  notes:
+    - "bind-priorityの場合、予約クライアントには予約通りのIPを、非予約クライアントには空きアドレスを割り当て"
+    - "bind-onlyの場合、予約クライアントにのみIPを割り当て"
+    - "bind-only + fallbackの場合、非予約クライアントはフォールバックスコープから割り当て"
+    - "リース期間は各DHCPスコープの定義に従う"
+
+  # =============================================================================
+  # Level 1: Syntax Pattern Tests (構文パターン網羅)
+  # All tests are Red (not implemented)
+  # =============================================================================
+  syntax_tests:
+    - name: lease_type_bind_priority
+      rtx: "dhcp scope lease type 1 bind-priority"
+      terraform:
+        scope_id: 1
+        lease_type: "bind-priority"
+      note: "未実装 - テストはRedから開始"
+
+    - name: lease_type_bind_only
+      rtx: "dhcp scope lease type 1 bind-only"
+      terraform:
+        scope_id: 1
+        lease_type: "bind-only"
+      note: "未実装 - テストはRedから開始"
+
+    - name: lease_type_bind_only_with_fallback
+      rtx: "dhcp scope lease type 1 bind-only fallback=2"
+      terraform:
+        scope_id: 1
+        lease_type: "bind-only"
+        fallback_scope: 2
+      note: "未実装 - テストはRedから開始"
+
+    - name: lease_type_large_scope_id
+      rtx: "dhcp scope lease type 65535 bind-priority"
+      terraform:
+        scope_id: 65535
+        lease_type: "bind-priority"
+      note: "未実装 - テストはRedから開始"
+
+    - name: lease_type_with_large_fallback
+      rtx: "dhcp scope lease type 1 bind-only fallback=65535"
+      terraform:
+        scope_id: 1
+        lease_type: "bind-only"
+        fallback_scope: 65535
+      note: "未実装 - テストはRedから開始"
+
+    - name: delete_lease_type
+      rtx: "no dhcp scope lease type 1"
+      terraform:
+        scope_id: 1
+      build_only: true
+      note: "未実装 - テストはRedから開始"
+
+    - name: delete_lease_type_with_type
+      rtx: "no dhcp scope lease type 1 bind-only"
+      terraform:
+        scope_id: 1
+        lease_type: "bind-only"
+      build_only: true
+      note: "未実装 - テストはRedから開始"
+
+  # =============================================================================
+  # Level 2: Boundary Value Tests (境界値テスト)
+  # =============================================================================
+  boundary_tests:
+    scope_num:
+      - value: 1
+        valid: true
+        description: "最小値"
+      - value: 65535
+        valid: true
+        description: "最大値"
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+      - value: 65536
+        valid: false
+        error_contains: "out of range"
+
+    type:
+      - value: "bind-priority"
+        valid: true
+        description: "予約優先"
+      - value: "bind-only"
+        valid: true
+        description: "予約のみ"
+      - value: "invalid"
+        valid: false
+        error_contains: "invalid lease type"
+
+    fallback_scope_num:
+      - value: 1
+        valid: true
+        description: "最小値"
+      - value: 65535
+        valid: true
+        description: "最大値"
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+
+  # =============================================================================
+  # Level 3: Pairwise Testing Configuration
+  # =============================================================================
+  pairwise:
+    enabled: true
+    parameters:
+      - type
+      - fallback
+
+    parameter_values:
+      type:
+        - bind-priority
+        - bind-only
+      fallback:
+        - null
+        - present
+
+    constraints:
+      # fallback requires bind-only type
+      - condition: "fallback == present"
+        requires: "type == bind-only"

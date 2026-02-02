@@ -15,6 +15,11 @@ type DHCPBinding struct {
 	MACAddress          string `json:"mac_address"`
 	ClientIdentifier    string `json:"client_identifier,omitempty"`
 	UseClientIdentifier bool   `json:"use_client_identifier"`
+	IPRangeStart        string `json:"ip_range_start,omitempty"` // Start IP for OUI binding
+	IPRangeEnd          string `json:"ip_range_end,omitempty"`   // End IP for OUI binding
+	OUI                 string `json:"oui,omitempty"`            // Vendor ID (e.g., "00:a0:de")
+	IPCP                bool   `json:"ipcp,omitempty"`           // IPCP remote assignment flag
+	TextIdentifier      string `json:"text_identifier,omitempty"` // Text type client identifier
 }
 
 // DHCPBindingsParser is the interface for parsing DHCP binding information
@@ -45,7 +50,14 @@ func (p *dhcpBindingsParser) ParseBindings(raw string, scopeID int) ([]DHCPBindi
 	// Example: dhcp scope bind 1 192.168.1.20 01 00 30 93 11 0e 33
 	// Example: dhcp scope bind 1 192.168.1.28 24:59:e5:54:5e:5a
 	// Example: dhcp scope bind 1 192.168.1.23 ethernet b6:1a:27:ea:28:29
-	configPattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+bind\s+(\d+)\s+([0-9.]+)\s+(?:(01\s+)|ethernet\s+)?([0-9a-fA-F:\s]+)\s*$`)
+	configPattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+bind\s+(\d+)\s+([0-9.*]+)\s+(?:(01\s+)|ethernet\s+)?([0-9a-fA-F:\s]+)\s*$`)
+	// Text type pattern: dhcp scope bind SCOPE IP text STRING
+	textPattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+bind\s+(\d+)\s+([0-9.*]+)\s+text\s+(.+)\s*$`)
+	// OUI pattern: dhcp scope bind SCOPE IP_START-IP_END OUI:*
+	// Example: dhcp scope bind 1 192.168.1.20-192.168.1.30 00:a0:de:*
+	ouiPattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+bind\s+(\d+)\s+([0-9.]+)-([0-9.]+)\s+([0-9a-fA-F:]+):\*\s*$`)
+	// IPCP pattern: dhcp scope bind SCOPE IP ipcp
+	ipcpPattern := regexp.MustCompile(`^\s*dhcp\s+scope\s+bind\s+(\d+)\s+([0-9.]+)\s+ipcp\s*$`)
 
 	// For multi-line parsing
 	var currentIP string
@@ -112,6 +124,43 @@ func (p *dhcpBindingsParser) ParseBindings(raw string, scopeID int) ([]DHCPBindi
 				isStatic = false
 				continue
 			}
+		}
+
+		// Try IPCP pattern first (most specific)
+		if matches := ipcpPattern.FindStringSubmatch(line); len(matches) >= 3 {
+			extractedScopeID, _ := strconv.Atoi(matches[1])
+			binding := DHCPBinding{
+				ScopeID:   extractedScopeID,
+				IPAddress: matches[2],
+				IPCP:      true,
+			}
+			bindings = append(bindings, binding)
+			continue
+		}
+
+		// Try OUI pattern (IP range with vendor ID)
+		if matches := ouiPattern.FindStringSubmatch(line); len(matches) >= 5 {
+			extractedScopeID, _ := strconv.Atoi(matches[1])
+			binding := DHCPBinding{
+				ScopeID:      extractedScopeID,
+				IPRangeStart: matches[2],
+				IPRangeEnd:   matches[3],
+				OUI:          strings.ToLower(matches[4]),
+			}
+			bindings = append(bindings, binding)
+			continue
+		}
+
+		// Try text type pattern
+		if matches := textPattern.FindStringSubmatch(line); len(matches) >= 4 {
+			extractedScopeID, _ := strconv.Atoi(matches[1])
+			binding := DHCPBinding{
+				ScopeID:        extractedScopeID,
+				IPAddress:      matches[2],
+				TextIdentifier: matches[3],
+			}
+			bindings = append(bindings, binding)
+			continue
 		}
 
 		// Try show config format first
@@ -226,6 +275,24 @@ func NewDHCPBindingsParser() DHCPBindingsParser {
 
 // BuildDHCPBindCommand builds a command to create a DHCP binding
 func BuildDHCPBindCommand(binding DHCPBinding) string {
+	// Handle IPCP binding
+	if binding.IPCP {
+		return fmt.Sprintf("dhcp scope bind %d %s ipcp",
+			binding.ScopeID, binding.IPAddress)
+	}
+
+	// Handle OUI (vendor ID) binding with IP range
+	if binding.OUI != "" && binding.IPRangeStart != "" && binding.IPRangeEnd != "" {
+		return fmt.Sprintf("dhcp scope bind %d %s-%s %s:*",
+			binding.ScopeID, binding.IPRangeStart, binding.IPRangeEnd, binding.OUI)
+	}
+
+	// Handle text type client identifier
+	if binding.TextIdentifier != "" {
+		return fmt.Sprintf("dhcp scope bind %d %s text %s",
+			binding.ScopeID, binding.IPAddress, binding.TextIdentifier)
+	}
+
 	// Handle custom client identifier
 	if binding.ClientIdentifier != "" {
 		// Format: client-id type:hex:hex:...

@@ -1,0 +1,381 @@
+# DHCP Relay Commands Specification
+# Reference: RTX Command Reference 12.1.11, 12.1.12, 12.1.13, 12.1.14
+#
+# Note: These commands are NOT YET IMPLEMENTED in the parser.
+# All tests will start as Red (failing) per TDD principles.
+
+# =============================================================================
+# 12.1.11 DHCP Relay Server
+# =============================================================================
+command:
+  name: dhcp_relay_server
+  description: "DHCPサーバーの指定の設定"
+  reference: "12.1.11"
+  # implementation_status: implemented
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  syntax:
+    set: "dhcp relay server {host1} [{host2} [{host3} [{host4}]]]"
+    delete: "no dhcp relay server"
+
+  terraform:
+    resource_name: rtx_dhcp_relay_server
+    struct_name: DHCPRelayServerConfig
+    package: parsers
+
+    struct_definition:
+      DHCPRelayServerConfig:
+        - name: Servers
+          type: "[]string"
+          json_tag: "servers"
+          description: "DHCPサーバーのIPアドレスリスト（最大4つ）"
+
+  parameters:
+    host1:
+      description: "DHCPサーバーのIPアドレス（1番目）"
+      required: true
+      type: ip_address
+      terraform_field: "servers[0]"
+
+    host2:
+      description: "DHCPサーバーのIPアドレス（2番目）"
+      required: false
+      type: ip_address
+      terraform_field: "servers[1]"
+
+    host3:
+      description: "DHCPサーバーのIPアドレス（3番目）"
+      required: false
+      type: ip_address
+      terraform_field: "servers[2]"
+
+    host4:
+      description: "DHCPサーバーのIPアドレス（4番目）"
+      required: false
+      type: ip_address
+      terraform_field: "servers[3]"
+
+  notes:
+    - "サーバーが複数指定された場合の動作はdhcp relay selectコマンドで設定"
+
+  syntax_tests:
+    - name: relay_server_single
+      rtx: "dhcp relay server 192.168.1.100"
+      terraform:
+        servers: ["192.168.1.100"]
+      note: "未実装 - テストはRedから開始"
+
+    - name: relay_server_two
+      rtx: "dhcp relay server 192.168.1.100 192.168.1.101"
+      terraform:
+        servers: ["192.168.1.100", "192.168.1.101"]
+      note: "未実装 - テストはRedから開始"
+
+    - name: relay_server_four
+      rtx: "dhcp relay server 10.0.0.1 10.0.0.2 10.0.0.3 10.0.0.4"
+      terraform:
+        servers: ["10.0.0.1", "10.0.0.2", "10.0.0.3", "10.0.0.4"]
+      note: "未実装 - テストはRedから開始"
+
+    - name: delete_relay_server
+      rtx: "no dhcp relay server"
+      terraform:
+        servers: []
+      build_only: true
+      note: "未実装 - テストはRedから開始"
+
+  boundary_tests:
+    server_count:
+      - value: 1
+        valid: true
+        description: "最小（1台）"
+      - value: 4
+        valid: true
+        description: "最大（4台）"
+      - value: 5
+        valid: false
+        error_contains: "maximum 4 servers"
+
+---
+# =============================================================================
+# 12.1.12 DHCP Relay Source Port
+# =============================================================================
+command:
+  name: dhcp_relay_srcport
+  description: "DHCPリレーエージェント機能で使用する始点ポート番号の設定"
+  reference: "12.1.12"
+  # implementation_status: implemented
+
+  applicable_models:
+    - vRX_VMware_ESXi
+    - vRX_Sakura
+    - RTX5000  # Rev.14.00.29以降
+    - RTX3510
+    - RTX3500  # Rev.14.00.29以降
+    - RTX1300
+    - RTX1220
+    - RTX1210  # Rev.14.01.36以降
+    - RTX840
+    - RTX830   # Rev.15.02.15以降
+
+  model_constraints:
+    RTX5000:
+      min_revision: "Rev.14.00.29"
+    RTX3500:
+      min_revision: "Rev.14.00.29"
+    RTX1210:
+      min_revision: "Rev.14.01.36"
+    RTX830:
+      min_revision: "Rev.15.02.15"
+
+  syntax:
+    set: "dhcp relay srcport {port}"
+    delete: "no dhcp relay srcport [{port}]"
+
+  terraform:
+    resource_name: rtx_dhcp_relay_srcport
+    struct_name: DHCPRelaySrcportConfig
+    package: parsers
+
+    struct_definition:
+      DHCPRelaySrcportConfig:
+        - name: Port
+          type: int
+          json_tag: "port"
+          description: "始点ポート番号"
+
+  parameters:
+    port:
+      description: "ポート番号"
+      required: true
+      type: integer
+      range: [1, 65535]
+      default: 68
+      terraform_field: "port"
+
+  syntax_tests:
+    - name: relay_srcport_default
+      rtx: "dhcp relay srcport 68"
+      terraform:
+        port: 68
+      note: "未実装 - テストはRedから開始"
+
+    - name: relay_srcport_custom
+      rtx: "dhcp relay srcport 1067"
+      terraform:
+        port: 1067
+      note: "未実装 - テストはRedから開始"
+
+    - name: delete_relay_srcport
+      rtx: "no dhcp relay srcport"
+      terraform: {}
+      build_only: true
+      note: "未実装 - テストはRedから開始"
+
+  boundary_tests:
+    port:
+      - value: 1
+        valid: true
+        description: "最小値"
+      - value: 68
+        valid: true
+        description: "デフォルト値"
+      - value: 65535
+        valid: true
+        description: "最大値"
+      - value: 0
+        valid: false
+        error_contains: "must be between 1 and 65535"
+      - value: 65536
+        valid: false
+        error_contains: "must be between 1 and 65535"
+
+---
+# =============================================================================
+# 12.1.13 DHCP Relay Select
+# =============================================================================
+command:
+  name: dhcp_relay_select
+  description: "DHCPサーバーの選択方法の設定"
+  reference: "12.1.13"
+  # implementation_status: implemented
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  syntax:
+    set: "dhcp relay select {type}"
+    delete: "no dhcp relay select [{type}]"
+
+  terraform:
+    resource_name: rtx_dhcp_relay_select
+    struct_name: DHCPRelaySelectConfig
+    package: parsers
+
+    struct_definition:
+      DHCPRelaySelectConfig:
+        - name: SelectType
+          type: string
+          json_tag: "select_type"
+          description: "選択方法"
+          enum: ["hash", "all"]
+
+  parameters:
+    type:
+      description: "サーバー選択方法"
+      required: true
+      type: enum
+      enum_values:
+        - value: "hash"
+          description: "Hash関数を利用して1つだけサーバーを選択"
+        - value: "all"
+          description: "すべてのサーバーを選択（ブロードキャスト）"
+      default: "hash"
+      terraform_field: "select_type"
+
+  notes:
+    - "hashの場合、DHCPメッセージのchaddrフィールドを引数とするHash関数を使用"
+    - "同一のDHCPクライアントに対しては常に同じサーバーが選択される"
+
+  syntax_tests:
+    - name: relay_select_hash
+      rtx: "dhcp relay select hash"
+      terraform:
+        select_type: "hash"
+      note: "未実装 - テストはRedから開始"
+
+    - name: relay_select_all
+      rtx: "dhcp relay select all"
+      terraform:
+        select_type: "all"
+      note: "未実装 - テストはRedから開始"
+
+    - name: delete_relay_select
+      rtx: "no dhcp relay select"
+      terraform: {}
+      build_only: true
+      note: "未実装 - テストはRedから開始"
+
+  boundary_tests:
+    type:
+      - value: "hash"
+        valid: true
+        description: "ハッシュ選択"
+      - value: "all"
+        valid: true
+        description: "全サーバー"
+      - value: "invalid"
+        valid: false
+        error_contains: "invalid select type"
+
+---
+# =============================================================================
+# 12.1.14 DHCP Relay Threshold
+# =============================================================================
+command:
+  name: dhcp_relay_threshold
+  description: "DHCP BOOTREQUESTパケットの中継基準の設定"
+  reference: "12.1.14"
+  # implementation_status: implemented
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  syntax:
+    set: "dhcp relay threshold {time}"
+    delete: "no dhcp relay threshold [{time}]"
+
+  terraform:
+    resource_name: rtx_dhcp_relay_threshold
+    struct_name: DHCPRelayThresholdConfig
+    package: parsers
+
+    struct_definition:
+      DHCPRelayThresholdConfig:
+        - name: Threshold
+          type: int
+          json_tag: "threshold"
+          description: "閾値（秒）"
+
+  parameters:
+    time:
+      description: "秒数"
+      required: true
+      type: integer
+      range: [0, 65535]
+      default: 0
+      terraform_field: "threshold"
+
+  notes:
+    - "BOOTREQUESTパケットのsecsフィールドと比較"
+    - "設定値より小さなsecsフィールドを持つパケットは中継しない"
+    - "同一LAN上に別のDHCPサーバーがある場合に遠隔地サーバーへの中継を避けるために使用"
+
+  syntax_tests:
+    - name: relay_threshold_0
+      rtx: "dhcp relay threshold 0"
+      terraform:
+        threshold: 0
+      note: "未実装 - テストはRedから開始"
+
+    - name: relay_threshold_4
+      rtx: "dhcp relay threshold 4"
+      terraform:
+        threshold: 4
+      note: "未実装 - テストはRedから開始"
+
+    - name: relay_threshold_max
+      rtx: "dhcp relay threshold 65535"
+      terraform:
+        threshold: 65535
+      note: "未実装 - テストはRedから開始"
+
+    - name: delete_relay_threshold
+      rtx: "no dhcp relay threshold"
+      terraform: {}
+      build_only: true
+      note: "未実装 - テストはRedから開始"
+
+  boundary_tests:
+    time:
+      - value: 0
+        valid: true
+        description: "最小値（デフォルト）- 即時中継"
+      - value: 4
+        valid: true
+        description: "一般的な値"
+      - value: 65535
+        valid: true
+        description: "最大値"
+      - value: -1
+        valid: false
+        error_contains: "must be non-negative"
+      - value: 65536
+        valid: false
+        error_contains: "out of range"

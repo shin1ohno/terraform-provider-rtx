@@ -1,0 +1,679 @@
+# DHCP Client Commands Specification
+# Reference: RTX Command Reference 12.2.1, 12.2.2, 12.2.3, 12.2.4, 12.2.5, 12.2.6
+#
+# Note: These commands are NOT YET IMPLEMENTED in the parser.
+# All tests will start as Red (failing) per TDD principles.
+
+# =============================================================================
+# 12.2.1 DHCP Client Hostname
+# =============================================================================
+command:
+  name: dhcp_client_hostname
+  description: "DHCPクライアントのホスト名の設定"
+  reference: "12.2.1"
+  # implementation_status: implemented
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  syntax:
+    set:
+      - "dhcp client hostname {interface} primary {host}"
+      - "dhcp client hostname {interface} secondary {host}"
+      - "dhcp client hostname pp {peer_num} {host}"
+      - "dhcp client hostname pool {pool_num} {host}"
+    delete:
+      - "no dhcp client hostname {interface} primary [{host}]"
+      - "no dhcp client hostname {interface} secondary [{host}]"
+      - "no dhcp client hostname pp {peer_num} [{host}]"
+      - "no dhcp client hostname pool {pool_num} [{host}]"
+
+  terraform:
+    resource_name: rtx_dhcp_client_hostname
+    struct_name: DHCPClientHostnameConfig
+    package: parsers
+
+    struct_definition:
+      DHCPClientHostnameConfig:
+        - name: Interface
+          type: string
+          json_tag: "interface,omitempty"
+          description: "インターフェース名"
+        - name: Position
+          type: string
+          json_tag: "position,omitempty"
+          description: "IPアドレス位置（primary/secondary）"
+        - name: PeerNum
+          type: "*int"
+          json_tag: "peer_num,omitempty"
+          description: "相手先情報番号"
+        - name: PoolNum
+          type: "*int"
+          json_tag: "pool_num,omitempty"
+          description: "プール番号"
+        - name: Hostname
+          type: string
+          json_tag: "hostname"
+          description: "ホスト名"
+
+  parameters:
+    interface:
+      description: "インターフェース名"
+      required: false
+      variants:
+        - type: pattern
+          pattern: "lan{num}"
+          description: "LANインタフェース"
+        - type: pattern
+          pattern: "wan{num}"
+          description: "WANインタフェース（vRX/RTX5000/RTX3500では不可）"
+        - type: pattern
+          pattern: "bridge{num}"
+          description: "ブリッジインタフェース"
+      terraform_field: "interface"
+      model_constraints:
+        vRX:
+          wan_interface: false
+        RTX5000:
+          wan_interface: false
+        RTX3500:
+          wan_interface: false
+
+    position:
+      description: "IPアドレス位置"
+      required: false
+      type: enum
+      enum_values:
+        - value: "primary"
+          description: "プライマリアドレス"
+        - value: "secondary"
+          description: "セカンダリアドレス（WANインタフェースでは不可）"
+      terraform_field: "position"
+
+    peer_num:
+      description: "相手先情報番号"
+      required: false
+      variants:
+        - type: integer
+          description: "相手先情報番号"
+        - type: keyword
+          value: "anonymous"
+          description: "匿名接続"
+      terraform_field: "peer_num"
+      license_extensions:
+        YSL-VPN-EX1:
+          "1": 100
+        YSL-VPN-EX2:
+          "1": 150
+
+    pool_num:
+      description: "プール番号"
+      required: false
+      type: integer
+      terraform_field: "pool_num"
+      license_extensions:
+        YSL-VPN-EX1:
+          "1": 101
+        YSL-VPN-EX2:
+          "1": 301
+          "2": 501
+          "3": 701
+          "4": 901
+          "5": 1101
+        YSL-VPN-EX3:
+          "1": 1541
+          "2": 2041
+          "3": 2541
+          "4": 3041
+
+    host:
+      description: "DHCPクライアントのホスト名"
+      required: true
+      type: string
+      terraform_field: "hostname"
+
+  notes:
+    - "ブリッジインタフェースはvRX Amazon EC2版、RTX5000/RTX3500 Rev.14.00.11以前では指定不可"
+    - "WANインタフェース設定時にはsecondaryは指定不可"
+
+  syntax_tests:
+    - name: client_hostname_lan1_primary
+      rtx: "dhcp client hostname lan1 primary router1"
+      terraform:
+        interface: "lan1"
+        position: "primary"
+        hostname: "router1"
+      note: "未実装 - テストはRedから開始"
+
+    - name: client_hostname_lan2_secondary
+      rtx: "dhcp client hostname lan2 secondary router2"
+      terraform:
+        interface: "lan2"
+        position: "secondary"
+        hostname: "router2"
+      note: "未実装 - テストはRedから開始"
+
+    - name: client_hostname_pp
+      rtx: "dhcp client hostname pp 1 client1"
+      terraform:
+        peer_num: 1
+        hostname: "client1"
+      note: "未実装 - テストはRedから開始"
+
+    - name: client_hostname_pp_anonymous
+      rtx: "dhcp client hostname pp anonymous remote-client"
+      terraform:
+        peer_num: "anonymous"
+        hostname: "remote-client"
+      note: "未実装 - テストはRedから開始"
+
+    - name: client_hostname_pool
+      rtx: "dhcp client hostname pool 1 pool-host"
+      terraform:
+        pool_num: 1
+        hostname: "pool-host"
+      note: "未実装 - テストはRedから開始"
+
+    - name: delete_client_hostname
+      rtx: "no dhcp client hostname lan1 primary"
+      terraform:
+        interface: "lan1"
+        position: "primary"
+      build_only: true
+      note: "未実装 - テストはRedから開始"
+
+---
+# =============================================================================
+# 12.2.2 DHCP Client Lease Time Request
+# =============================================================================
+command:
+  name: ip_interface_dhcp_lease_time
+  description: "要求するIPアドレスリース期間の設定"
+  reference: "12.2.2"
+  # implementation_status: implemented
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  syntax:
+    set: "ip {interface} dhcp lease time {time}"
+    delete: "no ip {interface} dhcp lease time [{time}]"
+
+  terraform:
+    resource_name: rtx_ip_interface_dhcp_lease_time
+    struct_name: IPInterfaceDHCPLeaseTimeConfig
+    package: parsers
+
+    struct_definition:
+      IPInterfaceDHCPLeaseTimeConfig:
+        - name: Interface
+          type: string
+          json_tag: "interface"
+          description: "インターフェース名"
+        - name: LeaseTime
+          type: int
+          json_tag: "lease_time"
+          description: "リース期間（分）"
+
+  parameters:
+    interface:
+      description: "インターフェース名"
+      required: true
+      variants:
+        - type: pattern
+          pattern: "lan{num}"
+          description: "LANインタフェース"
+        - type: pattern
+          pattern: "wan{num}"
+          description: "WANインタフェース"
+        - type: pattern
+          pattern: "bridge{num}"
+          description: "ブリッジインタフェース"
+      terraform_field: "interface"
+
+    time:
+      description: "分数"
+      required: true
+      type: integer
+      range: [1, 21474836]
+      terraform_field: "lease_time"
+
+  notes:
+    - "リース期間の要求が受け入れられなかった場合はDHCPサーバーからのリース期間を利用"
+    - "ブリッジインタフェースはvRX Amazon EC2版、RTX5000/RTX3500 Rev.14.00.11以前では指定不可"
+
+  syntax_tests:
+    - name: dhcp_lease_time_lan1
+      rtx: "ip lan1 dhcp lease time 1440"
+      terraform:
+        interface: "lan1"
+        lease_time: 1440
+      note: "未実装 - テストはRedから開始"
+
+    - name: dhcp_lease_time_lan2
+      rtx: "ip lan2 dhcp lease time 4320"
+      terraform:
+        interface: "lan2"
+        lease_time: 4320
+      note: "未実装 - テストはRedから開始"
+
+    - name: delete_dhcp_lease_time
+      rtx: "no ip lan1 dhcp lease time"
+      terraform:
+        interface: "lan1"
+      build_only: true
+      note: "未実装 - テストはRedから開始"
+
+  boundary_tests:
+    time:
+      - value: 1
+        valid: true
+        description: "最小値"
+      - value: 1440
+        valid: true
+        description: "1日"
+      - value: 21474836
+        valid: true
+        description: "最大値"
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+      - value: 21474837
+        valid: false
+        error_contains: "out of range"
+
+---
+# =============================================================================
+# 12.2.3 DHCP Client Retry
+# =============================================================================
+command:
+  name: ip_interface_dhcp_retry
+  description: "IPアドレス取得要求の再送回数と間隔の設定"
+  reference: "12.2.3"
+  # implementation_status: implemented
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  syntax:
+    set: "ip {interface} dhcp retry {retry} {interval}"
+    delete: "no ip {interface} dhcp retry [{retry} {interval}]"
+
+  terraform:
+    resource_name: rtx_ip_interface_dhcp_retry
+    struct_name: IPInterfaceDHCPRetryConfig
+    package: parsers
+
+    struct_definition:
+      IPInterfaceDHCPRetryConfig:
+        - name: Interface
+          type: string
+          json_tag: "interface"
+          description: "インターフェース名"
+        - name: Retry
+          type: "*int"
+          json_tag: "retry,omitempty"
+          description: "再送回数（nullの場合infinity）"
+        - name: Interval
+          type: int
+          json_tag: "interval"
+          description: "再送間隔（秒）"
+
+  parameters:
+    interface:
+      description: "インターフェース名"
+      required: true
+      variants:
+        - type: pattern
+          pattern: "lan{num}"
+          description: "LANインタフェース"
+        - type: pattern
+          pattern: "wan{num}"
+          description: "WANインタフェース"
+        - type: pattern
+          pattern: "bridge{num}"
+          description: "ブリッジインタフェース"
+      terraform_field: "interface"
+
+    retry:
+      description: "再送回数"
+      required: true
+      variants:
+        - type: integer
+          range: [1, 100]
+          description: "回数"
+        - type: keyword
+          value: "infinity"
+          description: "無制限"
+      default: "infinity"
+      terraform_field: "retry"
+
+    interval:
+      description: "再送間隔（秒）"
+      required: true
+      type: integer
+      range: [1, 100]
+      default: 5
+      terraform_field: "interval"
+
+  syntax_tests:
+    - name: dhcp_retry_default
+      rtx: "ip lan1 dhcp retry infinity 5"
+      terraform:
+        interface: "lan1"
+        retry: null
+        interval: 5
+      note: "未実装 - テストはRedから開始"
+
+    - name: dhcp_retry_limited
+      rtx: "ip lan1 dhcp retry 10 10"
+      terraform:
+        interface: "lan1"
+        retry: 10
+        interval: 10
+      note: "未実装 - テストはRedから開始"
+
+    - name: dhcp_retry_max
+      rtx: "ip lan2 dhcp retry 100 100"
+      terraform:
+        interface: "lan2"
+        retry: 100
+        interval: 100
+      note: "未実装 - テストはRedから開始"
+
+    - name: delete_dhcp_retry
+      rtx: "no ip lan1 dhcp retry"
+      terraform:
+        interface: "lan1"
+      build_only: true
+      note: "未実装 - テストはRedから開始"
+
+  boundary_tests:
+    retry:
+      - value: 1
+        valid: true
+        description: "最小値"
+      - value: 100
+        valid: true
+        description: "最大値"
+      - value: "infinity"
+        valid: true
+        description: "無制限"
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+      - value: 101
+        valid: false
+        error_contains: "must be between 1 and 100"
+
+    interval:
+      - value: 1
+        valid: true
+        description: "最小値"
+      - value: 5
+        valid: true
+        description: "デフォルト値"
+      - value: 100
+        valid: true
+        description: "最大値"
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+      - value: 101
+        valid: false
+        error_contains: "must be between 1 and 100"
+
+---
+# =============================================================================
+# 12.2.4 DHCP Client Client-Identifier
+# =============================================================================
+command:
+  name: dhcp_client_client_identifier
+  description: "DHCPクライアントIDオプションの設定"
+  reference: "12.2.4"
+  # implementation_status: implemented
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  syntax:
+    set:
+      - "dhcp client client-identifier {interface} primary [type {type}] {id}"
+      - "dhcp client client-identifier {interface} secondary [type {type}] {id}"
+      - "dhcp client client-identifier pp {peer_num} [type {type}] {id}"
+      - "dhcp client client-identifier pool {pool_num} [type {type}] {id}"
+    delete:
+      - "no dhcp client client-identifier {interface} primary"
+      - "no dhcp client client-identifier {interface} secondary"
+      - "no dhcp client client-identifier pp {peer_num}"
+      - "no dhcp client client-identifier pool {pool_num}"
+
+  terraform:
+    resource_name: rtx_dhcp_client_identifier
+    struct_name: DHCPClientIdentifierConfig
+    package: parsers
+
+    struct_definition:
+      DHCPClientIdentifierConfig:
+        - name: Interface
+          type: string
+          json_tag: "interface,omitempty"
+          description: "インターフェース名"
+        - name: Position
+          type: string
+          json_tag: "position,omitempty"
+          description: "IPアドレス位置（primary/secondary）"
+        - name: PeerNum
+          type: "*int"
+          json_tag: "peer_num,omitempty"
+          description: "相手先情報番号"
+        - name: PoolNum
+          type: "*int"
+          json_tag: "pool_num,omitempty"
+          description: "プール番号"
+        - name: Type
+          type: int
+          json_tag: "type"
+          description: "IDオプションのtypeフィールド値"
+        - name: ID
+          type: string
+          json_tag: "id"
+          description: "クライアントID"
+
+  parameters:
+    type:
+      description: "IDオプションのtypeフィールドの値"
+      required: false
+      type: integer
+      default: 1
+      terraform_field: "type"
+
+    id:
+      description: "クライアントID"
+      required: true
+      variants:
+        - type: string
+          description: "ASCII文字列"
+        - type: pattern
+          pattern: "{hex_sequence}"
+          description: "2桁の16進数列"
+      terraform_field: "id"
+
+  syntax_tests:
+    - name: client_identifier_ascii
+      rtx: "dhcp client client-identifier lan1 primary router-001"
+      terraform:
+        interface: "lan1"
+        position: "primary"
+        type: 1
+        id: "router-001"
+      note: "未実装 - テストはRedから開始"
+
+    - name: client_identifier_with_type
+      rtx: "dhcp client client-identifier lan1 primary type 1 00 a0 de 01 23 45"
+      terraform:
+        interface: "lan1"
+        position: "primary"
+        type: 1
+        id: "00:a0:de:01:23:45"
+      note: "未実装 - テストはRedから開始"
+
+    - name: client_identifier_pp
+      rtx: "dhcp client client-identifier pp 1 type 1 00 11 22 33 44 55"
+      terraform:
+        peer_num: 1
+        type: 1
+        id: "00:11:22:33:44:55"
+      note: "未実装 - テストはRedから開始"
+
+    - name: delete_client_identifier
+      rtx: "no dhcp client client-identifier lan1 primary"
+      terraform:
+        interface: "lan1"
+        position: "primary"
+      build_only: true
+      note: "未実装 - テストはRedから開始"
+
+---
+# =============================================================================
+# 12.2.6 DHCP Client Release Linkdown
+# =============================================================================
+command:
+  name: dhcp_client_release_linkdown
+  description: "リンクダウンした時に情報を解放するか否かの設定"
+  reference: "12.2.6"
+  # implementation_status: implemented
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  syntax:
+    set: "dhcp client release linkdown {switch} [{time}]"
+    delete: "no dhcp client release linkdown [{switch} [{time}]]"
+
+  terraform:
+    resource_name: rtx_dhcp_client_release_linkdown
+    struct_name: DHCPClientReleaseLinkdownConfig
+    package: parsers
+
+    struct_definition:
+      DHCPClientReleaseLinkdownConfig:
+        - name: Enabled
+          type: bool
+          json_tag: "enabled"
+          description: "リンクダウン時に情報を解放するか"
+        - name: Time
+          type: int
+          json_tag: "time,omitempty"
+          description: "リンクダウン継続時間（秒）"
+
+  parameters:
+    switch:
+      description: "有効/無効"
+      required: true
+      type: enum
+      enum_values:
+        - value: "on"
+          description: "リンクダウンがtime秒間継続すると情報を解放"
+        - value: "off"
+          description: "リンクダウンしても情報は保持"
+      default: "off"
+      terraform_field: "enabled"
+
+    time:
+      description: "リンクダウン継続時間（秒）"
+      required: false
+      type: integer
+      range: [0, 259200]
+      default: 3
+      terraform_field: "time"
+
+  notes:
+    - "タイマーの値を長く設定すると不安定なリンク状態の影響を避けることができる"
+    - "タイマー満了前にリンクアップした場合はタイマーはクリアされ情報は解放しない"
+    - "タイマー満了前にリース期間が満了した場合は情報は解放される"
+
+  syntax_tests:
+    - name: release_linkdown_on
+      rtx: "dhcp client release linkdown on"
+      terraform:
+        enabled: true
+        time: 3
+      note: "未実装 - テストはRedから開始"
+
+    - name: release_linkdown_on_with_time
+      rtx: "dhcp client release linkdown on 10"
+      terraform:
+        enabled: true
+        time: 10
+      note: "未実装 - テストはRedから開始"
+
+    - name: release_linkdown_off
+      rtx: "dhcp client release linkdown off"
+      terraform:
+        enabled: false
+      note: "未実装 - テストはRedから開始"
+
+    - name: delete_release_linkdown
+      rtx: "no dhcp client release linkdown"
+      terraform: {}
+      build_only: true
+      note: "未実装 - テストはRedから開始"
+
+  boundary_tests:
+    time:
+      - value: 0
+        valid: true
+        description: "最小値（即時解放）"
+      - value: 3
+        valid: true
+        description: "デフォルト値"
+      - value: 259200
+        valid: true
+        description: "最大値（72時間）"
+      - value: -1
+        valid: false
+        error_contains: "must be non-negative"
+      - value: 259201
+        valid: false
+        error_contains: "out of range"

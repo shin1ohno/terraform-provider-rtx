@@ -1,0 +1,273 @@
+# DHCP Interface-specific Service Command Specification
+# Reference: RTX Command Reference 12.1.15
+#
+# Note: This command is NOT YET IMPLEMENTED in the parser.
+# All tests will start as Red (failing) per TDD principles.
+
+command:
+  name: ip_interface_dhcp_service
+  description: "インターフェース毎のDHCPの動作の設定"
+  reference: "12.1.15"
+  # implementation_status: implemented
+
+  applicable_models:
+    - vRX
+    - RTX5000  # Rev.14.00.18以降
+    - RTX3510
+    - RTX3500  # Rev.14.00.18以降
+    - RTX1300
+    - RTX1220
+    - RTX1210  # Rev.14.01.09以降
+    - RTX840
+    - RTX830
+
+  model_constraints:
+    RTX5000:
+      min_revision: "Rev.14.00.18"
+    RTX3500:
+      min_revision: "Rev.14.00.18"
+    RTX1210:
+      min_revision: "Rev.14.01.09"
+    vRX_Amazon_EC2:
+      bridge_interface: false
+      description: "ブリッジインタフェースは指定不可能"
+
+  syntax:
+    set: "ip {interface} dhcp service {type} [{host1} [{host2} [{host3} [{host4}]]]]"
+    delete: "no ip {interface} dhcp service"
+
+  terraform:
+    resource_name: rtx_ip_interface_dhcp_service
+    struct_name: IPInterfaceDHCPServiceConfig
+    package: parsers
+
+    struct_definition:
+      IPInterfaceDHCPServiceConfig:
+        - name: Interface
+          type: string
+          json_tag: "interface"
+          description: "インターフェース名"
+        - name: ServiceType
+          type: string
+          json_tag: "service_type"
+          description: "DHCP動作タイプ"
+          enum: ["off", "server", "relay"]
+        - name: RelayServers
+          type: "[]string"
+          json_tag: "relay_servers,omitempty"
+          description: "リレー先DHCPサーバー（typeがrelayの場合）"
+
+  parameters:
+    interface:
+      description: "インターフェース名"
+      required: true
+      variants:
+        - type: pattern
+          pattern: "lan{num}"
+          description: "LANインタフェース"
+        - type: pattern
+          pattern: "bridge{num}"
+          description: "ブリッジインタフェース"
+      terraform_field: "interface"
+
+    type:
+      description: "DHCP動作タイプ"
+      required: true
+      type: enum
+      enum_values:
+        - value: "off"
+          description: "DHCPサーバーとしてもリレーエージェントとしても機能しない"
+        - value: "server"
+          description: "DHCPサーバーとして機能"
+        - value: "relay"
+          description: "DHCPリレーエージェントとして機能"
+      terraform_field: "service_type"
+
+    host1:
+      description: "DHCPサーバーのIPアドレス（1番目、relayモードで必要）"
+      required: false
+      type: ip_address
+      terraform_field: "relay_servers[0]"
+
+    host2:
+      description: "DHCPサーバーのIPアドレス（2番目）"
+      required: false
+      type: ip_address
+      terraform_field: "relay_servers[1]"
+
+    host3:
+      description: "DHCPサーバーのIPアドレス（3番目）"
+      required: false
+      type: ip_address
+      terraform_field: "relay_servers[2]"
+
+    host4:
+      description: "DHCPサーバーのIPアドレス（4番目）"
+      required: false
+      type: ip_address
+      terraform_field: "relay_servers[3]"
+
+  notes:
+    - "DHCPサーバー設定時は、ネットワークアドレスが合致するDHCPスコープからIPを割り当て"
+    - "DHCPリレーエージェント設定時は、HOSTへDHCP DISCOVER/REQUESTパケットを転送"
+    - "off設定時はDHCPパケットは破棄される"
+    - "本設定がない場合はdhcp serviceコマンドの設定に従う"
+    - "dhcp serviceコマンドと本設定の両方がある場合は本設定が優先"
+
+  # =============================================================================
+  # Level 1: Syntax Pattern Tests (構文パターン網羅)
+  # All tests are Red (not implemented)
+  # =============================================================================
+  syntax_tests:
+    # --- Server mode ---
+    - name: interface_dhcp_server_lan1
+      rtx: "ip lan1 dhcp service server"
+      terraform:
+        interface: "lan1"
+        service_type: "server"
+      note: "未実装 - テストはRedから開始"
+
+    - name: interface_dhcp_server_lan2
+      rtx: "ip lan2 dhcp service server"
+      terraform:
+        interface: "lan2"
+        service_type: "server"
+      note: "未実装 - テストはRedから開始"
+
+    - name: interface_dhcp_server_bridge1
+      rtx: "ip bridge1 dhcp service server"
+      terraform:
+        interface: "bridge1"
+        service_type: "server"
+      note: "未実装 - テストはRedから開始"
+      model_constraints:
+        unavailable: [vRX_Amazon_EC2]
+
+    # --- Relay mode with servers ---
+    - name: interface_dhcp_relay_single_server
+      rtx: "ip lan2 dhcp service relay 192.168.1.100"
+      terraform:
+        interface: "lan2"
+        service_type: "relay"
+        relay_servers: ["192.168.1.100"]
+      note: "未実装 - テストはRedから開始"
+
+    - name: interface_dhcp_relay_multiple_servers
+      rtx: "ip lan2 dhcp service relay 192.168.1.100 192.168.1.101"
+      terraform:
+        interface: "lan2"
+        service_type: "relay"
+        relay_servers: ["192.168.1.100", "192.168.1.101"]
+      note: "未実装 - テストはRedから開始"
+
+    - name: interface_dhcp_relay_four_servers
+      rtx: "ip lan3 dhcp service relay 10.0.0.1 10.0.0.2 10.0.0.3 10.0.0.4"
+      terraform:
+        interface: "lan3"
+        service_type: "relay"
+        relay_servers: ["10.0.0.1", "10.0.0.2", "10.0.0.3", "10.0.0.4"]
+      note: "未実装 - テストはRedから開始"
+
+    # --- Off mode ---
+    - name: interface_dhcp_off
+      rtx: "ip lan1 dhcp service off"
+      terraform:
+        interface: "lan1"
+        service_type: "off"
+      note: "未実装 - テストはRedから開始"
+
+    # --- Delete ---
+    - name: delete_interface_dhcp_service
+      rtx: "no ip lan1 dhcp service"
+      terraform:
+        interface: "lan1"
+      build_only: true
+      note: "未実装 - テストはRedから開始"
+
+    - name: delete_interface_dhcp_service_lan2
+      rtx: "no ip lan2 dhcp service"
+      terraform:
+        interface: "lan2"
+      build_only: true
+      note: "未実装 - テストはRedから開始"
+
+  # =============================================================================
+  # Level 2: Boundary Value Tests (境界値テスト)
+  # =============================================================================
+  boundary_tests:
+    interface:
+      - value: "lan1"
+        valid: true
+        description: "LAN1"
+      - value: "lan2"
+        valid: true
+        description: "LAN2"
+      - value: "lan3"
+        valid: true
+        description: "LAN3"
+      - value: "bridge1"
+        valid: true
+        description: "ブリッジ1"
+        invalid_for: [vRX_Amazon_EC2]
+      - value: "invalid"
+        valid: false
+        error_contains: "invalid interface"
+
+    type:
+      - value: "server"
+        valid: true
+        description: "サーバーモード"
+      - value: "relay"
+        valid: true
+        description: "リレーモード"
+      - value: "off"
+        valid: true
+        description: "無効"
+      - value: "invalid"
+        valid: false
+        error_contains: "invalid service type"
+
+    relay_server_count:
+      - value: 1
+        valid: true
+        description: "1台"
+      - value: 4
+        valid: true
+        description: "最大（4台）"
+      - value: 5
+        valid: false
+        error_contains: "maximum 4 servers"
+
+  # =============================================================================
+  # Level 3: Pairwise Testing Configuration
+  # =============================================================================
+  pairwise:
+    enabled: true
+    parameters:
+      - interface_type
+      - service_type
+      - server_count
+
+    parameter_values:
+      interface_type:
+        - lan
+        - bridge
+      service_type:
+        - server
+        - relay
+        - off
+      server_count:
+        - 0  # no servers (for server/off mode)
+        - 1  # single server
+        - 4  # max servers
+
+    constraints:
+      # Servers only valid for relay mode
+      - condition: "server_count > 0"
+        requires: "service_type == relay"
+      # Relay mode requires at least one server
+      - condition: "service_type == relay"
+        requires: "server_count >= 1"
+      # Bridge interface not available on vRX Amazon EC2
+      - condition: "interface_type == bridge"
+        invalid_for: [vRX_Amazon_EC2]

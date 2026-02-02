@@ -1,0 +1,371 @@
+# DHCP Scope Bind Command Specification
+# Reference: RTX Command Reference 12.1.5
+#
+# Design decisions:
+# - IP範囲指定（dhcp scope bind N ip1-ip2 MAC:*）は未実装 → struct_additions で追加
+# - OUI（ベンダーID）指定は未実装 → struct_additions で追加
+# - ipcp キーワードは未実装 → struct_additions で追加
+# - text/ethernet type は UseClientIdentifier フラグで処理
+
+command:
+  name: dhcp_scope_bind
+  description: "DHCP予約アドレスの設定"
+  reference: "12.1.5"
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  syntax:
+    set:
+      - "dhcp scope bind {scope_num} {ip_address} [type] {id}"
+      - "dhcp scope bind {scope_num} {ip_address} {mac_address}"
+      - "dhcp scope bind {scope_num} {ip_address} ipcp"
+      - "dhcp scope bind {scope_num} {ip_range} {mac_address_with_oui}"
+    delete:
+      - "no dhcp scope bind {scope_num} {ip_address}"
+      - "no dhcp scope bind {scope_num} {ip_range}"
+
+  terraform:
+    resource_name: rtx_dhcp_binding
+    struct_name: DHCPBinding
+    package: parsers
+
+    # 既存構造体に追加が必要なフィールド
+    struct_additions:
+      DHCPBinding:
+        - name: IPRangeStart
+          type: string
+          json_tag: "ip_range_start,omitempty"
+          description: "IP範囲の開始（OUI指定時）"
+        - name: IPRangeEnd
+          type: string
+          json_tag: "ip_range_end,omitempty"
+          description: "IP範囲の終了（OUI指定時）"
+        - name: OUI
+          type: string
+          json_tag: "oui,omitempty"
+          description: "ベンダーID（00:a0:de:*形式）"
+        - name: IPCP
+          type: bool
+          json_tag: "ipcp,omitempty"
+          description: "IPCPでリモート側に与えるフラグ"
+
+  parameters:
+    scope_num:
+      description: "スコープ番号"
+      required: true
+      type: integer
+      range: [1, 65535]
+      terraform_field: "scope_id"
+
+    ip_address:
+      description: "予約するIPアドレス"
+      required: true
+      variants:
+        - type: ip_address
+          description: "固定IPアドレス"
+        - type: keyword
+          value: "*"
+          description: "自動割り当て"
+      terraform_field: "ip_address"
+
+    ip_range:
+      description: "予約するIP範囲（OUI指定時）"
+      required: false
+      type: pattern
+      pattern: "{start_ip}-{end_ip}"
+      terraform_fields:
+        ip_range_start: "ip_range_start"
+        ip_range_end: "ip_range_end"
+      note: "未実装 - struct_additionsで追加予定"
+
+    type:
+      description: "クライアント識別子タイプ"
+      required: false
+      variants:
+        - type: keyword
+          value: "text"
+          description: "テキスト識別子（type field = 0x00）"
+        - type: keyword
+          value: "ethernet"
+          description: "MACアドレス識別子（type field = 0x01）"
+
+    id:
+      description: "クライアント識別子"
+      required: true
+      variants:
+        - type: pattern
+          pattern: "{mac_address}"
+          description: "MACアドレス（XX:XX:XX:XX:XX:XX）"
+        - type: pattern
+          pattern: "{text_string}"
+          description: "テキスト文字列（typeがtextの場合）"
+        - type: pattern
+          pattern: "{hex_sequence}"
+          description: "16進数列（スペース区切り）"
+      terraform_field: "mac_address"  # or client_identifier
+
+    mac_address_with_oui:
+      description: "OUI付きMACアドレス"
+      required: false
+      type: pattern
+      pattern: "{oui}:*"
+      description: "ベンダーID指定（例: 00:a0:de:*）"
+      terraform_field: "oui"
+      note: "未実装 - struct_additionsで追加予定"
+      model_constraints:
+        unavailable:
+          - model: RTX5000
+            revision: "Rev.14.00.25以前"
+          - model: RTX3500
+            revision: "Rev.14.00.25以前"
+          - model: RTX1210
+            revision: "Rev.14.01.27以前"
+          - model: RTX830
+            revision: "Rev.15.02.02以前"
+
+    ipcp:
+      description: "IPCPでリモート側に与えるキーワード"
+      required: false
+      type: flag
+      terraform_field: "ipcp"
+      note: "未実装 - struct_additionsで追加予定"
+
+  # =============================================================================
+  # Level 1: Syntax Pattern Tests (構文パターン網羅)
+  # =============================================================================
+  syntax_tests:
+    # --- Basic MAC address binding ---
+    - name: bind_mac_basic
+      rtx: "dhcp scope bind 1 192.168.1.100 00:11:22:33:44:55"
+      terraform:
+        scope_id: 1
+        ip_address: "192.168.1.100"
+        mac_address: "00:11:22:33:44:55"
+        use_client_identifier: false
+
+    - name: bind_mac_lowercase
+      rtx: "dhcp scope bind 1 192.168.1.101 00:aa:bb:cc:dd:ee"
+      terraform:
+        scope_id: 1
+        ip_address: "192.168.1.101"
+        mac_address: "00:aa:bb:cc:dd:ee"
+        use_client_identifier: false
+
+    - name: bind_mac_mixedcase
+      rtx: "dhcp scope bind 1 192.168.1.102 00:Aa:Bb:Cc:Dd:Ee"
+      terraform:
+        scope_id: 1
+        ip_address: "192.168.1.102"
+        mac_address: "00:aa:bb:cc:dd:ee"  # normalized to lowercase
+        use_client_identifier: false
+
+    # --- Ethernet type binding (client identifier) ---
+    - name: bind_ethernet_type
+      rtx: "dhcp scope bind 1 192.168.1.110 ethernet 00:a0:de:01:23:45"
+      terraform:
+        scope_id: 1
+        ip_address: "192.168.1.110"
+        mac_address: "00:a0:de:01:23:45"
+        use_client_identifier: true
+
+    - name: bind_ethernet_type_uppercase
+      rtx: "dhcp scope bind 1 192.168.1.111 ethernet B6:1A:27:EA:28:29"
+      terraform:
+        scope_id: 1
+        ip_address: "192.168.1.111"
+        mac_address: "b6:1a:27:ea:28:29"  # normalized
+        use_client_identifier: true
+
+    # --- Text type binding ---
+    - name: bind_text_type
+      rtx: "dhcp scope bind 1 192.168.1.120 text client01"
+      terraform:
+        scope_id: 1
+        ip_address: "192.168.1.120"
+        text_identifier: "client01"
+
+    # --- Hex sequence binding (01 prefix = ethernet type) ---
+    - name: bind_hex_sequence
+      rtx: "dhcp scope bind 1 192.168.1.130 01 00 a0 de 01 23 45"
+      terraform:
+        scope_id: 1
+        ip_address: "192.168.1.130"
+        mac_address: "00:a0:de:01:23:45"
+        use_client_identifier: true
+
+    # --- Client identifier format ---
+    - name: bind_client_identifier_01
+      rtx: "dhcp scope bind 1 192.168.1.102 client-id 01:00:11:22:33:44:55"
+      terraform:
+        scope_id: 1
+        ip_address: "192.168.1.102"
+        client_identifier: "01:00:11:22:33:44:55"
+      build_only: true  # パースでは標準形式で返る
+
+    - name: bind_client_identifier_ff
+      rtx: "dhcp scope bind 2 10.0.0.51 client-id ff:00:01:02:03:04:05"
+      terraform:
+        scope_id: 2
+        ip_address: "10.0.0.51"
+        client_identifier: "ff:00:01:02:03:04:05"
+      build_only: true
+
+    # --- Wildcard IP (auto-assign) ---
+    - name: bind_wildcard_ip
+      rtx: "dhcp scope bind 1 * 00:a0:de:01:23:45"
+      terraform:
+        scope_id: 1
+        ip_address: "*"
+        mac_address: "00:a0:de:01:23:45"
+        use_client_identifier: false
+
+    # --- OUI (Vendor ID) binding ---
+    - name: bind_oui_range
+      rtx: "dhcp scope bind 1 192.168.1.20-192.168.1.30 00:a0:de:*"
+      terraform:
+        scope_id: 1
+        ip_range_start: "192.168.1.20"
+        ip_range_end: "192.168.1.30"
+        oui: "00:a0:de"
+      model_constraints:
+        unavailable:
+          - model: RTX5000
+            revision: "Rev.14.00.25以前"
+          - model: RTX1210
+            revision: "Rev.14.01.27以前"
+
+    # --- IPCP binding ---
+    - name: bind_ipcp
+      rtx: "dhcp scope bind 1 192.168.1.100 ipcp"
+      terraform:
+        scope_id: 1
+        ip_address: "192.168.1.100"
+        ipcp: true
+
+    # --- Different scope IDs ---
+    - name: bind_scope_2
+      rtx: "dhcp scope bind 2 10.0.0.50 11:22:33:44:55:66"
+      terraform:
+        scope_id: 2
+        ip_address: "10.0.0.50"
+        mac_address: "11:22:33:44:55:66"
+        use_client_identifier: false
+
+    - name: bind_large_scope_id
+      rtx: "dhcp scope bind 65535 172.16.0.100 aa:bb:cc:dd:ee:ff"
+      terraform:
+        scope_id: 65535
+        ip_address: "172.16.0.100"
+        mac_address: "aa:bb:cc:dd:ee:ff"
+        use_client_identifier: false
+
+    # --- Delete binding ---
+    - name: unbind_basic
+      rtx: "no dhcp scope bind 1 192.168.1.100"
+      terraform:
+        scope_id: 1
+        ip_address: "192.168.1.100"
+      build_only: true
+
+    - name: unbind_scope_2
+      rtx: "no dhcp scope bind 2 10.0.0.50"
+      terraform:
+        scope_id: 2
+        ip_address: "10.0.0.50"
+      build_only: true
+
+  # =============================================================================
+  # Level 2: Boundary Value Tests (境界値テスト)
+  # =============================================================================
+  boundary_tests:
+    scope_num:
+      - value: 1
+        valid: true
+        description: "最小値"
+      - value: 65535
+        valid: true
+        description: "最大値"
+      - value: 0
+        valid: false
+        error_contains: "invalid scope ID"
+      - value: 65536
+        valid: false
+        error_contains: "out of range"
+
+    mac_address_format:
+      - value: "00:11:22:33:44:55"
+        valid: true
+        description: "コロン区切り"
+      - value: "00-11-22-33-44-55"
+        valid: true
+        description: "ハイフン区切り"
+      - value: "001122334455"
+        valid: true
+        description: "区切りなし"
+      - value: "00:11:22"
+        valid: false
+        error_contains: "must be 12 hex digits"
+      - value: "00:11:22:GG:44:55"
+        valid: false
+        error_contains: "invalid characters"
+
+    client_identifier:
+      - value: "01:00:11:22:33:44:55"
+        valid: true
+        description: "ethernet type (01)"
+      - value: "02:68:6f:73:74:6e:61:6d:65"
+        valid: true
+        description: "ASCII type (02)"
+      - value: "ff:00:01:02:03:04:05"
+        valid: true
+        description: "vendor-specific (FF)"
+      - value: "03:00:11:22:33:44:55"
+        valid: false
+        error_contains: "unsupported client identifier prefix"
+      - value: "01"
+        valid: false
+        error_contains: "must have data after type prefix"
+      - value: "0100112233445566"
+        valid: false
+        error_contains: "invalid client identifier format"
+
+  # =============================================================================
+  # Level 3: Pairwise Testing Configuration
+  # =============================================================================
+  pairwise:
+    enabled: true
+    parameters:
+      - ip_type
+      - identifier_type
+
+    parameter_values:
+      ip_type:
+        - single_ip      # 192.168.1.100
+        - wildcard       # *
+        - range          # 192.168.1.20-192.168.1.30 (OUI用)
+      identifier_type:
+        - mac_plain      # 00:11:22:33:44:55
+        - mac_ethernet   # ethernet 00:11:22:33:44:55
+        - hex_sequence   # 01 00 11 22 33 44 55
+        - oui            # 00:a0:de:*
+        - ipcp           # ipcp keyword
+
+    constraints:
+      # OUI requires IP range
+      - condition: "identifier_type == oui"
+        requires: "ip_type == range"
+      # IPCP requires single IP
+      - condition: "identifier_type == ipcp"
+        requires: "ip_type == single_ip"
+      # Wildcard IP cannot be used with OUI
+      - condition: "ip_type == wildcard"
+        requires: "identifier_type != oui"
