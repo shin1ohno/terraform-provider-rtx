@@ -115,7 +115,7 @@ func TestNewClient(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "missing password",
+			name: "missing password and private key",
 			config: &Config{
 				Host:     "192.168.1.1",
 				Port:     22,
@@ -123,6 +123,28 @@ func TestNewClient(t *testing.T) {
 				Timeout:  30,
 			},
 			wantErr: true,
+		},
+		{
+			name: "private_key without password",
+			config: &Config{
+				Host:       "192.168.1.1",
+				Port:       22,
+				Username:   "admin",
+				PrivateKey: "-----BEGIN OPENSSH PRIVATE KEY-----\ntest\n-----END OPENSSH PRIVATE KEY-----",
+				Timeout:    30,
+			},
+			wantErr: false,
+		},
+		{
+			name: "private_key_file without password",
+			config: &Config{
+				Host:           "192.168.1.1",
+				Port:           22,
+				Username:       "admin",
+				PrivateKeyFile: "/path/to/key",
+				Timeout:        30,
+			},
+			wantErr: false,
 		},
 		{
 			name: "invalid port",

@@ -57,6 +57,14 @@ func (d *sshDialer) Dial(ctx context.Context, host string, config *Config) (Sess
 	return session, nil
 }
 
+// BuildAuthMethods builds authentication methods in priority order.
+// This is the exported version for use by other components (e.g., client.go).
+// Priority: 1) Explicit private key, 2) SSH agent (if no explicit key), 3) Password auth as fallback
+func BuildAuthMethods(config *Config) []ssh.AuthMethod {
+	d := &sshDialer{}
+	return d.buildAuthMethods(config)
+}
+
 // buildAuthMethods builds authentication methods in priority order.
 // Priority: 1) Explicit private key, 2) SSH agent (if no explicit key), 3) Password auth as fallback
 func (d *sshDialer) buildAuthMethods(config *Config) []ssh.AuthMethod {
@@ -64,6 +72,14 @@ func (d *sshDialer) buildAuthMethods(config *Config) []ssh.AuthMethod {
 	var methods []ssh.AuthMethod
 
 	hasExplicitKey := config.PrivateKey != "" || config.PrivateKeyFile != ""
+
+	logger.Debug().
+		Bool("has_explicit_key", hasExplicitKey).
+		Bool("has_private_key", config.PrivateKey != "").
+		Bool("has_private_key_file", config.PrivateKeyFile != "").
+		Bool("has_password", config.Password != "").
+		Int("private_key_len", len(config.PrivateKey)).
+		Msg("buildAuthMethods: checking authentication options")
 
 	// If no explicit key is provided, try SSH agent first
 	if !hasExplicitKey {
@@ -75,9 +91,13 @@ func (d *sshDialer) buildAuthMethods(config *Config) []ssh.AuthMethod {
 
 	// If explicit private key is provided, use it
 	if hasExplicitKey {
-		if signer := d.loadPrivateKey(config); signer != nil {
-			logger.Debug().Msg("Private key authentication configured")
+		signer := d.loadPrivateKey(config)
+		if signer != nil {
+			fingerprint := ssh.FingerprintSHA256(signer.PublicKey())
+			logger.Debug().Str("fingerprint", fingerprint).Msg("Private key authentication configured")
 			methods = append(methods, ssh.PublicKeys(signer))
+		} else {
+			logger.Error().Msg("Failed to load private key - signer is nil")
 		}
 	}
 

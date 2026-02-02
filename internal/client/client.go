@@ -164,10 +164,8 @@ func (c *rtxClient) Dial(ctx context.Context) error {
 	// For RTX routers, we'll use a simple executor that creates new connections per command
 	// This is less efficient but more reliable given RTX's SSH implementation
 	sshConfig := &ssh.ClientConfig{
-		User: c.config.Username,
-		Auth: []ssh.AuthMethod{
-			ssh.Password(c.config.Password),
-		},
+		User:            c.config.Username,
+		Auth:            BuildAuthMethods(c.config),
 		HostKeyCallback: c.getHostKeyCallback(),
 		Timeout:         time.Duration(c.config.Timeout) * time.Second,
 	}
@@ -763,8 +761,9 @@ func validateConfig(config *Config) error {
 	if config.Username == "" {
 		return fmt.Errorf("username is required")
 	}
-	if config.Password == "" {
-		return fmt.Errorf("password is required")
+	// Password is required only if no SSH key is provided
+	if config.Password == "" && config.PrivateKey == "" && config.PrivateKeyFile == "" {
+		return fmt.Errorf("password or private_key/private_key_file is required")
 	}
 	if config.Port <= 0 || config.Port > 65535 {
 		return fmt.Errorf("invalid port number: %d", config.Port)
