@@ -26,9 +26,9 @@ import (
 
 // Ensure provider defined types fully satisfy framework interfaces.
 var (
-	_ resource.Resource                   = &SSHDAuthorizedKeysResource{}
-	_ resource.ResourceWithImportState    = &SSHDAuthorizedKeysResource{}
-	_ resource.ResourceWithUpgradeState   = &SSHDAuthorizedKeysResource{}
+	_ resource.Resource                 = &SSHDAuthorizedKeysResource{}
+	_ resource.ResourceWithImportState  = &SSHDAuthorizedKeysResource{}
+	_ resource.ResourceWithUpgradeState = &SSHDAuthorizedKeysResource{}
 )
 
 // NewSSHDAuthorizedKeysResource creates a new SSHD authorized keys resource.
