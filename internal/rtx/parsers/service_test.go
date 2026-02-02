@@ -986,6 +986,28 @@ ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBtest user@host
 			},
 		},
 		{
+			name:  "key with 'no comment' comment (RTX default)",
+			input: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQC7 no comment",
+			expected: []SSHAuthorizedKey{
+				{
+					Type:        "ssh-rsa",
+					Fingerprint: "AAAAB3NzaC1yc2EAAAADAQABAAAAgQC7",
+					Comment:     "no comment",
+				},
+			},
+		},
+		{
+			name:  "key with simple text comment without @",
+			input: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBtest= my key",
+			expected: []SSHAuthorizedKey{
+				{
+					Type:        "ssh-ed25519",
+					Fingerprint: "AAAAC3NzaC1lZDI1NTE5AAAAIBtest=",
+					Comment:     "my key",
+				},
+			},
+		},
+		{
 			name: "RTX prompt lines ignored",
 			input: `[RTX1210] # show sshd authorized-keys admin
 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBtest user@host

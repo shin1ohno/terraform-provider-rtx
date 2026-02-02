@@ -8,11 +8,13 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -24,8 +26,9 @@ import (
 
 // Ensure provider defined types fully satisfy framework interfaces.
 var (
-	_ resource.Resource                = &SSHDAuthorizedKeysResource{}
-	_ resource.ResourceWithImportState = &SSHDAuthorizedKeysResource{}
+	_ resource.Resource                   = &SSHDAuthorizedKeysResource{}
+	_ resource.ResourceWithImportState    = &SSHDAuthorizedKeysResource{}
+	_ resource.ResourceWithUpgradeState   = &SSHDAuthorizedKeysResource{}
 )
 
 // NewSSHDAuthorizedKeysResource creates a new SSHD authorized keys resource.
@@ -46,6 +49,7 @@ func (r *SSHDAuthorizedKeysResource) Metadata(ctx context.Context, req resource.
 // Schema defines the schema for the resource.
 func (r *SSHDAuthorizedKeysResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Version: 1, // Incremented for keys schema change (string list -> object list)
 		Description: "Manages SSH authorized keys for a user on RTX routers. " +
 			"This resource allows you to configure SSH public key authentication for admin users. " +
 			"The router returns full public keys, allowing import and drift detection.",
@@ -63,10 +67,29 @@ func (r *SSHDAuthorizedKeysResource) Schema(ctx context.Context, req resource.Sc
 					),
 				},
 			},
-			"keys": schema.ListAttribute{
-				Description: "List of SSH public keys in OpenSSH format (e.g., 'ssh-ed25519 AAAA... user@host'). Each key must be a valid SSH public key.",
+			"keys": schema.ListNestedAttribute{
+				Description: "List of SSH public keys to authorize.",
 				Required:    true,
-				ElementType: types.StringType,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"key": schema.StringAttribute{
+							Description: "SSH public key in OpenSSH format without comment (e.g., 'ssh-ed25519 AAAA...').",
+							Required:    true,
+							Validators: []validator.String{
+								stringvalidator.RegexMatches(
+									regexp.MustCompile(`^(ssh-rsa|ssh-ed25519|ssh-dss|ecdsa-sha2-nistp256|ecdsa-sha2-nistp384|ecdsa-sha2-nistp521)\s+[A-Za-z0-9+/=]+$`),
+									"must be a valid SSH public key in OpenSSH format (e.g., 'ssh-ed25519 AAAA...')",
+								),
+							},
+						},
+						"comment": schema.StringAttribute{
+							Description: "Comment for the key. Defaults to 'no comment' to match RTX behavior.",
+							Optional:    true,
+							Computed:    true,
+							Default:     stringdefault.StaticString(DefaultComment),
+						},
+					},
+				},
 				Validators: []validator.List{
 					listvalidator.SizeAtLeast(1),
 				},
@@ -114,7 +137,10 @@ func (r *SSHDAuthorizedKeysResource) Create(ctx context.Context, req resource.Cr
 	plannedUsername := data.Username
 	plannedKeys := data.Keys
 
-	keys := data.ToKeyStrings()
+	keys := data.ToKeyStrings(ctx, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 	logger.Debug().
 		Str("resource", "rtx_sshd_authorized_keys").
 		Str("username", username).
@@ -234,11 +260,11 @@ func (r *SSHDAuthorizedKeysResource) read(ctx context.Context, data *SSHDAuthori
 			Str("resource", "rtx_sshd_authorized_keys").
 			Str("username", username).
 			Msg("No authorized keys returned from router, setting empty list")
-		data.FromClient([]client.SSHAuthorizedKey{})
+		data.FromClient(ctx, []client.SSHAuthorizedKey{}, diagnostics)
 		return
 	}
 
-	data.FromClient(keys)
+	data.FromClient(ctx, keys, diagnostics)
 
 	logger.Debug().
 		Str("resource", "rtx_sshd_authorized_keys").
@@ -264,7 +290,10 @@ func (r *SSHDAuthorizedKeysResource) Update(ctx context.Context, req resource.Up
 	plannedUsername := data.Username
 	plannedKeys := data.Keys
 
-	keys := data.ToKeyStrings()
+	keys := data.ToKeyStrings(ctx, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 	logger.Debug().
 		Str("resource", "rtx_sshd_authorized_keys").
 		Str("username", username).
@@ -349,4 +378,108 @@ func (r *SSHDAuthorizedKeysResource) ImportState(ctx context.Context, req resour
 
 	// Set the username from the import ID
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("username"), username)...)
+}
+
+// UpgradeState handles state upgrades from previous schema versions.
+func (r *SSHDAuthorizedKeysResource) UpgradeState(ctx context.Context) map[int64]resource.StateUpgrader {
+	return map[int64]resource.StateUpgrader{
+		// Version 0 -> 1: Convert keys from []string to []object{key, comment}
+		0: {
+			PriorSchema: &schema.Schema{
+				Attributes: map[string]schema.Attribute{
+					"username": schema.StringAttribute{
+						Required: true,
+					},
+					"keys": schema.ListAttribute{
+						Required:    true,
+						ElementType: types.StringType,
+					},
+					"key_count": schema.Int64Attribute{
+						Computed: true,
+					},
+				},
+			},
+			StateUpgrader: func(ctx context.Context, req resource.UpgradeStateRequest, resp *resource.UpgradeStateResponse) {
+				// Read the old state
+				var oldKeys []string
+				var username string
+				var keyCount int64
+
+				// Get username
+				if diags := req.State.GetAttribute(ctx, path.Root("username"), &username); diags.HasError() {
+					resp.Diagnostics.Append(diags...)
+					return
+				}
+
+				// Get old keys (list of strings)
+				if diags := req.State.GetAttribute(ctx, path.Root("keys"), &oldKeys); diags.HasError() {
+					resp.Diagnostics.Append(diags...)
+					return
+				}
+
+				// Get key_count
+				if diags := req.State.GetAttribute(ctx, path.Root("key_count"), &keyCount); diags.HasError() {
+					// key_count might not exist in very old states, ignore error
+					keyCount = int64(len(oldKeys))
+				}
+
+				// Convert old keys (strings) to new format (objects)
+				newKeys := make([]KeyModel, len(oldKeys))
+				for i, oldKey := range oldKeys {
+					// Parse the old key string: "ssh-type base64-key [comment]"
+					parts := strings.SplitN(strings.TrimSpace(oldKey), " ", 3)
+					var keyPart, commentPart string
+
+					if len(parts) >= 2 {
+						// Key is "type base64"
+						keyPart = parts[0] + " " + parts[1]
+					}
+					if len(parts) >= 3 {
+						commentPart = parts[2]
+					}
+					if commentPart == "" {
+						commentPart = DefaultComment
+					}
+
+					newKeys[i] = KeyModel{
+						Key:     types.StringValue(keyPart),
+						Comment: types.StringValue(commentPart),
+					}
+				}
+
+				// Build new state
+				var newData SSHDAuthorizedKeysModel
+				newData.Username = types.StringValue(username)
+				newData.KeyCount = types.Int64Value(keyCount)
+
+				// Convert KeyModel slice to types.List
+				keyObjects := make([]types.Object, len(newKeys))
+				for i, km := range newKeys {
+					obj, diags := types.ObjectValue(
+						KeyModelAttrTypes(),
+						map[string]attr.Value{
+							"key":     km.Key,
+							"comment": km.Comment,
+						},
+					)
+					if diags.HasError() {
+						resp.Diagnostics.Append(diags...)
+						return
+					}
+					keyObjects[i] = obj
+				}
+
+				// Create types.List from objects
+				keysList, diags := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: KeyModelAttrTypes()}, keyObjects)
+				if diags.HasError() {
+					resp.Diagnostics.Append(diags...)
+					return
+				}
+				newData.Keys = keysList
+
+				// Set the upgraded state
+				resp.Diagnostics.Append(resp.State.Set(ctx, &newData)...)
+			},
+		},
+	}
 }

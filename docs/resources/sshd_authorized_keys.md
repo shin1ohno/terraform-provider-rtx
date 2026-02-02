@@ -17,9 +17,20 @@ Manages SSH authorized keys for a user on RTX routers. This resource allows you 
 
 ### Required
 
-- `keys` (List of String) List of SSH public keys in OpenSSH format (e.g., 'ssh-ed25519 AAAA... user@host'). Each key must be a valid SSH public key.
+- `keys` (Attributes List) List of SSH public keys to authorize. (see [below for nested schema](#nestedatt--keys))
 - `username` (String) Username to manage authorized keys for. Must be an existing admin user. Changing this value forces a new resource to be created.
 
 ### Read-Only
 
 - `key_count` (Number) Number of authorized keys registered for this user.
+
+<a id="nestedatt--keys"></a>
+### Nested Schema for `keys`
+
+Required:
+
+- `key` (String) SSH public key in OpenSSH format without comment (e.g., 'ssh-ed25519 AAAA...').
+
+Optional:
+
+- `comment` (String) Comment for the key. Defaults to 'no comment' to match RTX behavior.

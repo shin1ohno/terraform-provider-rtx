@@ -527,7 +527,8 @@ func ParseSSHDAuthorizedKeys(output string) ([]SSHAuthorizedKey, error) {
 
 // parseOpenSSHKey parses a single OpenSSH format public key
 // Format: <type> <base64-key> <comment>
-// The base64 key ends with one of: A-Za-z0-9+/= and comment follows after space
+// The base64 key consists of: A-Za-z0-9+/= characters
+// Comment is any text after the base64 key, separated by space
 func parseOpenSSHKey(keyLine string) *SSHAuthorizedKey {
 	// First, extract the key type
 	parts := strings.SplitN(keyLine, " ", 2)
@@ -545,30 +546,40 @@ func parseOpenSSHKey(keyLine string) *SSHAuthorizedKey {
 		return nil
 	}
 
-	// Find the boundary between base64 key and comment
-	// The comment usually starts with something like "user@host" or similar
-	// We look for the pattern: base64 followed by space followed by comment (containing @)
+	// Find where the base64 key ends
+	// Base64 characters: A-Z, a-z, 0-9, +, /, =
+	// Comment starts after the last valid base64 character followed by space
 	var base64Key, comment string
 
-	// Find the last occurrence of a pattern that looks like "= comment" or "key comment"
-	// where comment contains @
-	lastSpaceBeforeComment := -1
-	for i := len(rest) - 1; i >= 0; i-- {
+	// Strategy: Find the end of base64 data by looking for space after valid base64
+	// SSH keys typically end with '=' padding or valid base64 char
+	//
+	// Cases:
+	// 1. "AAAA...== user@host" - key ends at '=', comment after space
+	// 2. "AAAA...== no comment" - key ends at '=', comment is "no comment"
+	// 3. "AAAA...Abc" - no comment, all is key
+	// 4. "AAAA...Abc user@host" - key ends at last base64 char before space
+
+	// Find the first space that's followed by non-base64 content
+	spaceIdx := -1
+	for i := 0; i < len(rest); i++ {
 		if rest[i] == ' ' {
-			remainingPart := rest[i+1:]
-			if strings.Contains(remainingPart, "@") {
-				lastSpaceBeforeComment = i
+			// Check if everything before this space looks like valid base64
+			potentialKey := rest[:i]
+			if looksLikeBase64(potentialKey) {
+				spaceIdx = i
 				break
 			}
 		}
 	}
 
-	if lastSpaceBeforeComment > 0 {
-		base64Key = strings.TrimSpace(rest[:lastSpaceBeforeComment])
-		comment = strings.TrimSpace(rest[lastSpaceBeforeComment+1:])
+	if spaceIdx > 0 {
+		base64Key = rest[:spaceIdx]
+		comment = strings.TrimSpace(rest[spaceIdx+1:])
 	} else {
-		// No comment found, entire rest is the key
-		base64Key = strings.TrimSpace(rest)
+		// No space found or no valid split point - entire rest is the key
+		base64Key = rest
+		comment = ""
 	}
 
 	return &SSHAuthorizedKey{
@@ -576,6 +587,19 @@ func parseOpenSSHKey(keyLine string) *SSHAuthorizedKey {
 		Fingerprint: base64Key,
 		Comment:     comment,
 	}
+}
+
+// looksLikeBase64 checks if a string contains only valid base64 characters
+func looksLikeBase64(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, c := range s {
+		if !isBase64Char(c) {
+			return false
+		}
+	}
+	return true
 }
 
 // isValidSSHKeyType checks if the string is a valid SSH key type
