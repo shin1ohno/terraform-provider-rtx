@@ -1,0 +1,469 @@
+# Schedule Command Specification
+# Reference: RTX Command Reference
+#
+# Covers:
+# - schedule at ID TIME COMMAND: 時刻指定スケジュール（毎日繰り返し）
+# - schedule at ID startup COMMAND: 起動時スケジュール
+# - schedule at ID DATE TIME COMMAND: 日時指定スケジュール（1回のみ）
+# - schedule pp N DAY TIME ACTION: PP接続スケジュール
+
+command:
+  name: schedule
+  description: "スケジュール設定"
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  syntax:
+    set_time: "schedule at {id} {time} {command}"
+    set_startup: "schedule at {id} startup {command}"
+    set_datetime: "schedule at {id} {date} {time} {command}"
+    set_pp: "schedule pp {pp_num} {day_of_week} {time} {action}"
+    delete: "no schedule at {id}"
+    delete_pp: "no schedule pp {pp_num} {day_of_week} {time}"
+
+  terraform:
+    resource_name: rtx_schedule
+    struct_name: Schedule
+    package: parsers
+
+  parameters:
+    id:
+      description: "スケジュールID"
+      required: true
+      type: integer
+      range: [1, 65535]
+      boundaries: [1, 100, 1000, 65535]
+
+    time:
+      description: "実行時刻（HH:MM形式またはH:MM形式）"
+      required: false
+      type: string
+      pattern: "\\d{1,2}:\\d{2}"
+
+    date:
+      description: "実行日（YYYY/MM/DD形式）"
+      required: false
+      type: string
+      pattern: "\\d{4}/\\d{2}/\\d{2}"
+
+    day_of_week:
+      description: "曜日指定（mon, tue, wed, thu, fri, sat, sun、範囲形式 mon-fri、カンマ区切り sat,sun）"
+      required: false
+      type: string
+      examples: ["mon", "tue", "mon-fri", "sat,sun", "mon,wed,fri"]
+
+    pp_num:
+      description: "PP番号"
+      required: false
+      type: integer
+      range: [1, 150]
+
+    action:
+      description: "PP操作（connect/disconnect）"
+      required: false
+      type: enum
+      enum_values:
+        - value: "connect"
+          description: "接続"
+        - value: "disconnect"
+          description: "切断"
+
+    command:
+      description: "実行コマンド"
+      required: true
+      type: string
+
+  syntax_tests:
+    # =============================================================================
+    # Time-based schedules (daily recurring)
+    # =============================================================================
+    - name: schedule_at_time_noon
+      rtx: "schedule at 1 12:00 ping 8.8.8.8"
+      terraform:
+        id: 1
+        at_time: "12:00"
+        recurring: true
+        enabled: true
+        commands: ["ping 8.8.8.8"]
+
+    - name: schedule_at_time_midnight
+      rtx: "schedule at 2 0:00 save"
+      terraform:
+        id: 2
+        at_time: "0:00"
+        recurring: true
+        enabled: true
+        commands: ["save"]
+
+    - name: schedule_at_time_late
+      rtx: "schedule at 3 23:59 restart"
+      terraform:
+        id: 3
+        at_time: "23:59"
+        recurring: true
+        enabled: true
+        commands: ["restart"]
+
+    - name: schedule_at_time_morning
+      rtx: "schedule at 10 6:30 show environment"
+      terraform:
+        id: 10
+        at_time: "6:30"
+        recurring: true
+        enabled: true
+        commands: ["show environment"]
+
+    - name: schedule_at_time_afternoon
+      rtx: "schedule at 100 14:15 show status pp 1"
+      terraform:
+        id: 100
+        at_time: "14:15"
+        recurring: true
+        enabled: true
+        commands: ["show status pp 1"]
+
+    # =============================================================================
+    # Startup schedules
+    # =============================================================================
+    - name: schedule_at_startup_pp_select
+      rtx: "schedule at 1 startup pp select 1"
+      terraform:
+        id: 1
+        on_startup: true
+        recurring: false
+        enabled: true
+        commands: ["pp select 1"]
+
+    - name: schedule_at_startup_connect
+      rtx: "schedule at 2 startup connect pp 1"
+      terraform:
+        id: 2
+        on_startup: true
+        recurring: false
+        enabled: true
+        commands: ["connect pp 1"]
+
+    - name: schedule_at_startup_tunnel
+      rtx: "schedule at 3 startup tunnel select 1"
+      terraform:
+        id: 3
+        on_startup: true
+        recurring: false
+        enabled: true
+        commands: ["tunnel select 1"]
+
+    - name: schedule_at_startup_save
+      rtx: "schedule at 100 startup save"
+      terraform:
+        id: 100
+        on_startup: true
+        recurring: false
+        enabled: true
+        commands: ["save"]
+
+    # =============================================================================
+    # Date/time schedules (one-time)
+    # =============================================================================
+    - name: schedule_at_datetime_new_year
+      rtx: "schedule at 1 2025/01/01 0:00 restart"
+      terraform:
+        id: 1
+        date: "2025/01/01"
+        at_time: "0:00"
+        recurring: false
+        enabled: true
+        commands: ["restart"]
+
+    - name: schedule_at_datetime_year_end
+      rtx: "schedule at 2 2024/12/31 23:59 save"
+      terraform:
+        id: 2
+        date: "2024/12/31"
+        at_time: "23:59"
+        recurring: false
+        enabled: true
+        commands: ["save"]
+
+    - name: schedule_at_datetime_maintenance
+      rtx: "schedule at 10 2025/06/15 3:00 cold start"
+      terraform:
+        id: 10
+        date: "2025/06/15"
+        at_time: "3:00"
+        recurring: false
+        enabled: true
+        commands: ["cold start"]
+
+    # =============================================================================
+    # PP schedules (weekday-based connection control)
+    # =============================================================================
+    - name: schedule_pp_weekday_connect
+      rtx: "schedule pp 1 mon-fri 8:00 connect"
+      terraform:
+        id: -1
+        day_of_week: "mon-fri"
+        at_time: "8:00"
+        recurring: true
+        enabled: true
+        commands: ["connect"]
+
+    - name: schedule_pp_weekday_disconnect
+      rtx: "schedule pp 1 mon-fri 18:00 disconnect"
+      terraform:
+        id: -1
+        day_of_week: "mon-fri"
+        at_time: "18:00"
+        recurring: true
+        enabled: true
+        commands: ["disconnect"]
+
+    - name: schedule_pp_weekend_connect
+      rtx: "schedule pp 2 sat,sun 9:00 connect"
+      terraform:
+        id: -2
+        day_of_week: "sat,sun"
+        at_time: "9:00"
+        recurring: true
+        enabled: true
+        commands: ["connect"]
+
+    - name: schedule_pp_single_day
+      rtx: "schedule pp 1 mon 7:00 connect"
+      terraform:
+        id: -1
+        day_of_week: "mon"
+        at_time: "7:00"
+        recurring: true
+        enabled: true
+        commands: ["connect"]
+
+    - name: schedule_pp_multi_day
+      rtx: "schedule pp 3 mon,wed,fri 12:00 connect"
+      terraform:
+        id: -3
+        day_of_week: "mon,wed,fri"
+        at_time: "12:00"
+        recurring: true
+        enabled: true
+        commands: ["connect"]
+
+    # =============================================================================
+    # Delete schedules (build_only)
+    # =============================================================================
+    - name: delete_schedule_1
+      rtx: "no schedule at 1"
+      terraform:
+        id: 1
+      build_only: true
+
+    - name: delete_schedule_100
+      rtx: "no schedule at 100"
+      terraform:
+        id: 100
+      build_only: true
+
+    - name: delete_schedule_pp_weekday
+      rtx: "no schedule pp 1 mon-fri 8:00"
+      terraform:
+        pp_num: 1
+        day_of_week: "mon-fri"
+        at_time: "8:00"
+      build_only: true
+
+    - name: delete_schedule_pp_weekend
+      rtx: "no schedule pp 2 sat,sun 9:00"
+      terraform:
+        pp_num: 2
+        day_of_week: "sat,sun"
+        at_time: "9:00"
+      build_only: true
+
+    # =============================================================================
+    # Multiline Configuration Parse Test
+    # =============================================================================
+    - name: multiple_schedules
+      rtx: |
+        schedule at 1 12:00 save
+        schedule at 2 startup connect pp 1
+        schedule at 3 2025/01/01 0:00 restart
+        schedule pp 1 mon-fri 8:00 connect
+        schedule pp 1 mon-fri 18:00 disconnect
+      terraform:
+        - id: 1
+          at_time: "12:00"
+          recurring: true
+          enabled: true
+          commands: ["save"]
+        - id: 2
+          on_startup: true
+          recurring: false
+          enabled: true
+          commands: ["connect pp 1"]
+        - id: 3
+          date: "2025/01/01"
+          at_time: "0:00"
+          recurring: false
+          enabled: true
+          commands: ["restart"]
+        - id: -1
+          day_of_week: "mon-fri"
+          at_time: "8:00"
+          recurring: true
+          enabled: true
+          commands: ["connect"]
+        - id: -1
+          day_of_week: "mon-fri"
+          at_time: "18:00"
+          recurring: true
+          enabled: true
+          commands: ["disconnect"]
+      parse_only: true
+
+  # =============================================================================
+  # Boundary Value Tests
+  # =============================================================================
+  boundary_tests:
+    id:
+      - value: 1
+        valid: true
+        description: "最小値"
+      - value: 100
+        valid: true
+        description: "一般的な値"
+      - value: 1000
+        valid: true
+        description: "大きい値"
+      - value: 65535
+        valid: true
+        description: "最大値"
+      - value: 0
+        valid: false
+        error_contains: "must be between 1 and 65535"
+      - value: 65536
+        valid: false
+        error_contains: "must be between 1 and 65535"
+      - value: -1
+        valid: false
+        error_contains: "must be between 1 and 65535"
+
+    hour:
+      - value: 0
+        valid: true
+        description: "最小値（0時）"
+      - value: 12
+        valid: true
+        description: "正午"
+      - value: 23
+        valid: true
+        description: "最大値（23時）"
+      - value: 24
+        valid: false
+        error_contains: "must be 0-23"
+      - value: -1
+        valid: false
+        error_contains: "invalid"
+
+    minute:
+      - value: 0
+        valid: true
+        description: "最小値（0分）"
+      - value: 30
+        valid: true
+        description: "中間値"
+      - value: 59
+        valid: true
+        description: "最大値（59分）"
+      - value: 60
+        valid: false
+        error_contains: "must be 0-59"
+
+    year:
+      - value: 2000
+        valid: true
+        description: "最小年"
+      - value: 2025
+        valid: true
+        description: "現在年付近"
+      - value: 2099
+        valid: true
+        description: "最大年"
+      - value: 1999
+        valid: false
+        error_contains: "must be 2000-2099"
+      - value: 2100
+        valid: false
+        error_contains: "must be 2000-2099"
+
+    month:
+      - value: 1
+        valid: true
+        description: "1月"
+      - value: 6
+        valid: true
+        description: "6月"
+      - value: 12
+        valid: true
+        description: "12月"
+      - value: 0
+        valid: false
+        error_contains: "must be 1-12"
+      - value: 13
+        valid: false
+        error_contains: "must be 1-12"
+
+    day:
+      - value: 1
+        valid: true
+        description: "1日"
+      - value: 15
+        valid: true
+        description: "中旬"
+      - value: 31
+        valid: true
+        description: "31日"
+      - value: 0
+        valid: false
+        error_contains: "must be 1-31"
+      - value: 32
+        valid: false
+        error_contains: "must be 1-31"
+
+    day_of_week:
+      - value: "mon"
+        valid: true
+      - value: "tue"
+        valid: true
+      - value: "wed"
+        valid: true
+      - value: "thu"
+        valid: true
+      - value: "fri"
+        valid: true
+      - value: "sat"
+        valid: true
+      - value: "sun"
+        valid: true
+      - value: "mon-fri"
+        valid: true
+        description: "範囲形式"
+      - value: "sat,sun"
+        valid: true
+        description: "カンマ区切り"
+      - value: "mon,wed,fri"
+        valid: true
+        description: "複数カンマ区切り"
+      - value: "invalid"
+        valid: false
+        error_contains: "invalid day"
+      - value: "monday"
+        valid: false
+        error_contains: "invalid day"

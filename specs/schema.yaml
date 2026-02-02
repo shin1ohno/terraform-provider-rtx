@@ -1,0 +1,167 @@
+# RTX Command Spec Schema Definition
+# This file defines the structure for command specification files.
+
+version: "1.0"
+
+# Schema description for command spec files
+schema:
+  command:
+    name:
+      type: string
+      description: "Unique identifier for the command (snake_case)"
+      required: true
+
+    description:
+      type: string
+      description: "Human-readable description (Japanese OK)"
+      required: true
+
+    reference:
+      type: string
+      description: "Reference section in command manual (e.g., '8.1.7')"
+      required: false
+
+    applicable_models:
+      type: array
+      items: string
+      description: "List of applicable router models"
+      required: false
+
+    syntax:
+      type: object
+      description: "Command syntax patterns"
+      required: true
+      properties:
+        set:
+          type: string
+          description: "Command to set/create configuration"
+        delete:
+          type: string
+          description: "Command to delete configuration (usually 'no ...')"
+
+    terraform:
+      type: object
+      description: "Mapping to Terraform resource"
+      required: true
+      properties:
+        resource_name:
+          type: string
+          description: "Terraform resource name (e.g., 'rtx_static_route')"
+        struct_name:
+          type: string
+          description: "Go struct name (e.g., 'StaticRoute')"
+        package:
+          type: string
+          description: "Go package name"
+          default: "parsers"
+
+    parameters:
+      type: object
+      description: "Parameter definitions"
+      required: true
+      additionalProperties:
+        type: object
+        properties:
+          description:
+            type: string
+          required:
+            type: boolean
+            default: false
+          type:
+            type: string
+            enum: [string, integer, boolean, flag, enum, ip_address, cidr, interface]
+          variants:
+            type: array
+            description: "Different forms this parameter can take"
+            items:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum: [keyword, pattern, ip_address, cidr, interface, integer]
+                value:
+                  type: string
+                  description: "For keyword type, the literal value"
+                pattern:
+                  type: string
+                  description: "For pattern type, the pattern with placeholders"
+                terraform_field:
+                  type: string
+                  description: "Corresponding Terraform field name"
+          range:
+            type: array
+            items: integer
+            minItems: 2
+            maxItems: 2
+            description: "[min, max] for integer types"
+          default:
+            description: "Default value if not specified"
+          boundaries:
+            type: array
+            description: "Boundary values for testing"
+          enum_values:
+            type: array
+            description: "Possible values for enum type"
+
+    # Level 1: Syntax pattern tests (exhaustive)
+    syntax_tests:
+      type: array
+      description: "Explicit test cases for each syntax pattern"
+      items:
+        type: object
+        properties:
+          name:
+            type: string
+            description: "Test case name (will become Go test function suffix)"
+          rtx:
+            type: string
+            description: "RTX command string"
+          terraform:
+            type: object
+            description: "Expected Terraform representation"
+          bidirectional:
+            type: boolean
+            default: true
+            description: "Test both Parse and Build directions"
+          parse_only:
+            type: boolean
+            default: false
+            description: "Only test parsing (RTX -> Terraform)"
+          build_only:
+            type: boolean
+            default: false
+            description: "Only test building (Terraform -> RTX)"
+
+    # Level 2: Boundary value tests
+    boundary_tests:
+      type: object
+      description: "Boundary value tests per parameter"
+      additionalProperties:
+        type: array
+        items:
+          type: object
+          properties:
+            value:
+              description: "The value to test"
+            valid:
+              type: boolean
+              description: "Whether this value should be valid"
+            error_contains:
+              type: string
+              description: "Expected error message substring for invalid cases"
+
+    # Level 3: Pairwise testing configuration
+    pairwise:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          default: false
+        parameters:
+          type: array
+          items: string
+          description: "List of parameters to include in pairwise testing"
+        strength:
+          type: integer
+          default: 2
+          description: "N-way interaction coverage (2 = pairwise, 3 = 3-wise, etc.)"

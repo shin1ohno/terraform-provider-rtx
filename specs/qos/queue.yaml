@@ -1,0 +1,497 @@
+# QoS Queue Command Specification
+# Reference: RTX Command Reference
+#
+# Covers:
+# - queue INTERFACE type TYPE: キュータイプ設定
+# - queue INTERFACE class filter N FILTER: クラスフィルタ設定
+# - queue INTERFACE class priority N PRIORITY: クラス優先度設定
+# - queue INTERFACE length N LENGTH: キュー長設定
+# - speed INTERFACE BANDWIDTH: 帯域制限設定
+
+command:
+  name: qos_queue
+  description: "QoSキュー設定"
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  syntax:
+    set_type: "queue {interface} type {queue_type}"
+    set_class_filter: "queue {interface} class filter {class_num} {filter_num}"
+    set_class_priority: "queue {interface} class priority {class_num} {priority}"
+    set_length: "queue {interface} length {class_num} {length}"
+    set_speed: "speed {interface} {bandwidth}"
+    delete_type: "no queue {interface} type"
+    delete_class_filter: "no queue {interface} class filter {class_num}"
+    delete_class_priority: "no queue {interface} class priority {class_num}"
+    delete_length: "no queue {interface} length {class_num}"
+    delete_speed: "no speed {interface}"
+
+  terraform:
+    resource_name: rtx_qos_config
+    struct_name: QoSConfig
+    package: parsers
+
+  parameters:
+    interface:
+      description: "インタフェース名"
+      required: true
+      type: interface
+      examples: ["lan1", "lan2", "lan3", "wan1", "pp 1", "tunnel 1"]
+
+    queue_type:
+      description: "キュータイプ"
+      required: false
+      type: enum
+      enum_values:
+        - value: "priority"
+          description: "優先度ベースキューイング"
+        - value: "cbq"
+          description: "クラスベースキューイング"
+        - value: "fifo"
+          description: "先入れ先出しキューイング"
+        - value: "shaping"
+          description: "トラフィックシェーピング"
+
+    class_num:
+      description: "クラス番号"
+      required: false
+      type: integer
+      range: [1, 16]
+
+    filter_num:
+      description: "IPフィルタ番号"
+      required: false
+      type: integer
+      range: [1, 21474836]
+
+    priority:
+      description: "優先度"
+      required: false
+      type: enum
+      enum_values:
+        - value: "high"
+          description: "高優先度"
+        - value: "normal"
+          description: "通常優先度"
+        - value: "low"
+          description: "低優先度"
+
+    length:
+      description: "キュー長"
+      required: false
+      type: integer
+      range: [1, 65535]
+
+    bandwidth:
+      description: "帯域（bps）"
+      required: false
+      type: integer
+      range: [1, 10000000000]
+
+  syntax_tests:
+    # =============================================================================
+    # Queue Type Commands
+    # =============================================================================
+    - name: queue_type_priority_lan1
+      rtx: "queue lan1 type priority"
+      terraform:
+        interface: "lan1"
+        queue_type: "priority"
+
+    - name: queue_type_cbq_lan1
+      rtx: "queue lan1 type cbq"
+      terraform:
+        interface: "lan1"
+        queue_type: "cbq"
+
+    - name: queue_type_fifo_lan2
+      rtx: "queue lan2 type fifo"
+      terraform:
+        interface: "lan2"
+        queue_type: "fifo"
+
+    - name: queue_type_shaping_wan1
+      rtx: "queue wan1 type shaping"
+      terraform:
+        interface: "wan1"
+        queue_type: "shaping"
+
+    - name: queue_type_priority_lan3
+      rtx: "queue lan3 type priority"
+      terraform:
+        interface: "lan3"
+        queue_type: "priority"
+
+    # =============================================================================
+    # Queue Class Filter Commands
+    # =============================================================================
+    - name: queue_class_filter_1
+      rtx: "queue lan1 class filter 1 100"
+      terraform:
+        interface: "lan1"
+        classes:
+          - name: "class1"
+            filter: 100
+
+    - name: queue_class_filter_2
+      rtx: "queue lan1 class filter 2 200"
+      terraform:
+        interface: "lan1"
+        classes:
+          - name: "class2"
+            filter: 200
+
+    - name: queue_class_filter_min
+      rtx: "queue lan1 class filter 1 1"
+      terraform:
+        interface: "lan1"
+        classes:
+          - name: "class1"
+            filter: 1
+
+    - name: queue_class_filter_large
+      rtx: "queue lan2 class filter 16 10000"
+      terraform:
+        interface: "lan2"
+        classes:
+          - name: "class16"
+            filter: 10000
+
+    # =============================================================================
+    # Queue Class Priority Commands
+    # =============================================================================
+    - name: queue_class_priority_high
+      rtx: "queue lan1 class priority 1 high"
+      terraform:
+        interface: "lan1"
+        classes:
+          - name: "class1"
+            priority: "high"
+
+    - name: queue_class_priority_normal
+      rtx: "queue lan1 class priority 2 normal"
+      terraform:
+        interface: "lan1"
+        classes:
+          - name: "class2"
+            priority: "normal"
+
+    - name: queue_class_priority_low
+      rtx: "queue lan1 class priority 3 low"
+      terraform:
+        interface: "lan1"
+        classes:
+          - name: "class3"
+            priority: "low"
+
+    - name: queue_class_priority_lan2_high
+      rtx: "queue lan2 class priority 1 high"
+      terraform:
+        interface: "lan2"
+        classes:
+          - name: "class1"
+            priority: "high"
+
+    # =============================================================================
+    # Queue Length Commands
+    # =============================================================================
+    - name: queue_length_100
+      rtx: "queue lan1 length 1 100"
+      terraform:
+        interface: "lan1"
+        classes:
+          - name: "class1"
+            queue_limit: 100
+
+    - name: queue_length_1000
+      rtx: "queue lan1 length 2 1000"
+      terraform:
+        interface: "lan1"
+        classes:
+          - name: "class2"
+            queue_limit: 1000
+
+    - name: queue_length_min
+      rtx: "queue lan1 length 1 1"
+      terraform:
+        interface: "lan1"
+        classes:
+          - name: "class1"
+            queue_limit: 1
+
+    - name: queue_length_large
+      rtx: "queue lan2 length 16 10000"
+      terraform:
+        interface: "lan2"
+        classes:
+          - name: "class16"
+            queue_limit: 10000
+
+    # =============================================================================
+    # Speed (Traffic Shaping) Commands
+    # =============================================================================
+    - name: speed_10m
+      rtx: "speed lan1 10000000"
+      terraform:
+        interface: "lan1"
+        speed: 10000000
+
+    - name: speed_100m
+      rtx: "speed lan1 100000000"
+      terraform:
+        interface: "lan1"
+        speed: 100000000
+
+    - name: speed_1g
+      rtx: "speed lan2 1000000000"
+      terraform:
+        interface: "lan2"
+        speed: 1000000000
+
+    - name: speed_50m
+      rtx: "speed wan1 50000000"
+      terraform:
+        interface: "wan1"
+        speed: 50000000
+
+    - name: speed_small
+      rtx: "speed lan1 1000000"
+      terraform:
+        interface: "lan1"
+        speed: 1000000
+
+    # =============================================================================
+    # Delete Commands (build_only)
+    # =============================================================================
+    - name: delete_queue_type_lan1
+      rtx: "no queue lan1 type"
+      terraform:
+        interface: "lan1"
+      build_only: true
+
+    - name: delete_queue_type_lan2
+      rtx: "no queue lan2 type"
+      terraform:
+        interface: "lan2"
+      build_only: true
+
+    - name: delete_speed_lan1
+      rtx: "no speed lan1"
+      terraform:
+        interface: "lan1"
+      build_only: true
+
+    - name: delete_speed_wan1
+      rtx: "no speed wan1"
+      terraform:
+        interface: "wan1"
+      build_only: true
+
+    - name: delete_queue_class_filter_1
+      rtx: "no queue lan1 class filter 1"
+      terraform:
+        interface: "lan1"
+        class_num: 1
+      build_only: true
+
+    - name: delete_queue_class_priority_1
+      rtx: "no queue lan1 class priority 1"
+      terraform:
+        interface: "lan1"
+        class_num: 1
+      build_only: true
+
+    - name: delete_queue_length_1
+      rtx: "no queue lan1 length 1"
+      terraform:
+        interface: "lan1"
+        class_num: 1
+      build_only: true
+
+    # =============================================================================
+    # Combined Configuration Parse Test
+    # =============================================================================
+    - name: full_qos_config
+      rtx: |
+        queue lan1 type priority
+        queue lan1 class filter 1 100
+        queue lan1 class filter 2 200
+        queue lan1 class priority 1 high
+        queue lan1 class priority 2 normal
+        queue lan1 length 1 500
+        queue lan1 length 2 1000
+        speed lan1 100000000
+      terraform:
+        interface: "lan1"
+        queue_type: "priority"
+        classes:
+          - name: "class1"
+            filter: 100
+            priority: "high"
+            queue_limit: 500
+          - name: "class2"
+            filter: 200
+            priority: "normal"
+            queue_limit: 1000
+        speed: 100000000
+      parse_only: true
+
+  # =============================================================================
+  # Boundary Value Tests
+  # =============================================================================
+  boundary_tests:
+    class_num:
+      - value: 1
+        valid: true
+        description: "最小値"
+      - value: 8
+        valid: true
+        description: "中間値"
+      - value: 16
+        valid: true
+        description: "最大値"
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+      - value: 17
+        valid: false
+        error_contains: "must be 1-16"
+
+    filter_num:
+      - value: 1
+        valid: true
+        description: "最小値"
+      - value: 100
+        valid: true
+        description: "一般的な値"
+      - value: 10000
+        valid: true
+        description: "大きい値"
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+
+    priority:
+      - value: "high"
+        valid: true
+      - value: "normal"
+        valid: true
+      - value: "low"
+        valid: true
+      - value: "medium"
+        valid: false
+        error_contains: "must be one of: high, normal, low"
+      - value: "invalid"
+        valid: false
+        error_contains: "must be one of: high, normal, low"
+
+    queue_type:
+      - value: "priority"
+        valid: true
+      - value: "cbq"
+        valid: true
+      - value: "fifo"
+        valid: true
+      - value: "shaping"
+        valid: true
+      - value: "invalid"
+        valid: false
+        error_contains: "must be one of: priority, cbq, fifo, shaping"
+
+    queue_limit:
+      - value: 1
+        valid: true
+        description: "最小値"
+      - value: 100
+        valid: true
+        description: "一般的な値"
+      - value: 10000
+        valid: true
+        description: "大きい値"
+      - value: 65535
+        valid: true
+        description: "最大値"
+      - value: 0
+        valid: false
+        error_contains: "must be non-negative"
+
+    speed:
+      - value: 1000000
+        valid: true
+        description: "1Mbps"
+      - value: 10000000
+        valid: true
+        description: "10Mbps"
+      - value: 100000000
+        valid: true
+        description: "100Mbps"
+      - value: 1000000000
+        valid: true
+        description: "1Gbps"
+      - value: 10000000000
+        valid: true
+        description: "10Gbps"
+      - value: 0
+        valid: false
+        error_contains: "must be non-negative"
+
+    bandwidth_percent:
+      - value: 1
+        valid: true
+        description: "最小値"
+      - value: 50
+        valid: true
+        description: "半分"
+      - value: 100
+        valid: true
+        description: "最大値"
+      - value: 0
+        valid: false
+        error_contains: "must be between 0 and 100"
+      - value: 101
+        valid: false
+        error_contains: "must be between 0 and 100"
+
+  # =============================================================================
+  # Pairwise Testing
+  # =============================================================================
+  pairwise:
+    enabled: true
+    parameters:
+      - interface
+      - queue_type
+      - class_num
+      - priority
+
+    parameter_values:
+      interface:
+        - lan1
+        - lan2
+        - wan1
+      queue_type:
+        - priority
+        - cbq
+        - fifo
+        - shaping
+      class_num:
+        - 1
+        - 8
+        - 16
+      priority:
+        - high
+        - normal
+        - low
+
+    constraints:
+      # CBQ requires bandwidth percent, not just priority
+      - condition: "queue_type == cbq"
+        note: "CBQ uses bandwidth allocation instead of simple priority"

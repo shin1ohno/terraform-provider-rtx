@@ -1,0 +1,331 @@
+# System Configuration Command Specification
+# Reference: RTX Command Reference
+#
+# Covers:
+# - timezone: タイムゾーン設定
+# - console character/lines/prompt: コンソール設定
+# - system packet-buffer: パケットバッファ設定
+# - statistics traffic/nat: 統計設定
+
+command:
+  name: system_config
+  description: "システム設定"
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  terraform:
+    resource_name: rtx_system_config
+    struct_name: SystemConfig
+    package: parsers
+
+  syntax_tests:
+    # =============================================================================
+    # Timezone Command
+    # =============================================================================
+    - name: timezone_jst
+      rtx: "timezone +09:00"
+      terraform:
+        timezone: "+09:00"
+
+    - name: timezone_utc
+      rtx: "timezone +00:00"
+      terraform:
+        timezone: "+00:00"
+
+    - name: timezone_negative
+      rtx: "timezone -05:00"
+      terraform:
+        timezone: "-05:00"
+
+    - name: timezone_negative_large
+      rtx: "timezone -12:00"
+      terraform:
+        timezone: "-12:00"
+
+    - name: timezone_positive_large
+      rtx: "timezone +14:00"
+      terraform:
+        timezone: "+14:00"
+
+    # =============================================================================
+    # Console Character Command
+    # =============================================================================
+    - name: console_character_utf8
+      rtx: "console character ja.utf8"
+      terraform:
+        console:
+          character: "ja.utf8"
+
+    - name: console_character_sjis
+      rtx: "console character ja.sjis"
+      terraform:
+        console:
+          character: "ja.sjis"
+
+    - name: console_character_ascii
+      rtx: "console character ascii"
+      terraform:
+        console:
+          character: "ascii"
+
+    - name: console_character_eucjp
+      rtx: "console character euc-jp"
+      terraform:
+        console:
+          character: "euc-jp"
+
+    # =============================================================================
+    # Console Lines Command
+    # =============================================================================
+    - name: console_lines_24
+      rtx: "console lines 24"
+      terraform:
+        console:
+          lines: "24"
+
+    - name: console_lines_50
+      rtx: "console lines 50"
+      terraform:
+        console:
+          lines: "50"
+
+    - name: console_lines_100
+      rtx: "console lines 100"
+      terraform:
+        console:
+          lines: "100"
+
+    - name: console_lines_infinity
+      rtx: "console lines infinity"
+      terraform:
+        console:
+          lines: "infinity"
+
+    # =============================================================================
+    # Console Prompt Command
+    # =============================================================================
+    - name: console_prompt_simple
+      rtx: "console prompt router"
+      terraform:
+        console:
+          prompt: "router"
+
+    - name: console_prompt_with_spaces
+      rtx: 'console prompt "RTX Router"'
+      terraform:
+        console:
+          prompt: "RTX Router"
+
+    - name: console_prompt_hostname
+      rtx: "console prompt rtx1300"
+      terraform:
+        console:
+          prompt: "rtx1300"
+
+    # =============================================================================
+    # System Packet Buffer Command
+    # =============================================================================
+    - name: packet_buffer_small
+      rtx: "system packet-buffer small max-buffer=5000 max-free=1300"
+      terraform:
+        packet_buffers:
+          - size: "small"
+            max_buffer: 5000
+            max_free: 1300
+
+    - name: packet_buffer_middle
+      rtx: "system packet-buffer middle max-buffer=3000 max-free=800"
+      terraform:
+        packet_buffers:
+          - size: "middle"
+            max_buffer: 3000
+            max_free: 800
+
+    - name: packet_buffer_large
+      rtx: "system packet-buffer large max-buffer=1000 max-free=200"
+      terraform:
+        packet_buffers:
+          - size: "large"
+            max_buffer: 1000
+            max_free: 200
+
+    - name: packet_buffer_small_large_values
+      rtx: "system packet-buffer small max-buffer=10000 max-free=5000"
+      terraform:
+        packet_buffers:
+          - size: "small"
+            max_buffer: 10000
+            max_free: 5000
+
+    # =============================================================================
+    # Statistics Commands
+    # =============================================================================
+    - name: statistics_traffic_on
+      rtx: "statistics traffic on"
+      terraform:
+        statistics:
+          traffic: true
+
+    - name: statistics_traffic_off
+      rtx: "statistics traffic off"
+      terraform:
+        statistics:
+          traffic: false
+
+    - name: statistics_nat_on
+      rtx: "statistics nat on"
+      terraform:
+        statistics:
+          nat: true
+
+    - name: statistics_nat_off
+      rtx: "statistics nat off"
+      terraform:
+        statistics:
+          nat: false
+
+    # =============================================================================
+    # Delete Commands (build_only)
+    # =============================================================================
+    - name: delete_timezone
+      rtx: "no timezone"
+      terraform: {}
+      build_only: true
+
+    - name: delete_console_character
+      rtx: "no console character"
+      terraform: {}
+      build_only: true
+
+    - name: delete_console_lines
+      rtx: "no console lines"
+      terraform: {}
+      build_only: true
+
+    - name: delete_console_prompt
+      rtx: "no console prompt"
+      terraform: {}
+      build_only: true
+
+    - name: delete_packet_buffer_small
+      rtx: "no system packet-buffer small"
+      terraform:
+        size: "small"
+      build_only: true
+
+    - name: delete_statistics_traffic
+      rtx: "no statistics traffic"
+      terraform: {}
+      build_only: true
+
+    - name: delete_statistics_nat
+      rtx: "no statistics nat"
+      terraform: {}
+      build_only: true
+
+    # =============================================================================
+    # Multiline Configuration Parse Test
+    # =============================================================================
+    - name: full_system_config
+      rtx: |
+        timezone +09:00
+        console character ja.utf8
+        console lines 50
+        console prompt "RTX Router"
+        system packet-buffer small max-buffer=5000 max-free=1300
+        system packet-buffer middle max-buffer=3000 max-free=800
+        statistics traffic on
+        statistics nat on
+      terraform:
+        timezone: "+09:00"
+        console:
+          character: "ja.utf8"
+          lines: "50"
+          prompt: "RTX Router"
+        packet_buffers:
+          - size: "small"
+            max_buffer: 5000
+            max_free: 1300
+          - size: "middle"
+            max_buffer: 3000
+            max_free: 800
+        statistics:
+          traffic: true
+          nat: true
+      parse_only: true
+
+  # =============================================================================
+  # Boundary Value Tests
+  # =============================================================================
+  boundary_tests:
+    console_lines:
+      - value: 1
+        valid: true
+        description: "最小値"
+      - value: 24
+        valid: true
+        description: "標準値"
+      - value: 65535
+        valid: true
+        description: "大きい値"
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+
+    max_buffer:
+      - value: 1
+        valid: true
+        description: "最小値"
+      - value: 5000
+        valid: true
+        description: "標準値"
+      - value: 65535
+        valid: true
+        description: "大きい値"
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+
+    max_free:
+      - value: 1
+        valid: true
+        description: "最小値"
+      - value: 1300
+        valid: true
+        description: "標準値"
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+
+    character_encoding:
+      - value: "ja.utf8"
+        valid: true
+      - value: "ja.sjis"
+        valid: true
+      - value: "ascii"
+        valid: true
+      - value: "euc-jp"
+        valid: true
+      - value: "invalid"
+        valid: false
+        error_contains: "invalid character encoding"
+
+    packet_buffer_size:
+      - value: "small"
+        valid: true
+      - value: "middle"
+        valid: true
+      - value: "large"
+        valid: true
+      - value: "xlarge"
+        valid: false
+        error_contains: "invalid packet buffer size"

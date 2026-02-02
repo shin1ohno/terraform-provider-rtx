@@ -16,12 +16,16 @@ type StaticRoute struct {
 
 // NextHop represents a next hop configuration for a static route
 type NextHop struct {
-	NextHop   string `json:"next_hop,omitempty"`  // Gateway IP address
-	Interface string `json:"interface,omitempty"` // Interface (pp 1, tunnel 1, etc.)
-	Distance  int    `json:"distance"`            // Administrative distance (weight)
-	Name      string `json:"name,omitempty"`      // Route description
-	Permanent bool   `json:"permanent"`           // Keep route when interface down
-	Filter    int    `json:"filter,omitempty"`    // IP filter number (RTX-specific)
+	NextHop     string `json:"next_hop,omitempty"`     // Gateway IP address
+	Interface   string `json:"interface,omitempty"`    // Interface (pp 1, tunnel 1, etc.)
+	Distance    int    `json:"distance"`               // Administrative distance (weight)
+	Name        string `json:"name,omitempty"`         // Route description
+	Permanent   bool   `json:"permanent"`              // Keep route when interface down
+	Filter      int    `json:"filter,omitempty"`       // IP filter number (RTX-specific)
+	Hide        bool   `json:"hide,omitempty"`         // Route only active when interface is connected
+	Metric      int    `json:"metric,omitempty"`       // RIP metric value (1-15)
+	DPIFilter   int    `json:"dpi_filter,omitempty"`   // DPI filter number (model-specific: RTX1300, RTX840, RTX830)
+	KeepaliveID int    `json:"keepalive_id,omitempty"` // Keepalive monitoring ID for route reachability
 }
 
 // StaticRouteParser parses static route configuration output
@@ -253,12 +257,45 @@ func parseGatewayPart(gatewayPart string) NextHop {
 			} else {
 				i++
 			}
+		case "metric":
+			if i+1 < len(tokens) {
+				metric, err := strconv.Atoi(tokens[i+1])
+				if err == nil {
+					hop.Metric = metric
+				}
+				i += 2
+			} else {
+				i++
+			}
+		case "dpi":
+			if i+1 < len(tokens) {
+				dpi, err := strconv.Atoi(tokens[i+1])
+				if err == nil {
+					hop.DPIFilter = dpi
+				}
+				i += 2
+			} else {
+				i++
+			}
 		case "hide":
-			hop.Permanent = false
+			hop.Hide = true
 			i++
 		case "keepalive":
-			hop.Permanent = true
-			i++
+			// keepalive can be a keyword only or with an ID
+			if i+1 < len(tokens) {
+				// Check if next token is a number (keepalive ID)
+				if id, err := strconv.Atoi(tokens[i+1]); err == nil {
+					hop.KeepaliveID = id
+					i += 2
+				} else {
+					// keepalive as keyword only (legacy support)
+					hop.Permanent = true
+					i++
+				}
+			} else {
+				hop.Permanent = true
+				i++
+			}
 		case "name":
 			// Collect name until next keyword or end
 			if i+1 < len(tokens) {
@@ -282,7 +319,7 @@ func parseGatewayPart(gatewayPart string) NextHop {
 
 // isKeyword checks if a token is a known parameter keyword
 func isKeyword(token string) bool {
-	keywords := []string{"weight", "filter", "hide", "keepalive", "name"}
+	keywords := []string{"weight", "filter", "hide", "keepalive", "name", "metric", "dpi"}
 	for _, kw := range keywords {
 		if token == kw {
 			return true
@@ -338,8 +375,22 @@ func BuildIPRouteCommand(route StaticRoute, hop NextHop) string {
 		cmd.WriteString(fmt.Sprintf(" filter %d", hop.Filter))
 	}
 
-	if hop.Permanent {
+	if hop.Metric > 0 {
+		cmd.WriteString(fmt.Sprintf(" metric %d", hop.Metric))
+	}
+
+	if hop.DPIFilter > 0 {
+		cmd.WriteString(fmt.Sprintf(" dpi %d", hop.DPIFilter))
+	}
+
+	if hop.KeepaliveID > 0 {
+		cmd.WriteString(fmt.Sprintf(" keepalive %d", hop.KeepaliveID))
+	} else if hop.Permanent {
 		cmd.WriteString(" keepalive")
+	}
+
+	if hop.Hide {
+		cmd.WriteString(" hide")
 	}
 
 	// Note: name parameter is typically not supported in standard ip route command
@@ -383,8 +434,22 @@ func BuildIPRouteCommandMultiHop(route StaticRoute) string {
 			cmd.WriteString(fmt.Sprintf(" filter %d", hop.Filter))
 		}
 
-		if hop.Permanent {
+		if hop.Metric > 0 {
+			cmd.WriteString(fmt.Sprintf(" metric %d", hop.Metric))
+		}
+
+		if hop.DPIFilter > 0 {
+			cmd.WriteString(fmt.Sprintf(" dpi %d", hop.DPIFilter))
+		}
+
+		if hop.KeepaliveID > 0 {
+			cmd.WriteString(fmt.Sprintf(" keepalive %d", hop.KeepaliveID))
+		} else if hop.Permanent {
 			cmd.WriteString(" keepalive")
+		}
+
+		if hop.Hide {
+			cmd.WriteString(" hide")
 		}
 	}
 
@@ -502,6 +567,22 @@ func validateNextHop(hop NextHop) error {
 	// Validate filter number
 	if hop.Filter < 0 {
 		return fmt.Errorf("filter must be non-negative")
+	}
+
+	// Validate metric range (RIP metric: 1-15)
+	if hop.Metric < 0 || hop.Metric > 15 {
+		return fmt.Errorf("metric must be between 0 and 15")
+	}
+
+	// Validate DPI filter number (model-specific: RTX1300, RTX840, RTX830)
+	if hop.DPIFilter < 0 {
+		return fmt.Errorf("dpi_filter must be non-negative")
+	}
+
+	// Validate keepalive ID range (model-dependent: 1-100 to 1-6000)
+	// We use a generous range here; model-specific validation should be done at service layer
+	if hop.KeepaliveID < 0 || hop.KeepaliveID > 6000 {
+		return fmt.Errorf("keepalive_id must be between 0 and 6000")
 	}
 
 	return nil

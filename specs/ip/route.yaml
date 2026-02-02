@@ -1,0 +1,903 @@
+# IP Route Command Specification
+# Reference: RTX Command Reference 8.1.7
+#
+# Design decisions:
+# - Q1: 未実装フィールド(hide, metric, dpi, keepalive_id)は追加実装する → テストがRedから始まる
+# - Q2: "no ip route" はビルドのみ（パース不要）
+# - Q3: エラーメッセージは部分一致で検証
+# - Q4: マルチライン形式と1行形式の両方をテスト
+# - Q5: モデル別制約を含める（複数モデルサポート必須）
+
+command:
+  name: ip_route
+  description: "IP の静的経路情報の設定"
+  reference: "8.1.7"
+
+  applicable_models:
+    - vRX
+    - RTX5000
+    - RTX3510
+    - RTX3500
+    - RTX1300
+    - RTX1220
+    - RTX1210
+    - RTX840
+    - RTX830
+
+  syntax:
+    set: "ip route {network} gateway {gateway} [{parameters}]"
+    delete: "no ip route {network} [gateway {gateway}]"
+
+  terraform:
+    resource_name: rtx_static_route
+    struct_name: StaticRoute
+    package: parsers
+
+    # 既存構造体に追加が必要なフィールド
+    struct_additions:
+      NextHop:
+        - name: Hide
+          type: bool
+          json_tag: "hide,omitempty"
+          description: "接続時のみ経路有効"
+        - name: Metric
+          type: int
+          json_tag: "metric,omitempty"
+          description: "メトリック値"
+        - name: DPIFilter
+          type: int
+          json_tag: "dpi_filter,omitempty"
+          description: "DPIフィルタ番号"
+        - name: KeepaliveID
+          type: int
+          json_tag: "keepalive_id,omitempty"
+          description: "キープアライブID"
+
+  parameters:
+    network:
+      description: "宛先ネットワーク"
+      required: true
+      variants:
+        - type: keyword
+          value: "default"
+          description: "デフォルト経路"
+          terraform_value:
+            prefix: "0.0.0.0"
+            mask: "0.0.0.0"
+        - type: cidr
+          pattern: "{ip_address}/{prefix_length}"
+          description: "ネットワーク/プレフィックス長"
+
+    gateway:
+      description: "ゲートウェイ"
+      required: true
+      variants:
+        - type: ip_address
+          description: "IPアドレス"
+          terraform_field: "next_hop"
+        - type: pattern
+          pattern: "pp {peer_num}"
+          description: "PPインタフェース"
+          terraform_field: "interface"
+        - type: pattern
+          pattern: "pp anonymous name={name}"
+          description: "PP匿名（PAP/CHAP名指定）"
+          terraform_field: "interface"
+        - type: pattern
+          pattern: "tunnel {tunnel_num}"
+          description: "トンネルインタフェース"
+          terraform_field: "interface"
+        - type: pattern
+          pattern: "dhcp {interface}"
+          description: "DHCPで取得したゲートウェイ"
+          terraform_field: "interface"
+        - type: keyword
+          value: "null"
+          description: "NULLインタフェース（ブラックホール）"
+          terraform_field: "interface"
+        - type: pattern
+          pattern: "loopback{num}"
+          description: "LOOPBACKインタフェース"
+          terraform_field: "interface"
+
+    weight:
+      description: "経路の重み（異なる経路間の比率）"
+      required: false
+      type: integer
+      range: [0, 2147483647]
+      default: 1
+      terraform_field: "distance"
+      boundaries: [0, 1, 100, 2147483647]
+
+    filter:
+      description: "フィルタ型経路の指定"
+      required: false
+      type: integer
+      range: [1, 21474836]
+      terraform_field: "filter"
+      boundaries: [1, 100, 1000, 21474836]
+
+    metric:
+      description: "メトリック値"
+      required: false
+      type: integer
+      range: [1, 15]
+      default: 1
+      terraform_field: "metric"
+      boundaries: [1, 8, 15]
+
+    hide:
+      description: "接続時のみ経路有効（PP/トンネル/LANインタフェースで有効）"
+      required: false
+      type: flag
+      terraform_field: "hide"
+
+    keepalive:
+      description: "キープアライブID（到達性確認時のみ有効）"
+      required: false
+      type: integer
+      terraform_field: "keepalive_id"
+      # モデル別の制約
+      model_constraints:
+        RTX840: { range: [1, 100] }
+        RTX830: { range: [1, 100] }
+        RTX1300: { range: [1, 100] }
+        RTX1220: { range: [1, 100] }
+        RTX1210: { range: [1, 100] }
+        RTX3500: { range: [1, 1000] }
+        RTX5000: { range: [1, 3000] }
+        RTX3510: { range: [1, 3000] }
+        vRX_compact: { range: [1, 1000] }
+        vRX_normal: { range: [1, 6000] }
+      boundaries_per_model:
+        RTX840: [1, 50, 100]
+        RTX830: [1, 50, 100]
+        RTX3500: [1, 500, 1000]
+        RTX5000: [1, 1500, 3000]
+        RTX3510: [1, 1500, 3000]
+        vRX_normal: [1, 3000, 6000]
+
+    dpi:
+      description: "DPIフィルタ型経路の指定"
+      required: false
+      type: integer
+      range: [1, 2147483647]
+      terraform_field: "dpi_filter"
+      boundaries: [1, 100, 2147483647]
+      # モデル別の利用可否
+      available_models:
+        - RTX1300
+        - RTX840
+        - RTX830  # Rev.15.02.13以降のみ
+      unavailable_models:
+        - vRX
+        - RTX5000
+        - RTX3510
+        - RTX3500
+        - RTX1220
+        - RTX1210
+
+    peer_num:
+      description: "PP相手先情報番号"
+      required: false  # gatewayがpp形式の場合のみ必要
+      type: integer
+      model_constraints:
+        RTX840: { range: [1, 30] }
+        RTX830: { range: [1, 30] }
+        RTX1300: { range: [1, 100] }
+        RTX1220: { range: [1, 100] }
+        RTX1210: { range: [1, 100] }
+        RTX5000: { range: [1, 150] }
+        RTX3510: { range: [1, 150] }
+        RTX3500: { range: [1, 150] }
+        vRX: { range: [1, 150] }
+      boundaries_per_model:
+        RTX840: [1, 15, 30]
+        RTX830: [1, 15, 30]
+        RTX1300: [1, 50, 100]
+        RTX5000: [1, 75, 150]
+
+    tunnel_num:
+      description: "トンネルインタフェース番号"
+      required: false  # gatewayがtunnel形式の場合のみ必要
+      type: integer
+      # ベース値（ライセンスなし）
+      base_range: [1, 20]
+      # 拡張ライセンスによる上限拡張
+      license_extensions:
+        YSL-VPN-EX1:
+          "1": 100
+        YSL-VPN-EX2:
+          "1": 300
+          "2": 500
+          "3": 700
+          "4": 900
+          "5": 1100
+        YSL-VPN-EX3:
+          "1": 1500
+          "2": 2000
+          "3": 2500
+          "4": 3000
+      boundaries: [1, 10, 20]
+      boundaries_with_license:
+        YSL-VPN-EX1: [1, 50, 100]
+        YSL-VPN-EX2_5: [1, 550, 1100]
+
+  # =============================================================================
+  # Level 1: Syntax Pattern Tests (構文パターン網羅)
+  # =============================================================================
+  syntax_tests:
+    # --- Default route patterns ---
+    - name: default_route_ip_gateway
+      rtx: "ip route default gateway 192.168.0.1"
+      terraform:
+        prefix: "0.0.0.0"
+        mask: "0.0.0.0"
+        next_hops:
+          - next_hop: "192.168.0.1"
+            distance: 1
+
+    - name: default_route_pp
+      rtx: "ip route default gateway pp 1"
+      terraform:
+        prefix: "0.0.0.0"
+        mask: "0.0.0.0"
+        next_hops:
+          - interface: "pp 1"
+            distance: 1
+
+    - name: default_route_tunnel
+      rtx: "ip route default gateway tunnel 1"
+      terraform:
+        prefix: "0.0.0.0"
+        mask: "0.0.0.0"
+        next_hops:
+          - interface: "tunnel 1"
+            distance: 1
+
+    - name: default_route_dhcp_lan
+      rtx: "ip route default gateway dhcp lan1"
+      terraform:
+        prefix: "0.0.0.0"
+        mask: "0.0.0.0"
+        next_hops:
+          - interface: "dhcp lan1"
+            distance: 1
+
+    - name: default_route_dhcp_lan2
+      rtx: "ip route default gateway dhcp lan2"
+      terraform:
+        prefix: "0.0.0.0"
+        mask: "0.0.0.0"
+        next_hops:
+          - interface: "dhcp lan2"
+            distance: 1
+
+    - name: default_route_null
+      rtx: "ip route default gateway null"
+      terraform:
+        prefix: "0.0.0.0"
+        mask: "0.0.0.0"
+        next_hops:
+          - interface: "null"
+            distance: 1
+
+    # --- Network route patterns (CIDR) ---
+    - name: network_route_ip_gateway_cidr8
+      rtx: "ip route 10.0.0.0/8 gateway 192.168.1.1"
+      terraform:
+        prefix: "10.0.0.0"
+        mask: "255.0.0.0"
+        next_hops:
+          - next_hop: "192.168.1.1"
+            distance: 1
+
+    - name: network_route_ip_gateway_cidr16
+      rtx: "ip route 172.16.0.0/12 gateway 192.168.1.1"
+      terraform:
+        prefix: "172.16.0.0"
+        mask: "255.240.0.0"
+        next_hops:
+          - next_hop: "192.168.1.1"
+            distance: 1
+
+    - name: network_route_ip_gateway_cidr24
+      rtx: "ip route 192.168.100.0/24 gateway 10.0.0.1"
+      terraform:
+        prefix: "192.168.100.0"
+        mask: "255.255.255.0"
+        next_hops:
+          - next_hop: "10.0.0.1"
+            distance: 1
+
+    - name: network_route_ip_gateway_cidr32
+      rtx: "ip route 192.168.1.100/32 gateway 192.168.1.1"
+      terraform:
+        prefix: "192.168.1.100"
+        mask: "255.255.255.255"
+        next_hops:
+          - next_hop: "192.168.1.1"
+            distance: 1
+
+    - name: network_route_pp
+      rtx: "ip route 192.168.1.0/24 gateway pp 1"
+      terraform:
+        prefix: "192.168.1.0"
+        mask: "255.255.255.0"
+        next_hops:
+          - interface: "pp 1"
+            distance: 1
+
+    - name: network_route_pp_large_num
+      rtx: "ip route 192.168.1.0/24 gateway pp 100"
+      terraform:
+        prefix: "192.168.1.0"
+        mask: "255.255.255.0"
+        next_hops:
+          - interface: "pp 100"
+            distance: 1
+      model_constraints:
+        valid_for: [RTX1300, RTX1220, RTX1210, RTX5000, RTX3510, RTX3500, vRX]
+        invalid_for: [RTX840, RTX830]  # 上限30
+
+    - name: network_route_tunnel
+      rtx: "ip route 10.10.0.0/16 gateway tunnel 1"
+      terraform:
+        prefix: "10.10.0.0"
+        mask: "255.255.0.0"
+        next_hops:
+          - interface: "tunnel 1"
+            distance: 1
+
+    - name: network_route_tunnel_large_num
+      rtx: "ip route 10.10.0.0/16 gateway tunnel 100"
+      terraform:
+        prefix: "10.10.0.0"
+        mask: "255.255.0.0"
+        next_hops:
+          - interface: "tunnel 100"
+            distance: 1
+      model_constraints:
+        requires_license: YSL-VPN-EX1  # ライセンスなしでは上限20
+
+    # --- With weight parameter ---
+    - name: default_route_with_weight
+      rtx: "ip route default gateway 192.168.0.1 weight 10"
+      terraform:
+        prefix: "0.0.0.0"
+        mask: "0.0.0.0"
+        next_hops:
+          - next_hop: "192.168.0.1"
+            distance: 10
+
+    - name: default_route_with_weight_zero
+      rtx: "ip route default gateway 192.168.0.1 weight 0"
+      terraform:
+        prefix: "0.0.0.0"
+        mask: "0.0.0.0"
+        next_hops:
+          - next_hop: "192.168.0.1"
+            distance: 0
+
+    - name: network_route_pp_with_weight
+      rtx: "ip route 192.168.1.0/24 gateway pp 1 weight 2"
+      terraform:
+        prefix: "192.168.1.0"
+        mask: "255.255.255.0"
+        next_hops:
+          - interface: "pp 1"
+            distance: 2
+
+    # --- With filter parameter ---
+    - name: network_route_with_filter
+      rtx: "ip route 10.10.0.0/16 gateway 192.168.1.1 filter 100"
+      terraform:
+        prefix: "10.10.0.0"
+        mask: "255.255.0.0"
+        next_hops:
+          - next_hop: "192.168.1.1"
+            distance: 1
+            filter: 100
+
+    - name: network_route_with_filter_min
+      rtx: "ip route 10.10.0.0/16 gateway 192.168.1.1 filter 1"
+      terraform:
+        prefix: "10.10.0.0"
+        mask: "255.255.0.0"
+        next_hops:
+          - next_hop: "192.168.1.1"
+            distance: 1
+            filter: 1
+
+    # --- With hide parameter ---
+    - name: default_route_pp_with_hide
+      rtx: "ip route default gateway pp 1 hide"
+      terraform:
+        prefix: "0.0.0.0"
+        mask: "0.0.0.0"
+        next_hops:
+          - interface: "pp 1"
+            distance: 1
+            hide: true
+
+    - name: network_route_tunnel_with_hide
+      rtx: "ip route 10.0.0.0/8 gateway tunnel 1 hide"
+      terraform:
+        prefix: "10.0.0.0"
+        mask: "255.0.0.0"
+        next_hops:
+          - interface: "tunnel 1"
+            distance: 1
+            hide: true
+
+    # --- With keepalive parameter ---
+    - name: network_route_with_keepalive
+      rtx: "ip route 10.0.0.0/8 gateway 192.168.1.1 keepalive 1"
+      terraform:
+        prefix: "10.0.0.0"
+        mask: "255.0.0.0"
+        next_hops:
+          - next_hop: "192.168.1.1"
+            distance: 1
+            permanent: true
+            keepalive_id: 1
+
+    - name: network_route_with_keepalive_large
+      rtx: "ip route 10.0.0.0/8 gateway 192.168.1.1 keepalive 3000"
+      terraform:
+        prefix: "10.0.0.0"
+        mask: "255.0.0.0"
+        next_hops:
+          - next_hop: "192.168.1.1"
+            distance: 1
+            permanent: true
+            keepalive_id: 3000
+      model_constraints:
+        valid_for: [RTX5000, RTX3510, vRX_normal]
+        invalid_for: [RTX840, RTX830, RTX1300, RTX1220, RTX1210, RTX3500]
+
+    # --- With metric parameter ---
+    - name: network_route_with_metric
+      rtx: "ip route 10.0.0.0/8 gateway 192.168.1.1 metric 5"
+      terraform:
+        prefix: "10.0.0.0"
+        mask: "255.0.0.0"
+        next_hops:
+          - next_hop: "192.168.1.1"
+            distance: 1
+            metric: 5
+
+    - name: network_route_with_metric_max
+      rtx: "ip route 10.0.0.0/8 gateway 192.168.1.1 metric 15"
+      terraform:
+        prefix: "10.0.0.0"
+        mask: "255.0.0.0"
+        next_hops:
+          - next_hop: "192.168.1.1"
+            distance: 1
+            metric: 15
+
+    # --- With dpi parameter (model-specific) ---
+    - name: network_route_with_dpi
+      rtx: "ip route default gateway pp 1 dpi 1 gateway tunnel 1"
+      terraform:
+        prefix: "0.0.0.0"
+        mask: "0.0.0.0"
+        next_hops:
+          - interface: "pp 1"
+            distance: 1
+            dpi_filter: 1
+          - interface: "tunnel 1"
+            distance: 1
+      model_constraints:
+        valid_for: [RTX1300, RTX840, RTX830]
+        invalid_for: [vRX, RTX5000, RTX3510, RTX3500, RTX1220, RTX1210]
+
+    # --- Combined parameters ---
+    - name: route_with_weight_and_filter
+      rtx: "ip route 10.0.0.0/8 gateway 192.168.1.1 weight 20 filter 50"
+      terraform:
+        prefix: "10.0.0.0"
+        mask: "255.0.0.0"
+        next_hops:
+          - next_hop: "192.168.1.1"
+            distance: 20
+            filter: 50
+
+    - name: route_with_weight_and_hide
+      rtx: "ip route default gateway pp 1 weight 2 hide"
+      terraform:
+        prefix: "0.0.0.0"
+        mask: "0.0.0.0"
+        next_hops:
+          - interface: "pp 1"
+            distance: 2
+            hide: true
+
+    - name: route_with_all_options
+      rtx: "ip route 10.0.0.0/8 gateway 192.168.1.1 weight 20 filter 50 keepalive 1"
+      terraform:
+        prefix: "10.0.0.0"
+        mask: "255.0.0.0"
+        next_hops:
+          - next_hop: "192.168.1.1"
+            distance: 20
+            filter: 50
+            permanent: true
+            keepalive_id: 1
+
+    # --- Multi-gateway: Single line format (ECMP/Failover) ---
+    - name: multi_gateway_single_line_ecmp_2
+      rtx: "ip route 10.0.0.0/8 gateway 192.168.1.1 weight 1 gateway 192.168.2.1 weight 2"
+      terraform:
+        prefix: "10.0.0.0"
+        mask: "255.0.0.0"
+        next_hops:
+          - next_hop: "192.168.1.1"
+            distance: 1
+          - next_hop: "192.168.2.1"
+            distance: 2
+
+    - name: multi_gateway_single_line_ecmp_3
+      rtx: "ip route 192.168.100.0/24 gateway 10.0.0.1 weight 1 gateway 10.0.0.2 weight 2 gateway 10.0.0.3 weight 3"
+      terraform:
+        prefix: "192.168.100.0"
+        mask: "255.255.255.0"
+        next_hops:
+          - next_hop: "10.0.0.1"
+            distance: 1
+          - next_hop: "10.0.0.2"
+            distance: 2
+          - next_hop: "10.0.0.3"
+            distance: 3
+
+    - name: multi_gateway_single_line_failover_pp
+      rtx: "ip route default gateway pp 1 hide gateway pp 2 weight 0"
+      terraform:
+        prefix: "0.0.0.0"
+        mask: "0.0.0.0"
+        next_hops:
+          - interface: "pp 1"
+            distance: 1
+            hide: true
+          - interface: "pp 2"
+            distance: 0
+
+    - name: multi_gateway_single_line_pp_with_weight_hide
+      rtx: "ip route default gateway pp 1 weight 2 hide gateway pp 2 weight 1 hide"
+      terraform:
+        prefix: "0.0.0.0"
+        mask: "0.0.0.0"
+        next_hops:
+          - interface: "pp 1"
+            distance: 2
+            hide: true
+          - interface: "pp 2"
+            distance: 1
+            hide: true
+
+    - name: multi_gateway_single_line_mixed_ip_tunnel
+      rtx: "ip route 10.0.0.0/8 gateway 192.168.1.1 gateway tunnel 1"
+      terraform:
+        prefix: "10.0.0.0"
+        mask: "255.0.0.0"
+        next_hops:
+          - next_hop: "192.168.1.1"
+            distance: 1
+          - interface: "tunnel 1"
+            distance: 1
+
+    # --- Multi-gateway: Multi-line format (same destination, multiple commands) ---
+    - name: multi_gateway_multi_line_ecmp_2
+      rtx: |
+        ip route 10.0.0.0/8 gateway 192.168.1.1 weight 1
+        ip route 10.0.0.0/8 gateway 192.168.2.1 weight 2
+      terraform:
+        prefix: "10.0.0.0"
+        mask: "255.0.0.0"
+        next_hops:
+          - next_hop: "192.168.1.1"
+            distance: 1
+          - next_hop: "192.168.2.1"
+            distance: 2
+      parse_only: true  # パース時のみ（ビルドは1行形式で出力）
+
+    - name: multi_gateway_multi_line_ecmp_3
+      rtx: |
+        ip route 192.168.100.0/24 gateway 10.0.0.1 weight 1
+        ip route 192.168.100.0/24 gateway 10.0.0.2 weight 2
+        ip route 192.168.100.0/24 gateway 10.0.0.3 weight 3
+      terraform:
+        prefix: "192.168.100.0"
+        mask: "255.255.255.0"
+        next_hops:
+          - next_hop: "10.0.0.1"
+            distance: 1
+          - next_hop: "10.0.0.2"
+            distance: 2
+          - next_hop: "10.0.0.3"
+            distance: 3
+      parse_only: true
+
+    - name: multi_gateway_multi_line_failover_pp
+      rtx: |
+        ip route default gateway pp 1 hide
+        ip route default gateway pp 2 weight 0
+      terraform:
+        prefix: "0.0.0.0"
+        mask: "0.0.0.0"
+        next_hops:
+          - interface: "pp 1"
+            distance: 1
+            hide: true
+          - interface: "pp 2"
+            distance: 0
+      parse_only: true
+
+    - name: multi_gateway_multi_line_mixed_types
+      rtx: |
+        ip route 172.16.0.0/12 gateway 192.168.1.1
+        ip route 172.16.0.0/12 gateway pp 1 hide
+        ip route 172.16.0.0/12 gateway tunnel 1
+      terraform:
+        prefix: "172.16.0.0"
+        mask: "255.240.0.0"
+        next_hops:
+          - next_hop: "192.168.1.1"
+            distance: 1
+          - interface: "pp 1"
+            distance: 1
+            hide: true
+          - interface: "tunnel 1"
+            distance: 1
+      parse_only: true
+
+    # --- Delete command patterns (build_only) ---
+    - name: delete_default_route
+      rtx: "no ip route default"
+      terraform:
+        prefix: "0.0.0.0"
+        mask: "0.0.0.0"
+      build_only: true
+
+    - name: delete_network_route
+      rtx: "no ip route 10.0.0.0/8"
+      terraform:
+        prefix: "10.0.0.0"
+        mask: "255.0.0.0"
+      build_only: true
+
+    - name: delete_route_specific_gateway
+      rtx: "no ip route 10.0.0.0/8 gateway 192.168.1.1"
+      terraform:
+        prefix: "10.0.0.0"
+        mask: "255.0.0.0"
+        next_hops:
+          - next_hop: "192.168.1.1"
+      build_only: true
+
+    - name: delete_route_specific_pp
+      rtx: "no ip route 172.16.0.0/12 gateway pp 1"
+      terraform:
+        prefix: "172.16.0.0"
+        mask: "255.240.0.0"
+        next_hops:
+          - interface: "pp 1"
+      build_only: true
+
+  # =============================================================================
+  # Level 2: Boundary Value Tests (境界値テスト)
+  # =============================================================================
+  boundary_tests:
+    weight:
+      - value: 0
+        valid: true
+        description: "最小値（優先度最低）"
+      - value: 1
+        valid: true
+        description: "デフォルト値"
+      - value: 100
+        valid: true
+        description: "一般的な大きい値"
+      - value: 2147483647
+        valid: true
+        description: "最大値"
+      - value: -1
+        valid: false
+        error_contains: "must be non-negative"
+      - value: 2147483648
+        valid: false
+        error_contains: "out of range"
+
+    filter:
+      - value: 1
+        valid: true
+        description: "最小値"
+      - value: 100
+        valid: true
+        description: "一般的な値"
+      - value: 21474836
+        valid: true
+        description: "最大値"
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+      - value: 21474837
+        valid: false
+        error_contains: "out of range"
+
+    metric:
+      - value: 1
+        valid: true
+        description: "最小値（デフォルト）"
+      - value: 8
+        valid: true
+        description: "中間値"
+      - value: 15
+        valid: true
+        description: "最大値"
+      - value: 0
+        valid: false
+        error_contains: "must be between 1 and 15"
+      - value: 16
+        valid: false
+        error_contains: "must be between 1 and 15"
+
+    prefix_length:
+      - value: 0
+        valid: true
+        description: "デフォルトルート"
+      - value: 8
+        valid: true
+        description: "クラスA"
+      - value: 16
+        valid: true
+        description: "クラスB"
+      - value: 24
+        valid: true
+        description: "クラスC"
+      - value: 32
+        valid: true
+        description: "ホストルート"
+      - value: -1
+        valid: false
+        error_contains: "invalid prefix"
+      - value: 33
+        valid: false
+        error_contains: "invalid prefix"
+
+    # モデル別境界値テスト
+    keepalive:
+      # 共通（最小モデルの上限）
+      - value: 1
+        valid: true
+        description: "最小値"
+      - value: 50
+        valid: true
+        description: "中間値"
+      - value: 100
+        valid: true
+        description: "RTX840/RTX830の最大値"
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+      # モデル別
+      - value: 101
+        valid: true
+        description: "RTX3500では有効"
+        valid_for: [RTX3500, RTX5000, RTX3510, vRX_normal, vRX_compact]
+        invalid_for: [RTX840, RTX830, RTX1300, RTX1220, RTX1210]
+      - value: 1001
+        valid: true
+        description: "RTX5000/RTX3510では有効"
+        valid_for: [RTX5000, RTX3510, vRX_normal]
+        invalid_for: [RTX840, RTX830, RTX1300, RTX1220, RTX1210, RTX3500, vRX_compact]
+      - value: 3001
+        valid: true
+        description: "vRX通常モードでは有効"
+        valid_for: [vRX_normal]
+        invalid_for: [RTX840, RTX830, RTX1300, RTX1220, RTX1210, RTX3500, RTX5000, RTX3510, vRX_compact]
+
+    peer_num:
+      - value: 1
+        valid: true
+        description: "最小値"
+      - value: 30
+        valid: true
+        description: "RTX840/RTX830の最大値"
+      - value: 31
+        valid: true
+        description: "RTX1300以上では有効"
+        valid_for: [RTX1300, RTX1220, RTX1210, RTX5000, RTX3510, RTX3500, vRX]
+        invalid_for: [RTX840, RTX830]
+      - value: 100
+        valid: true
+        description: "RTX1300系の最大値"
+        valid_for: [RTX1300, RTX1220, RTX1210, RTX5000, RTX3510, RTX3500, vRX]
+        invalid_for: [RTX840, RTX830]
+      - value: 101
+        valid: true
+        description: "RTX5000/RTX3510/RTX3500では有効"
+        valid_for: [RTX5000, RTX3510, RTX3500, vRX]
+        invalid_for: [RTX840, RTX830, RTX1300, RTX1220, RTX1210]
+      - value: 150
+        valid: true
+        description: "RTX5000/RTX3510/RTX3500の最大値"
+        valid_for: [RTX5000, RTX3510, RTX3500, vRX]
+        invalid_for: [RTX840, RTX830, RTX1300, RTX1220, RTX1210]
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+
+    tunnel_num:
+      - value: 1
+        valid: true
+        description: "最小値"
+      - value: 20
+        valid: true
+        description: "ライセンスなしの最大値"
+      - value: 21
+        valid: true
+        description: "YSL-VPN-EX1ライセンスで有効"
+        requires_license: YSL-VPN-EX1
+      - value: 100
+        valid: true
+        description: "YSL-VPN-EX1の最大値"
+        requires_license: YSL-VPN-EX1
+      - value: 101
+        valid: true
+        description: "YSL-VPN-EX2ライセンスで有効"
+        requires_license: YSL-VPN-EX2
+      - value: 0
+        valid: false
+        error_contains: "must be positive"
+
+  # =============================================================================
+  # Level 3: Pairwise Testing Configuration
+  # =============================================================================
+  pairwise:
+    enabled: true
+    parameters:
+      - gateway_type
+      - weight
+      - filter
+      - hide
+      - keepalive
+      - metric
+
+    parameter_values:
+      gateway_type:
+        - ip_address
+        - pp
+        - tunnel
+        - dhcp
+        - null_interface
+      weight:
+        - null  # omitted (default 1)
+        - 0     # priority lowest
+        - 1     # default
+        - 100   # high value
+      filter:
+        - null  # omitted
+        - 1     # min
+        - 100   # typical
+      hide:
+        - false
+        - true
+      keepalive:
+        - null  # omitted
+        - 1     # min
+        - 50    # mid
+      metric:
+        - null  # omitted (default 1)
+        - 1     # min
+        - 15    # max
+
+    # Constraints for valid combinations
+    constraints:
+      # hide is only meaningful with pp, tunnel, or LAN interfaces
+      - condition: "hide == true"
+        requires: "gateway_type in [pp, tunnel]"
+      # keepalive is only valid with IP address gateway
+      - condition: "keepalive != null"
+        requires: "gateway_type == ip_address"
