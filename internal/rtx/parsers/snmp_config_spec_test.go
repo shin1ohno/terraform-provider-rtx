@@ -226,3 +226,72 @@ func TestSpecSnmpConfigBoundaryCoverage(t *testing.T) {
 		t.Logf("  - %s", param)
 	}
 }
+
+// TestSpecSnmpConfigModelCompatibility tests router model compatibility
+func TestSpecSnmpConfigModelCompatibility(t *testing.T) {
+	// All known RTX router models
+	allModels := []string{
+		"vRX",
+		"RTX5000",
+		"RTX3510",
+		"RTX3500",
+		"RTX1300",
+		"RTX1220",
+		"RTX1210",
+		"RTX840",
+		"RTX830",
+		"RTX810",
+		"NVR700W",
+		"NVR510",
+		"NVR500",
+	}
+
+	// Models that support this command according to the spec
+	supportedModels := []string{
+		"vRX",
+		"RTX5000",
+		"RTX3510",
+		"RTX3500",
+		"RTX1300",
+		"RTX1220",
+		"RTX1210",
+		"RTX840",
+		"RTX830",
+	}
+
+	// Build a map for quick lookup
+	supportedMap := make(map[string]bool)
+	for _, m := range supportedModels {
+		supportedMap[m] = true
+	}
+
+	// Find unsupported models
+	var unsupportedModels []string
+	for _, m := range allModels {
+		if !supportedMap[m] {
+			unsupportedModels = append(unsupportedModels, m)
+		}
+	}
+
+	t.Logf("Command: snmp_config")
+	t.Logf("Supported models (%d): %v", len(supportedModels), supportedModels)
+	t.Logf("Unsupported models (%d): %v", len(unsupportedModels), unsupportedModels)
+
+	// Test: Verify supported models are recognized
+	for _, model := range supportedModels {
+		t.Run("supported_"+model, func(t *testing.T) {
+			if !IsModelSupported("snmp_config", model) {
+				t.Errorf("Model %s should be supported for snmp_config", model)
+			}
+		})
+	}
+
+	// Test: Verify unsupported models are rejected
+	for _, model := range unsupportedModels {
+		t.Run("unsupported_"+model, func(t *testing.T) {
+			if IsModelSupported("snmp_config", model) {
+				t.Errorf("Model %s should NOT be supported for snmp_config", model)
+			}
+		})
+	}
+}
