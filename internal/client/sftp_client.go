@@ -142,6 +142,17 @@ func NewSFTPClient(ctx context.Context, config *Config) (SFTPClient, error) {
 		},
 		HostKeyCallback: hostKeyCallback,
 		Timeout:         time.Duration(config.Timeout) * time.Second,
+		// RTX routers only support legacy ssh-rsa algorithm for host keys
+		// Modern OpenSSH defaults to rsa-sha2-256/512 which RTX doesn't support
+		HostKeyAlgorithms: []string{
+			ssh.KeyAlgoRSA,          // ssh-rsa (legacy, required by RTX)
+			ssh.KeyAlgoRSASHA512,    // rsa-sha2-512
+			ssh.KeyAlgoRSASHA256,    // rsa-sha2-256
+			ssh.KeyAlgoED25519,      // ssh-ed25519
+			ssh.KeyAlgoECDSA256,     // ecdsa-sha2-nistp256
+			ssh.KeyAlgoECDSA384,     // ecdsa-sha2-nistp384
+			ssh.KeyAlgoECDSA521,     // ecdsa-sha2-nistp521
+		},
 	}
 
 	addr := fmt.Sprintf("%s:%d", config.Host, config.Port)
