@@ -192,6 +192,63 @@ command:
         name: "server.local"
       build_only: true
 
+    # === Additional test variations ===
+    - name: dns_server_google
+      rtx: "dns server 8.8.8.8 8.8.4.4"
+      description: "Google DNS"
+      terraform:
+        servers:
+          - "8.8.8.8"
+          - "8.8.4.4"
+
+    - name: dns_server_cloudflare
+      rtx: "dns server 1.1.1.1 1.0.0.1"
+      description: "Cloudflare DNS"
+      terraform:
+        servers:
+          - "1.1.1.1"
+          - "1.0.0.1"
+
+    - name: dns_server_quad9
+      rtx: "dns server 9.9.9.9"
+      description: "Quad9 DNS"
+      terraform:
+        servers:
+          - "9.9.9.9"
+
+    - name: dns_domain_short
+      rtx: "dns domain local"
+      description: "短いドメイン"
+      terraform:
+        domain: "local"
+
+    - name: dns_domain_long
+      rtx: "dns domain subdomain.example.company.co.jp"
+      description: "長いドメイン"
+      terraform:
+        domain: "subdomain.example.company.co.jp"
+
+    - name: dns_static_host
+      rtx: "dns static a host.example.com 192.168.1.100"
+      description: "静的ホスト"
+      terraform:
+        static_hosts:
+          - hostname: "host.example.com"
+            ip: "192.168.1.100"
+
+    - name: dns_private_on
+      rtx: "dns private address spoof on"
+      description: "プライベートアドレススプーフィング有効"
+      terraform:
+        private_address_spoof: true
+
+    - name: dns_cache_max
+      rtx: "dns cache max entry 10000"
+      description: "キャッシュ最大エントリ"
+      terraform:
+        cache_max_entry: 10000
+
+
   boundary_tests:
     server_select_id:
       - value: 1

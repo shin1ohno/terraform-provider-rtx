@@ -31,13 +31,13 @@ var modelSupportMap = map[string][]string{
 	"ddns_config": SupportedModels,
 
 	// DHCP configuration
-	"dhcp_scope":           SupportedModels,
-	"dhcp_scope_bind":      SupportedModels,
-	"dhcp_service":         SupportedModels,
-	"dhcp_relay_server":    SupportedModels,
+	"dhcp_scope":                SupportedModels,
+	"dhcp_scope_bind":           SupportedModels,
+	"dhcp_service":              SupportedModels,
+	"dhcp_relay_server":         SupportedModels,
 	"ip_interface_dhcp_service": SupportedModels,
-	"dhcp_scope_lease_type": SupportedModels,
-	"dhcp_client_hostname": SupportedModels,
+	"dhcp_scope_lease_type":     SupportedModels,
+	"dhcp_client_hostname":      SupportedModels,
 
 	// DNS configuration
 	"dns_config": SupportedModels,

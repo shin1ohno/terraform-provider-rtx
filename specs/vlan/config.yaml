@@ -149,6 +149,57 @@ command:
         vlan_interface: "lan1/1"
       build_only: true
 
+    # === Additional test variations ===
+    - name: vlan_id_min
+      rtx: "vlan lan1/1 802.1q vid=1"
+      description: "VLAN ID最小"
+      terraform:
+        port: "lan1/1"
+        vid: 1
+
+    - name: vlan_id_max
+      rtx: "vlan lan1/1 802.1q vid=4094"
+      description: "VLAN ID最大"
+      terraform:
+        port: "lan1/1"
+        vid: 4094
+
+    - name: vlan_port_2
+      rtx: "vlan lan1/2 802.1q vid=100"
+      description: "ポート2"
+      terraform:
+        port: "lan1/2"
+        vid: 100
+
+    - name: vlan_port_3
+      rtx: "vlan lan1/3 802.1q vid=200"
+      description: "ポート3"
+      terraform:
+        port: "lan1/3"
+        vid: 200
+
+    - name: vlan_lan2
+      rtx: "vlan lan2/1 802.1q vid=500"
+      description: "LAN2ポート"
+      terraform:
+        port: "lan2/1"
+        vid: 500
+
+    - name: vlan_ip_address
+      rtx: "ip vlan1 address 192.168.10.1/24"
+      description: "VLANアドレス"
+      terraform:
+        vlan_interface: "vlan1"
+        address: "192.168.10.1/24"
+
+    - name: vlan_ip_address_2
+      rtx: "ip vlan2 address 192.168.20.1/24"
+      description: "VLAN2アドレス"
+      terraform:
+        vlan_interface: "vlan2"
+        address: "192.168.20.1/24"
+
+
   boundary_tests:
     vlan_id:
       - value: 1

@@ -185,6 +185,57 @@ command:
         id: 1
       build_only: true
 
+    # === Additional test variations ===
+    - name: tunnel_id_min
+      rtx: "tunnel select 1"
+      description: "トンネルID最小"
+      terraform:
+        tunnel_id: 1
+
+    - name: tunnel_id_max
+      rtx: "tunnel select 65535"
+      description: "トンネルID最大"
+      terraform:
+        tunnel_id: 65535
+
+    - name: tunnel_endpoint_local
+      rtx: "tunnel endpoint local 192.168.1.1"
+      description: "ローカルエンドポイント"
+      terraform:
+        local_endpoint: "192.168.1.1"
+
+    - name: tunnel_endpoint_remote
+      rtx: "tunnel endpoint remote 203.0.113.1"
+      description: "リモートエンドポイント"
+      terraform:
+        remote_endpoint: "203.0.113.1"
+
+    - name: tunnel_ipsec
+      rtx: "tunnel encapsulation ipsec"
+      description: "IPsecカプセル化"
+      terraform:
+        encapsulation: "ipsec"
+
+    - name: tunnel_l2tp
+      rtx: "tunnel encapsulation l2tp"
+      description: "L2TPカプセル化"
+      terraform:
+        encapsulation: "l2tp"
+
+    - name: tunnel_gre
+      rtx: "tunnel encapsulation gre"
+      description: "GREカプセル化"
+      terraform:
+        encapsulation: "gre"
+
+    - name: tunnel_keepalive_enable
+      rtx: "tunnel 1 keepalive use on"
+      description: "キープアライブ有効"
+      terraform:
+        tunnel_id: 1
+        keepalive: true
+
+
   boundary_tests:
     tunnel_id:
       - value: 1

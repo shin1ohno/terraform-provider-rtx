@@ -4,16 +4,16 @@
 // Spec: dhcp_scope
 // Description: DHCPスコープの定義
 
+// Add these fields to DHCPScope struct:
+// type DHCPScope struct {
+//     // ... existing fields ...
+//     MaxLeaseTime string `json:"max_lease_time,omitempty"` // 最大リース期間（DHCPクライアント要求時の上限）
+// }
+
 // Add these fields to DHCPScopeOptions struct:
 // type DHCPScopeOptions struct {
 //     // ... existing fields ...
 //     Hostname string `json:"hostname,omitempty"` // ホスト名（DHCP option 12）
 //     WINSServers []string `json:"wins_servers,omitempty"` // WINSサーバー（DHCP option 44、最大3つ）
-// }
-
-// Add these fields to DHCPScope struct:
-// type DHCPScope struct {
-//     // ... existing fields ...
-//     MaxLeaseTime string `json:"max_lease_time,omitempty"` // 最大リース期間（DHCPクライアント要求時の上限）
 // }
 

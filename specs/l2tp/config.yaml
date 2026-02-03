@@ -225,6 +225,55 @@ command:
         id: 1
       build_only: true
 
+    # === Additional test variations ===
+    - name: l2tp_tunnel_id_min
+      rtx: "l2tp tunnel 1"
+      description: "トンネルID最小"
+      terraform:
+        tunnel_id: 1
+
+    - name: l2tp_tunnel_id_max
+      rtx: "l2tp tunnel 65535"
+      description: "トンネルID最大"
+      terraform:
+        tunnel_id: 65535
+
+    - name: l2tp_server_port
+      rtx: "l2tp tunnel 1 local port 1701"
+      description: "標準ポート"
+      terraform:
+        tunnel_id: 1
+        local_port: 1701
+
+    - name: l2tp_remote_address
+      rtx: "l2tp tunnel 1 remote address 203.0.113.1"
+      description: "リモートアドレス"
+      terraform:
+        tunnel_id: 1
+        remote_address: "203.0.113.1"
+
+    - name: l2tp_hostname
+      rtx: "l2tp tunnel 1 hostname router1.example.com"
+      description: "ホスト名"
+      terraform:
+        tunnel_id: 1
+        hostname: "router1.example.com"
+
+    - name: l2tp_auth_password
+      rtx: "l2tp tunnel 1 auth password secret123"
+      description: "認証パスワード"
+      terraform:
+        tunnel_id: 1
+        auth_password: "secret123"
+
+    - name: l2tp_keepalive_enable
+      rtx: "l2tp tunnel 1 keepalive use on"
+      description: "キープアライブ有効"
+      terraform:
+        tunnel_id: 1
+        keepalive: true
+
+
   boundary_tests:
     keepalive_interval:
       - value: 1

@@ -688,6 +688,82 @@ command:
   # =============================================================================
   # Level 2: Boundary Value Tests (境界値テスト)
   # =============================================================================
+    # === Additional test variations (boundary values) ===
+    - name: route_default_gateway
+      rtx: "ip route default gateway 192.168.1.1"
+      description: "デフォルトゲートウェイ"
+      terraform:
+        destination: "default"
+        gateway: "192.168.1.1"
+
+    - name: route_class_a
+      rtx: "ip route 10.0.0.0/8 gateway 192.168.1.1"
+      description: "クラスAルート"
+      terraform:
+        destination: "10.0.0.0/8"
+        gateway: "192.168.1.1"
+
+    - name: route_class_b
+      rtx: "ip route 172.16.0.0/12 gateway 192.168.1.1"
+      description: "クラスBルート"
+      terraform:
+        destination: "172.16.0.0/12"
+        gateway: "192.168.1.1"
+
+    - name: route_host_route
+      rtx: "ip route 192.168.1.100/32 gateway 192.168.1.1"
+      description: "ホストルート"
+      terraform:
+        destination: "192.168.1.100/32"
+        gateway: "192.168.1.1"
+
+    - name: route_metric_min
+      rtx: "ip route 10.0.0.0/24 gateway 192.168.1.1 metric 1"
+      description: "メトリック最小値"
+      terraform:
+        destination: "10.0.0.0/24"
+        gateway: "192.168.1.1"
+        metric: 1
+
+    - name: route_metric_max
+      rtx: "ip route 10.0.0.0/24 gateway 192.168.1.1 metric 10000"
+      description: "メトリック大きい値"
+      terraform:
+        destination: "10.0.0.0/24"
+        gateway: "192.168.1.1"
+        metric: 10000
+
+    - name: route_pp_gateway
+      rtx: "ip route default gateway pp 1"
+      description: "PPインターフェース経由"
+      terraform:
+        destination: "default"
+        gateway_interface: "pp 1"
+
+    - name: route_tunnel_gateway
+      rtx: "ip route 10.0.0.0/24 gateway tunnel 1"
+      description: "トンネル経由"
+      terraform:
+        destination: "10.0.0.0/24"
+        gateway_interface: "tunnel 1"
+
+    - name: route_keepalive_on
+      rtx: "ip route 10.0.0.0/24 gateway 192.168.1.1 keepalive 1"
+      description: "キープアライブ有効"
+      terraform:
+        destination: "10.0.0.0/24"
+        gateway: "192.168.1.1"
+        keepalive: 1
+
+    - name: route_hide_enabled
+      rtx: "ip route 10.0.0.0/24 gateway 192.168.1.1 hide"
+      description: "ルート非表示"
+      terraform:
+        destination: "10.0.0.0/24"
+        gateway: "192.168.1.1"
+        hide: true
+
+
   boundary_tests:
     weight:
       - value: 0

@@ -15,19 +15,19 @@ type Spec struct {
 
 // CommandSpec represents a command specification
 type CommandSpec struct {
-	Name             string            `yaml:"name"`
-	Description      string            `yaml:"description"`
-	Reference        string            `yaml:"reference"`
-	ApplicableModels []string          `yaml:"applicable_models"`
-	Syntax           SyntaxSpec        `yaml:"syntax"`
-	Terraform        TerraformSpec     `yaml:"terraform"`
-	Parameters       map[string]Param  `yaml:"parameters"`
-	SyntaxTests      []SyntaxTest      `yaml:"syntax_tests"`
-	BoundaryTests    map[string][]BoundaryTest `yaml:"boundary_tests"`
-	Pairwise         *PairwiseSpec     `yaml:"pairwise"`
-	MultilineTests   []SyntaxTest      `yaml:"multiline_tests"`
-	Notes            []string          `yaml:"notes"`
-	ImplementationStatus string        `yaml:"implementation_status"`
+	Name                 string                    `yaml:"name"`
+	Description          string                    `yaml:"description"`
+	Reference            string                    `yaml:"reference"`
+	ApplicableModels     []string                  `yaml:"applicable_models"`
+	Syntax               SyntaxSpec                `yaml:"syntax"`
+	Terraform            TerraformSpec             `yaml:"terraform"`
+	Parameters           map[string]Param          `yaml:"parameters"`
+	SyntaxTests          []SyntaxTest              `yaml:"syntax_tests"`
+	BoundaryTests        map[string][]BoundaryTest `yaml:"boundary_tests"`
+	Pairwise             *PairwiseSpec             `yaml:"pairwise"`
+	MultilineTests       []SyntaxTest              `yaml:"multiline_tests"`
+	Notes                []string                  `yaml:"notes"`
+	ImplementationStatus string                    `yaml:"implementation_status"`
 }
 
 // SyntaxSpec represents the command syntax
@@ -38,19 +38,19 @@ type SyntaxSpec struct {
 
 // TerraformSpec represents the Terraform mapping
 type TerraformSpec struct {
-	ResourceName     string                      `yaml:"resource_name"`
-	StructName       string                      `yaml:"struct_name"`
-	Package          string                      `yaml:"package"`
-	StructAdditions  map[string][]StructField   `yaml:"struct_additions"`
-	StructDefinition map[string][]StructField   `yaml:"struct_definition"`
+	ResourceName     string                   `yaml:"resource_name"`
+	StructName       string                   `yaml:"struct_name"`
+	Package          string                   `yaml:"package"`
+	StructAdditions  map[string][]StructField `yaml:"struct_additions"`
+	StructDefinition map[string][]StructField `yaml:"struct_definition"`
 }
 
 // StructField represents a struct field to add
 type StructField struct {
-	Name        string `yaml:"name"`
-	Type        string `yaml:"type"`
-	JSONTag     string `yaml:"json_tag"`
-	Description string `yaml:"description"`
+	Name        string   `yaml:"name"`
+	Type        string   `yaml:"type"`
+	JSONTag     string   `yaml:"json_tag"`
+	Description string   `yaml:"description"`
 	Enum        []string `yaml:"enum"`
 }
 
@@ -90,15 +90,15 @@ type ParamVariant struct {
 
 // SyntaxTest represents a syntax test case
 type SyntaxTest struct {
-	Name             string                 `yaml:"name"`
-	RTX              string                 `yaml:"rtx"`
-	Terraform        interface{}            `yaml:"terraform"` // map or array of maps
-	Bidirectional    *bool                  `yaml:"bidirectional"`
-	ParseOnly        bool                   `yaml:"parse_only"`
-	BuildOnly        bool                   `yaml:"build_only"`
-	Note             string                 `yaml:"note"`
-	Description      string                 `yaml:"description"`
-	ModelConstraints *ModelConstraints      `yaml:"model_constraints"`
+	Name             string            `yaml:"name"`
+	RTX              string            `yaml:"rtx"`
+	Terraform        interface{}       `yaml:"terraform"` // map or array of maps
+	Bidirectional    *bool             `yaml:"bidirectional"`
+	ParseOnly        bool              `yaml:"parse_only"`
+	BuildOnly        bool              `yaml:"build_only"`
+	Note             string            `yaml:"note"`
+	Description      string            `yaml:"description"`
+	ModelConstraints *ModelConstraints `yaml:"model_constraints"`
 }
 
 // ModelConstraints represents model-specific constraints
@@ -121,16 +121,16 @@ type BoundaryTest struct {
 
 // PairwiseSpec represents pairwise testing configuration
 type PairwiseSpec struct {
-	Enabled         bool                   `yaml:"enabled"`
-	Parameters      []string               `yaml:"parameters"`
+	Enabled         bool                     `yaml:"enabled"`
+	Parameters      []string                 `yaml:"parameters"`
 	ParameterValues map[string][]interface{} `yaml:"parameter_values"`
-	Constraints     []PairwiseConstraint   `yaml:"constraints"`
+	Constraints     []PairwiseConstraint     `yaml:"constraints"`
 }
 
 // PairwiseConstraint represents a constraint for pairwise testing
 type PairwiseConstraint struct {
-	Condition  string `yaml:"condition"`
-	Requires   string `yaml:"requires"`
+	Condition  string   `yaml:"condition"`
+	Requires   string   `yaml:"requires"`
 	InvalidFor []string `yaml:"invalid_for"`
 }
 

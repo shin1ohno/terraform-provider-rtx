@@ -171,6 +171,74 @@ command:
         entry_number: 1
       build_only: true
 
+    # === Additional test variations ===
+    - name: nat_descriptor_min
+      rtx: "nat descriptor type 1 masquerade"
+      description: "ディスクリプタID最小"
+      terraform:
+        descriptor_id: 1
+        type: "masquerade"
+
+    - name: nat_descriptor_max
+      rtx: "nat descriptor type 65535 masquerade"
+      description: "ディスクリプタID最大"
+      terraform:
+        descriptor_id: 65535
+        type: "masquerade"
+
+    - name: nat_static_tcp_ssh
+      rtx: "nat descriptor masquerade static 1 1 192.168.1.100 tcp 22"
+      description: "SSH静的NAT"
+      terraform:
+        descriptor_id: 1
+        static_id: 1
+        inner_ip: "192.168.1.100"
+        protocol: "tcp"
+        port: 22
+
+    - name: nat_static_tcp_https
+      rtx: "nat descriptor masquerade static 1 2 192.168.1.100 tcp 443"
+      description: "HTTPS静的NAT"
+      terraform:
+        descriptor_id: 1
+        static_id: 2
+        inner_ip: "192.168.1.100"
+        protocol: "tcp"
+        port: 443
+
+    - name: nat_static_udp_dns
+      rtx: "nat descriptor masquerade static 1 3 192.168.1.53 udp 53"
+      description: "DNS静的NAT"
+      terraform:
+        descriptor_id: 1
+        static_id: 3
+        inner_ip: "192.168.1.53"
+        protocol: "udp"
+        port: 53
+
+    - name: nat_address_outer
+      rtx: "nat descriptor address outer 1 ipcp"
+      description: "外部アドレスIPCP"
+      terraform:
+        descriptor_id: 1
+        outer_address: "ipcp"
+
+    - name: nat_address_inner
+      rtx: "nat descriptor address inner 1 192.168.1.0-192.168.1.255"
+      description: "内部アドレス範囲"
+      terraform:
+        descriptor_id: 1
+        inner_address_start: "192.168.1.0"
+        inner_address_end: "192.168.1.255"
+
+    - name: nat_timer_min
+      rtx: "nat descriptor timer 1 60"
+      description: "NATタイマー最小"
+      terraform:
+        descriptor_id: 1
+        timer: 60
+
+
   boundary_tests:
     descriptor_id:
       - value: 1

@@ -286,11 +286,11 @@ func TestL2TPRoundTrip_Build(t *testing.T) {
 // TestL2TPRoundTrip_ParseBuildParse tests full round-trip
 func TestL2TPRoundTrip_ParseBuildParse(t *testing.T) {
 	testCases := []struct {
-		name               string
-		localRouterID      string
-		remoteRouterID     string
-		keepaliveInterval  int
-		keepaliveRetry     int
+		name              string
+		localRouterID     string
+		remoteRouterID    string
+		keepaliveInterval int
+		keepaliveRetry    int
 	}{
 		{
 			name:           "basic_l2tpv3",
@@ -299,8 +299,8 @@ func TestL2TPRoundTrip_ParseBuildParse(t *testing.T) {
 		},
 		{
 			name:              "l2tpv3_with_keepalive",
-			localRouterID:    "10.0.0.1",
-			remoteRouterID:   "10.0.0.2",
+			localRouterID:     "10.0.0.1",
+			remoteRouterID:    "10.0.0.2",
 			keepaliveInterval: 30,
 			keepaliveRetry:    5,
 		},

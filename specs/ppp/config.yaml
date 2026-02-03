@@ -259,6 +259,56 @@ command:
       terraform: {}
       build_only: true
 
+    # === Additional test variations ===
+    - name: pp_select_min
+      rtx: "pp select 1"
+      description: "PP番号最小"
+      terraform:
+        pp_id: 1
+
+    - name: pp_select_max
+      rtx: "pp select 65535"
+      description: "PP番号最大"
+      terraform:
+        pp_id: 65535
+
+    - name: pp_auth_myname_long
+      rtx: "pp auth myname user@provider.example.com verylongpassword123"
+      description: "長いユーザー名とパスワード"
+      terraform:
+        pp_id: 1
+        auth_username: "user@provider.example.com"
+        auth_password: "verylongpassword123"
+
+    - name: pp_bind_lan1
+      rtx: "pp bind lan1"
+      description: "LAN1バインド"
+      terraform:
+        pp_id: 1
+        bind_interface: "lan1"
+
+    - name: pp_bind_lan2
+      rtx: "pp bind lan2"
+      description: "LAN2バインド"
+      terraform:
+        pp_id: 1
+        bind_interface: "lan2"
+
+    - name: pp_keepalive_on
+      rtx: "pp 1 keepalive use on"
+      description: "キープアライブ有効"
+      terraform:
+        pp_id: 1
+        keepalive: true
+
+    - name: pp_mtu
+      rtx: "pp 1 mtu 1454"
+      description: "MTU設定"
+      terraform:
+        pp_id: 1
+        mtu: 1454
+
+
   boundary_tests:
     pp_number:
       - value: 1

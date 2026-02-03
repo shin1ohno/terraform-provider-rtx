@@ -10,13 +10,13 @@ import (
 // DHCPScope represents a DHCP scope configuration on an RTX router
 type DHCPScope struct {
 	ScopeID       int              `json:"scope_id"`
-	Network       string           `json:"network"`                   // CIDR notation: "192.168.1.0/24"
-	RangeStart    string           `json:"range_start,omitempty"`     // Start IP of allocation range (if specified)
-	RangeEnd      string           `json:"range_end,omitempty"`       // End IP of allocation range (if specified)
-	LeaseTime     string           `json:"lease_time,omitempty"`      // Go duration format or "infinity"
-	MaxLeaseTime  string           `json:"max_lease_time,omitempty"`  // Maximum lease time when client requests longer (Go duration format or "infinity")
-	ExcludeRanges []ExcludeRange   `json:"exclude_ranges,omitempty"`  // Excluded IP ranges
-	Options       DHCPScopeOptions `json:"options,omitempty"`         // DHCP options (dns, routers, etc.)
+	Network       string           `json:"network"`                  // CIDR notation: "192.168.1.0/24"
+	RangeStart    string           `json:"range_start,omitempty"`    // Start IP of allocation range (if specified)
+	RangeEnd      string           `json:"range_end,omitempty"`      // End IP of allocation range (if specified)
+	LeaseTime     string           `json:"lease_time,omitempty"`     // Go duration format or "infinity"
+	MaxLeaseTime  string           `json:"max_lease_time,omitempty"` // Maximum lease time when client requests longer (Go duration format or "infinity")
+	ExcludeRanges []ExcludeRange   `json:"exclude_ranges,omitempty"` // Excluded IP ranges
+	Options       DHCPScopeOptions `json:"options,omitempty"`        // DHCP options (dns, routers, etc.)
 }
 
 // DHCPScopeOptions represents DHCP options for a scope (Cisco-compatible naming)

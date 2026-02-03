@@ -309,6 +309,63 @@ command:
         transport_id: 1
       build_only: true
 
+    # === Additional test variations ===
+    - name: ipsec_sa_policy_aes256
+      rtx: "ipsec sa policy 1 1 esp aes256-cbc sha-hmac"
+      description: "AES256暗号化"
+      terraform:
+        sa_id: 1
+        policy_id: 1
+        protocol: "esp"
+        encryption: "aes256-cbc"
+        auth: "sha-hmac"
+
+    - name: ipsec_sa_policy_3des
+      rtx: "ipsec sa policy 1 1 esp 3des-cbc sha-hmac"
+      description: "3DES暗号化"
+      terraform:
+        sa_id: 1
+        policy_id: 1
+        protocol: "esp"
+        encryption: "3des-cbc"
+        auth: "sha-hmac"
+
+    - name: ipsec_ike_remote_address
+      rtx: "ipsec ike remote address 1 203.0.113.1"
+      description: "IKEリモートアドレス"
+      terraform:
+        ike_id: 1
+        remote_address: "203.0.113.1"
+
+    - name: ipsec_ike_local_address
+      rtx: "ipsec ike local address 1 192.168.1.1"
+      description: "IKEローカルアドレス"
+      terraform:
+        ike_id: 1
+        local_address: "192.168.1.1"
+
+    - name: ipsec_ike_pre_shared_key
+      rtx: "ipsec ike pre-shared-key 1 text secretkey123"
+      description: "事前共有鍵"
+      terraform:
+        ike_id: 1
+        pre_shared_key: "secretkey123"
+
+    - name: ipsec_ike_encryption_aes
+      rtx: "ipsec ike encryption 1 aes-cbc"
+      description: "IKE AES暗号化"
+      terraform:
+        ike_id: 1
+        encryption: "aes-cbc"
+
+    - name: ipsec_ike_keepalive_on
+      rtx: "ipsec ike keepalive use 1 on"
+      description: "IKEキープアライブ有効"
+      terraform:
+        ike_id: 1
+        keepalive: true
+
+
   boundary_tests:
     tunnel_id:
       - value: 1

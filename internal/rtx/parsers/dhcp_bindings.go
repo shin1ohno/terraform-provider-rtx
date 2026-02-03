@@ -15,10 +15,10 @@ type DHCPBinding struct {
 	MACAddress          string `json:"mac_address"`
 	ClientIdentifier    string `json:"client_identifier,omitempty"`
 	UseClientIdentifier bool   `json:"use_client_identifier"`
-	IPRangeStart        string `json:"ip_range_start,omitempty"` // Start IP for OUI binding
-	IPRangeEnd          string `json:"ip_range_end,omitempty"`   // End IP for OUI binding
-	OUI                 string `json:"oui,omitempty"`            // Vendor ID (e.g., "00:a0:de")
-	IPCP                bool   `json:"ipcp,omitempty"`           // IPCP remote assignment flag
+	IPRangeStart        string `json:"ip_range_start,omitempty"`  // Start IP for OUI binding
+	IPRangeEnd          string `json:"ip_range_end,omitempty"`    // End IP for OUI binding
+	OUI                 string `json:"oui,omitempty"`             // Vendor ID (e.g., "00:a0:de")
+	IPCP                bool   `json:"ipcp,omitempty"`            // IPCP remote assignment flag
 	TextIdentifier      string `json:"text_identifier,omitempty"` // Text type client identifier
 }
 

@@ -160,6 +160,60 @@ command:
         redistribute_static: false
       build_only: true
 
+    # === Additional test variations ===
+    - name: ospf_area_backbone
+      rtx: "ospf area backbone"
+      description: "バックボーンエリア"
+      terraform:
+        area: "backbone"
+
+    - name: ospf_area_id_max
+      rtx: "ospf area 4294967295"
+      description: "エリアID最大"
+      terraform:
+        area: "4294967295"
+
+    - name: ospf_network_class_a
+      rtx: "ospf network 10.0.0.0/8 area 0"
+      description: "クラスAネットワーク"
+      terraform:
+        network: "10.0.0.0/8"
+        area: 0
+
+    - name: ospf_network_class_b
+      rtx: "ospf network 172.16.0.0/12 area 0"
+      description: "クラスBネットワーク"
+      terraform:
+        network: "172.16.0.0/12"
+        area: 0
+
+    - name: ospf_cost_min
+      rtx: "ospf interface cost lan1 1"
+      description: "コスト最小"
+      terraform:
+        interface: "lan1"
+        cost: 1
+
+    - name: ospf_cost_max
+      rtx: "ospf interface cost lan1 65535"
+      description: "コスト最大"
+      terraform:
+        interface: "lan1"
+        cost: 65535
+
+    - name: ospf_redistribute_static
+      rtx: "ospf import from static"
+      description: "スタティック再配布"
+      terraform:
+        redistribute_static: true
+
+    - name: ospf_redistribute_connected
+      rtx: "ospf import from connected"
+      description: "直接接続再配布"
+      terraform:
+        redistribute_connected: true
+
+
   boundary_tests:
     area_id:
       - value: "0"

@@ -65,13 +65,13 @@ func (g *Generator) Generate() ([]Result, error) {
 // generateTestFile generates the test file
 func (g *Generator) generateTestFile() (Result, error) {
 	tmpl, err := template.New("test").Funcs(template.FuncMap{
-		"toCamelCase":     toCamelCase,
-		"toSnakeCase":     toSnakeCase,
-		"formatValue":     formatValue,
-		"formatStruct":    g.formatStruct,
-		"quoteIfString":   quoteIfString,
-		"toJSON":          toJSON,
-		"hasTerraform":    hasTerraform,
+		"toCamelCase":   toCamelCase,
+		"toSnakeCase":   toSnakeCase,
+		"formatValue":   formatValue,
+		"formatStruct":  g.formatStruct,
+		"quoteIfString": quoteIfString,
+		"toJSON":        toJSON,
+		"hasTerraform":  hasTerraform,
 	}).Parse(testTemplate)
 	if err != nil {
 		return Result{}, fmt.Errorf("parsing template: %w", err)

@@ -336,6 +336,85 @@ command:
   # =============================================================================
   # Level 2: Boundary Value Tests (境界値テスト)
   # =============================================================================
+    # === Additional test variations (boundary values) ===
+    - name: scope_id_boundary_max
+      rtx: "dhcp scope 65535 192.168.1.0/24"
+      description: "スコープID最大値"
+      terraform:
+        scope_id: 65535
+        network: "192.168.1.0/24"
+
+    - name: scope_class_a_network
+      rtx: "dhcp scope 1 10.0.0.0/8"
+      description: "クラスAネットワーク"
+      terraform:
+        scope_id: 1
+        network: "10.0.0.0/8"
+
+    - name: scope_class_b_network
+      rtx: "dhcp scope 1 172.16.0.0/12"
+      description: "クラスBネットワーク"
+      terraform:
+        scope_id: 1
+        network: "172.16.0.0/12"
+
+    - name: scope_subnet_28
+      rtx: "dhcp scope 1 192.168.1.0/28"
+      description: "/28サブネット"
+      terraform:
+        scope_id: 1
+        network: "192.168.1.0/28"
+
+    - name: scope_subnet_30
+      rtx: "dhcp scope 1 192.168.1.0/30"
+      description: "/30サブネット"
+      terraform:
+        scope_id: 1
+        network: "192.168.1.0/30"
+
+    - name: lease_time_boundary_min
+      rtx: "dhcp scope 1 192.168.1.0/24 expire 60"
+      description: "リース時間最小値"
+      terraform:
+        scope_id: 1
+        network: "192.168.1.0/24"
+        lease_time: 60
+
+    - name: scope_gateway_option
+      rtx: "dhcp scope option 1 router 192.168.1.1"
+      description: "ゲートウェイオプション"
+      terraform:
+        scope_id: 1
+        options:
+          routers:
+            - "192.168.1.1"
+
+    - name: scope_dns_option
+      rtx: "dhcp scope option 1 dns 8.8.8.8 8.8.4.4"
+      description: "DNSオプション"
+      terraform:
+        scope_id: 1
+        options:
+          dns_servers:
+            - "8.8.8.8"
+            - "8.8.4.4"
+
+    - name: scope_domain_option
+      rtx: "dhcp scope option 1 domain example.local"
+      description: "ドメインオプション"
+      terraform:
+        scope_id: 1
+        options:
+          domain_name: "example.local"
+
+    - name: scope_multiple_scope_ids
+      rtx: "dhcp scope 2 10.0.0.0/24"
+      description: "別スコープID"
+      terraform:
+        scope_id: 2
+        network: "10.0.0.0/24"
+
+
   boundary_tests:
     scope_num:
       - value: 1

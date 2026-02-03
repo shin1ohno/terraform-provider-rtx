@@ -194,6 +194,69 @@ command:
         name: "lan1"
       build_only: true
 
+    # === Additional test variations ===
+    - name: ip_address_lan1_class_a
+      rtx: "ip lan1 address 10.0.0.1/8"
+      description: "クラスA LAN1"
+      terraform:
+        interface: "lan1"
+        address: "10.0.0.1/8"
+
+    - name: ip_address_lan2_class_c
+      rtx: "ip lan2 address 192.168.100.1/24"
+      description: "クラスC LAN2"
+      terraform:
+        interface: "lan2"
+        address: "192.168.100.1/24"
+
+    - name: ip_address_lan3_small_subnet
+      rtx: "ip lan3 address 192.168.1.1/30"
+      description: "/30サブネット"
+      terraform:
+        interface: "lan3"
+        address: "192.168.1.1/30"
+
+    - name: ip_mtu_minimum
+      rtx: "ip lan1 mtu 68"
+      description: "MTU最小値"
+      terraform:
+        interface: "lan1"
+        mtu: 68
+
+    - name: ip_mtu_maximum
+      rtx: "ip lan1 mtu 9000"
+      description: "MTUジャンボフレーム"
+      terraform:
+        interface: "lan1"
+        mtu: 9000
+
+    - name: ip_secure_filter_in
+      rtx: "ip lan1 secure filter in 1 2 3"
+      description: "入力フィルタ"
+      terraform:
+        interface: "lan1"
+        secure_filter_in:
+          - 1
+          - 2
+          - 3
+
+    - name: ip_secure_filter_out
+      rtx: "ip lan1 secure filter out 10 20"
+      description: "出力フィルタ"
+      terraform:
+        interface: "lan1"
+        secure_filter_out:
+          - 10
+          - 20
+
+    - name: ip_nat_descriptor
+      rtx: "ip lan1 nat descriptor 1"
+      description: "NATディスクリプタ"
+      terraform:
+        interface: "lan1"
+        nat_descriptor: 1
+
+
   boundary_tests:
     mtu:
       - value: 68

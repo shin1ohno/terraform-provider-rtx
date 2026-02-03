@@ -413,11 +413,11 @@ func TestIPsecTunnelRoundTrip_Build(t *testing.T) {
 // TestIPsecTunnelRoundTrip_ParseBuildParse tests full round-trip
 func TestIPsecTunnelRoundTrip_ParseBuildParse(t *testing.T) {
 	testCases := []struct {
-		name           string
-		tunnelID       int
-		localAddress   string
-		remoteAddress  string
-		preSharedKey   string
+		name          string
+		tunnelID      int
+		localAddress  string
+		remoteAddress string
+		preSharedKey  string
 	}{
 		{
 			name:          "basic_ipsec",

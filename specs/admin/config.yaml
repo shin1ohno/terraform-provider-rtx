@@ -137,6 +137,82 @@ command:
         username: "admin"
       build_only: true
 
+    # === Additional test variations (boundary values) ===
+    - name: login_password_short
+      rtx: "login password abc"
+      description: "短いパスワード"
+      terraform:
+        login_password: "abc"
+
+    - name: login_password_long
+      rtx: "login password verylongpassword123456789"
+      description: "長いパスワード"
+      terraform:
+        login_password: "verylongpassword123456789"
+
+    - name: admin_password_short
+      rtx: "administrator password xyz"
+      description: "短い管理者パスワード"
+      terraform:
+        admin_password: "xyz"
+
+    - name: admin_password_long
+      rtx: "administrator password adminverylongpassword123"
+      description: "長い管理者パスワード"
+      terraform:
+        admin_password: "adminverylongpassword123"
+
+    - name: login_user_short_name
+      rtx: "login user a password123"
+      description: "1文字ユーザー名"
+      terraform:
+        users:
+          - username: "a"
+            password: "password123"
+            encrypted: false
+
+    - name: login_user_long_name
+      rtx: "login user verylongusername123 password123"
+      description: "長いユーザー名"
+      terraform:
+        users:
+          - username: "verylongusername123"
+            password: "password123"
+            encrypted: false
+
+    - name: user_attribute_login_timer_min
+      rtx: "user attribute admin login-timer=0"
+      description: "ログインタイマー無効"
+      terraform:
+        username: "admin"
+        login_timer: 0
+
+    - name: user_attribute_login_timer_max
+      rtx: "user attribute admin login-timer=86400"
+      description: "ログインタイマー最大"
+      terraform:
+        username: "admin"
+        login_timer: 86400
+
+    - name: user_attribute_all_connections
+      rtx: "user attribute admin connection=serial,telnet,ssh"
+      description: "複数接続タイプ"
+      terraform:
+        username: "admin"
+        connections:
+          - serial
+          - telnet
+          - ssh
+
+    - name: user_attribute_single_connection
+      rtx: "user attribute admin connection=ssh"
+      description: "SSH接続のみ"
+      terraform:
+        username: "admin"
+        connections:
+          - ssh
+
+
   boundary_tests:
     login_timer:
       - value: 60
