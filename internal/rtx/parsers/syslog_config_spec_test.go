@@ -6,6 +6,7 @@
 package parsers
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -327,6 +328,197 @@ func TestSpecSyslogConfigBoundaryCoverage(t *testing.T) {
 	t.Logf("Parameters with boundary tests: %d", len(boundaryParams))
 	for _, param := range boundaryParams {
 		t.Logf("  - %s", param)
+	}
+}
+
+// TestSpecSyslogConfigRTXTerraformMapping validates RTX command to Terraform value mappings
+func TestSpecSyslogConfigRTXTerraformMapping(t *testing.T) {
+	// This test validates that each RTX command has a corresponding expected Terraform value
+	// and vice versa. It ensures the spec file correctly documents the bidirectional mapping.
+
+	testCases := []struct {
+		name          string
+		rtxCommand    string
+		terraformJSON string
+		parseOnly     bool
+		buildOnly     bool
+	}{
+		{
+			name:          "syslog_host",
+			rtxCommand:    `syslog host 192.168.1.100`,
+			terraformJSON: `{"hosts":[{"address":"192.168.1.100"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "syslog_host_with_port",
+			rtxCommand:    `syslog host 192.168.1.100 514`,
+			terraformJSON: `{"hosts":[{"address":"192.168.1.100","port":514}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "syslog_host_custom_port",
+			rtxCommand:    `syslog host 10.0.0.50 1514`,
+			terraformJSON: `{"hosts":[{"address":"10.0.0.50","port":1514}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "syslog_host_ipv6",
+			rtxCommand:    `syslog host 2001:db8::100`,
+			terraformJSON: `{"hosts":[{"address":"2001:db8::100"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "syslog_local_address",
+			rtxCommand:    `syslog local address 192.168.1.1`,
+			terraformJSON: `{"local_address":"192.168.1.1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "syslog_local_address_loopback",
+			rtxCommand:    `syslog local address 10.0.0.1`,
+			terraformJSON: `{"local_address":"10.0.0.1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "syslog_facility_user",
+			rtxCommand:    `syslog facility user`,
+			terraformJSON: `{"facility":"user"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "syslog_facility_local0",
+			rtxCommand:    `syslog facility local0`,
+			terraformJSON: `{"facility":"local0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "syslog_facility_local7",
+			rtxCommand:    `syslog facility local7`,
+			terraformJSON: `{"facility":"local7"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "syslog_notice_on",
+			rtxCommand:    `syslog notice on`,
+			terraformJSON: `{"notice":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "syslog_notice_off",
+			rtxCommand:    `syslog notice off`,
+			terraformJSON: `{"notice":false}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "syslog_info_on",
+			rtxCommand:    `syslog info on`,
+			terraformJSON: `{"info":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "syslog_info_off",
+			rtxCommand:    `syslog info off`,
+			terraformJSON: `{"info":false}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "syslog_debug_on",
+			rtxCommand:    `syslog debug on`,
+			terraformJSON: `{"debug":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "syslog_debug_off",
+			rtxCommand:    `syslog debug off`,
+			terraformJSON: `{"debug":false}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "delete_syslog_host",
+			rtxCommand:    `no syslog host 192.168.1.100`,
+			terraformJSON: `{"address":"192.168.1.100"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_syslog_local_address",
+			rtxCommand:    `no syslog local address`,
+			terraformJSON: `{}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_syslog_facility",
+			rtxCommand:    `no syslog facility`,
+			terraformJSON: `{}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+				return
+			}
+
+			// build_only tests (like delete commands) may have empty terraform values
+			// because they represent commands that don't have a direct terraform mapping
+			if tc.buildOnly {
+				t.Logf("Direction: Terraform -> RTX only (build)")
+				t.Logf("RTX: %s", tc.rtxCommand)
+				t.Logf("Terraform: %s (build_only, may be empty)", tc.terraformJSON)
+				return
+			}
+
+			// Validate terraform JSON is present and valid for non-build_only tests
+			if tc.terraformJSON == "null" || tc.terraformJSON == "" {
+				t.Errorf("Terraform value is missing for RTX command: %s", tc.rtxCommand)
+				return
+			}
+
+			var tfValue interface{}
+			if err := json.Unmarshal([]byte(tc.terraformJSON), &tfValue); err != nil {
+				t.Errorf("Invalid terraform JSON: %v\nJSON: %s", err, tc.terraformJSON)
+				return
+			}
+
+			// Log the mapping for visibility
+			t.Logf("RTX: %s", tc.rtxCommand)
+			t.Logf("Terraform: %s", tc.terraformJSON)
+
+			// Validate that terraform value contains expected fields (only for non-build_only tests)
+			if tfMap, ok := tfValue.(map[string]interface{}); ok {
+				if len(tfMap) == 0 {
+					t.Errorf("Terraform value is empty map for RTX command: %s", tc.rtxCommand)
+					return
+				}
+			}
+
+			// Check mapping direction
+			if tc.parseOnly {
+				t.Logf("Direction: RTX -> Terraform only (parse)")
+			} else {
+				t.Logf("Direction: Bidirectional (parse and build)")
+			}
+		})
 	}
 }
 

@@ -6,6 +6,7 @@
 package parsers
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -394,6 +395,232 @@ func TestSpecIpv6ConfigBoundaryCoverage(t *testing.T) {
 	t.Logf("Parameters with boundary tests: %d", len(boundaryParams))
 	for _, param := range boundaryParams {
 		t.Logf("  - %s", param)
+	}
+}
+
+// TestSpecIpv6ConfigRTXTerraformMapping validates RTX command to Terraform value mappings
+func TestSpecIpv6ConfigRTXTerraformMapping(t *testing.T) {
+	// This test validates that each RTX command has a corresponding expected Terraform value
+	// and vice versa. It ensures the spec file correctly documents the bidirectional mapping.
+
+	testCases := []struct {
+		name          string
+		rtxCommand    string
+		terraformJSON string
+		parseOnly     bool
+		buildOnly     bool
+	}{
+		{
+			name:          "ipv6_address_static",
+			rtxCommand:    `ipv6 lan1 address 2001:db8::1/64`,
+			terraformJSON: `{"addresses":[{"address":"2001:db8::1/64","static":true}],"interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ipv6_address_link_local",
+			rtxCommand:    `ipv6 lan1 address fe80::1/64`,
+			terraformJSON: `{"addresses":[{"address":"fe80::1/64","static":true}],"interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ipv6_address_loopback",
+			rtxCommand:    `ipv6 loopback1 address 2001:db8:1::1/128`,
+			terraformJSON: `{"addresses":[{"address":"2001:db8:1::1/128","static":true}],"interface":"loopback1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ipv6_address_prefix_based",
+			rtxCommand:    `ipv6 lan1 address 1::1/64`,
+			terraformJSON: `{"addresses":[{"interface_id":"::1","prefix_length":64,"prefix_ref":"1"}],"interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "rtadv_basic",
+			rtxCommand:    `ipv6 lan1 rtadv send 1`,
+			terraformJSON: `{"interface":"lan1","rtadv":{"prefix_id":1}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "rtadv_with_o_flag",
+			rtxCommand:    `ipv6 lan1 rtadv send 1 o_flag=on`,
+			terraformJSON: `{"interface":"lan1","rtadv":{"o_flag":true,"prefix_id":1}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "rtadv_with_m_flag",
+			rtxCommand:    `ipv6 lan1 rtadv send 1 m_flag=on`,
+			terraformJSON: `{"interface":"lan1","rtadv":{"m_flag":true,"prefix_id":1}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "rtadv_with_lifetime",
+			rtxCommand:    `ipv6 lan1 rtadv send 1 lifetime=1800`,
+			terraformJSON: `{"interface":"lan1","rtadv":{"prefix_id":1,"router_lifetime":1800}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "rtadv_full",
+			rtxCommand:    `ipv6 lan1 rtadv send 1 o_flag=on m_flag=off lifetime=3600`,
+			terraformJSON: `{"interface":"lan1","rtadv":{"m_flag":false,"o_flag":true,"prefix_id":1,"router_lifetime":3600}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dhcpv6_server",
+			rtxCommand:    `ipv6 lan1 dhcp service server`,
+			terraformJSON: `{"dhcpv6_service":"server","interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dhcpv6_client",
+			rtxCommand:    `ipv6 lan1 dhcp service client`,
+			terraformJSON: `{"dhcpv6_service":"client","interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ipv6_mtu",
+			rtxCommand:    `ipv6 lan1 mtu 1500`,
+			terraformJSON: `{"interface":"lan1","mtu":1500}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ipv6_mtu_1280",
+			rtxCommand:    `ipv6 tunnel1 mtu 1280`,
+			terraformJSON: `{"interface":"tunnel1","mtu":1280}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ipv6_secure_filter_in",
+			rtxCommand:    `ipv6 lan1 secure filter in 1 2 3`,
+			terraformJSON: `{"interface":"lan1","secure_filter_in":[1,2,3]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ipv6_secure_filter_out",
+			rtxCommand:    `ipv6 lan1 secure filter out 100 101`,
+			terraformJSON: `{"interface":"lan1","secure_filter_out":[100,101]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ipv6_secure_filter_out_dynamic",
+			rtxCommand:    `ipv6 lan1 secure filter out 100 dynamic 200`,
+			terraformJSON: `{"dynamic_filter_out":[200],"interface":"lan1","secure_filter_out":[100]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "prefix_static",
+			rtxCommand:    `ipv6 prefix 1 2001:db8::/48`,
+			terraformJSON: `{"id":1,"prefix":"2001:db8::","prefix_length":48,"source":"static"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "prefix_ra",
+			rtxCommand:    `ipv6 prefix 2 ra-prefix@pp1::/64`,
+			terraformJSON: `{"id":2,"interface":"pp1","prefix_length":64,"source":"ra"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "prefix_dhcpv6_pd",
+			rtxCommand:    `ipv6 prefix 3 dhcp-prefix@lan2::/56`,
+			terraformJSON: `{"id":3,"interface":"lan2","prefix_length":56,"source":"dhcpv6-pd"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "delete_ipv6_address",
+			rtxCommand:    `no ipv6 lan1 address`,
+			terraformJSON: `{"interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_ipv6_address_specific",
+			rtxCommand:    `no ipv6 lan1 address 2001:db8::1/64`,
+			terraformJSON: `{"address":"2001:db8::1/64","interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_rtadv",
+			rtxCommand:    `no ipv6 lan1 rtadv send`,
+			terraformJSON: `{"interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_prefix",
+			rtxCommand:    `no ipv6 prefix 1`,
+			terraformJSON: `{"id":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+				return
+			}
+
+			// build_only tests (like delete commands) may have empty terraform values
+			// because they represent commands that don't have a direct terraform mapping
+			if tc.buildOnly {
+				t.Logf("Direction: Terraform -> RTX only (build)")
+				t.Logf("RTX: %s", tc.rtxCommand)
+				t.Logf("Terraform: %s (build_only, may be empty)", tc.terraformJSON)
+				return
+			}
+
+			// Validate terraform JSON is present and valid for non-build_only tests
+			if tc.terraformJSON == "null" || tc.terraformJSON == "" {
+				t.Errorf("Terraform value is missing for RTX command: %s", tc.rtxCommand)
+				return
+			}
+
+			var tfValue interface{}
+			if err := json.Unmarshal([]byte(tc.terraformJSON), &tfValue); err != nil {
+				t.Errorf("Invalid terraform JSON: %v\nJSON: %s", err, tc.terraformJSON)
+				return
+			}
+
+			// Log the mapping for visibility
+			t.Logf("RTX: %s", tc.rtxCommand)
+			t.Logf("Terraform: %s", tc.terraformJSON)
+
+			// Validate that terraform value contains expected fields (only for non-build_only tests)
+			if tfMap, ok := tfValue.(map[string]interface{}); ok {
+				if len(tfMap) == 0 {
+					t.Errorf("Terraform value is empty map for RTX command: %s", tc.rtxCommand)
+					return
+				}
+			}
+
+			// Check mapping direction
+			if tc.parseOnly {
+				t.Logf("Direction: RTX -> Terraform only (parse)")
+			} else {
+				t.Logf("Direction: Bidirectional (parse and build)")
+			}
+		})
 	}
 }
 

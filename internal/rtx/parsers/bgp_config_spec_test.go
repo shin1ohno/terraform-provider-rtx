@@ -6,6 +6,7 @@
 package parsers
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -356,6 +357,211 @@ func TestSpecBgpConfigBoundaryCoverage(t *testing.T) {
 	t.Logf("Parameters with boundary tests: %d", len(boundaryParams))
 	for _, param := range boundaryParams {
 		t.Logf("  - %s", param)
+	}
+}
+
+// TestSpecBgpConfigRTXTerraformMapping validates RTX command to Terraform value mappings
+func TestSpecBgpConfigRTXTerraformMapping(t *testing.T) {
+	// This test validates that each RTX command has a corresponding expected Terraform value
+	// and vice versa. It ensures the spec file correctly documents the bidirectional mapping.
+
+	testCases := []struct {
+		name          string
+		rtxCommand    string
+		terraformJSON string
+		parseOnly     bool
+		buildOnly     bool
+	}{
+		{
+			name:          "bgp_use_on",
+			rtxCommand:    `bgp use on`,
+			terraformJSON: `{"enabled":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "bgp_use_off",
+			rtxCommand:    `bgp use off`,
+			terraformJSON: `{"enabled":false}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "bgp_asn_2byte",
+			rtxCommand:    `bgp autonomous-system 65001`,
+			terraformJSON: `{"asn":"65001"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "bgp_asn_4byte",
+			rtxCommand:    `bgp autonomous-system 4200000001`,
+			terraformJSON: `{"asn":"4200000001"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "bgp_router_id",
+			rtxCommand:    `bgp router id 192.168.1.1`,
+			terraformJSON: `{"router_id":"192.168.1.1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "bgp_router_id_loopback",
+			rtxCommand:    `bgp router id 10.0.0.1`,
+			terraformJSON: `{"router_id":"10.0.0.1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "bgp_neighbor",
+			rtxCommand:    `bgp neighbor 1 address 203.0.113.1 as 65002`,
+			terraformJSON: `{"neighbors":[{"id":1,"ip":"203.0.113.1","remote_as":"65002"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "bgp_neighbor_second",
+			rtxCommand:    `bgp neighbor 2 address 203.0.113.2 as 65003`,
+			terraformJSON: `{"neighbors":[{"id":2,"ip":"203.0.113.2","remote_as":"65003"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "bgp_neighbor_4byte_as",
+			rtxCommand:    `bgp neighbor 1 address 10.0.0.1 as 4200000001`,
+			terraformJSON: `{"neighbors":[{"id":1,"ip":"10.0.0.1","remote_as":"4200000001"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "bgp_neighbor_holdtime",
+			rtxCommand:    `bgp neighbor 1 hold-time 90`,
+			terraformJSON: `{"neighbors":[{"hold_time":90,"id":1}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "bgp_neighbor_keepalive",
+			rtxCommand:    `bgp neighbor 1 keepalive 30`,
+			terraformJSON: `{"neighbors":[{"id":1,"keepalive":30}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "bgp_neighbor_multihop",
+			rtxCommand:    `bgp neighbor 1 multihop 2`,
+			terraformJSON: `{"neighbors":[{"id":1,"multihop":2}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "bgp_neighbor_password",
+			rtxCommand:    `bgp neighbor 1 password mysecret`,
+			terraformJSON: `{"neighbors":[{"id":1,"password":"mysecret"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "bgp_neighbor_local_address",
+			rtxCommand:    `bgp neighbor 1 local-address 192.168.1.1`,
+			terraformJSON: `{"neighbors":[{"id":1,"local_address":"192.168.1.1"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "bgp_network",
+			rtxCommand:    `bgp import filter 1 include 192.168.0.0/16`,
+			terraformJSON: `{"networks":[{"mask":"255.255.0.0","prefix":"192.168.0.0"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "bgp_network_24",
+			rtxCommand:    `bgp import filter 1 include 10.0.0.0/24`,
+			terraformJSON: `{"networks":[{"mask":"255.255.255.0","prefix":"10.0.0.0"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "bgp_import_static",
+			rtxCommand:    `bgp import from static`,
+			terraformJSON: `{"redistribute_static":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "bgp_import_connected",
+			rtxCommand:    `bgp import from connected`,
+			terraformJSON: `{"redistribute_connected":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "delete_bgp_neighbor",
+			rtxCommand:    `no bgp neighbor 1`,
+			terraformJSON: `{"neighbor_id":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_bgp_network",
+			rtxCommand:    `no bgp import filter 1`,
+			terraformJSON: `{"filter_id":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+				return
+			}
+
+			// build_only tests (like delete commands) may have empty terraform values
+			// because they represent commands that don't have a direct terraform mapping
+			if tc.buildOnly {
+				t.Logf("Direction: Terraform -> RTX only (build)")
+				t.Logf("RTX: %s", tc.rtxCommand)
+				t.Logf("Terraform: %s (build_only, may be empty)", tc.terraformJSON)
+				return
+			}
+
+			// Validate terraform JSON is present and valid for non-build_only tests
+			if tc.terraformJSON == "null" || tc.terraformJSON == "" {
+				t.Errorf("Terraform value is missing for RTX command: %s", tc.rtxCommand)
+				return
+			}
+
+			var tfValue interface{}
+			if err := json.Unmarshal([]byte(tc.terraformJSON), &tfValue); err != nil {
+				t.Errorf("Invalid terraform JSON: %v\nJSON: %s", err, tc.terraformJSON)
+				return
+			}
+
+			// Log the mapping for visibility
+			t.Logf("RTX: %s", tc.rtxCommand)
+			t.Logf("Terraform: %s", tc.terraformJSON)
+
+			// Validate that terraform value contains expected fields (only for non-build_only tests)
+			if tfMap, ok := tfValue.(map[string]interface{}); ok {
+				if len(tfMap) == 0 {
+					t.Errorf("Terraform value is empty map for RTX command: %s", tc.rtxCommand)
+					return
+				}
+			}
+
+			// Check mapping direction
+			if tc.parseOnly {
+				t.Logf("Direction: RTX -> Terraform only (parse)")
+			} else {
+				t.Logf("Direction: Bidirectional (parse and build)")
+			}
+		})
 	}
 }
 

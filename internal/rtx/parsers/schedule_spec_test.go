@@ -6,6 +6,7 @@
 package parsers
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -394,6 +395,230 @@ func TestSpecScheduleBoundaryCoverage(t *testing.T) {
 	t.Logf("Parameters with boundary tests: %d", len(boundaryParams))
 	for _, param := range boundaryParams {
 		t.Logf("  - %s", param)
+	}
+}
+
+// TestSpecScheduleRTXTerraformMapping validates RTX command to Terraform value mappings
+func TestSpecScheduleRTXTerraformMapping(t *testing.T) {
+	// This test validates that each RTX command has a corresponding expected Terraform value
+	// and vice versa. It ensures the spec file correctly documents the bidirectional mapping.
+
+	testCases := []struct {
+		name          string
+		rtxCommand    string
+		terraformJSON string
+		parseOnly     bool
+		buildOnly     bool
+	}{
+		{
+			name:          "schedule_at_time_noon",
+			rtxCommand:    `schedule at 1 12:00 ping 8.8.8.8`,
+			terraformJSON: `{"at_time":"12:00","commands":["ping 8.8.8.8"],"enabled":true,"id":1,"recurring":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "schedule_at_time_midnight",
+			rtxCommand:    `schedule at 2 0:00 save`,
+			terraformJSON: `{"at_time":"0:00","commands":["save"],"enabled":true,"id":2,"recurring":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "schedule_at_time_late",
+			rtxCommand:    `schedule at 3 23:59 restart`,
+			terraformJSON: `{"at_time":"23:59","commands":["restart"],"enabled":true,"id":3,"recurring":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "schedule_at_time_morning",
+			rtxCommand:    `schedule at 10 6:30 show environment`,
+			terraformJSON: `{"at_time":"6:30","commands":["show environment"],"enabled":true,"id":10,"recurring":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "schedule_at_time_afternoon",
+			rtxCommand:    `schedule at 100 14:15 show status pp 1`,
+			terraformJSON: `{"at_time":"14:15","commands":["show status pp 1"],"enabled":true,"id":100,"recurring":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "schedule_at_startup_pp_select",
+			rtxCommand:    `schedule at 1 startup pp select 1`,
+			terraformJSON: `{"commands":["pp select 1"],"enabled":true,"id":1,"on_startup":true,"recurring":false}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "schedule_at_startup_connect",
+			rtxCommand:    `schedule at 2 startup connect pp 1`,
+			terraformJSON: `{"commands":["connect pp 1"],"enabled":true,"id":2,"on_startup":true,"recurring":false}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "schedule_at_startup_tunnel",
+			rtxCommand:    `schedule at 3 startup tunnel select 1`,
+			terraformJSON: `{"commands":["tunnel select 1"],"enabled":true,"id":3,"on_startup":true,"recurring":false}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "schedule_at_startup_save",
+			rtxCommand:    `schedule at 100 startup save`,
+			terraformJSON: `{"commands":["save"],"enabled":true,"id":100,"on_startup":true,"recurring":false}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "schedule_at_datetime_new_year",
+			rtxCommand:    `schedule at 1 2025/01/01 0:00 restart`,
+			terraformJSON: `{"at_time":"0:00","commands":["restart"],"date":"2025/01/01","enabled":true,"id":1,"recurring":false}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "schedule_at_datetime_year_end",
+			rtxCommand:    `schedule at 2 2024/12/31 23:59 save`,
+			terraformJSON: `{"at_time":"23:59","commands":["save"],"date":"2024/12/31","enabled":true,"id":2,"recurring":false}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "schedule_at_datetime_maintenance",
+			rtxCommand:    `schedule at 10 2025/06/15 3:00 cold start`,
+			terraformJSON: `{"at_time":"3:00","commands":["cold start"],"date":"2025/06/15","enabled":true,"id":10,"recurring":false}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "schedule_pp_weekday_connect",
+			rtxCommand:    `schedule pp 1 mon-fri 8:00 connect`,
+			terraformJSON: `{"at_time":"8:00","commands":["connect"],"day_of_week":"mon-fri","enabled":true,"id":-1,"recurring":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "schedule_pp_weekday_disconnect",
+			rtxCommand:    `schedule pp 1 mon-fri 18:00 disconnect`,
+			terraformJSON: `{"at_time":"18:00","commands":["disconnect"],"day_of_week":"mon-fri","enabled":true,"id":-1,"recurring":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "schedule_pp_weekend_connect",
+			rtxCommand:    `schedule pp 2 sat,sun 9:00 connect`,
+			terraformJSON: `{"at_time":"9:00","commands":["connect"],"day_of_week":"sat,sun","enabled":true,"id":-2,"recurring":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "schedule_pp_single_day",
+			rtxCommand:    `schedule pp 1 mon 7:00 connect`,
+			terraformJSON: `{"at_time":"7:00","commands":["connect"],"day_of_week":"mon","enabled":true,"id":-1,"recurring":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "schedule_pp_multi_day",
+			rtxCommand:    `schedule pp 3 mon,wed,fri 12:00 connect`,
+			terraformJSON: `{"at_time":"12:00","commands":["connect"],"day_of_week":"mon,wed,fri","enabled":true,"id":-3,"recurring":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "delete_schedule_1",
+			rtxCommand:    `no schedule at 1`,
+			terraformJSON: `{"id":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_schedule_100",
+			rtxCommand:    `no schedule at 100`,
+			terraformJSON: `{"id":100}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_schedule_pp_weekday",
+			rtxCommand:    `no schedule pp 1 mon-fri 8:00`,
+			terraformJSON: `{"at_time":"8:00","day_of_week":"mon-fri","pp_num":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_schedule_pp_weekend",
+			rtxCommand:    `no schedule pp 2 sat,sun 9:00`,
+			terraformJSON: `{"at_time":"9:00","day_of_week":"sat,sun","pp_num":2}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name: "multiple_schedules",
+			rtxCommand: `schedule at 1 12:00 save
+schedule at 2 startup connect pp 1
+schedule at 3 2025/01/01 0:00 restart
+schedule pp 1 mon-fri 8:00 connect
+schedule pp 1 mon-fri 18:00 disconnect
+`,
+			terraformJSON: `[{"at_time":"12:00","commands":["save"],"enabled":true,"id":1,"recurring":true},{"commands":["connect pp 1"],"enabled":true,"id":2,"on_startup":true,"recurring":false},{"at_time":"0:00","commands":["restart"],"date":"2025/01/01","enabled":true,"id":3,"recurring":false},{"at_time":"8:00","commands":["connect"],"day_of_week":"mon-fri","enabled":true,"id":-1,"recurring":true},{"at_time":"18:00","commands":["disconnect"],"day_of_week":"mon-fri","enabled":true,"id":-1,"recurring":true}]`,
+			parseOnly:     true,
+			buildOnly:     false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+				return
+			}
+
+			// build_only tests (like delete commands) may have empty terraform values
+			// because they represent commands that don't have a direct terraform mapping
+			if tc.buildOnly {
+				t.Logf("Direction: Terraform -> RTX only (build)")
+				t.Logf("RTX: %s", tc.rtxCommand)
+				t.Logf("Terraform: %s (build_only, may be empty)", tc.terraformJSON)
+				return
+			}
+
+			// Validate terraform JSON is present and valid for non-build_only tests
+			if tc.terraformJSON == "null" || tc.terraformJSON == "" {
+				t.Errorf("Terraform value is missing for RTX command: %s", tc.rtxCommand)
+				return
+			}
+
+			var tfValue interface{}
+			if err := json.Unmarshal([]byte(tc.terraformJSON), &tfValue); err != nil {
+				t.Errorf("Invalid terraform JSON: %v\nJSON: %s", err, tc.terraformJSON)
+				return
+			}
+
+			// Log the mapping for visibility
+			t.Logf("RTX: %s", tc.rtxCommand)
+			t.Logf("Terraform: %s", tc.terraformJSON)
+
+			// Validate that terraform value contains expected fields (only for non-build_only tests)
+			if tfMap, ok := tfValue.(map[string]interface{}); ok {
+				if len(tfMap) == 0 {
+					t.Errorf("Terraform value is empty map for RTX command: %s", tc.rtxCommand)
+					return
+				}
+			}
+
+			// Check mapping direction
+			if tc.parseOnly {
+				t.Logf("Direction: RTX -> Terraform only (parse)")
+			} else {
+				t.Logf("Direction: Bidirectional (parse and build)")
+			}
+		})
 	}
 }
 

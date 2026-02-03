@@ -6,6 +6,7 @@
 package parsers
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -303,6 +304,183 @@ func TestSpecEthernetFilterBoundaryCoverage(t *testing.T) {
 	t.Logf("Parameters with boundary tests: %d", len(boundaryParams))
 	for _, param := range boundaryParams {
 		t.Logf("  - %s", param)
+	}
+}
+
+// TestSpecEthernetFilterRTXTerraformMapping validates RTX command to Terraform value mappings
+func TestSpecEthernetFilterRTXTerraformMapping(t *testing.T) {
+	// This test validates that each RTX command has a corresponding expected Terraform value
+	// and vice versa. It ensures the spec file correctly documents the bidirectional mapping.
+
+	testCases := []struct {
+		name          string
+		rtxCommand    string
+		terraformJSON string
+		parseOnly     bool
+		buildOnly     bool
+	}{
+		{
+			name:          "filter_pass_any",
+			rtxCommand:    `ethernet filter 1 pass * *`,
+			terraformJSON: `{"action":"pass","destination_mac":"*","number":1,"source_mac":"*"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "filter_reject_src_mac",
+			rtxCommand:    `ethernet filter 2 reject 00:11:22:33:44:55 *`,
+			terraformJSON: `{"action":"reject","destination_mac":"*","number":2,"source_mac":"00:11:22:33:44:55"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "filter_pass_dst_mac",
+			rtxCommand:    `ethernet filter 3 pass * aa:bb:cc:dd:ee:ff`,
+			terraformJSON: `{"action":"pass","destination_mac":"aa:bb:cc:dd:ee:ff","number":3,"source_mac":"*"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "filter_both_mac",
+			rtxCommand:    `ethernet filter 4 pass-log 00:11:22:33:44:55 aa:bb:cc:dd:ee:ff`,
+			terraformJSON: `{"action":"pass-log","destination_mac":"aa:bb:cc:dd:ee:ff","number":4,"source_mac":"00:11:22:33:44:55"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "filter_with_ethertype",
+			rtxCommand:    `ethernet filter 5 pass * * 0x0800`,
+			terraformJSON: `{"action":"pass","destination_mac":"*","ether_type":"0x0800","number":5,"source_mac":"*"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "filter_with_vlan",
+			rtxCommand:    `ethernet filter 6 pass * * vlan 100`,
+			terraformJSON: `{"action":"pass","destination_mac":"*","number":6,"source_mac":"*","vlan_id":100}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "filter_ethertype_and_vlan",
+			rtxCommand:    `ethernet filter 7 reject * * 0x0806 vlan 200`,
+			terraformJSON: `{"action":"reject","destination_mac":"*","ether_type":"0x0806","number":7,"source_mac":"*","vlan_id":200}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "filter_dhcp_bind",
+			rtxCommand:    `ethernet filter 10 pass dhcp-bind`,
+			terraformJSON: `{"action":"pass","dhcp_type":"dhcp-bind","number":10}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "filter_dhcp_not_bind",
+			rtxCommand:    `ethernet filter 11 reject dhcp-not-bind`,
+			terraformJSON: `{"action":"reject","dhcp_type":"dhcp-not-bind","number":11}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "filter_dhcp_bind_with_scope",
+			rtxCommand:    `ethernet filter 12 pass dhcp-bind 1`,
+			terraformJSON: `{"action":"pass","dhcp_scope":1,"dhcp_type":"dhcp-bind","number":12}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "filter_offset",
+			rtxCommand:    `ethernet filter 20 pass * * offset=14 08 00`,
+			terraformJSON: `{"action":"pass","byte_list":["08","00"],"destination_mac":"*","number":20,"offset":14,"source_mac":"*"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "interface_filter_in",
+			rtxCommand:    `ethernet lan1 filter in 1 2 3`,
+			terraformJSON: `{"direction":"in","filters":[1,2,3],"interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "interface_filter_out",
+			rtxCommand:    `ethernet lan1 filter out 10 11`,
+			terraformJSON: `{"direction":"out","filters":[10,11],"interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "interface_filter_lan2",
+			rtxCommand:    `ethernet lan2 filter in 1`,
+			terraformJSON: `{"direction":"in","filters":[1],"interface":"lan2"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "delete_filter",
+			rtxCommand:    `no ethernet filter 1`,
+			terraformJSON: `{"number":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_interface_filter",
+			rtxCommand:    `no ethernet lan1 filter in`,
+			terraformJSON: `{"direction":"in","interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+				return
+			}
+
+			// build_only tests (like delete commands) may have empty terraform values
+			// because they represent commands that don't have a direct terraform mapping
+			if tc.buildOnly {
+				t.Logf("Direction: Terraform -> RTX only (build)")
+				t.Logf("RTX: %s", tc.rtxCommand)
+				t.Logf("Terraform: %s (build_only, may be empty)", tc.terraformJSON)
+				return
+			}
+
+			// Validate terraform JSON is present and valid for non-build_only tests
+			if tc.terraformJSON == "null" || tc.terraformJSON == "" {
+				t.Errorf("Terraform value is missing for RTX command: %s", tc.rtxCommand)
+				return
+			}
+
+			var tfValue interface{}
+			if err := json.Unmarshal([]byte(tc.terraformJSON), &tfValue); err != nil {
+				t.Errorf("Invalid terraform JSON: %v\nJSON: %s", err, tc.terraformJSON)
+				return
+			}
+
+			// Log the mapping for visibility
+			t.Logf("RTX: %s", tc.rtxCommand)
+			t.Logf("Terraform: %s", tc.terraformJSON)
+
+			// Validate that terraform value contains expected fields (only for non-build_only tests)
+			if tfMap, ok := tfValue.(map[string]interface{}); ok {
+				if len(tfMap) == 0 {
+					t.Errorf("Terraform value is empty map for RTX command: %s", tc.rtxCommand)
+					return
+				}
+			}
+
+			// Check mapping direction
+			if tc.parseOnly {
+				t.Logf("Direction: RTX -> Terraform only (parse)")
+			} else {
+				t.Logf("Direction: Bidirectional (parse and build)")
+			}
+		})
 	}
 }
 

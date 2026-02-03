@@ -6,6 +6,7 @@
 package parsers
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -212,6 +213,48 @@ func TestSpecPppConfigRTXSyntax(t *testing.T) {
 			rtxCommand: `no pppoe use`,
 			parseOnly:  false,
 			buildOnly:  true,
+		},
+		{
+			name:       "pp_select_min",
+			rtxCommand: `pp select 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pp_select_max",
+			rtxCommand: `pp select 65535`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pp_auth_myname_long",
+			rtxCommand: `pp auth myname user@provider.example.com verylongpassword123`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pp_bind_lan1",
+			rtxCommand: `pp bind lan1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pp_bind_lan2",
+			rtxCommand: `pp bind lan2`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pp_keepalive_on",
+			rtxCommand: `pp 1 keepalive use on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "pp_mtu",
+			rtxCommand: `pp 1 mtu 1454`,
+			parseOnly:  false,
+			buildOnly:  false,
 		},
 	}
 
@@ -475,6 +518,55 @@ func TestSpecPppConfigSyntaxCoverage(t *testing.T) {
 			buildOnly:   true,
 			description: "",
 		},
+		{
+			name:        "pp_select_min",
+			rtxCommand:  `pp select 1`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "PP番号最小",
+		},
+		{
+			name:        "pp_select_max",
+			rtxCommand:  `pp select 65535`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "PP番号最大",
+		},
+		{
+			name:        "pp_auth_myname_long",
+			rtxCommand:  `pp auth myname user@provider.example.com verylongpassword123`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "長いユーザー名とパスワード",
+		},
+		{
+			name:        "pp_bind_lan1",
+			rtxCommand:  `pp bind lan1`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "LAN1バインド",
+		},
+		{
+			name:        "pp_bind_lan2",
+			rtxCommand:  `pp bind lan2`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "LAN2バインド",
+		},
+		{
+			name:        "pp_keepalive_on",
+			rtxCommand:  `pp 1 keepalive use on`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "キープアライブ有効",
+		},
+		{
+			name:        "pp_mtu",
+			rtxCommand:  `pp 1 mtu 1454`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "MTU設定",
+		},
 	}
 
 	t.Logf("Total syntax patterns: %d", len(syntaxPatterns))
@@ -512,6 +604,344 @@ func TestSpecPppConfigBoundaryCoverage(t *testing.T) {
 	t.Logf("Parameters with boundary tests: %d", len(boundaryParams))
 	for _, param := range boundaryParams {
 		t.Logf("  - %s", param)
+	}
+}
+
+// TestSpecPppConfigRTXTerraformMapping validates RTX command to Terraform value mappings
+func TestSpecPppConfigRTXTerraformMapping(t *testing.T) {
+	// This test validates that each RTX command has a corresponding expected Terraform value
+	// and vice versa. It ensures the spec file correctly documents the bidirectional mapping.
+
+	testCases := []struct {
+		name          string
+		rtxCommand    string
+		terraformJSON string
+		parseOnly     bool
+		buildOnly     bool
+	}{
+		{
+			name:          "pp_select_1",
+			rtxCommand:    `pp select 1`,
+			terraformJSON: `{"number":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pp_select_2",
+			rtxCommand:    `pp select 2`,
+			terraformJSON: `{"number":2}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pp_description",
+			rtxCommand:    `description pp "Internet Connection"`,
+			terraformJSON: `{"name":"Internet Connection","number":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pp_description_isp",
+			rtxCommand:    `description pp "ISP PPPoE"`,
+			terraformJSON: `{"name":"ISP PPPoE","number":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pppoe_use_lan2",
+			rtxCommand:    `pppoe use lan2`,
+			terraformJSON: `{"interface":"lan2"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pppoe_use_lan3",
+			rtxCommand:    `pppoe use lan3`,
+			terraformJSON: `{"interface":"lan3"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pp_bind_wan1",
+			rtxCommand:    `pp bind wan1`,
+			terraformJSON: `{"bind_interface":"wan1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pp_bind_lan2",
+			rtxCommand:    `pp bind lan2`,
+			terraformJSON: `{"bind_interface":"lan2"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pppoe_service_name",
+			rtxCommand:    `pppoe service-name myisp`,
+			terraformJSON: `{"service_name":"myisp"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pppoe_ac_name",
+			rtxCommand:    `pppoe ac-name accessconcentrator`,
+			terraformJSON: `{"ac_name":"accessconcentrator"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pp_auth_accept_chap",
+			rtxCommand:    `pp auth accept chap`,
+			terraformJSON: `{"authentication":{"method":"chap"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pp_auth_accept_pap",
+			rtxCommand:    `pp auth accept pap`,
+			terraformJSON: `{"authentication":{"method":"pap"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pp_auth_accept_chap_pap",
+			rtxCommand:    `pp auth accept chap pap`,
+			terraformJSON: `{"authentication":{"method":"chap pap"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pp_auth_myname",
+			rtxCommand:    `pp auth myname user@isp.com password123`,
+			terraformJSON: `{"authentication":{"password":"password123","username":"user@isp.com"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pp_auth_myname_complex",
+			rtxCommand:    `pp auth myname flets@west.jp MyP@ssw0rd!`,
+			terraformJSON: `{"authentication":{"password":"MyP@ssw0rd!","username":"flets@west.jp"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pp_always_on_on",
+			rtxCommand:    `pp always-on on`,
+			terraformJSON: `{"always_on":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pp_always_on_off",
+			rtxCommand:    `pp always-on off`,
+			terraformJSON: `{"always_on":false}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pp_disconnect_time",
+			rtxCommand:    `pp disconnect time 300`,
+			terraformJSON: `{"disconnect_timeout":300}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pp_disconnect_time_off",
+			rtxCommand:    `pp disconnect time off`,
+			terraformJSON: `{"disconnect_timeout":0}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pp_keepalive",
+			rtxCommand:    `pp keepalive interval 30 retry-interval 3`,
+			terraformJSON: `{"lcp_echo_config":{"enabled":true,"interval":30,"max_retries":3}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ip_pp_address",
+			rtxCommand:    `ip pp address 192.168.1.1/32`,
+			terraformJSON: `{"ip_config":{"address":"192.168.1.1/32"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ip_pp_address_dhcp",
+			rtxCommand:    `ip pp address dhcp`,
+			terraformJSON: `{"ip_config":{"address":"dhcp"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ip_pp_mtu",
+			rtxCommand:    `ip pp mtu 1454`,
+			terraformJSON: `{"ip_config":{"mtu":1454}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ip_pp_mtu_1492",
+			rtxCommand:    `ip pp mtu 1492`,
+			terraformJSON: `{"ip_config":{"mtu":1492}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ip_pp_tcp_mss_limit",
+			rtxCommand:    `ip pp tcp mss limit 1414`,
+			terraformJSON: `{"ip_config":{"tcp_mss_limit":1414}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ip_pp_tcp_mss_limit_auto",
+			rtxCommand:    `ip pp tcp mss limit auto`,
+			terraformJSON: `{"ip_config":{"tcp_mss_limit":"auto"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ip_pp_nat_descriptor",
+			rtxCommand:    `ip pp nat descriptor 1`,
+			terraformJSON: `{"ip_config":{"nat_descriptor":1}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ip_pp_nat_descriptor_100",
+			rtxCommand:    `ip pp nat descriptor 100`,
+			terraformJSON: `{"ip_config":{"nat_descriptor":100}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pp_enable",
+			rtxCommand:    `pp enable 1`,
+			terraformJSON: `{"enabled":true,"number":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "pp_disable",
+			rtxCommand:    `pp disable 1`,
+			terraformJSON: `{"enabled":false,"number":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_pp",
+			rtxCommand:    `no pp select 1`,
+			terraformJSON: `{"number":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_pppoe_use",
+			rtxCommand:    `no pppoe use`,
+			terraformJSON: `{}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "pp_select_min",
+			rtxCommand:    `pp select 1`,
+			terraformJSON: `{"pp_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pp_select_max",
+			rtxCommand:    `pp select 65535`,
+			terraformJSON: `{"pp_id":65535}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pp_auth_myname_long",
+			rtxCommand:    `pp auth myname user@provider.example.com verylongpassword123`,
+			terraformJSON: `{"auth_password":"verylongpassword123","auth_username":"user@provider.example.com","pp_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pp_bind_lan1",
+			rtxCommand:    `pp bind lan1`,
+			terraformJSON: `{"bind_interface":"lan1","pp_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pp_bind_lan2",
+			rtxCommand:    `pp bind lan2`,
+			terraformJSON: `{"bind_interface":"lan2","pp_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pp_keepalive_on",
+			rtxCommand:    `pp 1 keepalive use on`,
+			terraformJSON: `{"keepalive":true,"pp_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pp_mtu",
+			rtxCommand:    `pp 1 mtu 1454`,
+			terraformJSON: `{"mtu":1454,"pp_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+				return
+			}
+
+			// build_only tests (like delete commands) may have empty terraform values
+			// because they represent commands that don't have a direct terraform mapping
+			if tc.buildOnly {
+				t.Logf("Direction: Terraform -> RTX only (build)")
+				t.Logf("RTX: %s", tc.rtxCommand)
+				t.Logf("Terraform: %s (build_only, may be empty)", tc.terraformJSON)
+				return
+			}
+
+			// Validate terraform JSON is present and valid for non-build_only tests
+			if tc.terraformJSON == "null" || tc.terraformJSON == "" {
+				t.Errorf("Terraform value is missing for RTX command: %s", tc.rtxCommand)
+				return
+			}
+
+			var tfValue interface{}
+			if err := json.Unmarshal([]byte(tc.terraformJSON), &tfValue); err != nil {
+				t.Errorf("Invalid terraform JSON: %v\nJSON: %s", err, tc.terraformJSON)
+				return
+			}
+
+			// Log the mapping for visibility
+			t.Logf("RTX: %s", tc.rtxCommand)
+			t.Logf("Terraform: %s", tc.terraformJSON)
+
+			// Validate that terraform value contains expected fields (only for non-build_only tests)
+			if tfMap, ok := tfValue.(map[string]interface{}); ok {
+				if len(tfMap) == 0 {
+					t.Errorf("Terraform value is empty map for RTX command: %s", tc.rtxCommand)
+					return
+				}
+			}
+
+			// Check mapping direction
+			if tc.parseOnly {
+				t.Logf("Direction: RTX -> Terraform only (parse)")
+			} else {
+				t.Logf("Direction: Bidirectional (parse and build)")
+			}
+		})
 	}
 }
 

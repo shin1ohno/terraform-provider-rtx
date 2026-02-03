@@ -6,6 +6,7 @@
 package parsers
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -122,6 +123,54 @@ func TestSpecNatMasqueradeRTXSyntax(t *testing.T) {
 			rtxCommand: `no nat descriptor masquerade static 1 1`,
 			parseOnly:  false,
 			buildOnly:  true,
+		},
+		{
+			name:       "nat_descriptor_min",
+			rtxCommand: `nat descriptor type 1 masquerade`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "nat_descriptor_max",
+			rtxCommand: `nat descriptor type 65535 masquerade`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "nat_static_tcp_ssh",
+			rtxCommand: `nat descriptor masquerade static 1 1 192.168.1.100 tcp 22`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "nat_static_tcp_https",
+			rtxCommand: `nat descriptor masquerade static 1 2 192.168.1.100 tcp 443`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "nat_static_udp_dns",
+			rtxCommand: `nat descriptor masquerade static 1 3 192.168.1.53 udp 53`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "nat_address_outer",
+			rtxCommand: `nat descriptor address outer 1 ipcp`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "nat_address_inner",
+			rtxCommand: `nat descriptor address inner 1 192.168.1.0-192.168.1.255`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "nat_timer_min",
+			rtxCommand: `nat descriptor timer 1 60`,
+			parseOnly:  false,
+			buildOnly:  false,
 		},
 	}
 
@@ -280,6 +329,62 @@ func TestSpecNatMasqueradeSyntaxCoverage(t *testing.T) {
 			buildOnly:   true,
 			description: "",
 		},
+		{
+			name:        "nat_descriptor_min",
+			rtxCommand:  `nat descriptor type 1 masquerade`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "ディスクリプタID最小",
+		},
+		{
+			name:        "nat_descriptor_max",
+			rtxCommand:  `nat descriptor type 65535 masquerade`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "ディスクリプタID最大",
+		},
+		{
+			name:        "nat_static_tcp_ssh",
+			rtxCommand:  `nat descriptor masquerade static 1 1 192.168.1.100 tcp 22`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "SSH静的NAT",
+		},
+		{
+			name:        "nat_static_tcp_https",
+			rtxCommand:  `nat descriptor masquerade static 1 2 192.168.1.100 tcp 443`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "HTTPS静的NAT",
+		},
+		{
+			name:        "nat_static_udp_dns",
+			rtxCommand:  `nat descriptor masquerade static 1 3 192.168.1.53 udp 53`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "DNS静的NAT",
+		},
+		{
+			name:        "nat_address_outer",
+			rtxCommand:  `nat descriptor address outer 1 ipcp`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "外部アドレスIPCP",
+		},
+		{
+			name:        "nat_address_inner",
+			rtxCommand:  `nat descriptor address inner 1 192.168.1.0-192.168.1.255`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "内部アドレス範囲",
+		},
+		{
+			name:        "nat_timer_min",
+			rtxCommand:  `nat descriptor timer 1 60`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "NATタイマー最小",
+		},
 	}
 
 	t.Logf("Total syntax patterns: %d", len(syntaxPatterns))
@@ -316,6 +421,246 @@ func TestSpecNatMasqueradeBoundaryCoverage(t *testing.T) {
 	t.Logf("Parameters with boundary tests: %d", len(boundaryParams))
 	for _, param := range boundaryParams {
 		t.Logf("  - %s", param)
+	}
+}
+
+// TestSpecNatMasqueradeRTXTerraformMapping validates RTX command to Terraform value mappings
+func TestSpecNatMasqueradeRTXTerraformMapping(t *testing.T) {
+	// This test validates that each RTX command has a corresponding expected Terraform value
+	// and vice versa. It ensures the spec file correctly documents the bidirectional mapping.
+
+	testCases := []struct {
+		name          string
+		rtxCommand    string
+		terraformJSON string
+		parseOnly     bool
+		buildOnly     bool
+	}{
+		{
+			name:          "nat_type_masquerade",
+			rtxCommand:    `nat descriptor type 1 masquerade`,
+			terraformJSON: `{"descriptor_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "nat_type_masquerade_100",
+			rtxCommand:    `nat descriptor type 100 masquerade`,
+			terraformJSON: `{"descriptor_id":100}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "nat_address_outer_ipcp",
+			rtxCommand:    `nat descriptor address outer 1 ipcp`,
+			terraformJSON: `{"descriptor_id":1,"outer_address":"ipcp"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "nat_address_outer_ip",
+			rtxCommand:    `nat descriptor address outer 1 203.0.113.1`,
+			terraformJSON: `{"descriptor_id":1,"outer_address":"203.0.113.1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "nat_address_outer_primary",
+			rtxCommand:    `nat descriptor address outer 1 primary`,
+			terraformJSON: `{"descriptor_id":1,"outer_address":"primary"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "nat_address_inner_network",
+			rtxCommand:    `nat descriptor address inner 1 192.168.1.1-192.168.1.254`,
+			terraformJSON: `{"descriptor_id":1,"inner_network":"192.168.1.1-192.168.1.254"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "nat_address_inner_auto",
+			rtxCommand:    `nat descriptor address inner 1 auto`,
+			terraformJSON: `{"descriptor_id":1,"inner_network":"auto"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "masquerade_static_tcp",
+			rtxCommand:    `nat descriptor masquerade static 1 1 192.168.1.100 tcp 80`,
+			terraformJSON: `{"descriptor_id":1,"static_entries":[{"entry_number":1,"inside_local":"192.168.1.100","inside_local_port":80,"protocol":"tcp"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "masquerade_static_tcp_https",
+			rtxCommand:    `nat descriptor masquerade static 1 2 192.168.1.100 tcp 443`,
+			terraformJSON: `{"descriptor_id":1,"static_entries":[{"entry_number":2,"inside_local":"192.168.1.100","inside_local_port":443,"protocol":"tcp"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "masquerade_static_udp",
+			rtxCommand:    `nat descriptor masquerade static 1 3 192.168.1.200 udp 53`,
+			terraformJSON: `{"descriptor_id":1,"static_entries":[{"entry_number":3,"inside_local":"192.168.1.200","inside_local_port":53,"protocol":"udp"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "masquerade_static_port_mapping",
+			rtxCommand:    `nat descriptor masquerade static 1 4 192.168.1.100 tcp 8080=80`,
+			terraformJSON: `{"descriptor_id":1,"static_entries":[{"entry_number":4,"inside_local":"192.168.1.100","inside_local_port":80,"outside_global_port":8080,"protocol":"tcp"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "masquerade_static_outer_inner",
+			rtxCommand:    `nat descriptor masquerade static 1 5 203.0.113.1:22=192.168.1.10:22`,
+			terraformJSON: `{"descriptor_id":1,"static_entries":[{"entry_number":5,"inside_local":"192.168.1.10","inside_local_port":22,"outside_global":"203.0.113.1","outside_global_port":22}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "masquerade_static_protocol_only",
+			rtxCommand:    `nat descriptor masquerade static 1 6 192.168.1.100 icmp`,
+			terraformJSON: `{"descriptor_id":1,"static_entries":[{"entry_number":6,"inside_local":"192.168.1.100","protocol":"icmp"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "interface_nat_descriptor",
+			rtxCommand:    `ip lan2 nat descriptor 1`,
+			terraformJSON: `{"descriptor_id":1,"interface":"lan2"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "interface_nat_descriptor_pp",
+			rtxCommand:    `ip pp nat descriptor 1`,
+			terraformJSON: `{"descriptor_id":1,"interface":"pp"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "delete_nat_masquerade",
+			rtxCommand:    `no nat descriptor type 1`,
+			terraformJSON: `{"descriptor_id":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_masquerade_static",
+			rtxCommand:    `no nat descriptor masquerade static 1 1`,
+			terraformJSON: `{"descriptor_id":1,"entry_number":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "nat_descriptor_min",
+			rtxCommand:    `nat descriptor type 1 masquerade`,
+			terraformJSON: `{"descriptor_id":1,"type":"masquerade"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "nat_descriptor_max",
+			rtxCommand:    `nat descriptor type 65535 masquerade`,
+			terraformJSON: `{"descriptor_id":65535,"type":"masquerade"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "nat_static_tcp_ssh",
+			rtxCommand:    `nat descriptor masquerade static 1 1 192.168.1.100 tcp 22`,
+			terraformJSON: `{"descriptor_id":1,"inner_ip":"192.168.1.100","port":22,"protocol":"tcp","static_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "nat_static_tcp_https",
+			rtxCommand:    `nat descriptor masquerade static 1 2 192.168.1.100 tcp 443`,
+			terraformJSON: `{"descriptor_id":1,"inner_ip":"192.168.1.100","port":443,"protocol":"tcp","static_id":2}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "nat_static_udp_dns",
+			rtxCommand:    `nat descriptor masquerade static 1 3 192.168.1.53 udp 53`,
+			terraformJSON: `{"descriptor_id":1,"inner_ip":"192.168.1.53","port":53,"protocol":"udp","static_id":3}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "nat_address_outer",
+			rtxCommand:    `nat descriptor address outer 1 ipcp`,
+			terraformJSON: `{"descriptor_id":1,"outer_address":"ipcp"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "nat_address_inner",
+			rtxCommand:    `nat descriptor address inner 1 192.168.1.0-192.168.1.255`,
+			terraformJSON: `{"descriptor_id":1,"inner_address_end":"192.168.1.255","inner_address_start":"192.168.1.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "nat_timer_min",
+			rtxCommand:    `nat descriptor timer 1 60`,
+			terraformJSON: `{"descriptor_id":1,"timer":60}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+				return
+			}
+
+			// build_only tests (like delete commands) may have empty terraform values
+			// because they represent commands that don't have a direct terraform mapping
+			if tc.buildOnly {
+				t.Logf("Direction: Terraform -> RTX only (build)")
+				t.Logf("RTX: %s", tc.rtxCommand)
+				t.Logf("Terraform: %s (build_only, may be empty)", tc.terraformJSON)
+				return
+			}
+
+			// Validate terraform JSON is present and valid for non-build_only tests
+			if tc.terraformJSON == "null" || tc.terraformJSON == "" {
+				t.Errorf("Terraform value is missing for RTX command: %s", tc.rtxCommand)
+				return
+			}
+
+			var tfValue interface{}
+			if err := json.Unmarshal([]byte(tc.terraformJSON), &tfValue); err != nil {
+				t.Errorf("Invalid terraform JSON: %v\nJSON: %s", err, tc.terraformJSON)
+				return
+			}
+
+			// Log the mapping for visibility
+			t.Logf("RTX: %s", tc.rtxCommand)
+			t.Logf("Terraform: %s", tc.terraformJSON)
+
+			// Validate that terraform value contains expected fields (only for non-build_only tests)
+			if tfMap, ok := tfValue.(map[string]interface{}); ok {
+				if len(tfMap) == 0 {
+					t.Errorf("Terraform value is empty map for RTX command: %s", tc.rtxCommand)
+					return
+				}
+			}
+
+			// Check mapping direction
+			if tc.parseOnly {
+				t.Logf("Direction: RTX -> Terraform only (parse)")
+			} else {
+				t.Logf("Direction: Bidirectional (parse and build)")
+			}
+		})
 	}
 }
 

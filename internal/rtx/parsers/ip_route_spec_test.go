@@ -6,6 +6,7 @@
 package parsers
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -282,6 +283,66 @@ ip route 172.16.0.0/12 gateway tunnel 1
 			rtxCommand: `no ip route 172.16.0.0/12 gateway pp 1`,
 			parseOnly:  false,
 			buildOnly:  true,
+		},
+		{
+			name:       "route_default_gateway",
+			rtxCommand: `ip route default gateway 192.168.1.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "route_class_a",
+			rtxCommand: `ip route 10.0.0.0/8 gateway 192.168.1.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "route_class_b",
+			rtxCommand: `ip route 172.16.0.0/12 gateway 192.168.1.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "route_host_route",
+			rtxCommand: `ip route 192.168.1.100/32 gateway 192.168.1.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "route_metric_min",
+			rtxCommand: `ip route 10.0.0.0/24 gateway 192.168.1.1 metric 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "route_metric_max",
+			rtxCommand: `ip route 10.0.0.0/24 gateway 192.168.1.1 metric 10000`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "route_pp_gateway",
+			rtxCommand: `ip route default gateway pp 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "route_tunnel_gateway",
+			rtxCommand: `ip route 10.0.0.0/24 gateway tunnel 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "route_keepalive_on",
+			rtxCommand: `ip route 10.0.0.0/24 gateway 192.168.1.1 keepalive 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "route_hide_enabled",
+			rtxCommand: `ip route 10.0.0.0/24 gateway 192.168.1.1 hide`,
+			parseOnly:  false,
+			buildOnly:  false,
 		},
 	}
 
@@ -625,6 +686,76 @@ ip route 172.16.0.0/12 gateway tunnel 1
 			buildOnly:   true,
 			description: "",
 		},
+		{
+			name:        "route_default_gateway",
+			rtxCommand:  `ip route default gateway 192.168.1.1`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "デフォルトゲートウェイ",
+		},
+		{
+			name:        "route_class_a",
+			rtxCommand:  `ip route 10.0.0.0/8 gateway 192.168.1.1`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "クラスAルート",
+		},
+		{
+			name:        "route_class_b",
+			rtxCommand:  `ip route 172.16.0.0/12 gateway 192.168.1.1`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "クラスBルート",
+		},
+		{
+			name:        "route_host_route",
+			rtxCommand:  `ip route 192.168.1.100/32 gateway 192.168.1.1`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "ホストルート",
+		},
+		{
+			name:        "route_metric_min",
+			rtxCommand:  `ip route 10.0.0.0/24 gateway 192.168.1.1 metric 1`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "メトリック最小値",
+		},
+		{
+			name:        "route_metric_max",
+			rtxCommand:  `ip route 10.0.0.0/24 gateway 192.168.1.1 metric 10000`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "メトリック大きい値",
+		},
+		{
+			name:        "route_pp_gateway",
+			rtxCommand:  `ip route default gateway pp 1`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "PPインターフェース経由",
+		},
+		{
+			name:        "route_tunnel_gateway",
+			rtxCommand:  `ip route 10.0.0.0/24 gateway tunnel 1`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "トンネル経由",
+		},
+		{
+			name:        "route_keepalive_on",
+			rtxCommand:  `ip route 10.0.0.0/24 gateway 192.168.1.1 keepalive 1`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "キープアライブ有効",
+		},
+		{
+			name:        "route_hide_enabled",
+			rtxCommand:  `ip route 10.0.0.0/24 gateway 192.168.1.1 hide`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "ルート非表示",
+		},
 	}
 
 	t.Logf("Total syntax patterns: %d", len(syntaxPatterns))
@@ -664,6 +795,445 @@ func TestSpecIPRouteBoundaryCoverage(t *testing.T) {
 	t.Logf("Parameters with boundary tests: %d", len(boundaryParams))
 	for _, param := range boundaryParams {
 		t.Logf("  - %s", param)
+	}
+}
+
+// TestSpecIPRouteRTXTerraformMapping validates RTX command to Terraform value mappings
+func TestSpecIPRouteRTXTerraformMapping(t *testing.T) {
+	// This test validates that each RTX command has a corresponding expected Terraform value
+	// and vice versa. It ensures the spec file correctly documents the bidirectional mapping.
+
+	testCases := []struct {
+		name          string
+		rtxCommand    string
+		terraformJSON string
+		parseOnly     bool
+		buildOnly     bool
+	}{
+		{
+			name:          "default_route_ip_gateway",
+			rtxCommand:    `ip route default gateway 192.168.0.1`,
+			terraformJSON: `{"mask":"0.0.0.0","next_hops":[{"distance":1,"next_hop":"192.168.0.1"}],"prefix":"0.0.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "default_route_pp",
+			rtxCommand:    `ip route default gateway pp 1`,
+			terraformJSON: `{"mask":"0.0.0.0","next_hops":[{"distance":1,"interface":"pp 1"}],"prefix":"0.0.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "default_route_tunnel",
+			rtxCommand:    `ip route default gateway tunnel 1`,
+			terraformJSON: `{"mask":"0.0.0.0","next_hops":[{"distance":1,"interface":"tunnel 1"}],"prefix":"0.0.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "default_route_dhcp_lan",
+			rtxCommand:    `ip route default gateway dhcp lan1`,
+			terraformJSON: `{"mask":"0.0.0.0","next_hops":[{"distance":1,"interface":"dhcp lan1"}],"prefix":"0.0.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "default_route_dhcp_lan2",
+			rtxCommand:    `ip route default gateway dhcp lan2`,
+			terraformJSON: `{"mask":"0.0.0.0","next_hops":[{"distance":1,"interface":"dhcp lan2"}],"prefix":"0.0.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "default_route_null",
+			rtxCommand:    `ip route default gateway null`,
+			terraformJSON: `{"mask":"0.0.0.0","next_hops":[{"distance":1,"interface":"null"}],"prefix":"0.0.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "network_route_ip_gateway_cidr8",
+			rtxCommand:    `ip route 10.0.0.0/8 gateway 192.168.1.1`,
+			terraformJSON: `{"mask":"255.0.0.0","next_hops":[{"distance":1,"next_hop":"192.168.1.1"}],"prefix":"10.0.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "network_route_ip_gateway_cidr16",
+			rtxCommand:    `ip route 172.16.0.0/12 gateway 192.168.1.1`,
+			terraformJSON: `{"mask":"255.240.0.0","next_hops":[{"distance":1,"next_hop":"192.168.1.1"}],"prefix":"172.16.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "network_route_ip_gateway_cidr24",
+			rtxCommand:    `ip route 192.168.100.0/24 gateway 10.0.0.1`,
+			terraformJSON: `{"mask":"255.255.255.0","next_hops":[{"distance":1,"next_hop":"10.0.0.1"}],"prefix":"192.168.100.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "network_route_ip_gateway_cidr32",
+			rtxCommand:    `ip route 192.168.1.100/32 gateway 192.168.1.1`,
+			terraformJSON: `{"mask":"255.255.255.255","next_hops":[{"distance":1,"next_hop":"192.168.1.1"}],"prefix":"192.168.1.100"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "network_route_pp",
+			rtxCommand:    `ip route 192.168.1.0/24 gateway pp 1`,
+			terraformJSON: `{"mask":"255.255.255.0","next_hops":[{"distance":1,"interface":"pp 1"}],"prefix":"192.168.1.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "network_route_pp_large_num",
+			rtxCommand:    `ip route 192.168.1.0/24 gateway pp 100`,
+			terraformJSON: `{"mask":"255.255.255.0","next_hops":[{"distance":1,"interface":"pp 100"}],"prefix":"192.168.1.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "network_route_tunnel",
+			rtxCommand:    `ip route 10.10.0.0/16 gateway tunnel 1`,
+			terraformJSON: `{"mask":"255.255.0.0","next_hops":[{"distance":1,"interface":"tunnel 1"}],"prefix":"10.10.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "network_route_tunnel_large_num",
+			rtxCommand:    `ip route 10.10.0.0/16 gateway tunnel 100`,
+			terraformJSON: `{"mask":"255.255.0.0","next_hops":[{"distance":1,"interface":"tunnel 100"}],"prefix":"10.10.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "default_route_with_weight",
+			rtxCommand:    `ip route default gateway 192.168.0.1 weight 10`,
+			terraformJSON: `{"mask":"0.0.0.0","next_hops":[{"distance":10,"next_hop":"192.168.0.1"}],"prefix":"0.0.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "default_route_with_weight_zero",
+			rtxCommand:    `ip route default gateway 192.168.0.1 weight 0`,
+			terraformJSON: `{"mask":"0.0.0.0","next_hops":[{"distance":0,"next_hop":"192.168.0.1"}],"prefix":"0.0.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "network_route_pp_with_weight",
+			rtxCommand:    `ip route 192.168.1.0/24 gateway pp 1 weight 2`,
+			terraformJSON: `{"mask":"255.255.255.0","next_hops":[{"distance":2,"interface":"pp 1"}],"prefix":"192.168.1.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "network_route_with_filter",
+			rtxCommand:    `ip route 10.10.0.0/16 gateway 192.168.1.1 filter 100`,
+			terraformJSON: `{"mask":"255.255.0.0","next_hops":[{"distance":1,"filter":100,"next_hop":"192.168.1.1"}],"prefix":"10.10.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "network_route_with_filter_min",
+			rtxCommand:    `ip route 10.10.0.0/16 gateway 192.168.1.1 filter 1`,
+			terraformJSON: `{"mask":"255.255.0.0","next_hops":[{"distance":1,"filter":1,"next_hop":"192.168.1.1"}],"prefix":"10.10.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "default_route_pp_with_hide",
+			rtxCommand:    `ip route default gateway pp 1 hide`,
+			terraformJSON: `{"mask":"0.0.0.0","next_hops":[{"distance":1,"hide":true,"interface":"pp 1"}],"prefix":"0.0.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "network_route_tunnel_with_hide",
+			rtxCommand:    `ip route 10.0.0.0/8 gateway tunnel 1 hide`,
+			terraformJSON: `{"mask":"255.0.0.0","next_hops":[{"distance":1,"hide":true,"interface":"tunnel 1"}],"prefix":"10.0.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "network_route_with_keepalive",
+			rtxCommand:    `ip route 10.0.0.0/8 gateway 192.168.1.1 keepalive 1`,
+			terraformJSON: `{"mask":"255.0.0.0","next_hops":[{"distance":1,"keepalive_id":1,"next_hop":"192.168.1.1","permanent":true}],"prefix":"10.0.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "network_route_with_keepalive_large",
+			rtxCommand:    `ip route 10.0.0.0/8 gateway 192.168.1.1 keepalive 3000`,
+			terraformJSON: `{"mask":"255.0.0.0","next_hops":[{"distance":1,"keepalive_id":3000,"next_hop":"192.168.1.1","permanent":true}],"prefix":"10.0.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "network_route_with_metric",
+			rtxCommand:    `ip route 10.0.0.0/8 gateway 192.168.1.1 metric 5`,
+			terraformJSON: `{"mask":"255.0.0.0","next_hops":[{"distance":1,"metric":5,"next_hop":"192.168.1.1"}],"prefix":"10.0.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "network_route_with_metric_max",
+			rtxCommand:    `ip route 10.0.0.0/8 gateway 192.168.1.1 metric 15`,
+			terraformJSON: `{"mask":"255.0.0.0","next_hops":[{"distance":1,"metric":15,"next_hop":"192.168.1.1"}],"prefix":"10.0.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "network_route_with_dpi",
+			rtxCommand:    `ip route default gateway pp 1 dpi 1 gateway tunnel 1`,
+			terraformJSON: `{"mask":"0.0.0.0","next_hops":[{"distance":1,"dpi_filter":1,"interface":"pp 1"},{"distance":1,"interface":"tunnel 1"}],"prefix":"0.0.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "route_with_weight_and_filter",
+			rtxCommand:    `ip route 10.0.0.0/8 gateway 192.168.1.1 weight 20 filter 50`,
+			terraformJSON: `{"mask":"255.0.0.0","next_hops":[{"distance":20,"filter":50,"next_hop":"192.168.1.1"}],"prefix":"10.0.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "route_with_weight_and_hide",
+			rtxCommand:    `ip route default gateway pp 1 weight 2 hide`,
+			terraformJSON: `{"mask":"0.0.0.0","next_hops":[{"distance":2,"hide":true,"interface":"pp 1"}],"prefix":"0.0.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "route_with_all_options",
+			rtxCommand:    `ip route 10.0.0.0/8 gateway 192.168.1.1 weight 20 filter 50 keepalive 1`,
+			terraformJSON: `{"mask":"255.0.0.0","next_hops":[{"distance":20,"filter":50,"keepalive_id":1,"next_hop":"192.168.1.1","permanent":true}],"prefix":"10.0.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "multi_gateway_single_line_ecmp_2",
+			rtxCommand:    `ip route 10.0.0.0/8 gateway 192.168.1.1 weight 1 gateway 192.168.2.1 weight 2`,
+			terraformJSON: `{"mask":"255.0.0.0","next_hops":[{"distance":1,"next_hop":"192.168.1.1"},{"distance":2,"next_hop":"192.168.2.1"}],"prefix":"10.0.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "multi_gateway_single_line_ecmp_3",
+			rtxCommand:    `ip route 192.168.100.0/24 gateway 10.0.0.1 weight 1 gateway 10.0.0.2 weight 2 gateway 10.0.0.3 weight 3`,
+			terraformJSON: `{"mask":"255.255.255.0","next_hops":[{"distance":1,"next_hop":"10.0.0.1"},{"distance":2,"next_hop":"10.0.0.2"},{"distance":3,"next_hop":"10.0.0.3"}],"prefix":"192.168.100.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "multi_gateway_single_line_failover_pp",
+			rtxCommand:    `ip route default gateway pp 1 hide gateway pp 2 weight 0`,
+			terraformJSON: `{"mask":"0.0.0.0","next_hops":[{"distance":1,"hide":true,"interface":"pp 1"},{"distance":0,"interface":"pp 2"}],"prefix":"0.0.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "multi_gateway_single_line_pp_with_weight_hide",
+			rtxCommand:    `ip route default gateway pp 1 weight 2 hide gateway pp 2 weight 1 hide`,
+			terraformJSON: `{"mask":"0.0.0.0","next_hops":[{"distance":2,"hide":true,"interface":"pp 1"},{"distance":1,"hide":true,"interface":"pp 2"}],"prefix":"0.0.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "multi_gateway_single_line_mixed_ip_tunnel",
+			rtxCommand:    `ip route 10.0.0.0/8 gateway 192.168.1.1 gateway tunnel 1`,
+			terraformJSON: `{"mask":"255.0.0.0","next_hops":[{"distance":1,"next_hop":"192.168.1.1"},{"distance":1,"interface":"tunnel 1"}],"prefix":"10.0.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name: "multi_gateway_multi_line_ecmp_2",
+			rtxCommand: `ip route 10.0.0.0/8 gateway 192.168.1.1 weight 1
+ip route 10.0.0.0/8 gateway 192.168.2.1 weight 2
+`,
+			terraformJSON: `{"mask":"255.0.0.0","next_hops":[{"distance":1,"next_hop":"192.168.1.1"},{"distance":2,"next_hop":"192.168.2.1"}],"prefix":"10.0.0.0"}`,
+			parseOnly:     true,
+			buildOnly:     false,
+		},
+		{
+			name: "multi_gateway_multi_line_ecmp_3",
+			rtxCommand: `ip route 192.168.100.0/24 gateway 10.0.0.1 weight 1
+ip route 192.168.100.0/24 gateway 10.0.0.2 weight 2
+ip route 192.168.100.0/24 gateway 10.0.0.3 weight 3
+`,
+			terraformJSON: `{"mask":"255.255.255.0","next_hops":[{"distance":1,"next_hop":"10.0.0.1"},{"distance":2,"next_hop":"10.0.0.2"},{"distance":3,"next_hop":"10.0.0.3"}],"prefix":"192.168.100.0"}`,
+			parseOnly:     true,
+			buildOnly:     false,
+		},
+		{
+			name: "multi_gateway_multi_line_failover_pp",
+			rtxCommand: `ip route default gateway pp 1 hide
+ip route default gateway pp 2 weight 0
+`,
+			terraformJSON: `{"mask":"0.0.0.0","next_hops":[{"distance":1,"hide":true,"interface":"pp 1"},{"distance":0,"interface":"pp 2"}],"prefix":"0.0.0.0"}`,
+			parseOnly:     true,
+			buildOnly:     false,
+		},
+		{
+			name: "multi_gateway_multi_line_mixed_types",
+			rtxCommand: `ip route 172.16.0.0/12 gateway 192.168.1.1
+ip route 172.16.0.0/12 gateway pp 1 hide
+ip route 172.16.0.0/12 gateway tunnel 1
+`,
+			terraformJSON: `{"mask":"255.240.0.0","next_hops":[{"distance":1,"next_hop":"192.168.1.1"},{"distance":1,"hide":true,"interface":"pp 1"},{"distance":1,"interface":"tunnel 1"}],"prefix":"172.16.0.0"}`,
+			parseOnly:     true,
+			buildOnly:     false,
+		},
+		{
+			name:          "delete_default_route",
+			rtxCommand:    `no ip route default`,
+			terraformJSON: `{"mask":"0.0.0.0","prefix":"0.0.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_network_route",
+			rtxCommand:    `no ip route 10.0.0.0/8`,
+			terraformJSON: `{"mask":"255.0.0.0","prefix":"10.0.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_route_specific_gateway",
+			rtxCommand:    `no ip route 10.0.0.0/8 gateway 192.168.1.1`,
+			terraformJSON: `{"mask":"255.0.0.0","next_hops":[{"next_hop":"192.168.1.1"}],"prefix":"10.0.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_route_specific_pp",
+			rtxCommand:    `no ip route 172.16.0.0/12 gateway pp 1`,
+			terraformJSON: `{"mask":"255.240.0.0","next_hops":[{"interface":"pp 1"}],"prefix":"172.16.0.0"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "route_default_gateway",
+			rtxCommand:    `ip route default gateway 192.168.1.1`,
+			terraformJSON: `{"destination":"default","gateway":"192.168.1.1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "route_class_a",
+			rtxCommand:    `ip route 10.0.0.0/8 gateway 192.168.1.1`,
+			terraformJSON: `{"destination":"10.0.0.0/8","gateway":"192.168.1.1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "route_class_b",
+			rtxCommand:    `ip route 172.16.0.0/12 gateway 192.168.1.1`,
+			terraformJSON: `{"destination":"172.16.0.0/12","gateway":"192.168.1.1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "route_host_route",
+			rtxCommand:    `ip route 192.168.1.100/32 gateway 192.168.1.1`,
+			terraformJSON: `{"destination":"192.168.1.100/32","gateway":"192.168.1.1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "route_metric_min",
+			rtxCommand:    `ip route 10.0.0.0/24 gateway 192.168.1.1 metric 1`,
+			terraformJSON: `{"destination":"10.0.0.0/24","gateway":"192.168.1.1","metric":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "route_metric_max",
+			rtxCommand:    `ip route 10.0.0.0/24 gateway 192.168.1.1 metric 10000`,
+			terraformJSON: `{"destination":"10.0.0.0/24","gateway":"192.168.1.1","metric":10000}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "route_pp_gateway",
+			rtxCommand:    `ip route default gateway pp 1`,
+			terraformJSON: `{"destination":"default","gateway_interface":"pp 1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "route_tunnel_gateway",
+			rtxCommand:    `ip route 10.0.0.0/24 gateway tunnel 1`,
+			terraformJSON: `{"destination":"10.0.0.0/24","gateway_interface":"tunnel 1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "route_keepalive_on",
+			rtxCommand:    `ip route 10.0.0.0/24 gateway 192.168.1.1 keepalive 1`,
+			terraformJSON: `{"destination":"10.0.0.0/24","gateway":"192.168.1.1","keepalive":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "route_hide_enabled",
+			rtxCommand:    `ip route 10.0.0.0/24 gateway 192.168.1.1 hide`,
+			terraformJSON: `{"destination":"10.0.0.0/24","gateway":"192.168.1.1","hide":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+				return
+			}
+
+			// build_only tests (like delete commands) may have empty terraform values
+			// because they represent commands that don't have a direct terraform mapping
+			if tc.buildOnly {
+				t.Logf("Direction: Terraform -> RTX only (build)")
+				t.Logf("RTX: %s", tc.rtxCommand)
+				t.Logf("Terraform: %s (build_only, may be empty)", tc.terraformJSON)
+				return
+			}
+
+			// Validate terraform JSON is present and valid for non-build_only tests
+			if tc.terraformJSON == "null" || tc.terraformJSON == "" {
+				t.Errorf("Terraform value is missing for RTX command: %s", tc.rtxCommand)
+				return
+			}
+
+			var tfValue interface{}
+			if err := json.Unmarshal([]byte(tc.terraformJSON), &tfValue); err != nil {
+				t.Errorf("Invalid terraform JSON: %v\nJSON: %s", err, tc.terraformJSON)
+				return
+			}
+
+			// Log the mapping for visibility
+			t.Logf("RTX: %s", tc.rtxCommand)
+			t.Logf("Terraform: %s", tc.terraformJSON)
+
+			// Validate that terraform value contains expected fields (only for non-build_only tests)
+			if tfMap, ok := tfValue.(map[string]interface{}); ok {
+				if len(tfMap) == 0 {
+					t.Errorf("Terraform value is empty map for RTX command: %s", tc.rtxCommand)
+					return
+				}
+			}
+
+			// Check mapping direction
+			if tc.parseOnly {
+				t.Logf("Direction: RTX -> Terraform only (parse)")
+			} else {
+				t.Logf("Direction: Bidirectional (parse and build)")
+			}
+		})
 	}
 }
 

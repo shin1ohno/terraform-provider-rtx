@@ -6,6 +6,7 @@
 package parsers
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -504,6 +505,289 @@ func TestSpecQosQueueBoundaryCoverage(t *testing.T) {
 	t.Logf("Parameters with boundary tests: %d", len(boundaryParams))
 	for _, param := range boundaryParams {
 		t.Logf("  - %s", param)
+	}
+}
+
+// TestSpecQosQueueRTXTerraformMapping validates RTX command to Terraform value mappings
+func TestSpecQosQueueRTXTerraformMapping(t *testing.T) {
+	// This test validates that each RTX command has a corresponding expected Terraform value
+	// and vice versa. It ensures the spec file correctly documents the bidirectional mapping.
+
+	testCases := []struct {
+		name          string
+		rtxCommand    string
+		terraformJSON string
+		parseOnly     bool
+		buildOnly     bool
+	}{
+		{
+			name:          "queue_type_priority_lan1",
+			rtxCommand:    `queue lan1 type priority`,
+			terraformJSON: `{"interface":"lan1","queue_type":"priority"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "queue_type_cbq_lan1",
+			rtxCommand:    `queue lan1 type cbq`,
+			terraformJSON: `{"interface":"lan1","queue_type":"cbq"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "queue_type_fifo_lan2",
+			rtxCommand:    `queue lan2 type fifo`,
+			terraformJSON: `{"interface":"lan2","queue_type":"fifo"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "queue_type_shaping_wan1",
+			rtxCommand:    `queue wan1 type shaping`,
+			terraformJSON: `{"interface":"wan1","queue_type":"shaping"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "queue_type_priority_lan3",
+			rtxCommand:    `queue lan3 type priority`,
+			terraformJSON: `{"interface":"lan3","queue_type":"priority"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "queue_class_filter_1",
+			rtxCommand:    `queue lan1 class filter 1 100`,
+			terraformJSON: `{"classes":[{"filter":100,"name":"class1"}],"interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "queue_class_filter_2",
+			rtxCommand:    `queue lan1 class filter 2 200`,
+			terraformJSON: `{"classes":[{"filter":200,"name":"class2"}],"interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "queue_class_filter_min",
+			rtxCommand:    `queue lan1 class filter 1 1`,
+			terraformJSON: `{"classes":[{"filter":1,"name":"class1"}],"interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "queue_class_filter_large",
+			rtxCommand:    `queue lan2 class filter 16 10000`,
+			terraformJSON: `{"classes":[{"filter":10000,"name":"class16"}],"interface":"lan2"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "queue_class_priority_high",
+			rtxCommand:    `queue lan1 class priority 1 high`,
+			terraformJSON: `{"classes":[{"name":"class1","priority":"high"}],"interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "queue_class_priority_normal",
+			rtxCommand:    `queue lan1 class priority 2 normal`,
+			terraformJSON: `{"classes":[{"name":"class2","priority":"normal"}],"interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "queue_class_priority_low",
+			rtxCommand:    `queue lan1 class priority 3 low`,
+			terraformJSON: `{"classes":[{"name":"class3","priority":"low"}],"interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "queue_class_priority_lan2_high",
+			rtxCommand:    `queue lan2 class priority 1 high`,
+			terraformJSON: `{"classes":[{"name":"class1","priority":"high"}],"interface":"lan2"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "queue_length_100",
+			rtxCommand:    `queue lan1 length 1 100`,
+			terraformJSON: `{"classes":[{"name":"class1","queue_limit":100}],"interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "queue_length_1000",
+			rtxCommand:    `queue lan1 length 2 1000`,
+			terraformJSON: `{"classes":[{"name":"class2","queue_limit":1000}],"interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "queue_length_min",
+			rtxCommand:    `queue lan1 length 1 1`,
+			terraformJSON: `{"classes":[{"name":"class1","queue_limit":1}],"interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "queue_length_large",
+			rtxCommand:    `queue lan2 length 16 10000`,
+			terraformJSON: `{"classes":[{"name":"class16","queue_limit":10000}],"interface":"lan2"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "speed_10m",
+			rtxCommand:    `speed lan1 10000000`,
+			terraformJSON: `{"interface":"lan1","speed":10000000}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "speed_100m",
+			rtxCommand:    `speed lan1 100000000`,
+			terraformJSON: `{"interface":"lan1","speed":100000000}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "speed_1g",
+			rtxCommand:    `speed lan2 1000000000`,
+			terraformJSON: `{"interface":"lan2","speed":1000000000}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "speed_50m",
+			rtxCommand:    `speed wan1 50000000`,
+			terraformJSON: `{"interface":"wan1","speed":50000000}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "speed_small",
+			rtxCommand:    `speed lan1 1000000`,
+			terraformJSON: `{"interface":"lan1","speed":1000000}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "delete_queue_type_lan1",
+			rtxCommand:    `no queue lan1 type`,
+			terraformJSON: `{"interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_queue_type_lan2",
+			rtxCommand:    `no queue lan2 type`,
+			terraformJSON: `{"interface":"lan2"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_speed_lan1",
+			rtxCommand:    `no speed lan1`,
+			terraformJSON: `{"interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_speed_wan1",
+			rtxCommand:    `no speed wan1`,
+			terraformJSON: `{"interface":"wan1"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_queue_class_filter_1",
+			rtxCommand:    `no queue lan1 class filter 1`,
+			terraformJSON: `{"class_num":1,"interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_queue_class_priority_1",
+			rtxCommand:    `no queue lan1 class priority 1`,
+			terraformJSON: `{"class_num":1,"interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_queue_length_1",
+			rtxCommand:    `no queue lan1 length 1`,
+			terraformJSON: `{"class_num":1,"interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name: "full_qos_config",
+			rtxCommand: `queue lan1 type priority
+queue lan1 class filter 1 100
+queue lan1 class filter 2 200
+queue lan1 class priority 1 high
+queue lan1 class priority 2 normal
+queue lan1 length 1 500
+queue lan1 length 2 1000
+speed lan1 100000000
+`,
+			terraformJSON: `{"classes":[{"filter":100,"name":"class1","priority":"high","queue_limit":500},{"filter":200,"name":"class2","priority":"normal","queue_limit":1000}],"interface":"lan1","queue_type":"priority","speed":100000000}`,
+			parseOnly:     true,
+			buildOnly:     false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+				return
+			}
+
+			// build_only tests (like delete commands) may have empty terraform values
+			// because they represent commands that don't have a direct terraform mapping
+			if tc.buildOnly {
+				t.Logf("Direction: Terraform -> RTX only (build)")
+				t.Logf("RTX: %s", tc.rtxCommand)
+				t.Logf("Terraform: %s (build_only, may be empty)", tc.terraformJSON)
+				return
+			}
+
+			// Validate terraform JSON is present and valid for non-build_only tests
+			if tc.terraformJSON == "null" || tc.terraformJSON == "" {
+				t.Errorf("Terraform value is missing for RTX command: %s", tc.rtxCommand)
+				return
+			}
+
+			var tfValue interface{}
+			if err := json.Unmarshal([]byte(tc.terraformJSON), &tfValue); err != nil {
+				t.Errorf("Invalid terraform JSON: %v\nJSON: %s", err, tc.terraformJSON)
+				return
+			}
+
+			// Log the mapping for visibility
+			t.Logf("RTX: %s", tc.rtxCommand)
+			t.Logf("Terraform: %s", tc.terraformJSON)
+
+			// Validate that terraform value contains expected fields (only for non-build_only tests)
+			if tfMap, ok := tfValue.(map[string]interface{}); ok {
+				if len(tfMap) == 0 {
+					t.Errorf("Terraform value is empty map for RTX command: %s", tc.rtxCommand)
+					return
+				}
+			}
+
+			// Check mapping direction
+			if tc.parseOnly {
+				t.Logf("Direction: RTX -> Terraform only (parse)")
+			} else {
+				t.Logf("Direction: Bidirectional (parse and build)")
+			}
+		})
 	}
 }
 

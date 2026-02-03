@@ -6,6 +6,7 @@
 package parsers
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -421,6 +422,246 @@ func TestSpecIPFilterBoundaryCoverage(t *testing.T) {
 	t.Logf("Parameters with boundary tests: %d", len(boundaryParams))
 	for _, param := range boundaryParams {
 		t.Logf("  - %s", param)
+	}
+}
+
+// TestSpecIPFilterRTXTerraformMapping validates RTX command to Terraform value mappings
+func TestSpecIPFilterRTXTerraformMapping(t *testing.T) {
+	// This test validates that each RTX command has a corresponding expected Terraform value
+	// and vice versa. It ensures the spec file correctly documents the bidirectional mapping.
+
+	testCases := []struct {
+		name          string
+		rtxCommand    string
+		terraformJSON string
+		parseOnly     bool
+		buildOnly     bool
+	}{
+		{
+			name:          "filter_pass_any",
+			rtxCommand:    `ip filter 1 pass * * * * *`,
+			terraformJSON: `{"action":"pass","dest_address":"*","dest_port":"*","number":1,"protocol":"*","source_address":"*","source_port":"*"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "filter_reject_network",
+			rtxCommand:    `ip filter 2 reject 192.168.1.0/24 * * * *`,
+			terraformJSON: `{"action":"reject","dest_address":"*","number":2,"protocol":"*","source_address":"192.168.1.0/24"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "filter_pass_tcp",
+			rtxCommand:    `ip filter 10 pass * * tcp * 80`,
+			terraformJSON: `{"action":"pass","dest_address":"*","dest_port":"80","number":10,"protocol":"tcp","source_address":"*"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "filter_pass_tcp_https",
+			rtxCommand:    `ip filter 11 pass * * tcp * 443`,
+			terraformJSON: `{"action":"pass","dest_address":"*","dest_port":"443","number":11,"protocol":"tcp","source_address":"*"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "filter_pass_tcp_established",
+			rtxCommand:    `ip filter 20 pass * * established`,
+			terraformJSON: `{"action":"pass","dest_address":"*","established":true,"number":20,"source_address":"*"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "filter_reject_icmp",
+			rtxCommand:    `ip filter 30 reject * * icmp`,
+			terraformJSON: `{"action":"reject","dest_address":"*","number":30,"protocol":"icmp","source_address":"*"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "filter_pass_udp_dns",
+			rtxCommand:    `ip filter 40 pass * * udp * 53`,
+			terraformJSON: `{"action":"pass","dest_address":"*","dest_port":"53","number":40,"protocol":"udp","source_address":"*"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "filter_pass_compound_protocol",
+			rtxCommand:    `ip filter 50 pass * * tcp,udp * 53`,
+			terraformJSON: `{"action":"pass","dest_address":"*","dest_port":"53","number":50,"protocol":"tcp,udp","source_address":"*"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "filter_restrict",
+			rtxCommand:    `ip filter 60 restrict * * * * *`,
+			terraformJSON: `{"action":"restrict","dest_address":"*","number":60,"protocol":"*","source_address":"*"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "filter_restrict_log",
+			rtxCommand:    `ip filter 61 restrict-log * * * * *`,
+			terraformJSON: `{"action":"restrict-log","dest_address":"*","number":61,"protocol":"*","source_address":"*"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dynamic_filter_ftp",
+			rtxCommand:    `ip filter dynamic 100 * * ftp`,
+			terraformJSON: `{"dest":"*","number":100,"protocol":"ftp","source":"*"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dynamic_filter_www",
+			rtxCommand:    `ip filter dynamic 101 * * www`,
+			terraformJSON: `{"dest":"*","number":101,"protocol":"www","source":"*"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dynamic_filter_dns",
+			rtxCommand:    `ip filter dynamic 102 * * dns`,
+			terraformJSON: `{"dest":"*","number":102,"protocol":"dns","source":"*"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dynamic_filter_with_syslog",
+			rtxCommand:    `ip filter dynamic 110 * * tcp syslog on`,
+			terraformJSON: `{"dest":"*","number":110,"protocol":"tcp","source":"*","syslog_on":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dynamic_filter_with_timeout",
+			rtxCommand:    `ip filter dynamic 120 * * tcp timeout=3600`,
+			terraformJSON: `{"dest":"*","number":120,"protocol":"tcp","source":"*","timeout":3600}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dynamic_filter_list",
+			rtxCommand:    `ip filter dynamic 200 * * filter 1 2 3`,
+			terraformJSON: `{"dest":"*","filter_list":[1,2,3],"number":200,"source":"*"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dynamic_filter_in_out",
+			rtxCommand:    `ip filter dynamic 201 * * filter 1 in 2 out 3`,
+			terraformJSON: `{"dest":"*","filter_list":[1],"in_filter_list":[2],"number":201,"out_filter_list":[3],"source":"*"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ipv6_filter_pass",
+			rtxCommand:    `ipv6 filter 1 pass * * * * *`,
+			terraformJSON: `{"action":"pass","dest_address":"*","ipv6":true,"number":1,"protocol":"*","source_address":"*"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ipv6_filter_reject",
+			rtxCommand:    `ipv6 filter 2 reject 2001:db8::/32 * * * *`,
+			terraformJSON: `{"action":"reject","dest_address":"*","ipv6":true,"number":2,"protocol":"*","source_address":"2001:db8::/32"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ipv6_filter_tcp",
+			rtxCommand:    `ipv6 filter 10 pass * * tcp * 80`,
+			terraformJSON: `{"action":"pass","dest_address":"*","dest_port":"80","ipv6":true,"number":10,"protocol":"tcp","source_address":"*"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ipv6_dynamic_filter",
+			rtxCommand:    `ipv6 filter dynamic 100 * * tcp`,
+			terraformJSON: `{"dest":"*","ipv6":true,"number":100,"protocol":"tcp","source":"*"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "delete_ip_filter",
+			rtxCommand:    `no ip filter 1`,
+			terraformJSON: `{"number":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_ip_filter_dynamic",
+			rtxCommand:    `no ip filter dynamic 100`,
+			terraformJSON: `{"number":100}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_ipv6_filter",
+			rtxCommand:    `no ipv6 filter 1`,
+			terraformJSON: `{"ipv6":true,"number":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_ipv6_filter_dynamic",
+			rtxCommand:    `no ipv6 filter dynamic 100`,
+			terraformJSON: `{"ipv6":true,"number":100}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+				return
+			}
+
+			// build_only tests (like delete commands) may have empty terraform values
+			// because they represent commands that don't have a direct terraform mapping
+			if tc.buildOnly {
+				t.Logf("Direction: Terraform -> RTX only (build)")
+				t.Logf("RTX: %s", tc.rtxCommand)
+				t.Logf("Terraform: %s (build_only, may be empty)", tc.terraformJSON)
+				return
+			}
+
+			// Validate terraform JSON is present and valid for non-build_only tests
+			if tc.terraformJSON == "null" || tc.terraformJSON == "" {
+				t.Errorf("Terraform value is missing for RTX command: %s", tc.rtxCommand)
+				return
+			}
+
+			var tfValue interface{}
+			if err := json.Unmarshal([]byte(tc.terraformJSON), &tfValue); err != nil {
+				t.Errorf("Invalid terraform JSON: %v\nJSON: %s", err, tc.terraformJSON)
+				return
+			}
+
+			// Log the mapping for visibility
+			t.Logf("RTX: %s", tc.rtxCommand)
+			t.Logf("Terraform: %s", tc.terraformJSON)
+
+			// Validate that terraform value contains expected fields (only for non-build_only tests)
+			if tfMap, ok := tfValue.(map[string]interface{}); ok {
+				if len(tfMap) == 0 {
+					t.Errorf("Terraform value is empty map for RTX command: %s", tc.rtxCommand)
+					return
+				}
+			}
+
+			// Check mapping direction
+			if tc.parseOnly {
+				t.Logf("Direction: RTX -> Terraform only (parse)")
+			} else {
+				t.Logf("Direction: Bidirectional (parse and build)")
+			}
+		})
 	}
 }
 

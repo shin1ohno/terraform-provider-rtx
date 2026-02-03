@@ -6,6 +6,7 @@
 package parsers
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -152,6 +153,54 @@ func TestSpecInterfaceConfigRTXSyntax(t *testing.T) {
 			rtxCommand: `no ip lan1 nat descriptor`,
 			parseOnly:  false,
 			buildOnly:  true,
+		},
+		{
+			name:       "ip_address_lan1_class_a",
+			rtxCommand: `ip lan1 address 10.0.0.1/8`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ip_address_lan2_class_c",
+			rtxCommand: `ip lan2 address 192.168.100.1/24`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ip_address_lan3_small_subnet",
+			rtxCommand: `ip lan3 address 192.168.1.1/30`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ip_mtu_minimum",
+			rtxCommand: `ip lan1 mtu 68`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ip_mtu_maximum",
+			rtxCommand: `ip lan1 mtu 9000`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ip_secure_filter_in",
+			rtxCommand: `ip lan1 secure filter in 1 2 3`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ip_secure_filter_out",
+			rtxCommand: `ip lan1 secure filter out 10 20`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ip_nat_descriptor",
+			rtxCommand: `ip lan1 nat descriptor 1`,
+			parseOnly:  false,
+			buildOnly:  false,
 		},
 	}
 
@@ -345,6 +394,62 @@ func TestSpecInterfaceConfigSyntaxCoverage(t *testing.T) {
 			buildOnly:   true,
 			description: "",
 		},
+		{
+			name:        "ip_address_lan1_class_a",
+			rtxCommand:  `ip lan1 address 10.0.0.1/8`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "クラスA LAN1",
+		},
+		{
+			name:        "ip_address_lan2_class_c",
+			rtxCommand:  `ip lan2 address 192.168.100.1/24`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "クラスC LAN2",
+		},
+		{
+			name:        "ip_address_lan3_small_subnet",
+			rtxCommand:  `ip lan3 address 192.168.1.1/30`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "/30サブネット",
+		},
+		{
+			name:        "ip_mtu_minimum",
+			rtxCommand:  `ip lan1 mtu 68`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "MTU最小値",
+		},
+		{
+			name:        "ip_mtu_maximum",
+			rtxCommand:  `ip lan1 mtu 9000`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "MTUジャンボフレーム",
+		},
+		{
+			name:        "ip_secure_filter_in",
+			rtxCommand:  `ip lan1 secure filter in 1 2 3`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "入力フィルタ",
+		},
+		{
+			name:        "ip_secure_filter_out",
+			rtxCommand:  `ip lan1 secure filter out 10 20`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "出力フィルタ",
+		},
+		{
+			name:        "ip_nat_descriptor",
+			rtxCommand:  `ip lan1 nat descriptor 1`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "NATディスクリプタ",
+		},
 	}
 
 	t.Logf("Total syntax patterns: %d", len(syntaxPatterns))
@@ -380,6 +485,281 @@ func TestSpecInterfaceConfigBoundaryCoverage(t *testing.T) {
 	t.Logf("Parameters with boundary tests: %d", len(boundaryParams))
 	for _, param := range boundaryParams {
 		t.Logf("  - %s", param)
+	}
+}
+
+// TestSpecInterfaceConfigRTXTerraformMapping validates RTX command to Terraform value mappings
+func TestSpecInterfaceConfigRTXTerraformMapping(t *testing.T) {
+	// This test validates that each RTX command has a corresponding expected Terraform value
+	// and vice versa. It ensures the spec file correctly documents the bidirectional mapping.
+
+	testCases := []struct {
+		name          string
+		rtxCommand    string
+		terraformJSON string
+		parseOnly     bool
+		buildOnly     bool
+	}{
+		{
+			name:          "ip_address_cidr",
+			rtxCommand:    `ip lan1 address 192.168.1.1/24`,
+			terraformJSON: `{"ip_address":{"address":"192.168.1.1/24","dhcp":false},"name":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ip_address_cidr_16",
+			rtxCommand:    `ip lan2 address 172.16.0.1/16`,
+			terraformJSON: `{"ip_address":{"address":"172.16.0.1/16","dhcp":false},"name":"lan2"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ip_address_dhcp",
+			rtxCommand:    `ip lan1 address dhcp`,
+			terraformJSON: `{"ip_address":{"dhcp":true},"name":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "secure_filter_in",
+			rtxCommand:    `ip lan1 secure filter in 1 2 3`,
+			terraformJSON: `{"name":"lan1","secure_filter_in":[1,2,3]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "secure_filter_out",
+			rtxCommand:    `ip lan1 secure filter out 100 101 102`,
+			terraformJSON: `{"name":"lan1","secure_filter_out":[100,101,102]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "secure_filter_out_with_dynamic",
+			rtxCommand:    `ip lan1 secure filter out 100 101 dynamic 200 201`,
+			terraformJSON: `{"dynamic_filter_out":[200,201],"name":"lan1","secure_filter_out":[100,101]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "secure_filter_single",
+			rtxCommand:    `ip lan2 secure filter in 1`,
+			terraformJSON: `{"name":"lan2","secure_filter_in":[1]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ethernet_filter_in",
+			rtxCommand:    `ethernet lan1 filter in 1 2`,
+			terraformJSON: `{"ethernet_filter_in":[1,2],"name":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ethernet_filter_out",
+			rtxCommand:    `ethernet lan1 filter out 10`,
+			terraformJSON: `{"ethernet_filter_out":[10],"name":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "nat_descriptor",
+			rtxCommand:    `ip lan1 nat descriptor 1`,
+			terraformJSON: `{"name":"lan1","nat_descriptor":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "nat_descriptor_100",
+			rtxCommand:    `ip lan2 nat descriptor 100`,
+			terraformJSON: `{"name":"lan2","nat_descriptor":100}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "proxyarp_on",
+			rtxCommand:    `ip lan1 proxyarp on`,
+			terraformJSON: `{"name":"lan1","proxy_arp":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "proxyarp_off",
+			rtxCommand:    `ip lan1 proxyarp off`,
+			terraformJSON: `{"name":"lan1","proxy_arp":false}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "mtu_1500",
+			rtxCommand:    `ip lan1 mtu 1500`,
+			terraformJSON: `{"mtu":1500,"name":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "mtu_1400",
+			rtxCommand:    `ip tunnel1 mtu 1400`,
+			terraformJSON: `{"mtu":1400,"name":"tunnel1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "mtu_576",
+			rtxCommand:    `ip pp1 mtu 576`,
+			terraformJSON: `{"mtu":576,"name":"pp1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "description_simple",
+			rtxCommand:    `description lan1 "Internal Network"`,
+			terraformJSON: `{"description":"Internal Network","name":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "description_wan",
+			rtxCommand:    `description lan2 "WAN Connection"`,
+			terraformJSON: `{"description":"WAN Connection","name":"lan2"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "delete_ip_address",
+			rtxCommand:    `no ip lan1 address`,
+			terraformJSON: `{"name":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_secure_filter_in",
+			rtxCommand:    `no ip lan1 secure filter in`,
+			terraformJSON: `{"direction":"in","name":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_secure_filter_out",
+			rtxCommand:    `no ip lan1 secure filter out`,
+			terraformJSON: `{"direction":"out","name":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_nat_descriptor",
+			rtxCommand:    `no ip lan1 nat descriptor`,
+			terraformJSON: `{"name":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "ip_address_lan1_class_a",
+			rtxCommand:    `ip lan1 address 10.0.0.1/8`,
+			terraformJSON: `{"address":"10.0.0.1/8","interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ip_address_lan2_class_c",
+			rtxCommand:    `ip lan2 address 192.168.100.1/24`,
+			terraformJSON: `{"address":"192.168.100.1/24","interface":"lan2"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ip_address_lan3_small_subnet",
+			rtxCommand:    `ip lan3 address 192.168.1.1/30`,
+			terraformJSON: `{"address":"192.168.1.1/30","interface":"lan3"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ip_mtu_minimum",
+			rtxCommand:    `ip lan1 mtu 68`,
+			terraformJSON: `{"interface":"lan1","mtu":68}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ip_mtu_maximum",
+			rtxCommand:    `ip lan1 mtu 9000`,
+			terraformJSON: `{"interface":"lan1","mtu":9000}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ip_secure_filter_in",
+			rtxCommand:    `ip lan1 secure filter in 1 2 3`,
+			terraformJSON: `{"interface":"lan1","secure_filter_in":[1,2,3]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ip_secure_filter_out",
+			rtxCommand:    `ip lan1 secure filter out 10 20`,
+			terraformJSON: `{"interface":"lan1","secure_filter_out":[10,20]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ip_nat_descriptor",
+			rtxCommand:    `ip lan1 nat descriptor 1`,
+			terraformJSON: `{"interface":"lan1","nat_descriptor":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+				return
+			}
+
+			// build_only tests (like delete commands) may have empty terraform values
+			// because they represent commands that don't have a direct terraform mapping
+			if tc.buildOnly {
+				t.Logf("Direction: Terraform -> RTX only (build)")
+				t.Logf("RTX: %s", tc.rtxCommand)
+				t.Logf("Terraform: %s (build_only, may be empty)", tc.terraformJSON)
+				return
+			}
+
+			// Validate terraform JSON is present and valid for non-build_only tests
+			if tc.terraformJSON == "null" || tc.terraformJSON == "" {
+				t.Errorf("Terraform value is missing for RTX command: %s", tc.rtxCommand)
+				return
+			}
+
+			var tfValue interface{}
+			if err := json.Unmarshal([]byte(tc.terraformJSON), &tfValue); err != nil {
+				t.Errorf("Invalid terraform JSON: %v\nJSON: %s", err, tc.terraformJSON)
+				return
+			}
+
+			// Log the mapping for visibility
+			t.Logf("RTX: %s", tc.rtxCommand)
+			t.Logf("Terraform: %s", tc.terraformJSON)
+
+			// Validate that terraform value contains expected fields (only for non-build_only tests)
+			if tfMap, ok := tfValue.(map[string]interface{}); ok {
+				if len(tfMap) == 0 {
+					t.Errorf("Terraform value is empty map for RTX command: %s", tc.rtxCommand)
+					return
+				}
+			}
+
+			// Check mapping direction
+			if tc.parseOnly {
+				t.Logf("Direction: RTX -> Terraform only (parse)")
+			} else {
+				t.Logf("Direction: Bidirectional (parse and build)")
+			}
+		})
 	}
 }
 

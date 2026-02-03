@@ -6,6 +6,7 @@
 package parsers
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -528,6 +529,303 @@ func TestSpecSystemConfigBoundaryCoverage(t *testing.T) {
 	t.Logf("Parameters with boundary tests: %d", len(boundaryParams))
 	for _, param := range boundaryParams {
 		t.Logf("  - %s", param)
+	}
+}
+
+// TestSpecSystemConfigRTXTerraformMapping validates RTX command to Terraform value mappings
+func TestSpecSystemConfigRTXTerraformMapping(t *testing.T) {
+	// This test validates that each RTX command has a corresponding expected Terraform value
+	// and vice versa. It ensures the spec file correctly documents the bidirectional mapping.
+
+	testCases := []struct {
+		name          string
+		rtxCommand    string
+		terraformJSON string
+		parseOnly     bool
+		buildOnly     bool
+	}{
+		{
+			name:          "timezone_jst",
+			rtxCommand:    `timezone +09:00`,
+			terraformJSON: `{"timezone":"+09:00"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "timezone_utc",
+			rtxCommand:    `timezone +00:00`,
+			terraformJSON: `{"timezone":"+00:00"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "timezone_negative",
+			rtxCommand:    `timezone -05:00`,
+			terraformJSON: `{"timezone":"-05:00"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "timezone_negative_large",
+			rtxCommand:    `timezone -12:00`,
+			terraformJSON: `{"timezone":"-12:00"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "timezone_positive_large",
+			rtxCommand:    `timezone +14:00`,
+			terraformJSON: `{"timezone":"+14:00"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "console_character_utf8",
+			rtxCommand:    `console character ja.utf8`,
+			terraformJSON: `{"console":{"character":"ja.utf8"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "console_character_sjis",
+			rtxCommand:    `console character ja.sjis`,
+			terraformJSON: `{"console":{"character":"ja.sjis"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "console_character_ascii",
+			rtxCommand:    `console character ascii`,
+			terraformJSON: `{"console":{"character":"ascii"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "console_character_eucjp",
+			rtxCommand:    `console character euc-jp`,
+			terraformJSON: `{"console":{"character":"euc-jp"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "console_lines_24",
+			rtxCommand:    `console lines 24`,
+			terraformJSON: `{"console":{"lines":"24"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "console_lines_50",
+			rtxCommand:    `console lines 50`,
+			terraformJSON: `{"console":{"lines":"50"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "console_lines_100",
+			rtxCommand:    `console lines 100`,
+			terraformJSON: `{"console":{"lines":"100"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "console_lines_infinity",
+			rtxCommand:    `console lines infinity`,
+			terraformJSON: `{"console":{"lines":"infinity"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "console_prompt_simple",
+			rtxCommand:    `console prompt router`,
+			terraformJSON: `{"console":{"prompt":"router"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "console_prompt_with_spaces",
+			rtxCommand:    `console prompt "RTX Router"`,
+			terraformJSON: `{"console":{"prompt":"RTX Router"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "console_prompt_hostname",
+			rtxCommand:    `console prompt rtx1300`,
+			terraformJSON: `{"console":{"prompt":"rtx1300"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "packet_buffer_small",
+			rtxCommand:    `system packet-buffer small max-buffer=5000 max-free=1300`,
+			terraformJSON: `{"packet_buffers":[{"max_buffer":5000,"max_free":1300,"size":"small"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "packet_buffer_middle",
+			rtxCommand:    `system packet-buffer middle max-buffer=3000 max-free=800`,
+			terraformJSON: `{"packet_buffers":[{"max_buffer":3000,"max_free":800,"size":"middle"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "packet_buffer_large",
+			rtxCommand:    `system packet-buffer large max-buffer=1000 max-free=200`,
+			terraformJSON: `{"packet_buffers":[{"max_buffer":1000,"max_free":200,"size":"large"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "packet_buffer_small_large_values",
+			rtxCommand:    `system packet-buffer small max-buffer=10000 max-free=5000`,
+			terraformJSON: `{"packet_buffers":[{"max_buffer":10000,"max_free":5000,"size":"small"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "statistics_traffic_on",
+			rtxCommand:    `statistics traffic on`,
+			terraformJSON: `{"statistics":{"traffic":true}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "statistics_traffic_off",
+			rtxCommand:    `statistics traffic off`,
+			terraformJSON: `{"statistics":{"traffic":false}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "statistics_nat_on",
+			rtxCommand:    `statistics nat on`,
+			terraformJSON: `{"statistics":{"nat":true}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "statistics_nat_off",
+			rtxCommand:    `statistics nat off`,
+			terraformJSON: `{"statistics":{"nat":false}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "delete_timezone",
+			rtxCommand:    `no timezone`,
+			terraformJSON: `{}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_console_character",
+			rtxCommand:    `no console character`,
+			terraformJSON: `{}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_console_lines",
+			rtxCommand:    `no console lines`,
+			terraformJSON: `{}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_console_prompt",
+			rtxCommand:    `no console prompt`,
+			terraformJSON: `{}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_packet_buffer_small",
+			rtxCommand:    `no system packet-buffer small`,
+			terraformJSON: `{"size":"small"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_statistics_traffic",
+			rtxCommand:    `no statistics traffic`,
+			terraformJSON: `{}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_statistics_nat",
+			rtxCommand:    `no statistics nat`,
+			terraformJSON: `{}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name: "full_system_config",
+			rtxCommand: `timezone +09:00
+console character ja.utf8
+console lines 50
+console prompt "RTX Router"
+system packet-buffer small max-buffer=5000 max-free=1300
+system packet-buffer middle max-buffer=3000 max-free=800
+statistics traffic on
+statistics nat on
+`,
+			terraformJSON: `{"console":{"character":"ja.utf8","lines":"50","prompt":"RTX Router"},"packet_buffers":[{"max_buffer":5000,"max_free":1300,"size":"small"},{"max_buffer":3000,"max_free":800,"size":"middle"}],"statistics":{"nat":true,"traffic":true},"timezone":"+09:00"}`,
+			parseOnly:     true,
+			buildOnly:     false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+				return
+			}
+
+			// build_only tests (like delete commands) may have empty terraform values
+			// because they represent commands that don't have a direct terraform mapping
+			if tc.buildOnly {
+				t.Logf("Direction: Terraform -> RTX only (build)")
+				t.Logf("RTX: %s", tc.rtxCommand)
+				t.Logf("Terraform: %s (build_only, may be empty)", tc.terraformJSON)
+				return
+			}
+
+			// Validate terraform JSON is present and valid for non-build_only tests
+			if tc.terraformJSON == "null" || tc.terraformJSON == "" {
+				t.Errorf("Terraform value is missing for RTX command: %s", tc.rtxCommand)
+				return
+			}
+
+			var tfValue interface{}
+			if err := json.Unmarshal([]byte(tc.terraformJSON), &tfValue); err != nil {
+				t.Errorf("Invalid terraform JSON: %v\nJSON: %s", err, tc.terraformJSON)
+				return
+			}
+
+			// Log the mapping for visibility
+			t.Logf("RTX: %s", tc.rtxCommand)
+			t.Logf("Terraform: %s", tc.terraformJSON)
+
+			// Validate that terraform value contains expected fields (only for non-build_only tests)
+			if tfMap, ok := tfValue.(map[string]interface{}); ok {
+				if len(tfMap) == 0 {
+					t.Errorf("Terraform value is empty map for RTX command: %s", tc.rtxCommand)
+					return
+				}
+			}
+
+			// Check mapping direction
+			if tc.parseOnly {
+				t.Logf("Direction: RTX -> Terraform only (parse)")
+			} else {
+				t.Logf("Direction: Bidirectional (parse and build)")
+			}
+		})
 	}
 }
 

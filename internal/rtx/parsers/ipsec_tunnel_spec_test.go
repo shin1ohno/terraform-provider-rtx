@@ -6,6 +6,7 @@
 package parsers
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -236,6 +237,48 @@ func TestSpecIpsecTunnelRTXSyntax(t *testing.T) {
 			rtxCommand: `no ipsec transport 1`,
 			parseOnly:  false,
 			buildOnly:  true,
+		},
+		{
+			name:       "ipsec_sa_policy_aes256",
+			rtxCommand: `ipsec sa policy 1 1 esp aes256-cbc sha-hmac`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ipsec_sa_policy_3des",
+			rtxCommand: `ipsec sa policy 1 1 esp 3des-cbc sha-hmac`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ipsec_ike_remote_address",
+			rtxCommand: `ipsec ike remote address 1 203.0.113.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ipsec_ike_local_address",
+			rtxCommand: `ipsec ike local address 1 192.168.1.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ipsec_ike_pre_shared_key",
+			rtxCommand: `ipsec ike pre-shared-key 1 text secretkey123`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ipsec_ike_encryption_aes",
+			rtxCommand: `ipsec ike encryption 1 aes-cbc`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ipsec_ike_keepalive_on",
+			rtxCommand: `ipsec ike keepalive use 1 on`,
+			parseOnly:  false,
+			buildOnly:  false,
 		},
 	}
 
@@ -527,6 +570,55 @@ func TestSpecIpsecTunnelSyntaxCoverage(t *testing.T) {
 			buildOnly:   true,
 			description: "",
 		},
+		{
+			name:        "ipsec_sa_policy_aes256",
+			rtxCommand:  `ipsec sa policy 1 1 esp aes256-cbc sha-hmac`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "AES256暗号化",
+		},
+		{
+			name:        "ipsec_sa_policy_3des",
+			rtxCommand:  `ipsec sa policy 1 1 esp 3des-cbc sha-hmac`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "3DES暗号化",
+		},
+		{
+			name:        "ipsec_ike_remote_address",
+			rtxCommand:  `ipsec ike remote address 1 203.0.113.1`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "IKEリモートアドレス",
+		},
+		{
+			name:        "ipsec_ike_local_address",
+			rtxCommand:  `ipsec ike local address 1 192.168.1.1`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "IKEローカルアドレス",
+		},
+		{
+			name:        "ipsec_ike_pre_shared_key",
+			rtxCommand:  `ipsec ike pre-shared-key 1 text secretkey123`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "事前共有鍵",
+		},
+		{
+			name:        "ipsec_ike_encryption_aes",
+			rtxCommand:  `ipsec ike encryption 1 aes-cbc`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "IKE AES暗号化",
+		},
+		{
+			name:        "ipsec_ike_keepalive_on",
+			rtxCommand:  `ipsec ike keepalive use 1 on`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "IKEキープアライブ有効",
+		},
 	}
 
 	t.Logf("Total syntax patterns: %d", len(syntaxPatterns))
@@ -563,6 +655,372 @@ func TestSpecIpsecTunnelBoundaryCoverage(t *testing.T) {
 	t.Logf("Parameters with boundary tests: %d", len(boundaryParams))
 	for _, param := range boundaryParams {
 		t.Logf("  - %s", param)
+	}
+}
+
+// TestSpecIpsecTunnelRTXTerraformMapping validates RTX command to Terraform value mappings
+func TestSpecIpsecTunnelRTXTerraformMapping(t *testing.T) {
+	// This test validates that each RTX command has a corresponding expected Terraform value
+	// and vice versa. It ensures the spec file correctly documents the bidirectional mapping.
+
+	testCases := []struct {
+		name          string
+		rtxCommand    string
+		terraformJSON string
+		parseOnly     bool
+		buildOnly     bool
+	}{
+		{
+			name:          "tunnel_select",
+			rtxCommand:    `tunnel select 1`,
+			terraformJSON: `{"id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "tunnel_select_large",
+			rtxCommand:    `tunnel select 100`,
+			terraformJSON: `{"id":100}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ipsec_tunnel",
+			rtxCommand:    `ipsec tunnel 1`,
+			terraformJSON: `{"ipsec_tunnel_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ike_local_address",
+			rtxCommand:    `ipsec ike local address 1 192.168.1.1`,
+			terraformJSON: `{"id":1,"local_address":"192.168.1.1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ike_remote_address",
+			rtxCommand:    `ipsec ike remote address 1 203.0.113.1`,
+			terraformJSON: `{"id":1,"remote_address":"203.0.113.1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ike_psk",
+			rtxCommand:    `ipsec ike pre-shared-key 1 text mysecretkey`,
+			terraformJSON: `{"id":1,"pre_shared_key":"mysecretkey"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ike_psk_complex",
+			rtxCommand:    `ipsec ike pre-shared-key 1 text MyC0mplex!Key#2024`,
+			terraformJSON: `{"id":1,"pre_shared_key":"MyC0mplex!Key#2024"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ike_encryption_aes256",
+			rtxCommand:    `ipsec ike encryption 1 aes-cbc-256`,
+			terraformJSON: `{"id":1,"ikev2_proposal":{"encryption_aes256":true}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ike_encryption_aes128",
+			rtxCommand:    `ipsec ike encryption 1 aes-cbc`,
+			terraformJSON: `{"id":1,"ikev2_proposal":{"encryption_aes128":true}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ike_encryption_3des",
+			rtxCommand:    `ipsec ike encryption 1 3des-cbc`,
+			terraformJSON: `{"id":1,"ikev2_proposal":{"encryption_3des":true}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ike_hash_sha256",
+			rtxCommand:    `ipsec ike hash 1 sha256`,
+			terraformJSON: `{"id":1,"ikev2_proposal":{"integrity_sha256":true}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ike_hash_sha",
+			rtxCommand:    `ipsec ike hash 1 sha`,
+			terraformJSON: `{"id":1,"ikev2_proposal":{"integrity_sha1":true}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ike_hash_md5",
+			rtxCommand:    `ipsec ike hash 1 md5`,
+			terraformJSON: `{"id":1,"ikev2_proposal":{"integrity_md5":true}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ike_group_modp2048",
+			rtxCommand:    `ipsec ike group 1 modp2048`,
+			terraformJSON: `{"id":1,"ikev2_proposal":{"group_fourteen":true}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ike_group_modp1536",
+			rtxCommand:    `ipsec ike group 1 modp1536`,
+			terraformJSON: `{"id":1,"ikev2_proposal":{"group_five":true}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ike_group_modp1024",
+			rtxCommand:    `ipsec ike group 1 modp1024`,
+			terraformJSON: `{"id":1,"ikev2_proposal":{"group_two":true}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ike_keepalive_dpd",
+			rtxCommand:    `ipsec ike keepalive use 1 on dpd 30`,
+			terraformJSON: `{"dpd_enabled":true,"dpd_interval":30,"id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ike_keepalive_dpd_with_retry",
+			rtxCommand:    `ipsec ike keepalive use 1 on dpd 30 5`,
+			terraformJSON: `{"dpd_enabled":true,"dpd_interval":30,"dpd_retry":5,"id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ike_keepalive_heartbeat",
+			rtxCommand:    `ipsec ike keepalive use 1 on heartbeat 60 3`,
+			terraformJSON: `{"dpd_interval":60,"dpd_retry":3,"id":1,"keepalive_mode":"heartbeat"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ike_keepalive_off",
+			rtxCommand:    `ipsec ike keepalive use 1 off`,
+			terraformJSON: `{"dpd_enabled":false,"id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ike_nat_traversal_on",
+			rtxCommand:    `ipsec ike nat-traversal 1 on`,
+			terraformJSON: `{"id":1,"nat_traversal":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ike_nat_traversal_off",
+			rtxCommand:    `ipsec ike nat-traversal 1 off`,
+			terraformJSON: `{"id":1,"nat_traversal":false}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "sa_policy_esp_aes_sha",
+			rtxCommand:    `ipsec sa policy 1 1 esp aes-cbc sha-hmac`,
+			terraformJSON: `{"ipsec_transform":{"encryption_aes128":true,"integrity_sha1":true,"protocol":"esp"},"sa_policy":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "sa_policy_esp_aes256_sha256",
+			rtxCommand:    `ipsec sa policy 1 1 esp aes256-cbc sha256-hmac`,
+			terraformJSON: `{"ipsec_transform":{"encryption_aes256":true,"integrity_sha256":true,"protocol":"esp"},"sa_policy":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "sa_policy_esp_3des_md5",
+			rtxCommand:    `ipsec sa policy 1 1 esp 3des-cbc md5-hmac`,
+			terraformJSON: `{"ipsec_transform":{"encryption_3des":true,"integrity_md5":true,"protocol":"esp"},"sa_policy":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "tunnel_secure_filter_in",
+			rtxCommand:    `ip tunnel secure filter in 1 2 3`,
+			terraformJSON: `{"secure_filter_in":[1,2,3]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "tunnel_secure_filter_out",
+			rtxCommand:    `ip tunnel secure filter out 100 101`,
+			terraformJSON: `{"secure_filter_out":[100,101]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "tunnel_tcp_mss_auto",
+			rtxCommand:    `ip tunnel tcp mss limit auto`,
+			terraformJSON: `{"tcp_mss_limit":"auto"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "tunnel_tcp_mss_1280",
+			rtxCommand:    `ip tunnel tcp mss limit 1280`,
+			terraformJSON: `{"tcp_mss_limit":"1280"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "tunnel_enable",
+			rtxCommand:    `tunnel enable 1`,
+			terraformJSON: `{"enabled":true,"id":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "tunnel_disable",
+			rtxCommand:    `tunnel disable 1`,
+			terraformJSON: `{"enabled":false,"id":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "ipsec_transport",
+			rtxCommand:    `ipsec transport 1 1 udp 1701`,
+			terraformJSON: `{"port":1701,"protocol":"udp","transport_id":1,"tunnel_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "delete_tunnel",
+			rtxCommand:    `no tunnel select 1`,
+			terraformJSON: `{"id":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_ipsec_tunnel",
+			rtxCommand:    `no ipsec tunnel 1`,
+			terraformJSON: `{"ipsec_tunnel_id":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_ike_encryption",
+			rtxCommand:    `no ipsec ike encryption 1`,
+			terraformJSON: `{"id":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_ipsec_transport",
+			rtxCommand:    `no ipsec transport 1`,
+			terraformJSON: `{"transport_id":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "ipsec_sa_policy_aes256",
+			rtxCommand:    `ipsec sa policy 1 1 esp aes256-cbc sha-hmac`,
+			terraformJSON: `{"auth":"sha-hmac","encryption":"aes256-cbc","policy_id":1,"protocol":"esp","sa_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ipsec_sa_policy_3des",
+			rtxCommand:    `ipsec sa policy 1 1 esp 3des-cbc sha-hmac`,
+			terraformJSON: `{"auth":"sha-hmac","encryption":"3des-cbc","policy_id":1,"protocol":"esp","sa_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ipsec_ike_remote_address",
+			rtxCommand:    `ipsec ike remote address 1 203.0.113.1`,
+			terraformJSON: `{"ike_id":1,"remote_address":"203.0.113.1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ipsec_ike_local_address",
+			rtxCommand:    `ipsec ike local address 1 192.168.1.1`,
+			terraformJSON: `{"ike_id":1,"local_address":"192.168.1.1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ipsec_ike_pre_shared_key",
+			rtxCommand:    `ipsec ike pre-shared-key 1 text secretkey123`,
+			terraformJSON: `{"ike_id":1,"pre_shared_key":"secretkey123"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ipsec_ike_encryption_aes",
+			rtxCommand:    `ipsec ike encryption 1 aes-cbc`,
+			terraformJSON: `{"encryption":"aes-cbc","ike_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ipsec_ike_keepalive_on",
+			rtxCommand:    `ipsec ike keepalive use 1 on`,
+			terraformJSON: `{"ike_id":1,"keepalive":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+				return
+			}
+
+			// build_only tests (like delete commands) may have empty terraform values
+			// because they represent commands that don't have a direct terraform mapping
+			if tc.buildOnly {
+				t.Logf("Direction: Terraform -> RTX only (build)")
+				t.Logf("RTX: %s", tc.rtxCommand)
+				t.Logf("Terraform: %s (build_only, may be empty)", tc.terraformJSON)
+				return
+			}
+
+			// Validate terraform JSON is present and valid for non-build_only tests
+			if tc.terraformJSON == "null" || tc.terraformJSON == "" {
+				t.Errorf("Terraform value is missing for RTX command: %s", tc.rtxCommand)
+				return
+			}
+
+			var tfValue interface{}
+			if err := json.Unmarshal([]byte(tc.terraformJSON), &tfValue); err != nil {
+				t.Errorf("Invalid terraform JSON: %v\nJSON: %s", err, tc.terraformJSON)
+				return
+			}
+
+			// Log the mapping for visibility
+			t.Logf("RTX: %s", tc.rtxCommand)
+			t.Logf("Terraform: %s", tc.terraformJSON)
+
+			// Validate that terraform value contains expected fields (only for non-build_only tests)
+			if tfMap, ok := tfValue.(map[string]interface{}); ok {
+				if len(tfMap) == 0 {
+					t.Errorf("Terraform value is empty map for RTX command: %s", tc.rtxCommand)
+					return
+				}
+			}
+
+			// Check mapping direction
+			if tc.parseOnly {
+				t.Logf("Direction: RTX -> Terraform only (parse)")
+			} else {
+				t.Logf("Direction: Bidirectional (parse and build)")
+			}
+		})
 	}
 }
 

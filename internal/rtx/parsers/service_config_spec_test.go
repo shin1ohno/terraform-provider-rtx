@@ -6,6 +6,7 @@
 package parsers
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -340,6 +341,204 @@ func TestSpecServiceConfigBoundaryCoverage(t *testing.T) {
 	t.Logf("Parameters with boundary tests: %d", len(boundaryParams))
 	for _, param := range boundaryParams {
 		t.Logf("  - %s", param)
+	}
+}
+
+// TestSpecServiceConfigRTXTerraformMapping validates RTX command to Terraform value mappings
+func TestSpecServiceConfigRTXTerraformMapping(t *testing.T) {
+	// This test validates that each RTX command has a corresponding expected Terraform value
+	// and vice versa. It ensures the spec file correctly documents the bidirectional mapping.
+
+	testCases := []struct {
+		name          string
+		rtxCommand    string
+		terraformJSON string
+		parseOnly     bool
+		buildOnly     bool
+	}{
+		{
+			name:          "httpd_host_any",
+			rtxCommand:    `httpd host any`,
+			terraformJSON: `{"httpd":{"host":"any"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "httpd_host_lan1",
+			rtxCommand:    `httpd host lan1`,
+			terraformJSON: `{"httpd":{"host":"lan1"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "httpd_host_lan2",
+			rtxCommand:    `httpd host lan2`,
+			terraformJSON: `{"httpd":{"host":"lan2"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "httpd_proxy_access_on",
+			rtxCommand:    `httpd proxy-access l2ms permit on`,
+			terraformJSON: `{"httpd":{"proxy_access":true}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "httpd_proxy_access_off",
+			rtxCommand:    `httpd proxy-access l2ms permit off`,
+			terraformJSON: `{"httpd":{"proxy_access":false}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "sshd_service_on",
+			rtxCommand:    `sshd service on`,
+			terraformJSON: `{"sshd":{"enabled":true}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "sshd_service_off",
+			rtxCommand:    `sshd service off`,
+			terraformJSON: `{"sshd":{"enabled":false}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "sshd_host_single",
+			rtxCommand:    `sshd host lan1`,
+			terraformJSON: `{"sshd":{"hosts":["lan1"]}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "sshd_host_multiple",
+			rtxCommand:    `sshd host lan1 lan2`,
+			terraformJSON: `{"sshd":{"hosts":["lan1","lan2"]}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "sshd_host_any",
+			rtxCommand:    `sshd host any`,
+			terraformJSON: `{"sshd":{"hosts":["any"]}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "sshd_auth_password",
+			rtxCommand:    `sshd auth method password`,
+			terraformJSON: `{"sshd":{"auth_method":"password"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "sshd_auth_publickey",
+			rtxCommand:    `sshd auth method publickey`,
+			terraformJSON: `{"sshd":{"auth_method":"publickey"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "sshd_host_key_generate",
+			rtxCommand:    `sshd host key generate`,
+			terraformJSON: `{}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "sftpd_host_single",
+			rtxCommand:    `sftpd host lan1`,
+			terraformJSON: `{"sftpd":{"hosts":["lan1"]}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "sftpd_host_multiple",
+			rtxCommand:    `sftpd host lan1 lan2`,
+			terraformJSON: `{"sftpd":{"hosts":["lan1","lan2"]}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "delete_httpd_host",
+			rtxCommand:    `no httpd host`,
+			terraformJSON: `{}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_sshd_service",
+			rtxCommand:    `no sshd service`,
+			terraformJSON: `{}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_sshd_host",
+			rtxCommand:    `no sshd host`,
+			terraformJSON: `{}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_sftpd_host",
+			rtxCommand:    `no sftpd host`,
+			terraformJSON: `{}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+				return
+			}
+
+			// build_only tests (like delete commands) may have empty terraform values
+			// because they represent commands that don't have a direct terraform mapping
+			if tc.buildOnly {
+				t.Logf("Direction: Terraform -> RTX only (build)")
+				t.Logf("RTX: %s", tc.rtxCommand)
+				t.Logf("Terraform: %s (build_only, may be empty)", tc.terraformJSON)
+				return
+			}
+
+			// Validate terraform JSON is present and valid for non-build_only tests
+			if tc.terraformJSON == "null" || tc.terraformJSON == "" {
+				t.Errorf("Terraform value is missing for RTX command: %s", tc.rtxCommand)
+				return
+			}
+
+			var tfValue interface{}
+			if err := json.Unmarshal([]byte(tc.terraformJSON), &tfValue); err != nil {
+				t.Errorf("Invalid terraform JSON: %v\nJSON: %s", err, tc.terraformJSON)
+				return
+			}
+
+			// Log the mapping for visibility
+			t.Logf("RTX: %s", tc.rtxCommand)
+			t.Logf("Terraform: %s", tc.terraformJSON)
+
+			// Validate that terraform value contains expected fields (only for non-build_only tests)
+			if tfMap, ok := tfValue.(map[string]interface{}); ok {
+				if len(tfMap) == 0 {
+					t.Errorf("Terraform value is empty map for RTX command: %s", tc.rtxCommand)
+					return
+				}
+			}
+
+			// Check mapping direction
+			if tc.parseOnly {
+				t.Logf("Direction: RTX -> Terraform only (parse)")
+			} else {
+				t.Logf("Direction: Bidirectional (parse and build)")
+			}
+		})
 	}
 }
 

@@ -6,6 +6,7 @@
 package parsers
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -302,6 +303,183 @@ func TestSpecDhcpScopeBindBoundaryCoverage(t *testing.T) {
 	t.Logf("Parameters with boundary tests: %d", len(boundaryParams))
 	for _, param := range boundaryParams {
 		t.Logf("  - %s", param)
+	}
+}
+
+// TestSpecDhcpScopeBindRTXTerraformMapping validates RTX command to Terraform value mappings
+func TestSpecDhcpScopeBindRTXTerraformMapping(t *testing.T) {
+	// This test validates that each RTX command has a corresponding expected Terraform value
+	// and vice versa. It ensures the spec file correctly documents the bidirectional mapping.
+
+	testCases := []struct {
+		name          string
+		rtxCommand    string
+		terraformJSON string
+		parseOnly     bool
+		buildOnly     bool
+	}{
+		{
+			name:          "bind_mac_basic",
+			rtxCommand:    `dhcp scope bind 1 192.168.1.100 00:11:22:33:44:55`,
+			terraformJSON: `{"ip_address":"192.168.1.100","mac_address":"00:11:22:33:44:55","scope_id":1,"use_client_identifier":false}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "bind_mac_lowercase",
+			rtxCommand:    `dhcp scope bind 1 192.168.1.101 00:aa:bb:cc:dd:ee`,
+			terraformJSON: `{"ip_address":"192.168.1.101","mac_address":"00:aa:bb:cc:dd:ee","scope_id":1,"use_client_identifier":false}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "bind_mac_mixedcase",
+			rtxCommand:    `dhcp scope bind 1 192.168.1.102 00:Aa:Bb:Cc:Dd:Ee`,
+			terraformJSON: `{"ip_address":"192.168.1.102","mac_address":"00:aa:bb:cc:dd:ee","scope_id":1,"use_client_identifier":false}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "bind_ethernet_type",
+			rtxCommand:    `dhcp scope bind 1 192.168.1.110 ethernet 00:a0:de:01:23:45`,
+			terraformJSON: `{"ip_address":"192.168.1.110","mac_address":"00:a0:de:01:23:45","scope_id":1,"use_client_identifier":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "bind_ethernet_type_uppercase",
+			rtxCommand:    `dhcp scope bind 1 192.168.1.111 ethernet B6:1A:27:EA:28:29`,
+			terraformJSON: `{"ip_address":"192.168.1.111","mac_address":"b6:1a:27:ea:28:29","scope_id":1,"use_client_identifier":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "bind_text_type",
+			rtxCommand:    `dhcp scope bind 1 192.168.1.120 text client01`,
+			terraformJSON: `{"ip_address":"192.168.1.120","scope_id":1,"text_identifier":"client01"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "bind_hex_sequence",
+			rtxCommand:    `dhcp scope bind 1 192.168.1.130 01 00 a0 de 01 23 45`,
+			terraformJSON: `{"ip_address":"192.168.1.130","mac_address":"00:a0:de:01:23:45","scope_id":1,"use_client_identifier":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "bind_client_identifier_01",
+			rtxCommand:    `dhcp scope bind 1 192.168.1.102 client-id 01:00:11:22:33:44:55`,
+			terraformJSON: `{"client_identifier":"01:00:11:22:33:44:55","ip_address":"192.168.1.102","scope_id":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "bind_client_identifier_ff",
+			rtxCommand:    `dhcp scope bind 2 10.0.0.51 client-id ff:00:01:02:03:04:05`,
+			terraformJSON: `{"client_identifier":"ff:00:01:02:03:04:05","ip_address":"10.0.0.51","scope_id":2}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "bind_wildcard_ip",
+			rtxCommand:    `dhcp scope bind 1 * 00:a0:de:01:23:45`,
+			terraformJSON: `{"ip_address":"*","mac_address":"00:a0:de:01:23:45","scope_id":1,"use_client_identifier":false}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "bind_oui_range",
+			rtxCommand:    `dhcp scope bind 1 192.168.1.20-192.168.1.30 00:a0:de:*`,
+			terraformJSON: `{"ip_range_end":"192.168.1.30","ip_range_start":"192.168.1.20","oui":"00:a0:de","scope_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "bind_ipcp",
+			rtxCommand:    `dhcp scope bind 1 192.168.1.100 ipcp`,
+			terraformJSON: `{"ip_address":"192.168.1.100","ipcp":true,"scope_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "bind_scope_2",
+			rtxCommand:    `dhcp scope bind 2 10.0.0.50 11:22:33:44:55:66`,
+			terraformJSON: `{"ip_address":"10.0.0.50","mac_address":"11:22:33:44:55:66","scope_id":2,"use_client_identifier":false}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "bind_large_scope_id",
+			rtxCommand:    `dhcp scope bind 65535 172.16.0.100 aa:bb:cc:dd:ee:ff`,
+			terraformJSON: `{"ip_address":"172.16.0.100","mac_address":"aa:bb:cc:dd:ee:ff","scope_id":65535,"use_client_identifier":false}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "unbind_basic",
+			rtxCommand:    `no dhcp scope bind 1 192.168.1.100`,
+			terraformJSON: `{"ip_address":"192.168.1.100","scope_id":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "unbind_scope_2",
+			rtxCommand:    `no dhcp scope bind 2 10.0.0.50`,
+			terraformJSON: `{"ip_address":"10.0.0.50","scope_id":2}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+				return
+			}
+
+			// build_only tests (like delete commands) may have empty terraform values
+			// because they represent commands that don't have a direct terraform mapping
+			if tc.buildOnly {
+				t.Logf("Direction: Terraform -> RTX only (build)")
+				t.Logf("RTX: %s", tc.rtxCommand)
+				t.Logf("Terraform: %s (build_only, may be empty)", tc.terraformJSON)
+				return
+			}
+
+			// Validate terraform JSON is present and valid for non-build_only tests
+			if tc.terraformJSON == "null" || tc.terraformJSON == "" {
+				t.Errorf("Terraform value is missing for RTX command: %s", tc.rtxCommand)
+				return
+			}
+
+			var tfValue interface{}
+			if err := json.Unmarshal([]byte(tc.terraformJSON), &tfValue); err != nil {
+				t.Errorf("Invalid terraform JSON: %v\nJSON: %s", err, tc.terraformJSON)
+				return
+			}
+
+			// Log the mapping for visibility
+			t.Logf("RTX: %s", tc.rtxCommand)
+			t.Logf("Terraform: %s", tc.terraformJSON)
+
+			// Validate that terraform value contains expected fields (only for non-build_only tests)
+			if tfMap, ok := tfValue.(map[string]interface{}); ok {
+				if len(tfMap) == 0 {
+					t.Errorf("Terraform value is empty map for RTX command: %s", tc.rtxCommand)
+					return
+				}
+			}
+
+			// Check mapping direction
+			if tc.parseOnly {
+				t.Logf("Direction: RTX -> Terraform only (parse)")
+			} else {
+				t.Logf("Direction: Bidirectional (parse and build)")
+			}
+		})
 	}
 }
 

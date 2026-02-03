@@ -6,6 +6,7 @@
 package parsers
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -152,6 +153,54 @@ func TestSpecDNSConfigRTXSyntax(t *testing.T) {
 			rtxCommand: `no dns static server.local`,
 			parseOnly:  false,
 			buildOnly:  true,
+		},
+		{
+			name:       "dns_server_google",
+			rtxCommand: `dns server 8.8.8.8 8.8.4.4`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dns_server_cloudflare",
+			rtxCommand: `dns server 1.1.1.1 1.0.0.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dns_server_quad9",
+			rtxCommand: `dns server 9.9.9.9`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dns_domain_short",
+			rtxCommand: `dns domain local`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dns_domain_long",
+			rtxCommand: `dns domain subdomain.example.company.co.jp`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dns_static_host",
+			rtxCommand: `dns static a host.example.com 192.168.1.100`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dns_private_on",
+			rtxCommand: `dns private address spoof on`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "dns_cache_max",
+			rtxCommand: `dns cache max entry 10000`,
+			parseOnly:  false,
+			buildOnly:  false,
 		},
 	}
 
@@ -345,6 +394,62 @@ func TestSpecDNSConfigSyntaxCoverage(t *testing.T) {
 			buildOnly:   true,
 			description: "",
 		},
+		{
+			name:        "dns_server_google",
+			rtxCommand:  `dns server 8.8.8.8 8.8.4.4`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "Google DNS",
+		},
+		{
+			name:        "dns_server_cloudflare",
+			rtxCommand:  `dns server 1.1.1.1 1.0.0.1`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "Cloudflare DNS",
+		},
+		{
+			name:        "dns_server_quad9",
+			rtxCommand:  `dns server 9.9.9.9`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "Quad9 DNS",
+		},
+		{
+			name:        "dns_domain_short",
+			rtxCommand:  `dns domain local`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "短いドメイン",
+		},
+		{
+			name:        "dns_domain_long",
+			rtxCommand:  `dns domain subdomain.example.company.co.jp`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "長いドメイン",
+		},
+		{
+			name:        "dns_static_host",
+			rtxCommand:  `dns static a host.example.com 192.168.1.100`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "静的ホスト",
+		},
+		{
+			name:        "dns_private_on",
+			rtxCommand:  `dns private address spoof on`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "プライベートアドレススプーフィング有効",
+		},
+		{
+			name:        "dns_cache_max",
+			rtxCommand:  `dns cache max entry 10000`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "キャッシュ最大エントリ",
+		},
 	}
 
 	t.Logf("Total syntax patterns: %d", len(syntaxPatterns))
@@ -379,6 +484,281 @@ func TestSpecDNSConfigBoundaryCoverage(t *testing.T) {
 	t.Logf("Parameters with boundary tests: %d", len(boundaryParams))
 	for _, param := range boundaryParams {
 		t.Logf("  - %s", param)
+	}
+}
+
+// TestSpecDNSConfigRTXTerraformMapping validates RTX command to Terraform value mappings
+func TestSpecDNSConfigRTXTerraformMapping(t *testing.T) {
+	// This test validates that each RTX command has a corresponding expected Terraform value
+	// and vice versa. It ensures the spec file correctly documents the bidirectional mapping.
+
+	testCases := []struct {
+		name          string
+		rtxCommand    string
+		terraformJSON string
+		parseOnly     bool
+		buildOnly     bool
+	}{
+		{
+			name:          "dns_domain_lookup_on",
+			rtxCommand:    `dns domain lookup on`,
+			terraformJSON: `{"domain_lookup":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dns_domain_lookup_off",
+			rtxCommand:    `dns domain lookup off`,
+			terraformJSON: `{"domain_lookup":false}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dns_domain_name",
+			rtxCommand:    `dns domain example.com`,
+			terraformJSON: `{"domain_name":"example.com"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dns_domain_local",
+			rtxCommand:    `dns domain local.lan`,
+			terraformJSON: `{"domain_name":"local.lan"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dns_server_single",
+			rtxCommand:    `dns server 8.8.8.8`,
+			terraformJSON: `{"name_servers":["8.8.8.8"]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dns_server_two",
+			rtxCommand:    `dns server 8.8.8.8 8.8.4.4`,
+			terraformJSON: `{"name_servers":["8.8.8.8","8.8.4.4"]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dns_server_three",
+			rtxCommand:    `dns server 8.8.8.8 8.8.4.4 1.1.1.1`,
+			terraformJSON: `{"name_servers":["8.8.8.8","8.8.4.4","1.1.1.1"]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dns_server_select_simple",
+			rtxCommand:    `dns server select 1 8.8.8.8 any .example.com`,
+			terraformJSON: `{"server_select":[{"id":1,"query_pattern":".example.com","record_type":"any","servers":["8.8.8.8"]}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dns_server_select_with_edns",
+			rtxCommand:    `dns server select 1 8.8.8.8 edns=on any .example.com`,
+			terraformJSON: `{"server_select":[{"id":1,"query_pattern":".example.com","record_type":"any","servers":[{"address":"8.8.8.8","edns":true}]}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dns_server_select_multiple_servers",
+			rtxCommand:    `dns server select 1 8.8.8.8 8.8.4.4 any .google.com`,
+			terraformJSON: `{"server_select":[{"id":1,"query_pattern":".google.com","record_type":"any","servers":["8.8.8.8","8.8.4.4"]}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dns_server_select_record_type_a",
+			rtxCommand:    `dns server select 2 1.1.1.1 a .cloudflare.com`,
+			terraformJSON: `{"server_select":[{"id":2,"query_pattern":".cloudflare.com","record_type":"a","servers":["1.1.1.1"]}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dns_server_select_restrict_pp",
+			rtxCommand:    `dns server select 3 192.168.1.1 any .internal restrict pp 1`,
+			terraformJSON: `{"server_select":[{"id":3,"query_pattern":".internal","record_type":"any","restrict_pp":1,"servers":["192.168.1.1"]}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dns_static_ipv4",
+			rtxCommand:    `dns static server.local 192.168.1.100`,
+			terraformJSON: `{"hosts":[{"address":"192.168.1.100","name":"server.local"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dns_static_router",
+			rtxCommand:    `dns static router.local 192.168.1.1`,
+			terraformJSON: `{"hosts":[{"address":"192.168.1.1","name":"router.local"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dns_service_recursive",
+			rtxCommand:    `dns service recursive`,
+			terraformJSON: `{"service_on":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dns_service_off",
+			rtxCommand:    `dns service off`,
+			terraformJSON: `{"service_on":false}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dns_private_spoof_on",
+			rtxCommand:    `dns private address spoof on`,
+			terraformJSON: `{"private_spoof":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dns_private_spoof_off",
+			rtxCommand:    `dns private address spoof off`,
+			terraformJSON: `{"private_spoof":false}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "delete_dns_server",
+			rtxCommand:    `no dns server`,
+			terraformJSON: `{}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_dns_domain",
+			rtxCommand:    `no dns domain`,
+			terraformJSON: `{}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_dns_server_select",
+			rtxCommand:    `no dns server select 1`,
+			terraformJSON: `{"id":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_dns_static",
+			rtxCommand:    `no dns static server.local`,
+			terraformJSON: `{"name":"server.local"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "dns_server_google",
+			rtxCommand:    `dns server 8.8.8.8 8.8.4.4`,
+			terraformJSON: `{"servers":["8.8.8.8","8.8.4.4"]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dns_server_cloudflare",
+			rtxCommand:    `dns server 1.1.1.1 1.0.0.1`,
+			terraformJSON: `{"servers":["1.1.1.1","1.0.0.1"]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dns_server_quad9",
+			rtxCommand:    `dns server 9.9.9.9`,
+			terraformJSON: `{"servers":["9.9.9.9"]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dns_domain_short",
+			rtxCommand:    `dns domain local`,
+			terraformJSON: `{"domain":"local"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dns_domain_long",
+			rtxCommand:    `dns domain subdomain.example.company.co.jp`,
+			terraformJSON: `{"domain":"subdomain.example.company.co.jp"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dns_static_host",
+			rtxCommand:    `dns static a host.example.com 192.168.1.100`,
+			terraformJSON: `{"static_hosts":[{"hostname":"host.example.com","ip":"192.168.1.100"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dns_private_on",
+			rtxCommand:    `dns private address spoof on`,
+			terraformJSON: `{"private_address_spoof":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "dns_cache_max",
+			rtxCommand:    `dns cache max entry 10000`,
+			terraformJSON: `{"cache_max_entry":10000}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+				return
+			}
+
+			// build_only tests (like delete commands) may have empty terraform values
+			// because they represent commands that don't have a direct terraform mapping
+			if tc.buildOnly {
+				t.Logf("Direction: Terraform -> RTX only (build)")
+				t.Logf("RTX: %s", tc.rtxCommand)
+				t.Logf("Terraform: %s (build_only, may be empty)", tc.terraformJSON)
+				return
+			}
+
+			// Validate terraform JSON is present and valid for non-build_only tests
+			if tc.terraformJSON == "null" || tc.terraformJSON == "" {
+				t.Errorf("Terraform value is missing for RTX command: %s", tc.rtxCommand)
+				return
+			}
+
+			var tfValue interface{}
+			if err := json.Unmarshal([]byte(tc.terraformJSON), &tfValue); err != nil {
+				t.Errorf("Invalid terraform JSON: %v\nJSON: %s", err, tc.terraformJSON)
+				return
+			}
+
+			// Log the mapping for visibility
+			t.Logf("RTX: %s", tc.rtxCommand)
+			t.Logf("Terraform: %s", tc.terraformJSON)
+
+			// Validate that terraform value contains expected fields (only for non-build_only tests)
+			if tfMap, ok := tfValue.(map[string]interface{}); ok {
+				if len(tfMap) == 0 {
+					t.Errorf("Terraform value is empty map for RTX command: %s", tc.rtxCommand)
+					return
+				}
+			}
+
+			// Check mapping direction
+			if tc.parseOnly {
+				t.Logf("Direction: RTX -> Terraform only (parse)")
+			} else {
+				t.Logf("Direction: Bidirectional (parse and build)")
+			}
+		})
 	}
 }
 

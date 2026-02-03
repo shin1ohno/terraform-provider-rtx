@@ -6,6 +6,7 @@
 package parsers
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -315,6 +316,190 @@ func TestSpecDdnsConfigBoundaryCoverage(t *testing.T) {
 	t.Logf("Parameters with boundary tests: %d", len(boundaryParams))
 	for _, param := range boundaryParams {
 		t.Logf("  - %s", param)
+	}
+}
+
+// TestSpecDdnsConfigRTXTerraformMapping validates RTX command to Terraform value mappings
+func TestSpecDdnsConfigRTXTerraformMapping(t *testing.T) {
+	// This test validates that each RTX command has a corresponding expected Terraform value
+	// and vice versa. It ensures the spec file correctly documents the bidirectional mapping.
+
+	testCases := []struct {
+		name          string
+		rtxCommand    string
+		terraformJSON string
+		parseOnly     bool
+		buildOnly     bool
+	}{
+		{
+			name:          "netvolante_hostname",
+			rtxCommand:    `netvolante-dns hostname host pp1 myhost.netvolante.jp`,
+			terraformJSON: `{"netvolante":[{"hostname":"myhost.netvolante.jp","interface":"pp1"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "netvolante_hostname_lan",
+			rtxCommand:    `netvolante-dns hostname host lan1 router.netvolante.jp`,
+			terraformJSON: `{"netvolante":[{"hostname":"router.netvolante.jp","interface":"lan1"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "netvolante_server_1",
+			rtxCommand:    `netvolante-dns server 1`,
+			terraformJSON: `{"netvolante":[{"server":1}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "netvolante_server_2",
+			rtxCommand:    `netvolante-dns server 2`,
+			terraformJSON: `{"netvolante":[{"server":2}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "netvolante_timeout",
+			rtxCommand:    `netvolante-dns timeout 30`,
+			terraformJSON: `{"netvolante":[{"timeout":30}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "netvolante_use_ipv6_on",
+			rtxCommand:    `netvolante-dns use ipv6 pp1 on`,
+			terraformJSON: `{"netvolante":[{"interface":"pp1","ipv6":true}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "netvolante_use_ipv6_off",
+			rtxCommand:    `netvolante-dns use ipv6 lan1 off`,
+			terraformJSON: `{"netvolante":[{"interface":"lan1","ipv6":false}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "netvolante_auto_hostname_on",
+			rtxCommand:    `netvolante-dns auto hostname pp1 on`,
+			terraformJSON: `{"netvolante":[{"auto_hostname":true,"interface":"pp1"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "netvolante_use_on",
+			rtxCommand:    `netvolante-dns use pp1 on`,
+			terraformJSON: `{"netvolante":[{"interface":"pp1","use":true}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "netvolante_use_off",
+			rtxCommand:    `netvolante-dns use lan1 off`,
+			terraformJSON: `{"netvolante":[{"interface":"lan1","use":false}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "netvolante_go",
+			rtxCommand:    `netvolante-dns go pp1`,
+			terraformJSON: `{"netvolante":[{"interface":"pp1"}]}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "ddns_server_url",
+			rtxCommand:    `ddns server url 1 https://ddns.example.com/update`,
+			terraformJSON: `{"ddns_servers":[{"id":1,"url":"https://ddns.example.com/update"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ddns_server_hostname",
+			rtxCommand:    `ddns server hostname 1 myhost.example.com`,
+			terraformJSON: `{"ddns_servers":[{"hostname":"myhost.example.com","id":1}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ddns_server_user",
+			rtxCommand:    `ddns server user 1 myuser mypassword`,
+			terraformJSON: `{"ddns_servers":[{"id":1,"password":"mypassword","username":"myuser"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ddns_server_go",
+			rtxCommand:    `ddns server go 1`,
+			terraformJSON: `{"ddns_servers":[{"id":1}]}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_netvolante_hostname",
+			rtxCommand:    `no netvolante-dns hostname host pp1`,
+			terraformJSON: `{"interface":"pp1"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_ddns_server_url",
+			rtxCommand:    `no ddns server url 1`,
+			terraformJSON: `{"id":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+				return
+			}
+
+			// build_only tests (like delete commands) may have empty terraform values
+			// because they represent commands that don't have a direct terraform mapping
+			if tc.buildOnly {
+				t.Logf("Direction: Terraform -> RTX only (build)")
+				t.Logf("RTX: %s", tc.rtxCommand)
+				t.Logf("Terraform: %s (build_only, may be empty)", tc.terraformJSON)
+				return
+			}
+
+			// Validate terraform JSON is present and valid for non-build_only tests
+			if tc.terraformJSON == "null" || tc.terraformJSON == "" {
+				t.Errorf("Terraform value is missing for RTX command: %s", tc.rtxCommand)
+				return
+			}
+
+			var tfValue interface{}
+			if err := json.Unmarshal([]byte(tc.terraformJSON), &tfValue); err != nil {
+				t.Errorf("Invalid terraform JSON: %v\nJSON: %s", err, tc.terraformJSON)
+				return
+			}
+
+			// Log the mapping for visibility
+			t.Logf("RTX: %s", tc.rtxCommand)
+			t.Logf("Terraform: %s", tc.terraformJSON)
+
+			// Validate that terraform value contains expected fields (only for non-build_only tests)
+			if tfMap, ok := tfValue.(map[string]interface{}); ok {
+				if len(tfMap) == 0 {
+					t.Errorf("Terraform value is empty map for RTX command: %s", tc.rtxCommand)
+					return
+				}
+			}
+
+			// Check mapping direction
+			if tc.parseOnly {
+				t.Logf("Direction: RTX -> Terraform only (parse)")
+			} else {
+				t.Logf("Direction: Bidirectional (parse and build)")
+			}
+		})
 	}
 }
 

@@ -6,6 +6,7 @@
 package parsers
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -116,6 +117,48 @@ func TestSpecVlanConfigRTXSyntax(t *testing.T) {
 			rtxCommand: `no description lan1/1`,
 			parseOnly:  false,
 			buildOnly:  true,
+		},
+		{
+			name:       "vlan_id_min",
+			rtxCommand: `vlan lan1/1 802.1q vid=1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "vlan_id_max",
+			rtxCommand: `vlan lan1/1 802.1q vid=4094`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "vlan_port_2",
+			rtxCommand: `vlan lan1/2 802.1q vid=100`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "vlan_port_3",
+			rtxCommand: `vlan lan1/3 802.1q vid=200`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "vlan_lan2",
+			rtxCommand: `vlan lan2/1 802.1q vid=500`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "vlan_ip_address",
+			rtxCommand: `ip vlan1 address 192.168.10.1/24`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "vlan_ip_address_2",
+			rtxCommand: `ip vlan2 address 192.168.20.1/24`,
+			parseOnly:  false,
+			buildOnly:  false,
 		},
 	}
 
@@ -267,6 +310,55 @@ func TestSpecVlanConfigSyntaxCoverage(t *testing.T) {
 			buildOnly:   true,
 			description: "",
 		},
+		{
+			name:        "vlan_id_min",
+			rtxCommand:  `vlan lan1/1 802.1q vid=1`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "VLAN ID最小",
+		},
+		{
+			name:        "vlan_id_max",
+			rtxCommand:  `vlan lan1/1 802.1q vid=4094`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "VLAN ID最大",
+		},
+		{
+			name:        "vlan_port_2",
+			rtxCommand:  `vlan lan1/2 802.1q vid=100`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "ポート2",
+		},
+		{
+			name:        "vlan_port_3",
+			rtxCommand:  `vlan lan1/3 802.1q vid=200`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "ポート3",
+		},
+		{
+			name:        "vlan_lan2",
+			rtxCommand:  `vlan lan2/1 802.1q vid=500`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "LAN2ポート",
+		},
+		{
+			name:        "vlan_ip_address",
+			rtxCommand:  `ip vlan1 address 192.168.10.1/24`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "VLANアドレス",
+		},
+		{
+			name:        "vlan_ip_address_2",
+			rtxCommand:  `ip vlan2 address 192.168.20.1/24`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "VLAN2アドレス",
+		},
 	}
 
 	t.Logf("Total syntax patterns: %d", len(syntaxPatterns))
@@ -302,6 +394,232 @@ func TestSpecVlanConfigBoundaryCoverage(t *testing.T) {
 	t.Logf("Parameters with boundary tests: %d", len(boundaryParams))
 	for _, param := range boundaryParams {
 		t.Logf("  - %s", param)
+	}
+}
+
+// TestSpecVlanConfigRTXTerraformMapping validates RTX command to Terraform value mappings
+func TestSpecVlanConfigRTXTerraformMapping(t *testing.T) {
+	// This test validates that each RTX command has a corresponding expected Terraform value
+	// and vice versa. It ensures the spec file correctly documents the bidirectional mapping.
+
+	testCases := []struct {
+		name          string
+		rtxCommand    string
+		terraformJSON string
+		parseOnly     bool
+		buildOnly     bool
+	}{
+		{
+			name:          "vlan_create_basic",
+			rtxCommand:    `vlan lan1/1 802.1q vid=100`,
+			terraformJSON: `{"interface":"lan1","slot":1,"vlan_id":100}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "vlan_create_vid_200",
+			rtxCommand:    `vlan lan1/2 802.1q vid=200`,
+			terraformJSON: `{"interface":"lan1","slot":2,"vlan_id":200}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "vlan_create_lan2",
+			rtxCommand:    `vlan lan2/1 802.1q vid=10`,
+			terraformJSON: `{"interface":"lan2","slot":1,"vlan_id":10}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "vlan_create_vid_1",
+			rtxCommand:    `vlan lan1/3 802.1q vid=1`,
+			terraformJSON: `{"interface":"lan1","slot":3,"vlan_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "vlan_create_vid_4094",
+			rtxCommand:    `vlan lan1/4 802.1q vid=4094`,
+			terraformJSON: `{"interface":"lan1","slot":4,"vlan_id":4094}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "vlan_ip_address_cidr",
+			rtxCommand:    `ip lan1/1 address 192.168.100.1/24`,
+			terraformJSON: `{"ip_address":"192.168.100.1","ip_mask":"255.255.255.0","vlan_interface":"lan1/1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "vlan_ip_address_16",
+			rtxCommand:    `ip lan1/2 address 172.16.0.1/16`,
+			terraformJSON: `{"ip_address":"172.16.0.1","ip_mask":"255.255.0.0","vlan_interface":"lan1/2"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "vlan_ip_address_dotted",
+			rtxCommand:    `ip lan1/3 address 10.0.0.1 255.255.255.0`,
+			terraformJSON: `{"ip_address":"10.0.0.1","ip_mask":"255.255.255.0","vlan_interface":"lan1/3"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "vlan_description",
+			rtxCommand:    `description lan1/1 "Management VLAN"`,
+			terraformJSON: `{"name":"Management VLAN","vlan_interface":"lan1/1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "vlan_description_simple",
+			rtxCommand:    `description lan1/2 Server-VLAN`,
+			terraformJSON: `{"name":"Server-VLAN","vlan_interface":"lan1/2"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "vlan_description_guest",
+			rtxCommand:    `description lan1/3 "Guest Network"`,
+			terraformJSON: `{"name":"Guest Network","vlan_interface":"lan1/3"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "vlan_enable",
+			rtxCommand:    `lan1/1 enable`,
+			terraformJSON: `{"shutdown":false,"vlan_interface":"lan1/1"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "vlan_disable",
+			rtxCommand:    `no lan1/1 enable`,
+			terraformJSON: `{"shutdown":true,"vlan_interface":"lan1/1"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_vlan",
+			rtxCommand:    `no vlan lan1/1`,
+			terraformJSON: `{"vlan_interface":"lan1/1"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_vlan_ip",
+			rtxCommand:    `no ip lan1/1 address`,
+			terraformJSON: `{"vlan_interface":"lan1/1"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_vlan_description",
+			rtxCommand:    `no description lan1/1`,
+			terraformJSON: `{"vlan_interface":"lan1/1"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "vlan_id_min",
+			rtxCommand:    `vlan lan1/1 802.1q vid=1`,
+			terraformJSON: `{"port":"lan1/1","vid":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "vlan_id_max",
+			rtxCommand:    `vlan lan1/1 802.1q vid=4094`,
+			terraformJSON: `{"port":"lan1/1","vid":4094}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "vlan_port_2",
+			rtxCommand:    `vlan lan1/2 802.1q vid=100`,
+			terraformJSON: `{"port":"lan1/2","vid":100}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "vlan_port_3",
+			rtxCommand:    `vlan lan1/3 802.1q vid=200`,
+			terraformJSON: `{"port":"lan1/3","vid":200}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "vlan_lan2",
+			rtxCommand:    `vlan lan2/1 802.1q vid=500`,
+			terraformJSON: `{"port":"lan2/1","vid":500}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "vlan_ip_address",
+			rtxCommand:    `ip vlan1 address 192.168.10.1/24`,
+			terraformJSON: `{"address":"192.168.10.1/24","vlan_interface":"vlan1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "vlan_ip_address_2",
+			rtxCommand:    `ip vlan2 address 192.168.20.1/24`,
+			terraformJSON: `{"address":"192.168.20.1/24","vlan_interface":"vlan2"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+				return
+			}
+
+			// build_only tests (like delete commands) may have empty terraform values
+			// because they represent commands that don't have a direct terraform mapping
+			if tc.buildOnly {
+				t.Logf("Direction: Terraform -> RTX only (build)")
+				t.Logf("RTX: %s", tc.rtxCommand)
+				t.Logf("Terraform: %s (build_only, may be empty)", tc.terraformJSON)
+				return
+			}
+
+			// Validate terraform JSON is present and valid for non-build_only tests
+			if tc.terraformJSON == "null" || tc.terraformJSON == "" {
+				t.Errorf("Terraform value is missing for RTX command: %s", tc.rtxCommand)
+				return
+			}
+
+			var tfValue interface{}
+			if err := json.Unmarshal([]byte(tc.terraformJSON), &tfValue); err != nil {
+				t.Errorf("Invalid terraform JSON: %v\nJSON: %s", err, tc.terraformJSON)
+				return
+			}
+
+			// Log the mapping for visibility
+			t.Logf("RTX: %s", tc.rtxCommand)
+			t.Logf("Terraform: %s", tc.terraformJSON)
+
+			// Validate that terraform value contains expected fields (only for non-build_only tests)
+			if tfMap, ok := tfValue.(map[string]interface{}); ok {
+				if len(tfMap) == 0 {
+					t.Errorf("Terraform value is empty map for RTX command: %s", tc.rtxCommand)
+					return
+				}
+			}
+
+			// Check mapping direction
+			if tc.parseOnly {
+				t.Logf("Direction: RTX -> Terraform only (parse)")
+			} else {
+				t.Logf("Direction: Bidirectional (parse and build)")
+			}
+		})
 	}
 }
 

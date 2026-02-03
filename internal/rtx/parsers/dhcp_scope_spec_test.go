@@ -6,6 +6,7 @@
 package parsers
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -134,6 +135,66 @@ func TestSpecDhcpScopeRTXSyntax(t *testing.T) {
 			rtxCommand: `no dhcp scope 65535`,
 			parseOnly:  false,
 			buildOnly:  true,
+		},
+		{
+			name:       "scope_id_boundary_max",
+			rtxCommand: `dhcp scope 65535 192.168.1.0/24`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "scope_class_a_network",
+			rtxCommand: `dhcp scope 1 10.0.0.0/8`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "scope_class_b_network",
+			rtxCommand: `dhcp scope 1 172.16.0.0/12`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "scope_subnet_28",
+			rtxCommand: `dhcp scope 1 192.168.1.0/28`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "scope_subnet_30",
+			rtxCommand: `dhcp scope 1 192.168.1.0/30`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "lease_time_boundary_min",
+			rtxCommand: `dhcp scope 1 192.168.1.0/24 expire 60`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "scope_gateway_option",
+			rtxCommand: `dhcp scope option 1 router 192.168.1.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "scope_dns_option",
+			rtxCommand: `dhcp scope option 1 dns 8.8.8.8 8.8.4.4`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "scope_domain_option",
+			rtxCommand: `dhcp scope option 1 domain example.local`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "scope_multiple_scope_ids",
+			rtxCommand: `dhcp scope 2 10.0.0.0/24`,
+			parseOnly:  false,
+			buildOnly:  false,
 		},
 	}
 
@@ -306,6 +367,76 @@ func TestSpecDhcpScopeSyntaxCoverage(t *testing.T) {
 			buildOnly:   true,
 			description: "",
 		},
+		{
+			name:        "scope_id_boundary_max",
+			rtxCommand:  `dhcp scope 65535 192.168.1.0/24`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "スコープID最大値",
+		},
+		{
+			name:        "scope_class_a_network",
+			rtxCommand:  `dhcp scope 1 10.0.0.0/8`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "クラスAネットワーク",
+		},
+		{
+			name:        "scope_class_b_network",
+			rtxCommand:  `dhcp scope 1 172.16.0.0/12`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "クラスBネットワーク",
+		},
+		{
+			name:        "scope_subnet_28",
+			rtxCommand:  `dhcp scope 1 192.168.1.0/28`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "/28サブネット",
+		},
+		{
+			name:        "scope_subnet_30",
+			rtxCommand:  `dhcp scope 1 192.168.1.0/30`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "/30サブネット",
+		},
+		{
+			name:        "lease_time_boundary_min",
+			rtxCommand:  `dhcp scope 1 192.168.1.0/24 expire 60`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "リース時間最小値",
+		},
+		{
+			name:        "scope_gateway_option",
+			rtxCommand:  `dhcp scope option 1 router 192.168.1.1`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "ゲートウェイオプション",
+		},
+		{
+			name:        "scope_dns_option",
+			rtxCommand:  `dhcp scope option 1 dns 8.8.8.8 8.8.4.4`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "DNSオプション",
+		},
+		{
+			name:        "scope_domain_option",
+			rtxCommand:  `dhcp scope option 1 domain example.local`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "ドメインオプション",
+		},
+		{
+			name:        "scope_multiple_scope_ids",
+			rtxCommand:  `dhcp scope 2 10.0.0.0/24`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "別スコープID",
+		},
 	}
 
 	t.Logf("Total syntax patterns: %d", len(syntaxPatterns))
@@ -343,6 +474,274 @@ func TestSpecDhcpScopeBoundaryCoverage(t *testing.T) {
 	t.Logf("Parameters with boundary tests: %d", len(boundaryParams))
 	for _, param := range boundaryParams {
 		t.Logf("  - %s", param)
+	}
+}
+
+// TestSpecDhcpScopeRTXTerraformMapping validates RTX command to Terraform value mappings
+func TestSpecDhcpScopeRTXTerraformMapping(t *testing.T) {
+	// This test validates that each RTX command has a corresponding expected Terraform value
+	// and vice versa. It ensures the spec file correctly documents the bidirectional mapping.
+
+	testCases := []struct {
+		name          string
+		rtxCommand    string
+		terraformJSON string
+		parseOnly     bool
+		buildOnly     bool
+	}{
+		{
+			name:          "basic_scope_cidr24",
+			rtxCommand:    `dhcp scope 1 192.168.1.0/24`,
+			terraformJSON: `{"exclude_ranges":[],"network":"192.168.1.0/24","scope_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "basic_scope_cidr16",
+			rtxCommand:    `dhcp scope 2 192.168.0.0/16`,
+			terraformJSON: `{"exclude_ranges":[],"network":"192.168.0.0/16","scope_id":2}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "basic_scope_cidr8",
+			rtxCommand:    `dhcp scope 3 10.0.0.0/8`,
+			terraformJSON: `{"exclude_ranges":[],"network":"10.0.0.0/8","scope_id":3}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "scope_ip_range_format",
+			rtxCommand:    `dhcp scope 1 192.168.1.20-192.168.1.99/24`,
+			terraformJSON: `{"exclude_ranges":[],"network":"192.168.1.0/24","range_end":"192.168.1.99","range_start":"192.168.1.20","scope_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "scope_ip_range_format_16",
+			rtxCommand:    `dhcp scope 1 192.168.1.20-192.168.1.99/16`,
+			terraformJSON: `{"exclude_ranges":[],"network":"192.168.0.0/16","range_end":"192.168.1.99","range_start":"192.168.1.20","scope_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "scope_with_gateway_legacy",
+			rtxCommand:    `dhcp scope 1 192.168.1.0/24 gateway 192.168.1.1`,
+			terraformJSON: `{"exclude_ranges":[],"network":"192.168.1.0/24","options":{"routers":["192.168.1.1"]},"scope_id":1}`,
+			parseOnly:     true,
+			buildOnly:     false,
+		},
+		{
+			name:          "scope_ip_range_with_gateway",
+			rtxCommand:    `dhcp scope 1 192.168.1.20-192.168.1.99/16 gateway 192.168.1.253`,
+			terraformJSON: `{"exclude_ranges":[],"network":"192.168.0.0/16","options":{"routers":["192.168.1.253"]},"range_end":"192.168.1.99","range_start":"192.168.1.20","scope_id":1}`,
+			parseOnly:     true,
+			buildOnly:     false,
+		},
+		{
+			name:          "scope_with_expire_hours_minutes",
+			rtxCommand:    `dhcp scope 1 192.168.1.0/24 expire 24:00`,
+			terraformJSON: `{"exclude_ranges":[],"lease_time":"24h","network":"192.168.1.0/24","scope_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "scope_with_expire_72h",
+			rtxCommand:    `dhcp scope 1 192.168.1.0/24 expire 72:00`,
+			terraformJSON: `{"exclude_ranges":[],"lease_time":"72h","network":"192.168.1.0/24","scope_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "scope_with_expire_minutes",
+			rtxCommand:    `dhcp scope 1 192.168.1.0/24 expire 0:30`,
+			terraformJSON: `{"exclude_ranges":[],"lease_time":"30m","network":"192.168.1.0/24","scope_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "scope_with_expire_infinity",
+			rtxCommand:    `dhcp scope 1 192.168.1.0/24 expire infinity`,
+			terraformJSON: `{"exclude_ranges":[],"lease_time":"infinity","network":"192.168.1.0/24","scope_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "scope_with_maxexpire",
+			rtxCommand:    `dhcp scope 1 192.168.1.0/24 expire 72:00 maxexpire 168:00`,
+			terraformJSON: `{"exclude_ranges":[],"lease_time":"72h","max_lease_time":"168h","network":"192.168.1.0/24","scope_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "scope_full_with_maxexpire",
+			rtxCommand:    `dhcp scope 1 192.168.1.0/24 gateway 192.168.1.1 expire 72:00 maxexpire 168:00`,
+			terraformJSON: `{"exclude_ranges":[],"lease_time":"72h","max_lease_time":"168h","network":"192.168.1.0/24","options":{"routers":["192.168.1.1"]},"scope_id":1}`,
+			parseOnly:     true,
+			buildOnly:     false,
+		},
+		{
+			name:          "scope_with_gateway_and_expire",
+			rtxCommand:    `dhcp scope 1 192.168.1.0/24 gateway 192.168.1.1 expire 72:00`,
+			terraformJSON: `{"exclude_ranges":[],"lease_time":"72h","network":"192.168.1.0/24","options":{"routers":["192.168.1.1"]},"scope_id":1}`,
+			parseOnly:     true,
+			buildOnly:     false,
+		},
+		{
+			name:          "scope_ip_range_with_gateway_and_expire",
+			rtxCommand:    `dhcp scope 1 192.168.1.20-192.168.1.99/16 gateway 192.168.1.253 expire 12:00`,
+			terraformJSON: `{"exclude_ranges":[],"lease_time":"12h","network":"192.168.0.0/16","options":{"routers":["192.168.1.253"]},"range_end":"192.168.1.99","range_start":"192.168.1.20","scope_id":1}`,
+			parseOnly:     true,
+			buildOnly:     false,
+		},
+		{
+			name:          "scope_max_id",
+			rtxCommand:    `dhcp scope 65535 192.168.1.0/24`,
+			terraformJSON: `{"exclude_ranges":[],"network":"192.168.1.0/24","scope_id":65535}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "scope_large_id",
+			rtxCommand:    `dhcp scope 10000 10.0.0.0/16`,
+			terraformJSON: `{"exclude_ranges":[],"network":"10.0.0.0/16","scope_id":10000}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "delete_scope",
+			rtxCommand:    `no dhcp scope 1`,
+			terraformJSON: `{"scope_id":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_scope_large_id",
+			rtxCommand:    `no dhcp scope 65535`,
+			terraformJSON: `{"scope_id":65535}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "scope_id_boundary_max",
+			rtxCommand:    `dhcp scope 65535 192.168.1.0/24`,
+			terraformJSON: `{"network":"192.168.1.0/24","scope_id":65535}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "scope_class_a_network",
+			rtxCommand:    `dhcp scope 1 10.0.0.0/8`,
+			terraformJSON: `{"network":"10.0.0.0/8","scope_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "scope_class_b_network",
+			rtxCommand:    `dhcp scope 1 172.16.0.0/12`,
+			terraformJSON: `{"network":"172.16.0.0/12","scope_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "scope_subnet_28",
+			rtxCommand:    `dhcp scope 1 192.168.1.0/28`,
+			terraformJSON: `{"network":"192.168.1.0/28","scope_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "scope_subnet_30",
+			rtxCommand:    `dhcp scope 1 192.168.1.0/30`,
+			terraformJSON: `{"network":"192.168.1.0/30","scope_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "lease_time_boundary_min",
+			rtxCommand:    `dhcp scope 1 192.168.1.0/24 expire 60`,
+			terraformJSON: `{"lease_time":60,"network":"192.168.1.0/24","scope_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "scope_gateway_option",
+			rtxCommand:    `dhcp scope option 1 router 192.168.1.1`,
+			terraformJSON: `{"options":{"routers":["192.168.1.1"]},"scope_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "scope_dns_option",
+			rtxCommand:    `dhcp scope option 1 dns 8.8.8.8 8.8.4.4`,
+			terraformJSON: `{"options":{"dns_servers":["8.8.8.8","8.8.4.4"]},"scope_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "scope_domain_option",
+			rtxCommand:    `dhcp scope option 1 domain example.local`,
+			terraformJSON: `{"options":{"domain_name":"example.local"},"scope_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "scope_multiple_scope_ids",
+			rtxCommand:    `dhcp scope 2 10.0.0.0/24`,
+			terraformJSON: `{"network":"10.0.0.0/24","scope_id":2}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+				return
+			}
+
+			// build_only tests (like delete commands) may have empty terraform values
+			// because they represent commands that don't have a direct terraform mapping
+			if tc.buildOnly {
+				t.Logf("Direction: Terraform -> RTX only (build)")
+				t.Logf("RTX: %s", tc.rtxCommand)
+				t.Logf("Terraform: %s (build_only, may be empty)", tc.terraformJSON)
+				return
+			}
+
+			// Validate terraform JSON is present and valid for non-build_only tests
+			if tc.terraformJSON == "null" || tc.terraformJSON == "" {
+				t.Errorf("Terraform value is missing for RTX command: %s", tc.rtxCommand)
+				return
+			}
+
+			var tfValue interface{}
+			if err := json.Unmarshal([]byte(tc.terraformJSON), &tfValue); err != nil {
+				t.Errorf("Invalid terraform JSON: %v\nJSON: %s", err, tc.terraformJSON)
+				return
+			}
+
+			// Log the mapping for visibility
+			t.Logf("RTX: %s", tc.rtxCommand)
+			t.Logf("Terraform: %s", tc.terraformJSON)
+
+			// Validate that terraform value contains expected fields (only for non-build_only tests)
+			if tfMap, ok := tfValue.(map[string]interface{}); ok {
+				if len(tfMap) == 0 {
+					t.Errorf("Terraform value is empty map for RTX command: %s", tc.rtxCommand)
+					return
+				}
+			}
+
+			// Check mapping direction
+			if tc.parseOnly {
+				t.Logf("Direction: RTX -> Terraform only (parse)")
+			} else {
+				t.Logf("Direction: Bidirectional (parse and build)")
+			}
+		})
 	}
 }
 

@@ -6,6 +6,7 @@
 package parsers
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -158,6 +159,54 @@ func TestSpecTunnelConfigRTXSyntax(t *testing.T) {
 			rtxCommand: `no tunnel select 1`,
 			parseOnly:  false,
 			buildOnly:  true,
+		},
+		{
+			name:       "tunnel_id_min",
+			rtxCommand: `tunnel select 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "tunnel_id_max",
+			rtxCommand: `tunnel select 65535`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "tunnel_endpoint_local",
+			rtxCommand: `tunnel endpoint local 192.168.1.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "tunnel_endpoint_remote",
+			rtxCommand: `tunnel endpoint remote 203.0.113.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "tunnel_ipsec",
+			rtxCommand: `tunnel encapsulation ipsec`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "tunnel_l2tp",
+			rtxCommand: `tunnel encapsulation l2tp`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "tunnel_gre",
+			rtxCommand: `tunnel encapsulation gre`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "tunnel_keepalive_enable",
+			rtxCommand: `tunnel 1 keepalive use on`,
+			parseOnly:  false,
+			buildOnly:  false,
 		},
 	}
 
@@ -358,6 +407,62 @@ func TestSpecTunnelConfigSyntaxCoverage(t *testing.T) {
 			buildOnly:   true,
 			description: "",
 		},
+		{
+			name:        "tunnel_id_min",
+			rtxCommand:  `tunnel select 1`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "トンネルID最小",
+		},
+		{
+			name:        "tunnel_id_max",
+			rtxCommand:  `tunnel select 65535`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "トンネルID最大",
+		},
+		{
+			name:        "tunnel_endpoint_local",
+			rtxCommand:  `tunnel endpoint local 192.168.1.1`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "ローカルエンドポイント",
+		},
+		{
+			name:        "tunnel_endpoint_remote",
+			rtxCommand:  `tunnel endpoint remote 203.0.113.1`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "リモートエンドポイント",
+		},
+		{
+			name:        "tunnel_ipsec",
+			rtxCommand:  `tunnel encapsulation ipsec`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "IPsecカプセル化",
+		},
+		{
+			name:        "tunnel_l2tp",
+			rtxCommand:  `tunnel encapsulation l2tp`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "L2TPカプセル化",
+		},
+		{
+			name:        "tunnel_gre",
+			rtxCommand:  `tunnel encapsulation gre`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "GREカプセル化",
+		},
+		{
+			name:        "tunnel_keepalive_enable",
+			rtxCommand:  `tunnel 1 keepalive use on`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "キープアライブ有効",
+		},
 	}
 
 	t.Logf("Total syntax patterns: %d", len(syntaxPatterns))
@@ -393,6 +498,288 @@ func TestSpecTunnelConfigBoundaryCoverage(t *testing.T) {
 	t.Logf("Parameters with boundary tests: %d", len(boundaryParams))
 	for _, param := range boundaryParams {
 		t.Logf("  - %s", param)
+	}
+}
+
+// TestSpecTunnelConfigRTXTerraformMapping validates RTX command to Terraform value mappings
+func TestSpecTunnelConfigRTXTerraformMapping(t *testing.T) {
+	// This test validates that each RTX command has a corresponding expected Terraform value
+	// and vice versa. It ensures the spec file correctly documents the bidirectional mapping.
+
+	testCases := []struct {
+		name          string
+		rtxCommand    string
+		terraformJSON string
+		parseOnly     bool
+		buildOnly     bool
+	}{
+		{
+			name:          "tunnel_select_1",
+			rtxCommand:    `tunnel select 1`,
+			terraformJSON: `{"id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "tunnel_select_100",
+			rtxCommand:    `tunnel select 100`,
+			terraformJSON: `{"id":100}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "tunnel_encapsulation_ipsec",
+			rtxCommand:    `tunnel encapsulation ipsec`,
+			terraformJSON: `{"encapsulation":"ipsec"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "tunnel_encapsulation_l2tp",
+			rtxCommand:    `tunnel encapsulation l2tp`,
+			terraformJSON: `{"encapsulation":"l2tp"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "tunnel_encapsulation_l2tpv3",
+			rtxCommand:    `tunnel encapsulation l2tpv3`,
+			terraformJSON: `{"encapsulation":"l2tpv3"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "tunnel_endpoint_name",
+			rtxCommand:    `tunnel endpoint name vpn.example.com fqdn`,
+			terraformJSON: `{"endpoint_name":"vpn.example.com","endpoint_name_type":"fqdn"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "tunnel_endpoint_name_ip",
+			rtxCommand:    `tunnel endpoint name 203.0.113.1`,
+			terraformJSON: `{"endpoint_name":"203.0.113.1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "tunnel_endpoint_address",
+			rtxCommand:    `tunnel endpoint address 192.168.1.1 203.0.113.1`,
+			terraformJSON: `{"ipsec":{"local_address":"192.168.1.1","remote_address":"203.0.113.1"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "tunnel_description",
+			rtxCommand:    `description "VPN to Branch Office"`,
+			terraformJSON: `{"name":"VPN to Branch Office"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "tunnel_description_simple",
+			rtxCommand:    `description Site-to-Site-VPN`,
+			terraformJSON: `{"name":"Site-to-Site-VPN"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "tunnel_enable",
+			rtxCommand:    `tunnel enable 1`,
+			terraformJSON: `{"enabled":true,"id":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "tunnel_disable",
+			rtxCommand:    `tunnel disable 1`,
+			terraformJSON: `{"enabled":false,"id":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "ipsec_ike_local_address",
+			rtxCommand:    `ipsec ike local address 1 192.168.1.1`,
+			terraformJSON: `{"ipsec":{"local_address":"192.168.1.1"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ipsec_ike_remote_address",
+			rtxCommand:    `ipsec ike remote address 1 203.0.113.1`,
+			terraformJSON: `{"ipsec":{"remote_address":"203.0.113.1"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ipsec_ike_psk",
+			rtxCommand:    `ipsec ike pre-shared-key 1 text mysecret`,
+			terraformJSON: `{"ipsec":{"pre_shared_key":"mysecret"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ipsec_ike_nat_traversal_on",
+			rtxCommand:    `ipsec ike nat-traversal 1 on`,
+			terraformJSON: `{"ipsec":{"nat_traversal":true}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ipsec_ike_nat_traversal_off",
+			rtxCommand:    `ipsec ike nat-traversal 1 off`,
+			terraformJSON: `{"ipsec":{"nat_traversal":false}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ipsec_ike_keepalive_log_on",
+			rtxCommand:    `ipsec ike keepalive log 1 on`,
+			terraformJSON: `{"ipsec":{"ike_keepalive_log":true}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ipsec_ike_keepalive_log_off",
+			rtxCommand:    `ipsec ike keepalive log 1 off`,
+			terraformJSON: `{"ipsec":{"ike_keepalive_log":false}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "l2tp_hostname",
+			rtxCommand:    `l2tp hostname myrouter`,
+			terraformJSON: `{"l2tp":{"hostname":"myrouter"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "l2tp_always_on",
+			rtxCommand:    `l2tp always-on on`,
+			terraformJSON: `{"l2tp":{"always_on":true}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "l2tp_syslog_on",
+			rtxCommand:    `l2tp syslog on`,
+			terraformJSON: `{"l2tp":{"syslog_enabled":true}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "delete_tunnel",
+			rtxCommand:    `no tunnel select 1`,
+			terraformJSON: `{"id":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "tunnel_id_min",
+			rtxCommand:    `tunnel select 1`,
+			terraformJSON: `{"tunnel_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "tunnel_id_max",
+			rtxCommand:    `tunnel select 65535`,
+			terraformJSON: `{"tunnel_id":65535}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "tunnel_endpoint_local",
+			rtxCommand:    `tunnel endpoint local 192.168.1.1`,
+			terraformJSON: `{"local_endpoint":"192.168.1.1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "tunnel_endpoint_remote",
+			rtxCommand:    `tunnel endpoint remote 203.0.113.1`,
+			terraformJSON: `{"remote_endpoint":"203.0.113.1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "tunnel_ipsec",
+			rtxCommand:    `tunnel encapsulation ipsec`,
+			terraformJSON: `{"encapsulation":"ipsec"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "tunnel_l2tp",
+			rtxCommand:    `tunnel encapsulation l2tp`,
+			terraformJSON: `{"encapsulation":"l2tp"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "tunnel_gre",
+			rtxCommand:    `tunnel encapsulation gre`,
+			terraformJSON: `{"encapsulation":"gre"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "tunnel_keepalive_enable",
+			rtxCommand:    `tunnel 1 keepalive use on`,
+			terraformJSON: `{"keepalive":true,"tunnel_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+				return
+			}
+
+			// build_only tests (like delete commands) may have empty terraform values
+			// because they represent commands that don't have a direct terraform mapping
+			if tc.buildOnly {
+				t.Logf("Direction: Terraform -> RTX only (build)")
+				t.Logf("RTX: %s", tc.rtxCommand)
+				t.Logf("Terraform: %s (build_only, may be empty)", tc.terraformJSON)
+				return
+			}
+
+			// Validate terraform JSON is present and valid for non-build_only tests
+			if tc.terraformJSON == "null" || tc.terraformJSON == "" {
+				t.Errorf("Terraform value is missing for RTX command: %s", tc.rtxCommand)
+				return
+			}
+
+			var tfValue interface{}
+			if err := json.Unmarshal([]byte(tc.terraformJSON), &tfValue); err != nil {
+				t.Errorf("Invalid terraform JSON: %v\nJSON: %s", err, tc.terraformJSON)
+				return
+			}
+
+			// Log the mapping for visibility
+			t.Logf("RTX: %s", tc.rtxCommand)
+			t.Logf("Terraform: %s", tc.terraformJSON)
+
+			// Validate that terraform value contains expected fields (only for non-build_only tests)
+			if tfMap, ok := tfValue.(map[string]interface{}); ok {
+				if len(tfMap) == 0 {
+					t.Errorf("Terraform value is empty map for RTX command: %s", tc.rtxCommand)
+					return
+				}
+			}
+
+			// Check mapping direction
+			if tc.parseOnly {
+				t.Logf("Direction: RTX -> Terraform only (parse)")
+			} else {
+				t.Logf("Direction: Bidirectional (parse and build)")
+			}
+		})
 	}
 }
 

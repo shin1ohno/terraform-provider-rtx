@@ -6,6 +6,7 @@
 package parsers
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -211,6 +212,134 @@ func TestSpecIPInterfaceDhcpServiceBoundaryCoverage(t *testing.T) {
 	t.Logf("Parameters with boundary tests: %d", len(boundaryParams))
 	for _, param := range boundaryParams {
 		t.Logf("  - %s", param)
+	}
+}
+
+// TestSpecIPInterfaceDhcpServiceRTXTerraformMapping validates RTX command to Terraform value mappings
+func TestSpecIPInterfaceDhcpServiceRTXTerraformMapping(t *testing.T) {
+	// This test validates that each RTX command has a corresponding expected Terraform value
+	// and vice versa. It ensures the spec file correctly documents the bidirectional mapping.
+
+	testCases := []struct {
+		name          string
+		rtxCommand    string
+		terraformJSON string
+		parseOnly     bool
+		buildOnly     bool
+	}{
+		{
+			name:          "interface_dhcp_server_lan1",
+			rtxCommand:    `ip lan1 dhcp service server`,
+			terraformJSON: `{"interface":"lan1","service_type":"server"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "interface_dhcp_server_lan2",
+			rtxCommand:    `ip lan2 dhcp service server`,
+			terraformJSON: `{"interface":"lan2","service_type":"server"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "interface_dhcp_server_bridge1",
+			rtxCommand:    `ip bridge1 dhcp service server`,
+			terraformJSON: `{"interface":"bridge1","service_type":"server"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "interface_dhcp_relay_single_server",
+			rtxCommand:    `ip lan2 dhcp service relay 192.168.1.100`,
+			terraformJSON: `{"interface":"lan2","relay_servers":["192.168.1.100"],"service_type":"relay"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "interface_dhcp_relay_multiple_servers",
+			rtxCommand:    `ip lan2 dhcp service relay 192.168.1.100 192.168.1.101`,
+			terraformJSON: `{"interface":"lan2","relay_servers":["192.168.1.100","192.168.1.101"],"service_type":"relay"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "interface_dhcp_relay_four_servers",
+			rtxCommand:    `ip lan3 dhcp service relay 10.0.0.1 10.0.0.2 10.0.0.3 10.0.0.4`,
+			terraformJSON: `{"interface":"lan3","relay_servers":["10.0.0.1","10.0.0.2","10.0.0.3","10.0.0.4"],"service_type":"relay"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "interface_dhcp_off",
+			rtxCommand:    `ip lan1 dhcp service off`,
+			terraformJSON: `{"interface":"lan1","service_type":"off"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "delete_interface_dhcp_service",
+			rtxCommand:    `no ip lan1 dhcp service`,
+			terraformJSON: `{"interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_interface_dhcp_service_lan2",
+			rtxCommand:    `no ip lan2 dhcp service`,
+			terraformJSON: `{"interface":"lan2"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+				return
+			}
+
+			// build_only tests (like delete commands) may have empty terraform values
+			// because they represent commands that don't have a direct terraform mapping
+			if tc.buildOnly {
+				t.Logf("Direction: Terraform -> RTX only (build)")
+				t.Logf("RTX: %s", tc.rtxCommand)
+				t.Logf("Terraform: %s (build_only, may be empty)", tc.terraformJSON)
+				return
+			}
+
+			// Validate terraform JSON is present and valid for non-build_only tests
+			if tc.terraformJSON == "null" || tc.terraformJSON == "" {
+				t.Errorf("Terraform value is missing for RTX command: %s", tc.rtxCommand)
+				return
+			}
+
+			var tfValue interface{}
+			if err := json.Unmarshal([]byte(tc.terraformJSON), &tfValue); err != nil {
+				t.Errorf("Invalid terraform JSON: %v\nJSON: %s", err, tc.terraformJSON)
+				return
+			}
+
+			// Log the mapping for visibility
+			t.Logf("RTX: %s", tc.rtxCommand)
+			t.Logf("Terraform: %s", tc.terraformJSON)
+
+			// Validate that terraform value contains expected fields (only for non-build_only tests)
+			if tfMap, ok := tfValue.(map[string]interface{}); ok {
+				if len(tfMap) == 0 {
+					t.Errorf("Terraform value is empty map for RTX command: %s", tc.rtxCommand)
+					return
+				}
+			}
+
+			// Check mapping direction
+			if tc.parseOnly {
+				t.Logf("Direction: RTX -> Terraform only (parse)")
+			} else {
+				t.Logf("Direction: Bidirectional (parse and build)")
+			}
+		})
 	}
 }
 

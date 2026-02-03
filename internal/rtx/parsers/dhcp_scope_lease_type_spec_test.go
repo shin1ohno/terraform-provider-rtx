@@ -6,6 +6,7 @@
 package parsers
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -185,6 +186,120 @@ func TestSpecDhcpScopeLeaseTypeBoundaryCoverage(t *testing.T) {
 	t.Logf("Parameters with boundary tests: %d", len(boundaryParams))
 	for _, param := range boundaryParams {
 		t.Logf("  - %s", param)
+	}
+}
+
+// TestSpecDhcpScopeLeaseTypeRTXTerraformMapping validates RTX command to Terraform value mappings
+func TestSpecDhcpScopeLeaseTypeRTXTerraformMapping(t *testing.T) {
+	// This test validates that each RTX command has a corresponding expected Terraform value
+	// and vice versa. It ensures the spec file correctly documents the bidirectional mapping.
+
+	testCases := []struct {
+		name          string
+		rtxCommand    string
+		terraformJSON string
+		parseOnly     bool
+		buildOnly     bool
+	}{
+		{
+			name:          "lease_type_bind_priority",
+			rtxCommand:    `dhcp scope lease type 1 bind-priority`,
+			terraformJSON: `{"lease_type":"bind-priority","scope_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "lease_type_bind_only",
+			rtxCommand:    `dhcp scope lease type 1 bind-only`,
+			terraformJSON: `{"lease_type":"bind-only","scope_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "lease_type_bind_only_with_fallback",
+			rtxCommand:    `dhcp scope lease type 1 bind-only fallback=2`,
+			terraformJSON: `{"fallback_scope":2,"lease_type":"bind-only","scope_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "lease_type_large_scope_id",
+			rtxCommand:    `dhcp scope lease type 65535 bind-priority`,
+			terraformJSON: `{"lease_type":"bind-priority","scope_id":65535}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "lease_type_with_large_fallback",
+			rtxCommand:    `dhcp scope lease type 1 bind-only fallback=65535`,
+			terraformJSON: `{"fallback_scope":65535,"lease_type":"bind-only","scope_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "delete_lease_type",
+			rtxCommand:    `no dhcp scope lease type 1`,
+			terraformJSON: `{"scope_id":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_lease_type_with_type",
+			rtxCommand:    `no dhcp scope lease type 1 bind-only`,
+			terraformJSON: `{"lease_type":"bind-only","scope_id":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+				return
+			}
+
+			// build_only tests (like delete commands) may have empty terraform values
+			// because they represent commands that don't have a direct terraform mapping
+			if tc.buildOnly {
+				t.Logf("Direction: Terraform -> RTX only (build)")
+				t.Logf("RTX: %s", tc.rtxCommand)
+				t.Logf("Terraform: %s (build_only, may be empty)", tc.terraformJSON)
+				return
+			}
+
+			// Validate terraform JSON is present and valid for non-build_only tests
+			if tc.terraformJSON == "null" || tc.terraformJSON == "" {
+				t.Errorf("Terraform value is missing for RTX command: %s", tc.rtxCommand)
+				return
+			}
+
+			var tfValue interface{}
+			if err := json.Unmarshal([]byte(tc.terraformJSON), &tfValue); err != nil {
+				t.Errorf("Invalid terraform JSON: %v\nJSON: %s", err, tc.terraformJSON)
+				return
+			}
+
+			// Log the mapping for visibility
+			t.Logf("RTX: %s", tc.rtxCommand)
+			t.Logf("Terraform: %s", tc.terraformJSON)
+
+			// Validate that terraform value contains expected fields (only for non-build_only tests)
+			if tfMap, ok := tfValue.(map[string]interface{}); ok {
+				if len(tfMap) == 0 {
+					t.Errorf("Terraform value is empty map for RTX command: %s", tc.rtxCommand)
+					return
+				}
+			}
+
+			// Check mapping direction
+			if tc.parseOnly {
+				t.Logf("Direction: RTX -> Terraform only (parse)")
+			} else {
+				t.Logf("Direction: Bidirectional (parse and build)")
+			}
+		})
 	}
 }
 

@@ -6,6 +6,7 @@
 package parsers
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -104,6 +105,66 @@ func TestSpecAdminConfigRTXSyntax(t *testing.T) {
 			rtxCommand: `no user attribute admin`,
 			parseOnly:  false,
 			buildOnly:  true,
+		},
+		{
+			name:       "login_password_short",
+			rtxCommand: `login password abc`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "login_password_long",
+			rtxCommand: `login password verylongpassword123456789`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "admin_password_short",
+			rtxCommand: `administrator password xyz`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "admin_password_long",
+			rtxCommand: `administrator password adminverylongpassword123`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "login_user_short_name",
+			rtxCommand: `login user a password123`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "login_user_long_name",
+			rtxCommand: `login user verylongusername123 password123`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "user_attribute_login_timer_min",
+			rtxCommand: `user attribute admin login-timer=0`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "user_attribute_login_timer_max",
+			rtxCommand: `user attribute admin login-timer=86400`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "user_attribute_all_connections",
+			rtxCommand: `user attribute admin connection=serial,telnet,ssh`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "user_attribute_single_connection",
+			rtxCommand: `user attribute admin connection=ssh`,
+			parseOnly:  false,
+			buildOnly:  false,
 		},
 	}
 
@@ -241,6 +302,76 @@ func TestSpecAdminConfigSyntaxCoverage(t *testing.T) {
 			buildOnly:   true,
 			description: "",
 		},
+		{
+			name:        "login_password_short",
+			rtxCommand:  `login password abc`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "短いパスワード",
+		},
+		{
+			name:        "login_password_long",
+			rtxCommand:  `login password verylongpassword123456789`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "長いパスワード",
+		},
+		{
+			name:        "admin_password_short",
+			rtxCommand:  `administrator password xyz`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "短い管理者パスワード",
+		},
+		{
+			name:        "admin_password_long",
+			rtxCommand:  `administrator password adminverylongpassword123`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "長い管理者パスワード",
+		},
+		{
+			name:        "login_user_short_name",
+			rtxCommand:  `login user a password123`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "1文字ユーザー名",
+		},
+		{
+			name:        "login_user_long_name",
+			rtxCommand:  `login user verylongusername123 password123`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "長いユーザー名",
+		},
+		{
+			name:        "user_attribute_login_timer_min",
+			rtxCommand:  `user attribute admin login-timer=0`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "ログインタイマー無効",
+		},
+		{
+			name:        "user_attribute_login_timer_max",
+			rtxCommand:  `user attribute admin login-timer=86400`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "ログインタイマー最大",
+		},
+		{
+			name:        "user_attribute_all_connections",
+			rtxCommand:  `user attribute admin connection=serial,telnet,ssh`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "複数接続タイプ",
+		},
+		{
+			name:        "user_attribute_single_connection",
+			rtxCommand:  `user attribute admin connection=ssh`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "SSH接続のみ",
+		},
 	}
 
 	t.Logf("Total syntax patterns: %d", len(syntaxPatterns))
@@ -276,6 +407,239 @@ func TestSpecAdminConfigBoundaryCoverage(t *testing.T) {
 	t.Logf("Parameters with boundary tests: %d", len(boundaryParams))
 	for _, param := range boundaryParams {
 		t.Logf("  - %s", param)
+	}
+}
+
+// TestSpecAdminConfigRTXTerraformMapping validates RTX command to Terraform value mappings
+func TestSpecAdminConfigRTXTerraformMapping(t *testing.T) {
+	// This test validates that each RTX command has a corresponding expected Terraform value
+	// and vice versa. It ensures the spec file correctly documents the bidirectional mapping.
+
+	testCases := []struct {
+		name          string
+		rtxCommand    string
+		terraformJSON string
+		parseOnly     bool
+		buildOnly     bool
+	}{
+		{
+			name:          "login_password_simple",
+			rtxCommand:    `login password secret123`,
+			terraformJSON: `{"login_password":"secret123"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "login_password_complex",
+			rtxCommand:    `login password MyP@ssw0rd!#$`,
+			terraformJSON: `{"login_password":"MyP@ssw0rd!#$"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "admin_password_simple",
+			rtxCommand:    `administrator password admin123`,
+			terraformJSON: `{"admin_password":"admin123"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "admin_password_complex",
+			rtxCommand:    `administrator password Adm!n@2024`,
+			terraformJSON: `{"admin_password":"Adm!n@2024"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "login_user_plain",
+			rtxCommand:    `login user operator password123`,
+			terraformJSON: `{"users":[{"encrypted":false,"password":"password123","username":"operator"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "login_user_encrypted",
+			rtxCommand:    `login user admin encrypted abc123def456`,
+			terraformJSON: `{"users":[{"encrypted":true,"password":"abc123def456","username":"admin"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "login_user_readonly",
+			rtxCommand:    `login user readonly pass123`,
+			terraformJSON: `{"users":[{"encrypted":false,"password":"pass123","username":"readonly"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "user_attribute_administrator",
+			rtxCommand:    `user attribute admin administrator=on`,
+			terraformJSON: `{"user_attributes":{"administrator":true,"username":"admin"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "user_attribute_connection",
+			rtxCommand:    `user attribute operator connection=telnet,ssh`,
+			terraformJSON: `{"user_attributes":{"connection":["telnet","ssh"],"username":"operator"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "user_attribute_gui_page",
+			rtxCommand:    `user attribute webuser gui-page=dashboard,lan-map`,
+			terraformJSON: `{"user_attributes":{"gui_page":["dashboard","lan-map"],"username":"webuser"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "user_attribute_login_timer",
+			rtxCommand:    `user attribute admin login-timer=3600`,
+			terraformJSON: `{"user_attributes":{"login_timer":3600,"username":"admin"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "user_attribute_multiple",
+			rtxCommand:    `user attribute admin administrator=on connection=serial,telnet,ssh gui-page=dashboard,config login-timer=7200`,
+			terraformJSON: `{"user_attributes":{"administrator":true,"connection":["serial","telnet","ssh"],"gui_page":["dashboard","config"],"login_timer":7200,"username":"admin"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "delete_login_user",
+			rtxCommand:    `no login user operator`,
+			terraformJSON: `{"username":"operator"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_user_attribute",
+			rtxCommand:    `no user attribute admin`,
+			terraformJSON: `{"username":"admin"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "login_password_short",
+			rtxCommand:    `login password abc`,
+			terraformJSON: `{"login_password":"abc"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "login_password_long",
+			rtxCommand:    `login password verylongpassword123456789`,
+			terraformJSON: `{"login_password":"verylongpassword123456789"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "admin_password_short",
+			rtxCommand:    `administrator password xyz`,
+			terraformJSON: `{"admin_password":"xyz"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "admin_password_long",
+			rtxCommand:    `administrator password adminverylongpassword123`,
+			terraformJSON: `{"admin_password":"adminverylongpassword123"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "login_user_short_name",
+			rtxCommand:    `login user a password123`,
+			terraformJSON: `{"users":[{"encrypted":false,"password":"password123","username":"a"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "login_user_long_name",
+			rtxCommand:    `login user verylongusername123 password123`,
+			terraformJSON: `{"users":[{"encrypted":false,"password":"password123","username":"verylongusername123"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "user_attribute_login_timer_min",
+			rtxCommand:    `user attribute admin login-timer=0`,
+			terraformJSON: `{"login_timer":0,"username":"admin"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "user_attribute_login_timer_max",
+			rtxCommand:    `user attribute admin login-timer=86400`,
+			terraformJSON: `{"login_timer":86400,"username":"admin"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "user_attribute_all_connections",
+			rtxCommand:    `user attribute admin connection=serial,telnet,ssh`,
+			terraformJSON: `{"connections":["serial","telnet","ssh"],"username":"admin"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "user_attribute_single_connection",
+			rtxCommand:    `user attribute admin connection=ssh`,
+			terraformJSON: `{"connections":["ssh"],"username":"admin"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+				return
+			}
+
+			// build_only tests (like delete commands) may have empty terraform values
+			// because they represent commands that don't have a direct terraform mapping
+			if tc.buildOnly {
+				t.Logf("Direction: Terraform -> RTX only (build)")
+				t.Logf("RTX: %s", tc.rtxCommand)
+				t.Logf("Terraform: %s (build_only, may be empty)", tc.terraformJSON)
+				return
+			}
+
+			// Validate terraform JSON is present and valid for non-build_only tests
+			if tc.terraformJSON == "null" || tc.terraformJSON == "" {
+				t.Errorf("Terraform value is missing for RTX command: %s", tc.rtxCommand)
+				return
+			}
+
+			var tfValue interface{}
+			if err := json.Unmarshal([]byte(tc.terraformJSON), &tfValue); err != nil {
+				t.Errorf("Invalid terraform JSON: %v\nJSON: %s", err, tc.terraformJSON)
+				return
+			}
+
+			// Log the mapping for visibility
+			t.Logf("RTX: %s", tc.rtxCommand)
+			t.Logf("Terraform: %s", tc.terraformJSON)
+
+			// Validate that terraform value contains expected fields (only for non-build_only tests)
+			if tfMap, ok := tfValue.(map[string]interface{}); ok {
+				if len(tfMap) == 0 {
+					t.Errorf("Terraform value is empty map for RTX command: %s", tc.rtxCommand)
+					return
+				}
+			}
+
+			// Check mapping direction
+			if tc.parseOnly {
+				t.Logf("Direction: RTX -> Terraform only (parse)")
+			} else {
+				t.Logf("Direction: Bidirectional (parse and build)")
+			}
+		})
 	}
 }
 

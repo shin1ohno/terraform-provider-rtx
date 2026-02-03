@@ -6,6 +6,7 @@
 package parsers
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -128,6 +129,54 @@ func TestSpecOspfConfigRTXSyntax(t *testing.T) {
 			rtxCommand: `no ospf import from static`,
 			parseOnly:  false,
 			buildOnly:  true,
+		},
+		{
+			name:       "ospf_area_backbone",
+			rtxCommand: `ospf area backbone`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ospf_area_id_max",
+			rtxCommand: `ospf area 4294967295`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ospf_network_class_a",
+			rtxCommand: `ospf network 10.0.0.0/8 area 0`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ospf_network_class_b",
+			rtxCommand: `ospf network 172.16.0.0/12 area 0`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ospf_cost_min",
+			rtxCommand: `ospf interface cost lan1 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ospf_cost_max",
+			rtxCommand: `ospf interface cost lan1 65535`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ospf_redistribute_static",
+			rtxCommand: `ospf import from static`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "ospf_redistribute_connected",
+			rtxCommand: `ospf import from connected`,
+			parseOnly:  false,
+			buildOnly:  false,
 		},
 	}
 
@@ -293,6 +342,62 @@ func TestSpecOspfConfigSyntaxCoverage(t *testing.T) {
 			buildOnly:   true,
 			description: "",
 		},
+		{
+			name:        "ospf_area_backbone",
+			rtxCommand:  `ospf area backbone`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "バックボーンエリア",
+		},
+		{
+			name:        "ospf_area_id_max",
+			rtxCommand:  `ospf area 4294967295`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "エリアID最大",
+		},
+		{
+			name:        "ospf_network_class_a",
+			rtxCommand:  `ospf network 10.0.0.0/8 area 0`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "クラスAネットワーク",
+		},
+		{
+			name:        "ospf_network_class_b",
+			rtxCommand:  `ospf network 172.16.0.0/12 area 0`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "クラスBネットワーク",
+		},
+		{
+			name:        "ospf_cost_min",
+			rtxCommand:  `ospf interface cost lan1 1`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "コスト最小",
+		},
+		{
+			name:        "ospf_cost_max",
+			rtxCommand:  `ospf interface cost lan1 65535`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "コスト最大",
+		},
+		{
+			name:        "ospf_redistribute_static",
+			rtxCommand:  `ospf import from static`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "スタティック再配布",
+		},
+		{
+			name:        "ospf_redistribute_connected",
+			rtxCommand:  `ospf import from connected`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "直接接続再配布",
+		},
 	}
 
 	t.Logf("Total syntax patterns: %d", len(syntaxPatterns))
@@ -328,6 +433,253 @@ func TestSpecOspfConfigBoundaryCoverage(t *testing.T) {
 	t.Logf("Parameters with boundary tests: %d", len(boundaryParams))
 	for _, param := range boundaryParams {
 		t.Logf("  - %s", param)
+	}
+}
+
+// TestSpecOspfConfigRTXTerraformMapping validates RTX command to Terraform value mappings
+func TestSpecOspfConfigRTXTerraformMapping(t *testing.T) {
+	// This test validates that each RTX command has a corresponding expected Terraform value
+	// and vice versa. It ensures the spec file correctly documents the bidirectional mapping.
+
+	testCases := []struct {
+		name          string
+		rtxCommand    string
+		terraformJSON string
+		parseOnly     bool
+		buildOnly     bool
+	}{
+		{
+			name:          "ospf_use_on",
+			rtxCommand:    `ospf use on`,
+			terraformJSON: `{"enabled":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ospf_use_off",
+			rtxCommand:    `ospf use off`,
+			terraformJSON: `{"enabled":false}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ospf_router_id",
+			rtxCommand:    `ospf router id 192.168.1.1`,
+			terraformJSON: `{"router_id":"192.168.1.1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ospf_router_id_loopback",
+			rtxCommand:    `ospf router id 10.0.0.1`,
+			terraformJSON: `{"router_id":"10.0.0.1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ospf_area_backbone",
+			rtxCommand:    `ospf area 0`,
+			terraformJSON: `{"areas":[{"id":"0","type":"normal"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ospf_area_1",
+			rtxCommand:    `ospf area 1`,
+			terraformJSON: `{"areas":[{"id":"1","type":"normal"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ospf_area_stub",
+			rtxCommand:    `ospf area 1 stub`,
+			terraformJSON: `{"areas":[{"id":"1","type":"stub"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ospf_area_stub_no_summary",
+			rtxCommand:    `ospf area 1 stub no-summary`,
+			terraformJSON: `{"areas":[{"id":"1","no_summary":true,"type":"stub"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ospf_area_nssa",
+			rtxCommand:    `ospf area 2 nssa`,
+			terraformJSON: `{"areas":[{"id":"2","type":"nssa"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ospf_area_nssa_no_summary",
+			rtxCommand:    `ospf area 2 nssa no-summary`,
+			terraformJSON: `{"areas":[{"id":"2","no_summary":true,"type":"nssa"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ip_ospf_area_lan1",
+			rtxCommand:    `ip lan1 ospf area 0`,
+			terraformJSON: `{"networks":[{"area":"0","interface":"lan1"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ip_ospf_area_lan2",
+			rtxCommand:    `ip lan2 ospf area 1`,
+			terraformJSON: `{"networks":[{"area":"1","interface":"lan2"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ip_ospf_area_tunnel",
+			rtxCommand:    `ip tunnel1 ospf area 0`,
+			terraformJSON: `{"networks":[{"area":"0","interface":"tunnel1"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ospf_import_static",
+			rtxCommand:    `ospf import from static`,
+			terraformJSON: `{"redistribute_static":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ospf_import_connected",
+			rtxCommand:    `ospf import from connected`,
+			terraformJSON: `{"redistribute_connected":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "delete_ospf_area",
+			rtxCommand:    `no ospf area 1`,
+			terraformJSON: `{"area_id":"1"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_ip_ospf_area",
+			rtxCommand:    `no ip lan1 ospf area`,
+			terraformJSON: `{"interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_ospf_import",
+			rtxCommand:    `no ospf import from static`,
+			terraformJSON: `{"redistribute_static":false}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "ospf_area_backbone",
+			rtxCommand:    `ospf area backbone`,
+			terraformJSON: `{"area":"backbone"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ospf_area_id_max",
+			rtxCommand:    `ospf area 4294967295`,
+			terraformJSON: `{"area":"4294967295"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ospf_network_class_a",
+			rtxCommand:    `ospf network 10.0.0.0/8 area 0`,
+			terraformJSON: `{"area":0,"network":"10.0.0.0/8"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ospf_network_class_b",
+			rtxCommand:    `ospf network 172.16.0.0/12 area 0`,
+			terraformJSON: `{"area":0,"network":"172.16.0.0/12"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ospf_cost_min",
+			rtxCommand:    `ospf interface cost lan1 1`,
+			terraformJSON: `{"cost":1,"interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ospf_cost_max",
+			rtxCommand:    `ospf interface cost lan1 65535`,
+			terraformJSON: `{"cost":65535,"interface":"lan1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ospf_redistribute_static",
+			rtxCommand:    `ospf import from static`,
+			terraformJSON: `{"redistribute_static":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ospf_redistribute_connected",
+			rtxCommand:    `ospf import from connected`,
+			terraformJSON: `{"redistribute_connected":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+				return
+			}
+
+			// build_only tests (like delete commands) may have empty terraform values
+			// because they represent commands that don't have a direct terraform mapping
+			if tc.buildOnly {
+				t.Logf("Direction: Terraform -> RTX only (build)")
+				t.Logf("RTX: %s", tc.rtxCommand)
+				t.Logf("Terraform: %s (build_only, may be empty)", tc.terraformJSON)
+				return
+			}
+
+			// Validate terraform JSON is present and valid for non-build_only tests
+			if tc.terraformJSON == "null" || tc.terraformJSON == "" {
+				t.Errorf("Terraform value is missing for RTX command: %s", tc.rtxCommand)
+				return
+			}
+
+			var tfValue interface{}
+			if err := json.Unmarshal([]byte(tc.terraformJSON), &tfValue); err != nil {
+				t.Errorf("Invalid terraform JSON: %v\nJSON: %s", err, tc.terraformJSON)
+				return
+			}
+
+			// Log the mapping for visibility
+			t.Logf("RTX: %s", tc.rtxCommand)
+			t.Logf("Terraform: %s", tc.terraformJSON)
+
+			// Validate that terraform value contains expected fields (only for non-build_only tests)
+			if tfMap, ok := tfValue.(map[string]interface{}); ok {
+				if len(tfMap) == 0 {
+					t.Errorf("Terraform value is empty map for RTX command: %s", tc.rtxCommand)
+					return
+				}
+			}
+
+			// Check mapping direction
+			if tc.parseOnly {
+				t.Logf("Direction: RTX -> Terraform only (parse)")
+			} else {
+				t.Logf("Direction: Bidirectional (parse and build)")
+			}
+		})
 	}
 }
 

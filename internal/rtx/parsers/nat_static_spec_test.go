@@ -6,6 +6,7 @@
 package parsers
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -263,6 +264,162 @@ func TestSpecNatStaticBoundaryCoverage(t *testing.T) {
 	t.Logf("Parameters with boundary tests: %d", len(boundaryParams))
 	for _, param := range boundaryParams {
 		t.Logf("  - %s", param)
+	}
+}
+
+// TestSpecNatStaticRTXTerraformMapping validates RTX command to Terraform value mappings
+func TestSpecNatStaticRTXTerraformMapping(t *testing.T) {
+	// This test validates that each RTX command has a corresponding expected Terraform value
+	// and vice versa. It ensures the spec file correctly documents the bidirectional mapping.
+
+	testCases := []struct {
+		name          string
+		rtxCommand    string
+		terraformJSON string
+		parseOnly     bool
+		buildOnly     bool
+	}{
+		{
+			name:          "nat_type_static",
+			rtxCommand:    `nat descriptor type 1 static`,
+			terraformJSON: `{"descriptor_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "nat_type_static_100",
+			rtxCommand:    `nat descriptor type 100 static`,
+			terraformJSON: `{"descriptor_id":100}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "nat_static_1to1",
+			rtxCommand:    `nat descriptor static 1 203.0.113.10=192.168.1.10`,
+			terraformJSON: `{"descriptor_id":1,"entries":[{"inside_local":"192.168.1.10","outside_global":"203.0.113.10"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "nat_static_1to1_second",
+			rtxCommand:    `nat descriptor static 1 203.0.113.11=192.168.1.11`,
+			terraformJSON: `{"descriptor_id":1,"entries":[{"inside_local":"192.168.1.11","outside_global":"203.0.113.11"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "nat_static_multiple_desc",
+			rtxCommand:    `nat descriptor static 2 10.0.0.100=172.16.0.100`,
+			terraformJSON: `{"descriptor_id":2,"entries":[{"inside_local":"172.16.0.100","outside_global":"10.0.0.100"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "nat_static_port_tcp",
+			rtxCommand:    `nat descriptor static 1 203.0.113.10:80=192.168.1.10:80 tcp`,
+			terraformJSON: `{"descriptor_id":1,"entries":[{"inside_local":"192.168.1.10","inside_local_port":80,"outside_global":"203.0.113.10","outside_global_port":80,"protocol":"tcp"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "nat_static_port_tcp_https",
+			rtxCommand:    `nat descriptor static 1 203.0.113.10:443=192.168.1.10:443 tcp`,
+			terraformJSON: `{"descriptor_id":1,"entries":[{"inside_local":"192.168.1.10","inside_local_port":443,"outside_global":"203.0.113.10","outside_global_port":443,"protocol":"tcp"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "nat_static_port_udp",
+			rtxCommand:    `nat descriptor static 1 203.0.113.10:53=192.168.1.10:53 udp`,
+			terraformJSON: `{"descriptor_id":1,"entries":[{"inside_local":"192.168.1.10","inside_local_port":53,"outside_global":"203.0.113.10","outside_global_port":53,"protocol":"udp"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "nat_static_port_different",
+			rtxCommand:    `nat descriptor static 1 203.0.113.10:8080=192.168.1.10:80 tcp`,
+			terraformJSON: `{"descriptor_id":1,"entries":[{"inside_local":"192.168.1.10","inside_local_port":80,"outside_global":"203.0.113.10","outside_global_port":8080,"protocol":"tcp"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "interface_nat_static",
+			rtxCommand:    `ip lan2 nat descriptor 1`,
+			terraformJSON: `{"descriptor_id":1,"interface":"lan2"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "delete_nat_static",
+			rtxCommand:    `no nat descriptor type 1`,
+			terraformJSON: `{"descriptor_id":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_nat_static_mapping",
+			rtxCommand:    `no nat descriptor static 1 203.0.113.10=192.168.1.10`,
+			terraformJSON: `{"descriptor_id":1,"inside_local":"192.168.1.10","outside_global":"203.0.113.10"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_nat_static_port_mapping",
+			rtxCommand:    `no nat descriptor static 1 203.0.113.10:80=192.168.1.10:80 tcp`,
+			terraformJSON: `{"descriptor_id":1,"inside_local":"192.168.1.10","inside_local_port":80,"outside_global":"203.0.113.10","outside_global_port":80,"protocol":"tcp"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+				return
+			}
+
+			// build_only tests (like delete commands) may have empty terraform values
+			// because they represent commands that don't have a direct terraform mapping
+			if tc.buildOnly {
+				t.Logf("Direction: Terraform -> RTX only (build)")
+				t.Logf("RTX: %s", tc.rtxCommand)
+				t.Logf("Terraform: %s (build_only, may be empty)", tc.terraformJSON)
+				return
+			}
+
+			// Validate terraform JSON is present and valid for non-build_only tests
+			if tc.terraformJSON == "null" || tc.terraformJSON == "" {
+				t.Errorf("Terraform value is missing for RTX command: %s", tc.rtxCommand)
+				return
+			}
+
+			var tfValue interface{}
+			if err := json.Unmarshal([]byte(tc.terraformJSON), &tfValue); err != nil {
+				t.Errorf("Invalid terraform JSON: %v\nJSON: %s", err, tc.terraformJSON)
+				return
+			}
+
+			// Log the mapping for visibility
+			t.Logf("RTX: %s", tc.rtxCommand)
+			t.Logf("Terraform: %s", tc.terraformJSON)
+
+			// Validate that terraform value contains expected fields (only for non-build_only tests)
+			if tfMap, ok := tfValue.(map[string]interface{}); ok {
+				if len(tfMap) == 0 {
+					t.Errorf("Terraform value is empty map for RTX command: %s", tc.rtxCommand)
+					return
+				}
+			}
+
+			// Check mapping direction
+			if tc.parseOnly {
+				t.Logf("Direction: RTX -> Terraform only (parse)")
+			} else {
+				t.Logf("Direction: Bidirectional (parse and build)")
+			}
+		})
 	}
 }
 

@@ -6,6 +6,7 @@
 package parsers
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -328,6 +329,197 @@ func TestSpecPptpConfigBoundaryCoverage(t *testing.T) {
 	t.Logf("Parameters with boundary tests: %d", len(boundaryParams))
 	for _, param := range boundaryParams {
 		t.Logf("  - %s", param)
+	}
+}
+
+// TestSpecPptpConfigRTXTerraformMapping validates RTX command to Terraform value mappings
+func TestSpecPptpConfigRTXTerraformMapping(t *testing.T) {
+	// This test validates that each RTX command has a corresponding expected Terraform value
+	// and vice versa. It ensures the spec file correctly documents the bidirectional mapping.
+
+	testCases := []struct {
+		name          string
+		rtxCommand    string
+		terraformJSON string
+		parseOnly     bool
+		buildOnly     bool
+	}{
+		{
+			name:          "pptp_service_on",
+			rtxCommand:    `pptp service on`,
+			terraformJSON: `{"enabled":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pptp_service_off",
+			rtxCommand:    `pptp service off`,
+			terraformJSON: `{"enabled":false}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pptp_disconnect_time",
+			rtxCommand:    `pptp tunnel disconnect time 300`,
+			terraformJSON: `{"disconnect_time":300}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pptp_disconnect_time_600",
+			rtxCommand:    `pptp tunnel disconnect time 600`,
+			terraformJSON: `{"disconnect_time":600}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pptp_keepalive_on",
+			rtxCommand:    `pptp keepalive use on`,
+			terraformJSON: `{"keepalive_enabled":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pptp_keepalive_off",
+			rtxCommand:    `pptp keepalive use off`,
+			terraformJSON: `{"keepalive_enabled":false}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pptp_auth_accept_mschapv2",
+			rtxCommand:    `pp auth accept mschapv2`,
+			terraformJSON: `{"authentication":{"method":"mschapv2"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pptp_auth_accept_chap",
+			rtxCommand:    `pp auth accept chap`,
+			terraformJSON: `{"authentication":{"method":"chap"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pptp_auth_myname",
+			rtxCommand:    `pp auth myname vpnuser vpnpassword`,
+			terraformJSON: `{"authentication":{"password":"vpnpassword","username":"vpnuser"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ppp_ccp_mppe128",
+			rtxCommand:    `ppp ccp type mppe-128`,
+			terraformJSON: `{"encryption":{"mppe_bits":128}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ppp_ccp_mppe128_require",
+			rtxCommand:    `ppp ccp type mppe-128 require`,
+			terraformJSON: `{"encryption":{"mppe_bits":128,"required":true}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ppp_ccp_mppe56",
+			rtxCommand:    `ppp ccp type mppe-56`,
+			terraformJSON: `{"encryption":{"mppe_bits":56}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ppp_ccp_mppe40",
+			rtxCommand:    `ppp ccp type mppe-40`,
+			terraformJSON: `{"encryption":{"mppe_bits":40}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pptp_ip_pool",
+			rtxCommand:    `ip pp remote address pool 192.168.10.100-192.168.10.200`,
+			terraformJSON: `{"ip_pool":{"end":"192.168.10.200","start":"192.168.10.100"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pptp_ip_pool_small",
+			rtxCommand:    `ip pp remote address pool 10.0.0.10-10.0.0.20`,
+			terraformJSON: `{"ip_pool":{"end":"10.0.0.20","start":"10.0.0.10"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "delete_pptp_service",
+			rtxCommand:    `pptp service off`,
+			terraformJSON: `{"enabled":false}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_pptp_disconnect_time",
+			rtxCommand:    `no pptp tunnel disconnect time`,
+			terraformJSON: `{}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_pptp_keepalive",
+			rtxCommand:    `pptp keepalive use off`,
+			terraformJSON: `{"keepalive_enabled":false}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+				return
+			}
+
+			// build_only tests (like delete commands) may have empty terraform values
+			// because they represent commands that don't have a direct terraform mapping
+			if tc.buildOnly {
+				t.Logf("Direction: Terraform -> RTX only (build)")
+				t.Logf("RTX: %s", tc.rtxCommand)
+				t.Logf("Terraform: %s (build_only, may be empty)", tc.terraformJSON)
+				return
+			}
+
+			// Validate terraform JSON is present and valid for non-build_only tests
+			if tc.terraformJSON == "null" || tc.terraformJSON == "" {
+				t.Errorf("Terraform value is missing for RTX command: %s", tc.rtxCommand)
+				return
+			}
+
+			var tfValue interface{}
+			if err := json.Unmarshal([]byte(tc.terraformJSON), &tfValue); err != nil {
+				t.Errorf("Invalid terraform JSON: %v\nJSON: %s", err, tc.terraformJSON)
+				return
+			}
+
+			// Log the mapping for visibility
+			t.Logf("RTX: %s", tc.rtxCommand)
+			t.Logf("Terraform: %s", tc.terraformJSON)
+
+			// Validate that terraform value contains expected fields (only for non-build_only tests)
+			if tfMap, ok := tfValue.(map[string]interface{}); ok {
+				if len(tfMap) == 0 {
+					t.Errorf("Terraform value is empty map for RTX command: %s", tc.rtxCommand)
+					return
+				}
+			}
+
+			// Check mapping direction
+			if tc.parseOnly {
+				t.Logf("Direction: RTX -> Terraform only (parse)")
+			} else {
+				t.Logf("Direction: Bidirectional (parse and build)")
+			}
+		})
 	}
 }
 

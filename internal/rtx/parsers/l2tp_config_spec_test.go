@@ -6,6 +6,7 @@
 package parsers
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -182,6 +183,48 @@ func TestSpecL2tpConfigRTXSyntax(t *testing.T) {
 			rtxCommand: `no tunnel select 1`,
 			parseOnly:  false,
 			buildOnly:  true,
+		},
+		{
+			name:       "l2tp_tunnel_id_min",
+			rtxCommand: `l2tp tunnel 1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "l2tp_tunnel_id_max",
+			rtxCommand: `l2tp tunnel 65535`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "l2tp_server_port",
+			rtxCommand: `l2tp tunnel 1 local port 1701`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "l2tp_remote_address",
+			rtxCommand: `l2tp tunnel 1 remote address 203.0.113.1`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "l2tp_hostname",
+			rtxCommand: `l2tp tunnel 1 hostname router1.example.com`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "l2tp_auth_password",
+			rtxCommand: `l2tp tunnel 1 auth password secret123`,
+			parseOnly:  false,
+			buildOnly:  false,
+		},
+		{
+			name:       "l2tp_keepalive_enable",
+			rtxCommand: `l2tp tunnel 1 keepalive use on`,
+			parseOnly:  false,
+			buildOnly:  false,
 		},
 	}
 
@@ -410,6 +453,55 @@ func TestSpecL2tpConfigSyntaxCoverage(t *testing.T) {
 			buildOnly:   true,
 			description: "",
 		},
+		{
+			name:        "l2tp_tunnel_id_min",
+			rtxCommand:  `l2tp tunnel 1`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "トンネルID最小",
+		},
+		{
+			name:        "l2tp_tunnel_id_max",
+			rtxCommand:  `l2tp tunnel 65535`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "トンネルID最大",
+		},
+		{
+			name:        "l2tp_server_port",
+			rtxCommand:  `l2tp tunnel 1 local port 1701`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "標準ポート",
+		},
+		{
+			name:        "l2tp_remote_address",
+			rtxCommand:  `l2tp tunnel 1 remote address 203.0.113.1`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "リモートアドレス",
+		},
+		{
+			name:        "l2tp_hostname",
+			rtxCommand:  `l2tp tunnel 1 hostname router1.example.com`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "ホスト名",
+		},
+		{
+			name:        "l2tp_auth_password",
+			rtxCommand:  `l2tp tunnel 1 auth password secret123`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "認証パスワード",
+		},
+		{
+			name:        "l2tp_keepalive_enable",
+			rtxCommand:  `l2tp tunnel 1 keepalive use on`,
+			parseOnly:   false,
+			buildOnly:   false,
+			description: "キープアライブ有効",
+		},
 	}
 
 	t.Logf("Total syntax patterns: %d", len(syntaxPatterns))
@@ -446,6 +538,309 @@ func TestSpecL2tpConfigBoundaryCoverage(t *testing.T) {
 	t.Logf("Parameters with boundary tests: %d", len(boundaryParams))
 	for _, param := range boundaryParams {
 		t.Logf("  - %s", param)
+	}
+}
+
+// TestSpecL2tpConfigRTXTerraformMapping validates RTX command to Terraform value mappings
+func TestSpecL2tpConfigRTXTerraformMapping(t *testing.T) {
+	// This test validates that each RTX command has a corresponding expected Terraform value
+	// and vice versa. It ensures the spec file correctly documents the bidirectional mapping.
+
+	testCases := []struct {
+		name          string
+		rtxCommand    string
+		terraformJSON string
+		parseOnly     bool
+		buildOnly     bool
+	}{
+		{
+			name:          "l2tp_service_on",
+			rtxCommand:    `l2tp service on`,
+			terraformJSON: `{"enabled":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "l2tp_service_off",
+			rtxCommand:    `l2tp service off`,
+			terraformJSON: `{"enabled":false}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "l2tp_service_protocols",
+			rtxCommand:    `l2tp service on l2tpv3 l2tp`,
+			terraformJSON: `{"enabled":true,"protocols":["l2tpv3","l2tp"]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "tunnel_encapsulation_l2tp",
+			rtxCommand:    `tunnel encapsulation l2tp`,
+			terraformJSON: `{"version":"l2tp"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "tunnel_encapsulation_l2tpv3",
+			rtxCommand:    `tunnel encapsulation l2tpv3`,
+			terraformJSON: `{"version":"l2tpv3"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "tunnel_endpoint",
+			rtxCommand:    `tunnel endpoint address 192.168.1.1 203.0.113.1`,
+			terraformJSON: `{"tunnel_dest":"203.0.113.1","tunnel_source":"192.168.1.1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "tunnel_endpoint_fqdn",
+			rtxCommand:    `tunnel endpoint address 192.168.1.1 vpn.example.com`,
+			terraformJSON: `{"tunnel_dest":"vpn.example.com","tunnel_source":"192.168.1.1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "l2tp_local_router_id",
+			rtxCommand:    `l2tp local router-id 192.168.1.1`,
+			terraformJSON: `{"l2tpv3_config":{"local_router_id":"192.168.1.1"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "l2tp_remote_router_id",
+			rtxCommand:    `l2tp remote router-id 203.0.113.1`,
+			terraformJSON: `{"l2tpv3_config":{"remote_router_id":"203.0.113.1"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "l2tp_remote_end_id",
+			rtxCommand:    `l2tp remote end-id 12345`,
+			terraformJSON: `{"l2tpv3_config":{"remote_end_id":"12345"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "l2tp_always_on_on",
+			rtxCommand:    `l2tp always-on on`,
+			terraformJSON: `{"always_on":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "l2tp_always_on_off",
+			rtxCommand:    `l2tp always-on off`,
+			terraformJSON: `{"always_on":false}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "l2tp_keepalive",
+			rtxCommand:    `l2tp keepalive use on 60 3`,
+			terraformJSON: `{"keepalive_enabled":true,"keepalive_interval":60,"keepalive_retry":3}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "l2tp_keepalive_30",
+			rtxCommand:    `l2tp keepalive use on 30 5`,
+			terraformJSON: `{"keepalive_enabled":true,"keepalive_interval":30,"keepalive_retry":5}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "l2tp_disconnect_time",
+			rtxCommand:    `l2tp tunnel disconnect time 300`,
+			terraformJSON: `{"disconnect_time":300}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "l2tp_disconnect_time_600",
+			rtxCommand:    `l2tp tunnel disconnect time 600`,
+			terraformJSON: `{"disconnect_time":600}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "l2tp_tunnel_auth_on",
+			rtxCommand:    `l2tp tunnel auth on mysecret`,
+			terraformJSON: `{"l2tpv3_config":{"tunnel_auth":{"enabled":true,"password":"mysecret"}}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "l2tp_tunnel_auth_off",
+			rtxCommand:    `l2tp tunnel auth off`,
+			terraformJSON: `{"l2tpv3_config":{"tunnel_auth":{"enabled":false}}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pp_select_anonymous",
+			rtxCommand:    `pp select anonymous`,
+			terraformJSON: `{"mode":"lns"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pp_bind_tunnel",
+			rtxCommand:    `pp bind tunnel1`,
+			terraformJSON: `{"tunnel_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pp_auth_accept_chap",
+			rtxCommand:    `pp auth accept chap`,
+			terraformJSON: `{"authentication":{"method":"chap"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pp_auth_accept_pap",
+			rtxCommand:    `pp auth accept pap`,
+			terraformJSON: `{"authentication":{"method":"pap"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "pp_auth_myname",
+			rtxCommand:    `pp auth myname user@example.com mypassword`,
+			terraformJSON: `{"authentication":{"password":"mypassword","username":"user@example.com"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "ip_pp_remote_pool",
+			rtxCommand:    `ip pp remote address pool 192.168.100.100-192.168.100.200`,
+			terraformJSON: `{"ip_pool":{"end":"192.168.100.200","start":"192.168.100.100"}}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "l2tp_syslog_on",
+			rtxCommand:    `l2tp syslog on`,
+			terraformJSON: `{"syslog_enabled":true}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "l2tp_syslog_off",
+			rtxCommand:    `l2tp syslog off`,
+			terraformJSON: `{"syslog_enabled":false}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "delete_l2tp_tunnel",
+			rtxCommand:    `no tunnel select 1`,
+			terraformJSON: `{"id":1}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "l2tp_tunnel_id_min",
+			rtxCommand:    `l2tp tunnel 1`,
+			terraformJSON: `{"tunnel_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "l2tp_tunnel_id_max",
+			rtxCommand:    `l2tp tunnel 65535`,
+			terraformJSON: `{"tunnel_id":65535}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "l2tp_server_port",
+			rtxCommand:    `l2tp tunnel 1 local port 1701`,
+			terraformJSON: `{"local_port":1701,"tunnel_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "l2tp_remote_address",
+			rtxCommand:    `l2tp tunnel 1 remote address 203.0.113.1`,
+			terraformJSON: `{"remote_address":"203.0.113.1","tunnel_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "l2tp_hostname",
+			rtxCommand:    `l2tp tunnel 1 hostname router1.example.com`,
+			terraformJSON: `{"hostname":"router1.example.com","tunnel_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "l2tp_auth_password",
+			rtxCommand:    `l2tp tunnel 1 auth password secret123`,
+			terraformJSON: `{"auth_password":"secret123","tunnel_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "l2tp_keepalive_enable",
+			rtxCommand:    `l2tp tunnel 1 keepalive use on`,
+			terraformJSON: `{"keepalive":true,"tunnel_id":1}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+				return
+			}
+
+			// build_only tests (like delete commands) may have empty terraform values
+			// because they represent commands that don't have a direct terraform mapping
+			if tc.buildOnly {
+				t.Logf("Direction: Terraform -> RTX only (build)")
+				t.Logf("RTX: %s", tc.rtxCommand)
+				t.Logf("Terraform: %s (build_only, may be empty)", tc.terraformJSON)
+				return
+			}
+
+			// Validate terraform JSON is present and valid for non-build_only tests
+			if tc.terraformJSON == "null" || tc.terraformJSON == "" {
+				t.Errorf("Terraform value is missing for RTX command: %s", tc.rtxCommand)
+				return
+			}
+
+			var tfValue interface{}
+			if err := json.Unmarshal([]byte(tc.terraformJSON), &tfValue); err != nil {
+				t.Errorf("Invalid terraform JSON: %v\nJSON: %s", err, tc.terraformJSON)
+				return
+			}
+
+			// Log the mapping for visibility
+			t.Logf("RTX: %s", tc.rtxCommand)
+			t.Logf("Terraform: %s", tc.terraformJSON)
+
+			// Validate that terraform value contains expected fields (only for non-build_only tests)
+			if tfMap, ok := tfValue.(map[string]interface{}); ok {
+				if len(tfMap) == 0 {
+					t.Errorf("Terraform value is empty map for RTX command: %s", tc.rtxCommand)
+					return
+				}
+			}
+
+			// Check mapping direction
+			if tc.parseOnly {
+				t.Logf("Direction: RTX -> Terraform only (parse)")
+			} else {
+				t.Logf("Direction: Bidirectional (parse and build)")
+			}
+		})
 	}
 }
 

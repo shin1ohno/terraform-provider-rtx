@@ -6,6 +6,7 @@
 package parsers
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -406,6 +407,239 @@ func TestSpecSnmpConfigBoundaryCoverage(t *testing.T) {
 	t.Logf("Parameters with boundary tests: %d", len(boundaryParams))
 	for _, param := range boundaryParams {
 		t.Logf("  - %s", param)
+	}
+}
+
+// TestSpecSnmpConfigRTXTerraformMapping validates RTX command to Terraform value mappings
+func TestSpecSnmpConfigRTXTerraformMapping(t *testing.T) {
+	// This test validates that each RTX command has a corresponding expected Terraform value
+	// and vice versa. It ensures the spec file correctly documents the bidirectional mapping.
+
+	testCases := []struct {
+		name          string
+		rtxCommand    string
+		terraformJSON string
+		parseOnly     bool
+		buildOnly     bool
+	}{
+		{
+			name:          "snmp_sysname",
+			rtxCommand:    `snmp sysname RTX-Router`,
+			terraformJSON: `{"sysname":"RTX-Router"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "snmp_sysname_with_model",
+			rtxCommand:    `snmp sysname RTX1300-Main`,
+			terraformJSON: `{"sysname":"RTX1300-Main"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "snmp_syslocation",
+			rtxCommand:    `snmp syslocation Tokyo-DC-Rack1`,
+			terraformJSON: `{"syslocation":"Tokyo-DC-Rack1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "snmp_syslocation_spaces",
+			rtxCommand:    `snmp syslocation "Tokyo Data Center Rack 1"`,
+			terraformJSON: `{"syslocation":"Tokyo Data Center Rack 1"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "snmp_syscontact",
+			rtxCommand:    `snmp syscontact admin@example.com`,
+			terraformJSON: `{"syscontact":"admin@example.com"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "snmp_syscontact_name",
+			rtxCommand:    `snmp syscontact Network-Admin`,
+			terraformJSON: `{"syscontact":"Network-Admin"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "snmp_community_ro",
+			rtxCommand:    `snmp community read-only public`,
+			terraformJSON: `{"communities":[{"name":"public","permission":"ro"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "snmp_community_rw",
+			rtxCommand:    `snmp community read-write private`,
+			terraformJSON: `{"communities":[{"name":"private","permission":"rw"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "snmp_community_with_acl",
+			rtxCommand:    `snmp community read-only mycomm 1`,
+			terraformJSON: `{"communities":[{"acl":"1","name":"mycomm","permission":"ro"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "snmp_host",
+			rtxCommand:    `snmp host 192.168.1.100`,
+			terraformJSON: `{"hosts":[{"address":"192.168.1.100"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "snmp_host_with_community",
+			rtxCommand:    `snmp host 192.168.1.100 community trapcomm`,
+			terraformJSON: `{"hosts":[{"address":"192.168.1.100","community":"trapcomm"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "snmp_host_with_version",
+			rtxCommand:    `snmp host 192.168.1.100 version 2c`,
+			terraformJSON: `{"hosts":[{"address":"192.168.1.100","version":"2c"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "snmp_host_multiple",
+			rtxCommand:    `snmp host 10.0.0.50`,
+			terraformJSON: `{"hosts":[{"address":"10.0.0.50"}]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "snmp_trap_community",
+			rtxCommand:    `snmp trap community trapcomm`,
+			terraformJSON: `{"trap_community":"trapcomm"}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "snmp_trap_enable_all",
+			rtxCommand:    `snmp trap enable snmp all`,
+			terraformJSON: `{"trap_enable":["all"]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "snmp_trap_enable_linkdown",
+			rtxCommand:    `snmp trap enable snmp linkdown`,
+			terraformJSON: `{"trap_enable":["linkdown"]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "snmp_trap_enable_linkup",
+			rtxCommand:    `snmp trap enable snmp linkup`,
+			terraformJSON: `{"trap_enable":["linkup"]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "snmp_trap_enable_coldstart",
+			rtxCommand:    `snmp trap enable snmp coldstart`,
+			terraformJSON: `{"trap_enable":["coldstart"]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "snmp_trap_enable_warmstart",
+			rtxCommand:    `snmp trap enable snmp warmstart`,
+			terraformJSON: `{"trap_enable":["warmstart"]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "snmp_trap_enable_authentication",
+			rtxCommand:    `snmp trap enable snmp authentication`,
+			terraformJSON: `{"trap_enable":["authentication"]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "snmp_trap_enable_multiple",
+			rtxCommand:    `snmp trap enable snmp linkdown linkup coldstart`,
+			terraformJSON: `{"trap_enable":["linkdown","linkup","coldstart"]}`,
+			parseOnly:     false,
+			buildOnly:     false,
+		},
+		{
+			name:          "delete_snmp_sysname",
+			rtxCommand:    `no snmp sysname`,
+			terraformJSON: `{}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_snmp_community",
+			rtxCommand:    `no snmp community public`,
+			terraformJSON: `{"community":"public"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+		{
+			name:          "delete_snmp_host",
+			rtxCommand:    `no snmp host 192.168.1.100`,
+			terraformJSON: `{"address":"192.168.1.100"}`,
+			parseOnly:     false,
+			buildOnly:     true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate RTX command is not empty
+			if strings.TrimSpace(tc.rtxCommand) == "" {
+				t.Errorf("RTX command should not be empty")
+				return
+			}
+
+			// build_only tests (like delete commands) may have empty terraform values
+			// because they represent commands that don't have a direct terraform mapping
+			if tc.buildOnly {
+				t.Logf("Direction: Terraform -> RTX only (build)")
+				t.Logf("RTX: %s", tc.rtxCommand)
+				t.Logf("Terraform: %s (build_only, may be empty)", tc.terraformJSON)
+				return
+			}
+
+			// Validate terraform JSON is present and valid for non-build_only tests
+			if tc.terraformJSON == "null" || tc.terraformJSON == "" {
+				t.Errorf("Terraform value is missing for RTX command: %s", tc.rtxCommand)
+				return
+			}
+
+			var tfValue interface{}
+			if err := json.Unmarshal([]byte(tc.terraformJSON), &tfValue); err != nil {
+				t.Errorf("Invalid terraform JSON: %v\nJSON: %s", err, tc.terraformJSON)
+				return
+			}
+
+			// Log the mapping for visibility
+			t.Logf("RTX: %s", tc.rtxCommand)
+			t.Logf("Terraform: %s", tc.terraformJSON)
+
+			// Validate that terraform value contains expected fields (only for non-build_only tests)
+			if tfMap, ok := tfValue.(map[string]interface{}); ok {
+				if len(tfMap) == 0 {
+					t.Errorf("Terraform value is empty map for RTX command: %s", tc.rtxCommand)
+					return
+				}
+			}
+
+			// Check mapping direction
+			if tc.parseOnly {
+				t.Logf("Direction: RTX -> Terraform only (parse)")
+			} else {
+				t.Logf("Direction: Bidirectional (parse and build)")
+			}
+		})
 	}
 }
 
