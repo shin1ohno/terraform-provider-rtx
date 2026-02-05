@@ -15,6 +15,7 @@ import (
 type mockSFTPClient struct {
 	openFunc    func(path string) (sftpFileInterface, error)
 	readDirFunc func(path string) ([]os.FileInfo, error)
+	createFunc  func(path string) (sftpFileWriteCloserInterface, error)
 	closeFunc   func() error
 }
 
@@ -32,7 +33,37 @@ func (m *mockSFTPClient) ReadDir(path string) ([]os.FileInfo, error) {
 	return []os.FileInfo{}, nil
 }
 
+func (m *mockSFTPClient) Create(path string) (sftpFileWriteCloserInterface, error) {
+	if m.createFunc != nil {
+		return m.createFunc(path)
+	}
+	return nil, errors.New("Create not implemented")
+}
+
 func (m *mockSFTPClient) Close() error {
+	if m.closeFunc != nil {
+		return m.closeFunc()
+	}
+	return nil
+}
+
+// mockSFTPWriteFile is a mock implementation of sftpFileWriteCloserInterface for testing
+type mockSFTPWriteFile struct {
+	writeFunc func(p []byte) (n int, err error)
+	closeFunc func() error
+	written   []byte
+}
+
+func (m *mockSFTPWriteFile) Write(p []byte) (n int, err error) {
+	if m.writeFunc != nil {
+		return m.writeFunc(p)
+	}
+	// Default behavior: store written content
+	m.written = append(m.written, p...)
+	return len(p), nil
+}
+
+func (m *mockSFTPWriteFile) Close() error {
 	if m.closeFunc != nil {
 		return m.closeFunc()
 	}
@@ -222,6 +253,140 @@ func TestSFTPClient_Download_AfterClose(t *testing.T) {
 	// Try to download after close
 	ctx := context.Background()
 	_, err = client.Download(ctx, "/system/config0")
+
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, ErrSFTPClosed))
+}
+
+func TestSFTPClient_WriteFile_Success(t *testing.T) {
+	expectedPath := "/ssh/authorized_keys/testuser"
+	expectedContent := []byte("ssh-ed25519 AAAAC3... user@host\n")
+
+	mockFile := &mockSFTPWriteFile{}
+	var writtenPath string
+
+	mockSFTP := &mockSFTPClient{
+		createFunc: func(path string) (sftpFileWriteCloserInterface, error) {
+			writtenPath = path
+			return mockFile, nil
+		},
+	}
+
+	client := &sftpClientImpl{
+		sftpClient: mockSFTP,
+	}
+
+	ctx := context.Background()
+	err := client.WriteFile(ctx, expectedPath, expectedContent)
+
+	require.NoError(t, err)
+	assert.Equal(t, expectedPath, writtenPath)
+	assert.Equal(t, expectedContent, mockFile.written)
+}
+
+func TestSFTPClient_WriteFile_CreateError(t *testing.T) {
+	createError := errors.New("permission denied")
+
+	mockSFTP := &mockSFTPClient{
+		createFunc: func(path string) (sftpFileWriteCloserInterface, error) {
+			return nil, createError
+		},
+	}
+
+	client := &sftpClientImpl{
+		sftpClient: mockSFTP,
+	}
+
+	ctx := context.Background()
+	err := client.WriteFile(ctx, "/ssh/authorized_keys/testuser", []byte("key"))
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create file")
+}
+
+func TestSFTPClient_WriteFile_WriteError(t *testing.T) {
+	writeError := errors.New("disk full")
+
+	mockFile := &mockSFTPWriteFile{
+		writeFunc: func(p []byte) (int, error) {
+			return 0, writeError
+		},
+	}
+
+	mockSFTP := &mockSFTPClient{
+		createFunc: func(path string) (sftpFileWriteCloserInterface, error) {
+			return mockFile, nil
+		},
+	}
+
+	client := &sftpClientImpl{
+		sftpClient: mockSFTP,
+	}
+
+	ctx := context.Background()
+	err := client.WriteFile(ctx, "/ssh/authorized_keys/testuser", []byte("key content"))
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to write to file")
+}
+
+func TestSFTPClient_WriteFile_PartialWrite(t *testing.T) {
+	content := []byte("this is a long key content")
+
+	mockFile := &mockSFTPWriteFile{
+		writeFunc: func(p []byte) (int, error) {
+			// Only write half the bytes
+			return len(p) / 2, nil
+		},
+	}
+
+	mockSFTP := &mockSFTPClient{
+		createFunc: func(path string) (sftpFileWriteCloserInterface, error) {
+			return mockFile, nil
+		},
+	}
+
+	client := &sftpClientImpl{
+		sftpClient: mockSFTP,
+	}
+
+	ctx := context.Background()
+	err := client.WriteFile(ctx, "/ssh/authorized_keys/testuser", content)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "partial write")
+}
+
+func TestSFTPClient_WriteFile_ContextCanceled(t *testing.T) {
+	mockSFTP := &mockSFTPClient{}
+
+	client := &sftpClientImpl{
+		sftpClient: mockSFTP,
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	err := client.WriteFile(ctx, "/ssh/authorized_keys/testuser", []byte("key"))
+
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, context.Canceled))
+}
+
+func TestSFTPClient_WriteFile_AfterClose(t *testing.T) {
+	mockSFTP := &mockSFTPClient{}
+
+	client := &sftpClientImpl{
+		sftpClient: mockSFTP,
+	}
+
+	// Close the client first
+	err := client.Close()
+	require.NoError(t, err)
+
+	// Try to write after close
+	ctx := context.Background()
+	err = client.WriteFile(ctx, "/ssh/authorized_keys/testuser", []byte("key"))
 
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, ErrSFTPClosed))

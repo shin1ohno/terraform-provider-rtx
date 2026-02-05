@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 )
@@ -706,6 +707,130 @@ func TestServiceManager_DeleteSSHDAuthorizedKeys_NotFound(t *testing.T) {
 	err := manager.DeleteSSHDAuthorizedKeys(context.Background(), "testuser")
 	if err != nil {
 		t.Fatalf("unexpected error for not found case: %v", err)
+	}
+}
+
+// mockSFTPClientForServiceManager is a mock SFTP client for testing ServiceManager
+type mockSFTPClientForServiceManager struct {
+	writeFileFunc func(ctx context.Context, path string, content []byte) error
+	writtenFiles  map[string][]byte
+}
+
+func newMockSFTPClient() *mockSFTPClientForServiceManager {
+	return &mockSFTPClientForServiceManager{
+		writtenFiles: make(map[string][]byte),
+	}
+}
+
+func (m *mockSFTPClientForServiceManager) Download(ctx context.Context, path string) ([]byte, error) {
+	return nil, nil
+}
+
+func (m *mockSFTPClientForServiceManager) ListDir(ctx context.Context, path string) ([]string, error) {
+	return nil, nil
+}
+
+func (m *mockSFTPClientForServiceManager) WriteFile(ctx context.Context, path string, content []byte) error {
+	if m.writeFileFunc != nil {
+		return m.writeFileFunc(ctx, path, content)
+	}
+	m.writtenFiles[path] = content
+	return nil
+}
+
+func (m *mockSFTPClientForServiceManager) Close() error {
+	return nil
+}
+
+func TestServiceManager_SetSSHDAuthorizedKeys_ViaSFTP(t *testing.T) {
+	executor := newMockServiceExecutor()
+	mockSFTP := newMockSFTPClient()
+	manager := NewServiceManager(executor, nil)
+	manager.SetSFTPClient(mockSFTP)
+
+	keys := []string{
+		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample user@host",
+		"ssh-rsa AAAAB3NzaC1yc2EAAAAExample admin@pc",
+	}
+
+	err := manager.SetSSHDAuthorizedKeys(context.Background(), "testuser", keys)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Check that file was written via SFTP
+	expectedPath := "/ssh/authorized_keys/testuser"
+	writtenContent, ok := mockSFTP.writtenFiles[expectedPath]
+	if !ok {
+		t.Fatalf("expected file to be written at %s", expectedPath)
+	}
+
+	// Should contain both keys
+	contentStr := string(writtenContent)
+	if !strings.Contains(contentStr, "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample user@host") {
+		t.Errorf("expected first key in content, got: %s", contentStr)
+	}
+	if !strings.Contains(contentStr, "ssh-rsa AAAAB3NzaC1yc2EAAAAExample admin@pc") {
+		t.Errorf("expected second key in content, got: %s", contentStr)
+	}
+
+	// Check that link command was executed
+	commands := executor.getCommands()
+	hasLinkCmd := false
+	for _, cmd := range commands {
+		if strings.Contains(cmd, "sshd authorized-keys filename testuser") {
+			hasLinkCmd = true
+			break
+		}
+	}
+	if !hasLinkCmd {
+		t.Errorf("expected sshd authorized-keys filename command to be executed")
+	}
+}
+
+func TestServiceManager_SetSSHDAuthorizedKeys_SFTPError(t *testing.T) {
+	executor := newMockServiceExecutor()
+	mockSFTP := newMockSFTPClient()
+	mockSFTP.writeFileFunc = func(ctx context.Context, path string, content []byte) error {
+		return errors.New("SFTP write failed")
+	}
+	manager := NewServiceManager(executor, nil)
+	manager.SetSFTPClient(mockSFTP)
+
+	keys := []string{"ssh-ed25519 AAAAC3... user@host"}
+
+	err := manager.SetSSHDAuthorizedKeys(context.Background(), "testuser", keys)
+	if err == nil {
+		t.Fatal("expected error from SFTP write failure")
+	}
+	if !strings.Contains(err.Error(), "SFTP") {
+		t.Errorf("expected SFTP-related error, got: %v", err)
+	}
+}
+
+func TestServiceManager_SetSSHDAuthorizedKeys_FallbackToCommand(t *testing.T) {
+	executor := newMockServiceExecutor()
+	// No SFTP client set, should fall back to command method
+	manager := NewServiceManager(executor, nil)
+
+	keys := []string{"ssh-ed25519 AAAAC3... user@host"}
+
+	err := manager.SetSSHDAuthorizedKeys(context.Background(), "testuser", keys)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should use command method (import command)
+	commands := executor.getCommands()
+	hasImport := false
+	for _, cmd := range commands {
+		if strings.Contains(cmd, "import sshd authorized-keys") {
+			hasImport = true
+			break
+		}
+	}
+	if !hasImport {
+		t.Errorf("expected import command to be executed when SFTP is not available")
 	}
 }
 

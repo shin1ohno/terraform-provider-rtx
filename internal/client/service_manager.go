@@ -10,18 +10,28 @@ import (
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
+// AuthorizedKeysBasePath is the base path for SSH authorized keys on RTX routers
+const AuthorizedKeysBasePath = "/ssh/authorized_keys"
+
 // ServiceManager handles network service daemon operations (HTTPD, SSHD, SFTPD)
 type ServiceManager struct {
-	executor Executor
-	client   *rtxClient // Reference to the main client for save functionality
+	executor   Executor
+	client     *rtxClient // Reference to the main client for save functionality
+	sftpClient SFTPClient // SFTP client for file operations (optional)
 }
 
 // NewServiceManager creates a new service manager instance
 func NewServiceManager(executor Executor, client *rtxClient) *ServiceManager {
 	return &ServiceManager{
-		executor: executor,
-		client:   client,
+		executor:   executor,
+		client:     client,
+		sftpClient: nil, // Set via SetSFTPClient when needed
 	}
+}
+
+// SetSFTPClient sets the SFTP client for file operations
+func (s *ServiceManager) SetSFTPClient(sftpClient SFTPClient) {
+	s.sftpClient = sftpClient
 }
 
 // ========== HTTPD Methods ==========
@@ -522,6 +532,84 @@ func (s *ServiceManager) SetSSHDAuthorizedKeys(ctx context.Context, username str
 	default:
 	}
 
+	// Use SFTP if enabled in config (preferred - writes all keys to a single file)
+	if s.client.SFTPEnabled() {
+		return s.setSSHDAuthorizedKeysViaSFTP(ctx, username, keys)
+	}
+
+	// Fallback to command-based method (legacy)
+	return s.setSSHDAuthorizedKeysViaCommand(ctx, username, keys)
+}
+
+// setSSHDAuthorizedKeysViaSFTP writes all authorized keys to a single file via SFTP
+func (s *ServiceManager) setSSHDAuthorizedKeysViaSFTP(ctx context.Context, username string, keys []string) error {
+	logger := logging.FromContext(ctx)
+
+	// Build the file path: /ssh/authorized_keys/<username>
+	keyPath := fmt.Sprintf("%s/%s", AuthorizedKeysBasePath, username)
+
+	// Combine all keys into a single file (one key per line)
+	var keyContent strings.Builder
+	for _, key := range keys {
+		keyContent.WriteString(strings.TrimSpace(key))
+		keyContent.WriteString("\n")
+	}
+
+	logger.Debug().
+		Str("component", "service-manager").
+		Str("username", username).
+		Str("path", keyPath).
+		Int("keyCount", len(keys)).
+		Msg("Writing authorized keys via SFTP")
+
+	// Create a fresh SFTP client for this operation to avoid idle timeout issues
+	// RTX routers have short idle timeouts for SFTP connections
+	sftpClient, err := NewSFTPClient(ctx, s.client.config)
+	if err != nil {
+		return fmt.Errorf("failed to create SFTP client: %w", err)
+	}
+	defer sftpClient.Close()
+
+	// Write the key file via SFTP (this overwrites any existing file)
+	if err := sftpClient.WriteFile(ctx, keyPath, []byte(keyContent.String())); err != nil {
+		return fmt.Errorf("failed to write authorized keys via SFTP: %w", err)
+	}
+
+	// Link the key file to the user using sshd authorized-keys command
+	linkCmd := fmt.Sprintf("sshd authorized-keys filename %s", username)
+	logger.Debug().
+		Str("component", "service-manager").
+		Str("username", username).
+		Msgf("Linking authorized key file with command: %s", linkCmd)
+
+	if _, err := s.executor.Run(ctx, linkCmd); err != nil {
+		// Log warning but don't fail - the file is written
+		logger.Warn().
+			Str("component", "service-manager").
+			Err(err).
+			Msg("Failed to link authorized key file (may already be linked)")
+	}
+
+	// Save configuration
+	if s.client != nil {
+		if err := s.client.SaveConfig(ctx); err != nil {
+			return fmt.Errorf("SSHD authorized keys set but failed to save configuration: %w", err)
+		}
+	}
+
+	logger.Info().
+		Str("component", "service-manager").
+		Str("username", username).
+		Int("keyCount", len(keys)).
+		Msg("SSHD authorized keys set successfully via SFTP")
+
+	return nil
+}
+
+// setSSHDAuthorizedKeysViaCommand sets authorized keys using the interactive import command
+func (s *ServiceManager) setSSHDAuthorizedKeysViaCommand(ctx context.Context, username string, keys []string) error {
+	logger := logging.FromContext(ctx)
+
 	// First, delete existing keys (ignore errors as they may not exist)
 	deleteCmd := parsers.BuildDeleteSSHDAuthorizedKeysCommand(username)
 	logger.Debug().
@@ -531,9 +619,9 @@ func (s *ServiceManager) SetSSHDAuthorizedKeys(ctx context.Context, username str
 
 	_, _ = s.executor.Run(ctx, deleteCmd) // Ignore errors (may not exist)
 
-	// Import each key
+	// Import each key using command method
 	for i, key := range keys {
-		if err := s.importSSHDAuthorizedKey(ctx, username, key); err != nil {
+		if err := s.importSSHDAuthorizedKeyViaCommand(ctx, username, key); err != nil {
 			return fmt.Errorf("failed to import key %d: %w", i+1, err)
 		}
 	}
@@ -549,14 +637,14 @@ func (s *ServiceManager) SetSSHDAuthorizedKeys(ctx context.Context, username str
 		Str("component", "service-manager").
 		Str("username", username).
 		Int("keyCount", len(keys)).
-		Msg("SSHD authorized keys set successfully")
+		Msg("SSHD authorized keys set successfully via command")
 
 	return nil
 }
 
-// importSSHDAuthorizedKey imports a single authorized key for a user
-// The RTX import command is interactive: it waits for key content followed by newline
-func (s *ServiceManager) importSSHDAuthorizedKey(ctx context.Context, username, key string) error {
+// importSSHDAuthorizedKeyViaCommand imports a single authorized key using the interactive import command
+// This is the legacy method and may fail due to prompt detection issues
+func (s *ServiceManager) importSSHDAuthorizedKeyViaCommand(ctx context.Context, username, key string) error {
 	logger := logging.FromContext(ctx)
 
 	// Build the import command
@@ -568,8 +656,6 @@ func (s *ServiceManager) importSSHDAuthorizedKey(ctx context.Context, username, 
 
 	// The import command is interactive.
 	// Send the import command followed by the key content and an empty line to terminate.
-	// RunBatch sends commands sequentially, each followed by prompt wait.
-	// For RTX, the key content is sent as the "response" to the import command prompt.
 	cmds := []string{
 		importCmd,
 		key,
@@ -578,15 +664,8 @@ func (s *ServiceManager) importSSHDAuthorizedKey(ctx context.Context, username, 
 
 	output, err := s.executor.RunBatch(ctx, cmds)
 	if err != nil {
-		// Check if error is just about prompt detection (common with interactive commands)
-		if !strings.Contains(err.Error(), "prompt") {
-			return fmt.Errorf("failed to import authorized key: %w", err)
-		}
-		// Log but continue if it's a prompt detection issue
-		logger.Debug().
-			Str("component", "service-manager").
-			Err(err).
-			Msg("Prompt detection issue during key import, continuing")
+		// Treat any error as failure (including prompt detection errors)
+		return fmt.Errorf("failed to import authorized key via command: %w", err)
 	}
 
 	if len(output) > 0 && containsError(string(output)) {
@@ -596,7 +675,7 @@ func (s *ServiceManager) importSSHDAuthorizedKey(ctx context.Context, username, 
 	logger.Debug().
 		Str("component", "service-manager").
 		Str("username", username).
-		Msg("Authorized key imported successfully")
+		Msg("Authorized key imported successfully via command")
 
 	return nil
 }

@@ -28,6 +28,13 @@ type SFTPClient interface {
 
 	// Close closes the SFTP connection
 	Close() error
+
+	// WriteFile uploads a file with the provided content to the given path on
+	// the remote host. If the file already exists it will be truncated.
+	// The operation must either fully succeed or return an error – partial
+	// writes are treated as failures by closing the file handle and returning the
+	// first error encountered. Implementations must honour ctx cancellation.
+	WriteFile(ctx context.Context, path string, content []byte) error
 }
 
 // sshClientInterface abstracts the SSH client for testing
@@ -46,15 +53,21 @@ type sshSessionInterface interface {
 
 // sftpClientInterface abstracts the SFTP client for testing
 type sftpClientInterface interface {
-	Open(path string) (sftpFileInterface, error)
-	ReadDir(path string) ([]os.FileInfo, error)
-	Close() error
+   Open(path string) (sftpFileInterface, error)
+   ReadDir(path string) ([]os.FileInfo, error)
+   Create(path string) (sftpFileWriteCloserInterface, error)
+   Close() error
 }
 
 // sftpFileInterface abstracts the SFTP file for testing
 type sftpFileInterface interface {
 	io.Reader
 	Close() error
+}
+// sftpFileWriteCloserInterface abstracts write-capable SFTP files for testing
+// Implementations should write content and close.
+type sftpFileWriteCloserInterface interface {
+   io.WriteCloser
 }
 
 // sftpClientImpl is the implementation of SFTPClient
@@ -114,6 +127,10 @@ func (w *sftpClientWrapper) Open(path string) (sftpFileInterface, error) {
 
 func (w *sftpClientWrapper) ReadDir(path string) ([]os.FileInfo, error) {
 	return w.client.ReadDir(path)
+}
+// Create opens or truncates a remote file for writing
+func (w *sftpClientWrapper) Create(path string) (sftpFileWriteCloserInterface, error) {
+   return w.client.Create(path)
 }
 
 func (w *sftpClientWrapper) Close() error {
@@ -241,6 +258,54 @@ func (c *sftpClientImpl) ListDir(ctx context.Context, path string) ([]string, er
 		names = append(names, f.Name())
 	}
 	return names, nil
+}
+
+// WriteFile uploads a file with the provided content to the given path on the remote host.
+// If the file already exists it will be truncated.
+func (c *sftpClientImpl) WriteFile(ctx context.Context, path string, content []byte) error {
+	// Check context cancellation first
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	c.mu.Lock()
+	if c.closed {
+		c.mu.Unlock()
+		return ErrSFTPClosed
+	}
+	c.mu.Unlock()
+
+	logger := logging.FromContext(ctx)
+	logger.Debug().Str("path", path).Int("bytes", len(content)).Msg("Writing file via SFTP")
+
+	// Create (or truncate) the remote file
+	file, err := c.sftpClient.Create(path)
+	if err != nil {
+		return fmt.Errorf("failed to create file %q: %w", path, err)
+	}
+
+	// Write content
+	n, err := file.Write(content)
+	if err != nil {
+		file.Close() // Close on error, ignore close error
+		return fmt.Errorf("failed to write to file %q: %w", path, err)
+	}
+
+	// Verify full write
+	if n != len(content) {
+		file.Close()
+		return fmt.Errorf("partial write to file %q: wrote %d of %d bytes", path, n, len(content))
+	}
+
+	// Close the file
+	if err := file.Close(); err != nil {
+		return fmt.Errorf("failed to close file %q after write: %w", path, err)
+	}
+
+	logger.Debug().Str("path", path).Int("bytes", n).Msg("File written successfully via SFTP")
+	return nil
 }
 
 // Close closes the SFTP connection
