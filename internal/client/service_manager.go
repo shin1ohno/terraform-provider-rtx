@@ -532,8 +532,8 @@ func (s *ServiceManager) SetSSHDAuthorizedKeys(ctx context.Context, username str
 	default:
 	}
 
-	// Use SFTP if enabled in config (preferred - writes all keys to a single file)
-	if s.client.SFTPEnabled() {
+	// Use SFTP if available (preferred - writes all keys to a single file)
+	if s.sftpClient != nil {
 		return s.setSSHDAuthorizedKeysViaSFTP(ctx, username, keys)
 	}
 
@@ -562,16 +562,8 @@ func (s *ServiceManager) setSSHDAuthorizedKeysViaSFTP(ctx context.Context, usern
 		Int("keyCount", len(keys)).
 		Msg("Writing authorized keys via SFTP")
 
-	// Create a fresh SFTP client for this operation to avoid idle timeout issues
-	// RTX routers have short idle timeouts for SFTP connections
-	sftpClient, err := NewSFTPClient(ctx, s.client.config)
-	if err != nil {
-		return fmt.Errorf("failed to create SFTP client: %w", err)
-	}
-	defer sftpClient.Close()
-
 	// Write the key file via SFTP (this overwrites any existing file)
-	if err := sftpClient.WriteFile(ctx, keyPath, []byte(keyContent.String())); err != nil {
+	if err := s.sftpClient.WriteFile(ctx, keyPath, []byte(keyContent.String())); err != nil {
 		return fmt.Errorf("failed to write authorized keys via SFTP: %w", err)
 	}
 
