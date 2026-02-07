@@ -903,3 +903,4 @@ resource "rtx_pptp" "main" {
 | 2026-01-23 | Implementation | Initial documentation from codebase |
 | 2026-01-25 | Implementation Sync | Add computed `tunnel_interface` for rtx_ipsec_tunnel and rtx_l2tp |
 | 2026-02-01 | rtx-tunnel-unified | Add `rtx_tunnel` unified resource; deprecate `rtx_ipsec_tunnel` and `rtx_l2tp` |
+| 2026-02-07 | Implementation Audit | Full audit against implementation code; confirmed spec matches rtx_tunnel schema |

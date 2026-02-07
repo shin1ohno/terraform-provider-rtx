@@ -602,3 +602,4 @@ internal/
 | 2026-01-23 | dns-server-select-per-server-edns | Updated DNSServerSelect to use `[]DNSServer` for per-server EDNS; aligned Client layer with Parser layer; updated EDNS handling notes |
 | 2026-02-01 | Implementation Audit | Update to Terraform Plugin Framework (not SDK v2) |
 | 2026-02-01 | Structure Sync | Updated file paths to resources/{name}/ modular structure |
+| 2026-02-07 | Implementation Audit | Full audit against implementation code |

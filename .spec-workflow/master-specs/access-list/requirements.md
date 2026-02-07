@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document specifies the requirements for access list (ACL) resources in the Terraform RTX Provider. Access lists provide packet filtering capabilities for IPv4, IPv6, and MAC-layer traffic on Yamaha RTX routers. The provider implements five distinct resource types to cover all access list functionality.
+This document specifies the requirements for access list (ACL) resources in the Terraform RTX Provider. Access lists provide packet filtering capabilities for IPv4, IPv6, and MAC-layer traffic on Yamaha RTX routers. The provider implements ten resource types covering filter definition, interface binding (apply), and dynamic (stateful) filtering.
 
 ## Alignment with Product Vision
 
@@ -19,8 +19,13 @@ Access lists are fundamental security components for network infrastructure. The
 | `rtx_access_list_extended` | Collection | Yes | IPv4 extended ACL with named entries |
 | `rtx_access_list_extended_ipv6` | Collection | Yes | IPv6 extended ACL with named entries |
 | `rtx_access_list_ip` | Singleton | Yes | Individual IPv4 filter rule (native `ip filter`) |
+| `rtx_access_list_ip_apply` | Binding | Yes | Apply IPv4 filters to interface (in/out) |
+| `rtx_access_list_ip_dynamic` | Collection | Yes | Named collection of dynamic IPv4 filters |
 | `rtx_access_list_ipv6` | Singleton | Yes | Individual IPv6 filter rule (native `ipv6 filter`) |
+| `rtx_access_list_ipv6_apply` | Binding | Yes | Apply IPv6 filters to interface (in/out) |
+| `rtx_access_list_ipv6_dynamic` | Collection | Yes | Named collection of dynamic IPv6 filters |
 | `rtx_access_list_mac` | Collection | Yes | MAC address filter with ethernet filter support |
+| `rtx_access_list_mac_apply` | Binding | Yes | Apply MAC filters to Ethernet interface (in/out) |
 
 ---
 
@@ -360,6 +365,269 @@ Same as `rtx_access_list_ip` with IPv6 addressing.
 
 ---
 
+## Resource 6: rtx_access_list_ip_apply
+
+### Functional Requirements
+
+#### Core Operations
+
+##### Create
+- Applies IPv4 filters to an interface in a specified direction (in/out)
+- Calls `ApplyIPFiltersToInterface`
+- Read back to verify consistency
+
+##### Read
+- Retrieves applied filters via `GetIPInterfaceFilters`
+- Filters state to only include sequences owned by this ACL
+- Removes from state if no matching filters found
+
+##### Update
+- Replaces applied filter configuration
+
+##### Delete
+- Removes applied filters via `RemoveIPFiltersFromInterface`
+
+### Schema Specification
+
+| Attribute | Type | Required | ForceNew | Description |
+|-----------|------|----------|----------|-------------|
+| `access_list` | string | Yes | No | ACL name reference |
+| `interface` | string | Yes | Yes | Interface to apply filters on |
+| `direction` | string | Yes | Yes | Direction: "in" or "out" |
+| `sequences` | list(int) | No | No | Filter sequence numbers to apply |
+
+### Import Specification
+
+- **Import ID Format**: `{access_list}:{interface}:{direction}`
+- **Import Command**: `terraform import rtx_access_list_ip_apply.example my-acl:lan1:in`
+
+### Example Usage
+
+```hcl
+resource "rtx_access_list_ip_apply" "lan1_in" {
+  access_list = rtx_access_list_ip.block_netbios.id
+  interface   = "lan1"
+  direction   = "in"
+  sequences   = [200000, 200001]
+}
+```
+
+---
+
+## Resource 7: rtx_access_list_ipv6_apply
+
+### Functional Requirements
+
+Identical to `rtx_access_list_ip_apply` with IPv6-specific client methods:
+- `ApplyIPv6FiltersToInterface`
+- `GetIPv6InterfaceFilters`
+- `RemoveIPv6FiltersFromInterface`
+
+### Schema Specification
+
+Same as `rtx_access_list_ip_apply`.
+
+### Example Usage
+
+```hcl
+resource "rtx_access_list_ipv6_apply" "lan1_in" {
+  access_list = "ipv6-web-acl"
+  interface   = "lan1"
+  direction   = "in"
+  sequences   = [101000, 101001]
+}
+```
+
+---
+
+## Resource 8: rtx_access_list_mac_apply
+
+### Functional Requirements
+
+#### Core Operations
+
+##### Create
+- Applies MAC (Ethernet) filters to a LAN/Bridge interface
+- Calls `ApplyMACFiltersToInterface`
+
+##### Read
+- Retrieves applied MAC filters via `GetMACInterfaceFilters`
+
+##### Update
+- Replaces applied MAC filter configuration
+
+##### Delete
+- Removes applied filters via `RemoveMACFiltersFromInterface`
+
+### Schema Specification
+
+| Attribute | Type | Required | ForceNew | Description |
+|-----------|------|----------|----------|-------------|
+| `id` | string | No (Computed) | No | Resource identifier |
+| `access_list` | string | Yes | No | MAC ACL name reference |
+| `interface` | string | Yes | Yes | Interface (lan/bridge only) |
+| `direction` | string | Yes | Yes | Direction: "in" or "out" |
+| `sequences` | list(int) | Yes | No | Filter sequence numbers (min 1) |
+
+### Validation Rules
+
+1. `interface` must be `lan*` or `bridge*` (MAC ACLs not supported on pp/tunnel)
+2. `sequences` must have at least one element
+3. `direction` must be "in" or "out"
+
+### Example Usage
+
+```hcl
+resource "rtx_access_list_mac_apply" "lan1_in" {
+  access_list = "secure-mac"
+  interface   = "lan1"
+  direction   = "in"
+  sequences   = [101, 102, 103]
+}
+```
+
+---
+
+## Resource 9: rtx_access_list_ip_dynamic
+
+### Functional Requirements
+
+#### Core Operations
+
+##### Create
+- Creates a named collection of dynamic (stateful) IPv4 filter entries
+- Supports automatic sequence numbering via `sequence_start` + `sequence_step`
+- Checks for sequence conflicts with existing filters on the router
+
+##### Read
+- Retrieves dynamic filter collection by name via `GetAccessListIPDynamic`
+- Filters router state to only include sequences owned by this ACL
+
+##### Update
+- Compares current vs desired entries
+- Adds/removes individual dynamic filter entries as needed
+
+##### Delete
+- Removes all dynamic filter entries belonging to this collection
+
+### Schema Specification
+
+| Attribute | Type | Required | ForceNew | Description |
+|-----------|------|----------|----------|-------------|
+| `name` | string | Yes | Yes | ACL name (unique identifier) |
+| `sequence_start` | int | No | No | Auto-sequence start number (1-65535) |
+| `sequence_step` | int | No | No | Auto-sequence increment (default: 10) |
+| `entry` | list(object) | Yes | No | List of dynamic filter entries |
+
+#### Entry Object
+
+| Attribute | Type | Required | Computed | Description |
+|-----------|------|----------|----------|-------------|
+| `sequence` | int | No | Yes | Filter number (auto or manual) |
+| `source` | string | Yes | No | Source IP or "*" |
+| `destination` | string | Yes | No | Destination IP or "*" |
+| `protocol` | string | Yes | No | Protocol (ftp, www, smtp, ssh, tcp, udp, etc.) |
+| `syslog` | bool | No | No | Enable syslog (default: false) |
+| `timeout` | int | No | No | Timeout in seconds |
+
+### Valid Protocols
+
+`ftp`, `www`, `smtp`, `pop3`, `dns`, `domain`, `telnet`, `ssh`, `tcp`, `udp`, `*`, `tftp`, `submission`, `https`, `imap`, `imaps`, `pop3s`, `smtps`, `ldap`, `ldaps`, `bgp`, `sip`, `ipsec-nat-t`, `ntp`, `snmp`, `rtsp`, `h323`, `pptp`, `l2tp`, `ike`, `esp`
+
+### RTX Commands
+
+```
+ip filter dynamic <n> <src> <dst> <protocol> [syslog on] [timeout=<N>]
+no ip filter dynamic <n>
+```
+
+### Example Usage
+
+```hcl
+resource "rtx_access_list_ip_dynamic" "web_filters" {
+  name           = "web-dynamic"
+  sequence_start = 100
+  sequence_step  = 10
+
+  entry {
+    source      = "*"
+    destination = "*"
+    protocol    = "www"
+    syslog      = true
+  }
+
+  entry {
+    source      = "*"
+    destination = "*"
+    protocol    = "https"
+  }
+
+  entry {
+    source      = "192.168.1.0/24"
+    destination = "*"
+    protocol    = "ftp"
+    timeout     = 60
+  }
+}
+```
+
+---
+
+## Resource 10: rtx_access_list_ipv6_dynamic
+
+### Functional Requirements
+
+Identical to `rtx_access_list_ip_dynamic` with IPv6-specific differences:
+- Uses `ipv6 filter dynamic` commands
+- Entry object does **not** have a `timeout` attribute (not supported for IPv6)
+- Limited protocol set compared to IPv4
+
+### Schema Specification
+
+Same as `rtx_access_list_ip_dynamic` except:
+- Entry does not include `timeout`
+
+### RTX Commands
+
+```
+ipv6 filter dynamic <n> <src> <dst> <protocol> [syslog on]
+no ipv6 filter dynamic <n>
+```
+
+### Example Usage
+
+```hcl
+resource "rtx_access_list_ipv6_dynamic" "ipv6_web" {
+  name           = "ipv6-web-dynamic"
+  sequence_start = 200
+  sequence_step  = 10
+
+  entry {
+    source      = "*"
+    destination = "*"
+    protocol    = "www"
+    syslog      = true
+  }
+
+  entry {
+    source      = "*"
+    destination = "*"
+    protocol    = "ftp"
+  }
+}
+```
+
+---
+
+## Parsing Reliability
+
+- Filter number parsing must correctly handle RTX line wrapping at ~80 characters
+- When filter numbers span line boundaries, the parser must reconstruct the original number
+- Smart line joining: if a line ends with a digit AND continuation line starts with a digit, join without space (mid-number wrap)
+- Round-trip consistency: parse → generate → parse must produce identical results
+
+---
+
 ## Non-Functional Requirements
 
 ### Code Architecture and Modularity
@@ -416,8 +684,27 @@ no ipv6 filter <number>
 
 # Ethernet Filter (MAC)
 ethernet filter <number> pass-log|pass-nolog|reject-log|reject-nolog <src-mac> <dest-mac> [type] [vlan]
-ethernet <interface> filter in|out <filter-list>
 no ethernet filter <number>
+
+# Apply IP Filters to Interface (secure filter)
+ip <interface> secure filter in|out <filter-numbers...> [dynamic <dynamic-numbers...>]
+no ip <interface> secure filter in|out
+
+# Apply IPv6 Filters to Interface
+ipv6 <interface> secure filter in|out <filter-numbers...> [dynamic <dynamic-numbers...>]
+no ipv6 <interface> secure filter in|out
+
+# Apply MAC Filters to Interface
+ethernet <interface> filter in|out <filter-list>
+no ethernet <interface> filter in|out
+
+# IP Filter Dynamic
+ip filter dynamic <n> <src> <dst> <protocol> [syslog on] [timeout=<N>]
+no ip filter dynamic <n>
+
+# IPv6 Filter Dynamic
+ipv6 filter dynamic <n> <src> <dst> <protocol> [syslog on]
+no ipv6 filter dynamic <n>
 ```
 
 ---
@@ -443,9 +730,21 @@ no ethernet filter <number>
 - **Import ID Format**: `<filter-number>`
 - **Import Command**: `terraform import rtx_access_list_ip.example 100`
 
+#### rtx_access_list_ip_apply / rtx_access_list_ipv6_apply
+- **Import ID Format**: `<access-list>:<interface>:<direction>`
+- **Import Command**: `terraform import rtx_access_list_ip_apply.example my-acl:lan1:in`
+
+#### rtx_access_list_ip_dynamic / rtx_access_list_ipv6_dynamic
+- **Import ID Format**: `<acl-name>`
+- **Import Command**: `terraform import rtx_access_list_ip_dynamic.example web-dynamic`
+
 #### rtx_access_list_mac
 - **Import ID Format**: `<acl-name>`
 - **Import Command**: `terraform import rtx_access_list_mac.example my-mac-acl`
+
+#### rtx_access_list_mac_apply
+- **Import ID Format**: `<access-list>:<interface>:<direction>`
+- **Import Command**: `terraform import rtx_access_list_mac_apply.example my-mac-acl:lan1:in`
 
 ---
 
@@ -588,3 +887,4 @@ resource "rtx_access_list_mac" "mac_filter" {
 | Date | Source | Changes |
 |------|--------|---------|
 | 2025-01-23 | Implementation Analysis | Initial master spec created from implementation |
+| 2026-02-07 | Implementation Audit | Full audit: add 5 resources (ip_apply, ipv6_apply, mac_apply, ip_dynamic, ipv6_dynamic); integrate filter spec content; add parsing reliability requirements |

@@ -659,3 +659,4 @@ internal/
 | 2026-01-23 | terraform-plan-differences-fix | Updated grep patterns for RTX compatibility; documented OutsideGlobal default to "ipcp" |
 | 2026-02-01 | Implementation Audit | Update to Terraform Plugin Framework (not SDK v2) |
 | 2026-02-01 | Structure Sync | Updated file paths to resources/{name}/ modular structure |
+| 2026-02-07 | Implementation Audit | Full audit against implementation code |

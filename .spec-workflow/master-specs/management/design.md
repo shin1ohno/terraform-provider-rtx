@@ -2,15 +2,17 @@
 
 ## Overview
 
-This document describes the technical design and implementation details for the management service resources in the Terraform RTX provider. These resources (rtx_sshd, rtx_httpd, rtx_sftpd, rtx_snmp_server, rtx_syslog) follow a consistent architectural pattern with three layers: Provider (Terraform resource), Client (service abstraction), and Parser (RTX command handling).
+This document describes the technical design and implementation details for the management service resources in the Terraform RTX provider. These resources (rtx_sshd, rtx_sshd_authorized_keys, rtx_sshd_host_key, rtx_httpd, rtx_sftpd, rtx_snmp_server, rtx_syslog) follow a consistent architectural pattern with three layers: Provider (Terraform resource), Client (service abstraction), and Parser (RTX command handling).
 
 ## Resources Summary
 
 | Resource Name | Service File | Parser File | Resource Directory | Status |
 |--------------|--------------|-------------|-------------------|--------|
 | `rtx_sshd` | `internal/client/sshd_service.go` | `internal/rtx/parsers/service.go` | `internal/provider/resources/sshd/` | ✅ |
+| `rtx_sshd_authorized_keys` | `internal/client/service_manager.go` | - | `internal/provider/resources/sshd_authorized_keys/` | ✅ |
+| `rtx_sshd_host_key` | `internal/client/service_manager.go` | - | `internal/provider/resources/sshd_host_key/` | ✅ |
 | `rtx_httpd` | `internal/client/httpd_service.go` | `internal/rtx/parsers/service.go` | `internal/provider/resources/httpd/` | ✅ |
-| `rtx_sftpd` | - | - | - | ❌ Not Implemented |
+| `rtx_sftpd` | `internal/client/sftpd_service.go` | `internal/rtx/parsers/service.go` | `internal/provider/resources/sftpd/` | ✅ |
 | `rtx_snmp_server` | `internal/client/snmp_service.go` | `internal/rtx/parsers/snmp.go` | `internal/provider/resources/snmp_server/` | ✅ |
 | `rtx_syslog` | `internal/client/syslog_service.go` | `internal/rtx/parsers/syslog.go` | `internal/provider/resources/syslog/` | ✅ |
 
@@ -37,11 +39,13 @@ All management service resources follow a three-layer architecture:
 ```mermaid
 graph TD
     subgraph Provider Layer
-        SSHD[resource_rtx_sshd.go]
-        HTTPD[resource_rtx_httpd.go]
-        SFTPD[resource_rtx_sftpd.go]
-        SNMP[resource_rtx_snmp_server.go]
-        SYSLOG[resource_rtx_syslog.go]
+        SSHD[sshd/resource.go]
+        SSHDAuthKeys[sshd_authorized_keys/resource.go]
+        SSHDHostKey[sshd_host_key/resource.go]
+        HTTPD[httpd/resource.go]
+        SFTPD[sftpd/resource.go]
+        SNMP[snmp_server/resource.go]
+        SYSLOG[syslog/resource.go]
     end
 
     subgraph Client Layer
@@ -57,6 +61,8 @@ graph TD
     end
 
     SSHD --> Client
+    SSHDAuthKeys --> Client
+    SSHDHostKey --> Client
     HTTPD --> Client
     SFTPD --> Client
     SNMP --> Client
@@ -166,6 +172,63 @@ func ValidateHTTPDConfig(config HTTPDConfig) error
 func ValidateSSHDConfig(config SSHDConfig) error
 func ValidateSFTPDConfig(config SFTPDConfig) error
 ```
+
+---
+
+### Component: SSH Authorized Keys Service (`internal/client/service_manager.go`)
+
+**Purpose:** Manages SSH authorized keys per user via SFTP client for file-based key management.
+
+**Data Models:**
+
+```go
+// SSHAuthorizedKey represents a single SSH authorized key
+type SSHAuthorizedKey struct {
+    KeyType string `json:"key_type"` // e.g., ssh-rsa, ssh-ed25519
+    Key     string `json:"key"`      // Base64-encoded public key
+    Comment string `json:"comment"`  // Key comment
+}
+```
+
+**Client Methods:**
+
+```go
+func (c *rtxClient) GetSSHDAuthorizedKeys(ctx context.Context, username string) ([]SSHAuthorizedKey, error)
+func (c *rtxClient) SetSSHDAuthorizedKeys(ctx context.Context, username string, keys []string) error
+func (c *rtxClient) DeleteSSHDAuthorizedKeys(ctx context.Context, username string) error
+```
+
+**State Protection:** When the router does not return keys (e.g., due to firmware limitations), the resource preserves plan state values to prevent unnecessary diffs.
+
+**State Version Upgrade:** Supports v0 → v1 migration from flat string list to structured object list with key/comment attributes.
+
+---
+
+### Component: SSH Host Key Service (`internal/client/service_manager.go`)
+
+**Purpose:** Manages SSH host key generation and retrieval.
+
+**Data Models:**
+
+```go
+// SSHHostKeyInfo represents SSH host key information
+type SSHHostKeyInfo struct {
+    Fingerprint string `json:"fingerprint"` // Key fingerprint
+    Algorithm   string `json:"algorithm"`   // Key algorithm (e.g., ssh-rsa)
+}
+```
+
+**Client Methods:**
+
+```go
+func (c *rtxClient) GetSSHDHostKey(ctx context.Context) (*SSHHostKeyInfo, error)
+func (c *rtxClient) GenerateSSHDHostKey(ctx context.Context) error
+```
+
+**Design Notes:**
+- All attributes are computed (no user-configurable settings)
+- Delete is a no-op: destroying the Terraform resource does not remove the host key from the router
+- Import reads the current host key and populates all computed attributes
 
 ---
 
@@ -363,6 +426,15 @@ ConfigureSSHD(ctx context.Context, config SSHDConfig) error
 UpdateSSHD(ctx context.Context, config SSHDConfig) error
 ResetSSHD(ctx context.Context) error
 
+// SSHD Authorized Keys methods (per-user resource)
+GetSSHDAuthorizedKeys(ctx context.Context, username string) ([]SSHAuthorizedKey, error)
+SetSSHDAuthorizedKeys(ctx context.Context, username string, keys []string) error
+DeleteSSHDAuthorizedKeys(ctx context.Context, username string) error
+
+// SSHD Host Key methods (singleton resource)
+GetSSHDHostKey(ctx context.Context) (*SSHHostKeyInfo, error)
+GenerateSSHDHostKey(ctx context.Context) error
+
 // SFTPD methods (singleton resource)
 GetSFTPD(ctx context.Context) (*SFTPDConfig, error)
 ConfigureSFTPD(ctx context.Context, config SFTPDConfig) error
@@ -386,7 +458,7 @@ ResetSyslog(ctx context.Context) error
 
 ## Terraform Resources
 
-### Resource: rtx_sshd (`internal/provider/resource_rtx_sshd.go`)
+### Resource: rtx_sshd (`internal/provider/resources/sshd/resource.go`)
 
 **Schema:**
 
@@ -426,7 +498,64 @@ func buildSSHDConfigFromResourceData(d *schema.ResourceData) client.SSHDConfig
 
 ---
 
-### Resource: rtx_httpd (`internal/provider/resource_rtx_httpd.go`)
+### Resource: rtx_sshd_authorized_keys (`internal/provider/resources/sshd_authorized_keys/resource.go`)
+
+**Schema (Plugin Framework):**
+
+```go
+"username": schema.StringAttribute{
+    Required:    true,
+    Description: "Username to manage authorized keys for",
+    PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+},
+"keys": schema.ListNestedAttribute{
+    Required:    true,
+    Description: "List of SSH public keys",
+    NestedObject: schema.NestedAttributeObject{
+        Attributes: map[string]schema.Attribute{
+            "key": schema.StringAttribute{
+                Required:    true,
+                Description: "OpenSSH format public key",
+            },
+            "comment": schema.StringAttribute{
+                Optional:    true,
+                Computed:    true,
+                Description: "Key comment",
+                Default:     stringdefault.StaticString("no comment"),
+            },
+        },
+    },
+},
+"key_count": schema.Int64Attribute{
+    Computed:    true,
+    Description: "Number of registered keys",
+},
+```
+
+---
+
+### Resource: rtx_sshd_host_key (`internal/provider/resources/sshd_host_key/resource.go`)
+
+**Schema (Plugin Framework):**
+
+```go
+"id": schema.StringAttribute{
+    Computed:    true,
+    Description: "Singleton resource identifier",
+},
+"fingerprint": schema.StringAttribute{
+    Computed:    true,
+    Description: "SSH host key fingerprint",
+},
+"algorithm": schema.StringAttribute{
+    Computed:    true,
+    Description: "Host key algorithm (e.g., ssh-rsa)",
+},
+```
+
+---
+
+### Resource: rtx_httpd (`internal/provider/resources/httpd/resource.go`)
 
 **Schema:**
 
@@ -458,7 +587,7 @@ func buildHTTPDConfigFromResourceData(d *schema.ResourceData) client.HTTPDConfig
 
 ---
 
-### Resource: rtx_sftpd (`internal/provider/resource_rtx_sftpd.go`)
+### Resource: rtx_sftpd (`internal/provider/resources/sftpd/resource.go`)
 
 **Schema:**
 
@@ -488,7 +617,7 @@ func buildSFTPDConfigFromResourceData(d *schema.ResourceData) client.SFTPDConfig
 
 ---
 
-### Resource: rtx_snmp_server (`internal/provider/resource_rtx_snmp_server.go`)
+### Resource: rtx_snmp_server (`internal/provider/resources/snmp_server/resource.go`)
 
 **Schema:**
 
@@ -579,7 +708,7 @@ func buildSNMPConfigFromResourceData(d *schema.ResourceData) client.SNMPConfig
 
 ---
 
-### Resource: rtx_syslog (`internal/provider/resource_rtx_syslog.go`)
+### Resource: rtx_syslog (`internal/provider/resources/syslog/resource.go`)
 
 **Schema:**
 
@@ -666,6 +795,21 @@ func isAlphanumeric(c rune) bool
 | Set interfaces | `sshd host lan1 lan2` |
 | Remove interfaces | `no sshd host` |
 | Show config | `show config \| grep sshd` |
+
+### SSHD Authorized Keys Commands
+
+| Operation | Command |
+|-----------|---------|
+| Set key | `sshd authorized-key <user> <type> <base64> <comment>` |
+| Delete keys | `no sshd authorized-key <user>` |
+| Show config | `show config \| grep "sshd authorized-key"` |
+
+### SSHD Host Key Commands
+
+| Operation | Command |
+|-----------|---------|
+| Generate key | `sshd host key generate` |
+| Show key | `show sshd host key` |
 
 ### HTTPD Commands
 
@@ -793,31 +937,41 @@ func isAlphanumeric(c rune) bool
 ```
 internal/
 ├── provider/
-│   ├── resource_rtx_sshd.go
-│   ├── resource_rtx_sshd_test.go
-│   ├── resource_rtx_httpd.go
-│   ├── resource_rtx_httpd_test.go
-│   ├── resource_rtx_sftpd.go
-│   ├── resource_rtx_sftpd_test.go
-│   ├── resource_rtx_snmp_server.go
-│   ├── resource_rtx_snmp_server_test.go
-│   ├── resource_rtx_syslog.go
-│   └── resource_rtx_syslog_test.go
+│   └── resources/
+│       ├── sshd/
+│       │   ├── resource.go
+│       │   └── model.go
+│       ├── sshd_authorized_keys/
+│       │   ├── resource.go        # Per-user SSH key management
+│       │   └── model.go           # State v0→v1 upgrade support
+│       ├── sshd_host_key/
+│       │   ├── resource.go        # Singleton host key (all computed)
+│       │   └── model.go
+│       ├── httpd/
+│       │   ├── resource.go
+│       │   └── model.go
+│       ├── sftpd/
+│       │   ├── resource.go
+│       │   └── model.go
+│       ├── snmp_server/
+│       │   ├── resource.go
+│       │   └── model.go
+│       └── syslog/
+│           ├── resource.go
+│           └── model.go
 ├── client/
 │   ├── interfaces.go              # Client interface with all methods
-│   ├── client.go                  # Client implementation (includes service daemon methods)
+│   ├── client.go                  # Client implementation
+│   ├── service_manager.go         # SSH authorized keys + host key + SFTPD operations
 │   ├── snmp_service.go            # SNMP service implementation
-│   ├── snmp_service_test.go
 │   ├── syslog_service.go          # Syslog service implementation
-│   └── syslog_service_test.go
+│   └── *_test.go                  # Tests co-located
 └── rtx/
     └── parsers/
         ├── service.go             # SSHD/HTTPD/SFTPD parsers
-        ├── service_test.go
         ├── snmp.go                # SNMP parser
-        ├── snmp_test.go
         ├── syslog.go              # Syslog parser
-        └── syslog_test.go
+        └── *_test.go              # Tests co-located
 ```
 
 ---
@@ -861,3 +1015,4 @@ internal/
 |------|-------------|---------|
 | 2026-01-23 | Initial | Created from implementation code analysis |
 | 2026-02-01 | Implementation Audit | Update to Plugin Framework, mark rtx_sftpd as not implemented, update file paths |
+| 2026-02-07 | Implementation Audit | Full audit: add rtx_sshd_authorized_keys, rtx_sshd_host_key; fix rtx_sftpd status to Implemented; update file structure to resources/{name}/ pattern |

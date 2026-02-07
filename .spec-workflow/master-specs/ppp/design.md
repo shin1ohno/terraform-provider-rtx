@@ -580,3 +580,4 @@ internal/
 | 2026-01-25 | Implementation Sync | Add computed `pp_interface` attribute for resource references |
 | 2026-02-01 | Implementation Audit | Update to Terraform Plugin Framework (not SDK v2) |
 | 2026-02-01 | Structure Sync | Updated file paths to resources/{name}/ modular structure |
+| 2026-02-07 | Implementation Audit | Full audit against implementation code |

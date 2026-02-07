@@ -135,6 +135,8 @@ show config | grep -E "(timezone|console|packet-buffer|statistics)"
 
 ---
 
+> **Note (2026-02-07):** The data sources below (`rtx_system_info`, `rtx_interfaces`, `rtx_routes`, `rtx_ddns_status`) are documented for future implementation but are NOT currently registered in the provider's `DataSources()` method. The `DataSources()` method returns an empty list as of the current codebase.
+
 ## Data Source: rtx_system_info
 
 ### Description
@@ -361,3 +363,4 @@ show status ddns
 | Date | Source Spec | Changes |
 |------|-------------|---------|
 | 2026-01-23 | Initial | Created master spec from implementation |
+| 2026-02-07 | Implementation Audit | Full audit against implementation code; add note that data sources are not registered in provider |

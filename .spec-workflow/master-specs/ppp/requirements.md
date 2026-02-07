@@ -329,3 +329,4 @@ resource "rtx_pppoe" "resilient" {
 | 2026-01-23 | Implementation-based | Initial master spec created from existing implementation |
 | 2026-01-25 | Implementation Sync | Add computed `pp_interface` attribute for resource references |
 | 2026-02-01 | Implementation Audit | Mark secure_filter_in/out as not implemented |
+| 2026-02-07 | Implementation Audit | Full audit against implementation code |

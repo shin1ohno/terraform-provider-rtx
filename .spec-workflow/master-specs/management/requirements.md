@@ -2,7 +2,7 @@
 
 ## Overview
 
-This specification covers the management service resources for Yamaha RTX routers. These resources enable Terraform-based configuration of essential router management services including SSH daemon (SSHD), HTTP daemon (HTTPD), SFTP daemon (SFTPD), SNMP server, and Syslog forwarding. All resources are singleton resources - only one instance of each can exist per router.
+This specification covers the management service resources for Yamaha RTX routers. These resources enable Terraform-based configuration of essential router management services including SSH daemon (SSHD), SSH authorized keys, SSH host key, HTTP daemon (HTTPD), SFTP daemon (SFTPD), SNMP server, and Syslog forwarding. Most resources are singleton resources - only one instance of each can exist per router. The exception is `rtx_sshd_authorized_keys` which is per-user.
 
 ## Alignment with Product Vision
 
@@ -18,8 +18,10 @@ Management services are foundational for router administration and monitoring. T
 | Resource Name | Type | Import Support | Status | Purpose |
 |--------------|------|----------------|--------|---------|
 | `rtx_sshd` | singleton | Yes | ✅ Implemented | SSH daemon configuration |
+| `rtx_sshd_authorized_keys` | per-user | Yes | ✅ Implemented | SSH authorized keys management |
+| `rtx_sshd_host_key` | singleton | Yes | ✅ Implemented | SSH host key management |
 | `rtx_httpd` | singleton | Yes | ✅ Implemented | HTTP daemon configuration |
-| `rtx_sftpd` | singleton | Yes | ❌ Not Implemented | SFTP daemon configuration |
+| `rtx_sftpd` | singleton | Yes | ✅ Implemented | SFTP daemon configuration |
 | `rtx_snmp_server` | singleton | Yes | ✅ Implemented | SNMP server configuration |
 | `rtx_syslog` | singleton | Yes | ✅ Implemented | Syslog forwarding configuration |
 
@@ -121,6 +123,179 @@ resource "rtx_sshd" "main" {
 
 ---
 
+## Resource: rtx_sshd_authorized_keys
+
+### Resource Summary
+
+| Attribute | Value |
+|-----------|-------|
+| Resource Name | `rtx_sshd_authorized_keys` |
+| Type | per-user |
+| Import Support | Yes |
+| Import ID | `{username}` |
+| Last Updated | 2026-02-07 |
+
+### Description
+
+Manages SSH authorized keys for a specific user on RTX routers. Each instance manages the full set of authorized keys for one user. Changing the username forces resource replacement. Supports state version upgrades (v0 string list → v1 object list).
+
+### Functional Requirements
+
+#### Create
+
+- Set SSH authorized keys for the specified user via `SetSSHDAuthorizedKeys`
+- Keys are in OpenSSH format (`type base64-key comment`)
+- Read back configuration to verify consistency
+
+#### Read
+
+- Retrieve authorized keys via `GetSSHDAuthorizedKeys`
+- If the router returns no keys, preserve plan state to handle routers that don't echo back keys
+- Update key_count computed attribute
+
+#### Update
+
+- Delete all existing keys for the user
+- Re-register the new set of keys
+- Read back to verify
+
+#### Delete
+
+- Remove all authorized keys for the user via `DeleteSSHDAuthorizedKeys`
+
+### Schema Attributes
+
+| Attribute | Type | Required | Computed | ForceNew | Description |
+|-----------|------|----------|----------|----------|-------------|
+| `username` | string | Yes | No | Yes | Username to manage authorized keys for |
+| `keys` | list(object) | Yes | No | No | List of SSH public keys |
+| `keys.key` | string | Yes | No | No | OpenSSH format public key |
+| `keys.comment` | string | No | Yes | No | Key comment (default: "no comment") |
+| `key_count` | int64 | No | Yes | No | Number of registered keys |
+
+### Validation Rules
+
+- `username` is required and triggers replacement if changed
+- `keys` must contain at least one entry
+- `keys.key` must be a valid OpenSSH public key string
+
+### RTX Commands Reference
+
+```
+# Set authorized keys for user
+sshd authorized-key <username> <key-type> <base64-key> <comment>
+
+# Delete authorized keys
+no sshd authorized-key <username>
+
+# Show configuration
+show config | grep "sshd authorized-key"
+```
+
+### Import Specification
+
+- **Import ID Format**: `{username}`
+- **Import Command**: `terraform import rtx_sshd_authorized_keys.admin admin`
+
+### Example Usage
+
+```hcl
+resource "rtx_sshd_authorized_keys" "admin" {
+  username = "admin"
+
+  keys {
+    key     = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQ..."
+    comment = "admin-workstation"
+  }
+
+  keys {
+    key     = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA..."
+    comment = "admin-laptop"
+  }
+}
+```
+
+---
+
+## Resource: rtx_sshd_host_key
+
+### Resource Summary
+
+| Attribute | Value |
+|-----------|-------|
+| Resource Name | `rtx_sshd_host_key` |
+| Type | singleton |
+| Import Support | Yes |
+| Import ID | `sshd_host_key` |
+| Last Updated | 2026-02-07 |
+
+### Description
+
+Manages the SSH host key on RTX routers. This is a read-heavy singleton resource: it generates a host key if one does not exist, but has no user-configurable attributes. All attributes are computed. Delete is a no-op (the host key remains on the router).
+
+### Functional Requirements
+
+#### Create
+
+- Check for existing host key via `GetSSHDHostKey`
+- If no host key exists, generate one via `GenerateSSHDHostKey`
+- Read back fingerprint and algorithm
+
+#### Read
+
+- Retrieve host key information via `GetSSHDHostKey`
+- If fingerprint is empty, remove from state (key was deleted externally)
+- Update id, fingerprint, and algorithm
+
+#### Update
+
+- No-op (no configurable attributes)
+
+#### Delete
+
+- No-op (host key remains on router; destroying Terraform resource does not remove the key)
+
+### Schema Attributes
+
+| Attribute | Type | Required | Computed | Description |
+|-----------|------|----------|----------|-------------|
+| `id` | string | No | Yes | Singleton resource identifier |
+| `fingerprint` | string | No | Yes | SSH host key fingerprint |
+| `algorithm` | string | No | Yes | Host key algorithm (e.g., ssh-rsa) |
+
+### RTX Commands Reference
+
+```
+# Generate host key
+sshd host key generate
+
+# Show host key
+show sshd host key
+
+# Show configuration
+show config | grep sshd
+```
+
+### Import Specification
+
+- **Import ID Format**: `sshd_host_key`
+- **Import Command**: `terraform import rtx_sshd_host_key.main sshd_host_key`
+
+### Example Usage
+
+```hcl
+# Generate/manage SSH host key
+resource "rtx_sshd_host_key" "main" {
+}
+
+# Reference the fingerprint in outputs
+output "ssh_fingerprint" {
+  value = rtx_sshd_host_key.main.fingerprint
+}
+```
+
+---
+
 ## Resource: rtx_httpd
 
 ### Resource Summary
@@ -214,8 +389,6 @@ resource "rtx_httpd" "main" {
 
 ## Resource: rtx_sftpd
 
-> **Status: NOT YET IMPLEMENTED** - This resource is documented for future implementation but is not currently available in the provider.
-
 ### Resource Summary
 
 | Attribute | Value |
@@ -224,8 +397,7 @@ resource "rtx_httpd" "main" {
 | Type | singleton |
 | Import Support | Yes |
 | Import ID | `sftpd` |
-| Last Updated | 2026-01-23 |
-| **Implementation Status** | **Not Implemented** |
+| Last Updated | 2026-02-07 |
 
 ### Description
 
@@ -636,3 +808,4 @@ resource "rtx_syslog" "main" {
 |------|-------------|---------|
 | 2026-01-23 | Initial | Created from implementation code analysis |
 | 2026-02-01 | Implementation Audit | Mark rtx_sftpd as not implemented, add status column |
+| 2026-02-07 | Implementation Audit | Full audit: add rtx_sshd_authorized_keys, rtx_sshd_host_key; fix rtx_sftpd status to Implemented |

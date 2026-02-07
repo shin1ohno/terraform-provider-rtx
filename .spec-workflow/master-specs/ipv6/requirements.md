@@ -14,6 +14,8 @@ This resource directly supports the product goal of enabling Infrastructure as C
 
 The implementation follows consistent patterns established by other resources in this provider, with clear separation between static and dynamic prefix sources.
 
+> **Scope Note:** This spec covers only `rtx_ipv6_prefix`. The `rtx_ipv6_interface` resource is documented in the [interface spec](../interface/requirements.md). IPv6 dynamic filters (`rtx_access_list_ipv6_dynamic`) are in the [access-list spec](../access-list/requirements.md).
+
 ---
 
 # Resource: rtx_ipv6_prefix
@@ -252,3 +254,4 @@ resource "rtx_ipv6_prefix" "documentation" {
 |------|-------------|---------|
 | 2026-01-23 | Implementation analysis | Initial master spec creation from implementation code |
 | 2026-01-23 | terraform-plan-differences-fix | IPv6 filter dynamic service now fully implemented (stub methods replaced with proper IPFilterService delegation) |
+| 2026-02-07 | Implementation Audit | Full audit against implementation code; add scope note (rtx_ipv6_prefix only) |
