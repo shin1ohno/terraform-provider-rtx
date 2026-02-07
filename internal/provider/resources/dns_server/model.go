@@ -42,9 +42,12 @@ type DNSServerEntryModel struct {
 }
 
 // DNSHostModel represents a static DNS host entry.
+// Reference: dns static <type> <name> <value> [ttl=<ttl>]
 type DNSHostModel struct {
+	Type    types.String `tfsdk:"type"`
 	Name    types.String `tfsdk:"name"`
 	Address types.String `tfsdk:"address"`
+	TTL     types.Int64  `tfsdk:"ttl"`
 }
 
 // ToClient converts the Terraform model to a client.DNSConfig.

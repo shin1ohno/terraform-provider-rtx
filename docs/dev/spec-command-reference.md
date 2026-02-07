@@ -743,13 +743,11 @@ bgp import filter filter_num [reject] kind ip_address/mask ... [parameter ...]
 
 | リソース | 差分タイプ | 対応優先度 | 詳細 |
 |---------|-----------|-----------|------|
-| **ip_filter** | オプション構文 | 高 | `syslog on` vs `syslog=on` (等号の有無) |
 | **dns** | 存在しないコマンド | 中 | `dns domain lookup` がドキュメントに存在しない |
 | **schedule** | 構文形式 | 中 | `schedule pp` の形式がドキュメントと異なる |
 | **ddns** | 引数形式・オプション未記載 | 低 | `netvolante-dns server` の引数形式、追加オプション |
 | **ipv6** | オプション未記載 | 低 | `ipv6 prefix` の追加オプション |
 | **ospf** | オプション未記載 | 低 | NSSA、`[auth=auth]` オプション |
-| **vlan** | オプション未記載 | 低 | `[name=name]` オプション |
 
 ---
 
