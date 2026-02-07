@@ -300,34 +300,43 @@ resource "rtx_kron_policy" "example" {
 ### Create Schedule (Time-based)
 
 ```
-Command: schedule at <id> <HH:MM> <command>
-Example: schedule at 1 12:00 save
+Command: schedule at <id> [date] <time> * <command>
+Example: schedule at 1 12:00 * save
+Example: schedule at 1 */mon-fri 8:00 * save
 Builder: BuildScheduleAtCommand(1, "12:00", "save")
 ```
+
+Note: `*` target specification is required. Date format is `月/日` (e.g., `1/1`, `*/mon-fri`, `12/*`).
 
 ### Create Schedule (Startup)
 
 ```
-Command: schedule at <id> startup <command>
-Example: schedule at 2 startup dhcp service server
+Command: schedule at <id> startup * <command>
+Example: schedule at 2 startup * dhcp service server
 Builder: BuildScheduleAtStartupCommand(2, "dhcp service server")
 ```
 
 ### Create Schedule (Date/Time)
 
 ```
-Command: schedule at <id> <YYYY/MM/DD> <HH:MM> <command>
-Example: schedule at 3 2025/01/15 09:00 save
-Builder: BuildScheduleAtDateTimeCommand(3, "2025/01/15", "09:00", "save")
+Command: schedule at <id> <月/日> <time> * <command>
+Example: schedule at 3 1/15 9:00 * save
+Example: schedule at 3 12/31 23:59 * restart
+Builder: BuildScheduleAtDateTimeCommand(3, "1/15", "09:00", "save")
 ```
+
+Note: Date uses `月/日` format, not `YYYY/MM/DD`. Time supports `hh:mm[:ss]` format.
 
 ### Create Schedule (PP Interface)
 
 ```
-Command: schedule pp <pp-num> <day-spec> <HH:MM> <action>
-Example: schedule pp 1 mon-fri 8:00 connect
-Builder: BuildSchedulePPCommand(1, "mon-fri", "8:00", "connect")
+Command: schedule at <id> [date] <time> pp <peer_num> <command>
+Example: schedule at 1 */mon-fri 8:00 pp 1 isdn auto connect on
+Example: schedule at 2 */mon-fri 17:00 pp 1 isdn auto connect off
+Builder: BuildSchedulePPCommand(1, "*/mon-fri", "8:00", "isdn auto connect on")
 ```
+
+Note: `schedule pp` command does not exist in RTX reference. Use `schedule at` with `pp <peer_num>` target.
 
 ### Delete Schedule
 
@@ -336,6 +345,8 @@ Command: no schedule at <id>
 Example: no schedule at 1
 Builder: BuildDeleteScheduleCommand(1)
 ```
+
+Note: Deleting schedule by ID removes all commands for that ID.
 
 ### Show Schedule
 

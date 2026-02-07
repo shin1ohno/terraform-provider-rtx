@@ -537,7 +537,7 @@ resource "rtx_access_list_mac_apply" "lan1_in" {
 ### RTX Commands
 
 ```
-ip filter dynamic <n> <src> <dst> <protocol> [syslog on] [timeout=<N>]
+ip filter dynamic <n> <src> <dst> <protocol> [syslog=on] [timeout=<N>]
 no ip filter dynamic <n>
 ```
 
@@ -590,7 +590,7 @@ Same as `rtx_access_list_ip_dynamic` except:
 ### RTX Commands
 
 ```
-ipv6 filter dynamic <n> <src> <dst> <protocol> [syslog on]
+ipv6 filter dynamic <n> <src> <dst> <protocol> [syslog=on]
 no ipv6 filter dynamic <n>
 ```
 
@@ -699,11 +699,11 @@ ethernet <interface> filter in|out <filter-list>
 no ethernet <interface> filter in|out
 
 # IP Filter Dynamic
-ip filter dynamic <n> <src> <dst> <protocol> [syslog on] [timeout=<N>]
+ip filter dynamic <n> <src> <dst> <protocol> [syslog=on] [timeout=<N>]
 no ip filter dynamic <n>
 
 # IPv6 Filter Dynamic
-ipv6 filter dynamic <n> <src> <dst> <protocol> [syslog on]
+ipv6 filter dynamic <n> <src> <dst> <protocol> [syslog=on]
 no ipv6 filter dynamic <n>
 ```
 

@@ -265,8 +265,10 @@ func DNSServerSelectAttrTypes() map[string]attr.Type {
 // DNSHostAttrTypes returns the attribute types for DNSHostModel.
 func DNSHostAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
+		"type":    types.StringType,
 		"name":    types.StringType,
 		"address": types.StringType,
+		"ttl":     types.Int64Type,
 	}
 }
 

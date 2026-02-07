@@ -60,11 +60,7 @@ func (r *DNSServerResource) Schema(ctx context.Context, req resource.SchemaReque
 				Description: "Resource identifier (always 'dns' for this singleton resource)",
 				Computed:    true,
 			},
-			"domain_lookup": schema.BoolAttribute{
-				Description: "Enable DNS domain lookup (dns domain lookup on/off)",
-				Optional:    true,
-				Computed:    true,
-			},
+			// Note: dns domain lookup command does not exist in RTX Command Reference
 			"domain_name": schema.StringAttribute{
 				Description: "Default domain name for DNS queries (dns domain <name>)",
 				Optional:    true,
@@ -414,7 +410,6 @@ func (r *DNSServerResource) ImportState(ctx context.Context, req resource.Import
 // convertParsedDNSConfig converts a parser DNSConfig to a client DNSConfig.
 func convertParsedDNSConfig(parsed *parsers.DNSConfig) *client.DNSConfig {
 	config := &client.DNSConfig{
-		DomainLookup: parsed.DomainLookup,
 		DomainName:   parsed.DomainName,
 		ServiceOn:    parsed.ServiceOn,
 		PrivateSpoof: parsed.PrivateSpoof,
@@ -448,8 +443,10 @@ func convertParsedDNSConfig(parsed *parsers.DNSConfig) *client.DNSConfig {
 	// Convert hosts
 	for i, host := range parsed.Hosts {
 		config.Hosts[i] = client.DNSHost{
+			Type:    host.Type,
 			Name:    host.Name,
 			Address: host.Address,
+			TTL:     host.TTL,
 		}
 	}
 
