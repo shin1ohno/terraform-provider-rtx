@@ -212,7 +212,40 @@ func TestBuildTunnelCommands_IPsec(t *testing.T) {
 	assert.Contains(t, commands, "ipsec ike remote address 1 192.168.2.1")
 	assert.Contains(t, commands, "ipsec ike pre-shared-key 1 text secret123")
 	assert.Contains(t, commands, "ipsec ike keepalive use 1 on dpd 30 3")
+	assert.Contains(t, commands, "no ip tunnel secure filter in")
+	assert.Contains(t, commands, "no ip tunnel secure filter out")
 	assert.Contains(t, commands, "tunnel enable 1")
+}
+
+func TestBuildTunnelCommands_IPsec_EmptySecureFilter(t *testing.T) {
+	tunnel := Tunnel{
+		ID:            1,
+		Encapsulation: "ipsec",
+		Enabled:       true,
+		IPsec: &TunnelIPsec{
+			IPsecTunnelID: 1,
+			LocalAddress:  "192.168.1.1",
+			RemoteAddress: "192.168.2.1",
+			PreSharedKey:  "secret123",
+			IKEv2Proposal: IKEv2Proposal{
+				EncryptionAES128: true,
+				IntegritySHA1:    true,
+				GroupFourteen:    true,
+			},
+			Transform: IPsecTransform{
+				Protocol:         "esp",
+				EncryptionAES128: true,
+				IntegritySHA1:    true,
+			},
+			SecureFilterIn:  []int{},
+			SecureFilterOut: []int{},
+		},
+	}
+
+	commands := BuildTunnelCommands(tunnel)
+
+	assert.Contains(t, commands, "no ip tunnel secure filter in")
+	assert.Contains(t, commands, "no ip tunnel secure filter out")
 }
 
 func TestBuildTunnelCommands_L2TPv3(t *testing.T) {

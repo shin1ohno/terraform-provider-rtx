@@ -733,11 +733,15 @@ func buildTunnelIPsecCommands(tunnelID int, ipsec *TunnelIPsec) []string {
 	// ip tunnel secure filter in
 	if len(ipsec.SecureFilterIn) > 0 {
 		commands = append(commands, BuildIPTunnelSecureFilterCommand("in", ipsec.SecureFilterIn))
+	} else {
+		commands = append(commands, BuildDeleteIPTunnelSecureFilterCommand("in"))
 	}
 
 	// ip tunnel secure filter out
 	if len(ipsec.SecureFilterOut) > 0 {
 		commands = append(commands, BuildIPTunnelSecureFilterCommand("out", ipsec.SecureFilterOut))
+	} else {
+		commands = append(commands, BuildDeleteIPTunnelSecureFilterCommand("out"))
 	}
 
 	// ip tunnel tcp mss limit
