@@ -169,16 +169,31 @@ func (r *DNSServerResource) Schema(ctx context.Context, req resource.SchemaReque
 				},
 			},
 			"hosts": schema.ListNestedBlock{
-				Description: "Static DNS host entries (dns static)",
+				Description: "Static DNS host entries (dns static <type> <name> <value> [ttl=<ttl>])",
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
+						"type": schema.StringAttribute{
+							Description: "DNS record type: a, aaaa, ptr, mx, ns, cname",
+							Optional:    true,
+							Computed:    true,
+							Default:     stringdefault.StaticString("a"),
+							Validators: []validator.String{
+								stringvalidator.OneOfCaseInsensitive("a", "aaaa", "ptr", "mx", "ns", "cname"),
+							},
+						},
 						"name": schema.StringAttribute{
-							Description: "Hostname",
+							Description: "Hostname or domain name",
 							Required:    true,
 						},
 						"address": schema.StringAttribute{
-							Description: "IP address",
+							Description: "IP address or target hostname",
 							Required:    true,
+						},
+						"ttl": schema.Int64Attribute{
+							Description: "TTL in seconds (0 means use router default)",
+							Optional:    true,
+							Computed:    true,
+							Default:     int64default.StaticInt64(0),
 						},
 					},
 				},
