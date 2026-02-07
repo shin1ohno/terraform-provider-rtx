@@ -575,3 +575,4 @@ resource "rtx_ddns" "dyndns" {
 | 2026-01-23 | Implementation code | Initial master spec creation |
 | 2026-01-23 | dns-server-select-per-server-edns | Updated server_select schema to use nested `server` blocks with per-server EDNS support |
 | 2026-02-07 | Implementation Audit | Full audit against implementation code |
+| 2026-02-07 | RTX Reference Sync | Removed domain_lookup (not in reference); Fixed dns static command syntax to require type and support TTL; Updated hosts schema |

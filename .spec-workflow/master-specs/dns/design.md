@@ -377,12 +377,12 @@ type DDNSServerConfig struct {
 | Remove DNS servers | `no dns server` |
 | Set domain name | `dns domain <name>` |
 | Remove domain name | `no dns domain` |
-| Enable domain lookup | `dns domain lookup on` |
-| Disable domain lookup | `no dns domain lookup` |
 | Enable DNS service | `dns service recursive` |
 | Disable DNS service | `dns service off` |
 | Enable private spoof | `dns private address spoof on` |
 | Disable private spoof | `dns private address spoof off` |
+
+Note: `dns domain lookup` command does not exist in RTX reference.
 
 ### DNS Server Select
 
@@ -404,8 +404,23 @@ type DDNSServerConfig struct {
 
 | Operation | RTX Command |
 |-----------|-------------|
-| Add static host | `dns static <hostname> <ip>` |
-| Remove static host | `no dns static <hostname>` |
+| Add static host | `dns static <type> <name> <value> [ttl=<ttl>]` |
+| Remove static host | `no dns static <type> <name>` |
+
+**DNS Static Command Format:**
+- `<type>`: Record type - a, aaaa, ptr, mx, ns, cname (required)
+- `<name>`: Hostname or domain name
+- `<value>`: IP address or target hostname
+- `[ttl=<ttl>]`: Optional TTL value in seconds
+
+**Examples:**
+```
+dns static a myhost.example.com 192.168.1.100
+dns static a myhost.example.com 192.168.1.100 ttl=3600
+dns static aaaa myhost.example.com 2001:db8::1
+dns static ptr 100.1.168.192.in-addr.arpa myhost.example.com
+dns static cname www.example.com myhost.example.com
+```
 
 ### NetVolante DNS
 
@@ -603,3 +618,4 @@ internal/
 | 2026-02-01 | Implementation Audit | Update to Terraform Plugin Framework (not SDK v2) |
 | 2026-02-01 | Structure Sync | Updated file paths to resources/{name}/ modular structure |
 | 2026-02-07 | Implementation Audit | Full audit against implementation code |
+| 2026-02-07 | RTX Reference Sync | Removed dns domain lookup (not in reference); Fixed dns static command syntax to include type and optional TTL |

@@ -8,8 +8,8 @@
 
 | ステータス | 件数 | 説明 |
 |-----------|------|------|
-| ✅ 一致 | 15 | Specとドキュメントの構文が完全一致 |
-| ⚠️ 差分あり | 5 | 構文やオプションに差異がある |
+| ✅ 一致 | 18 | Specとドキュメントの構文が完全一致 |
+| ⚠️ 差分あり | 4 | 構文やオプションに差異がある（低～中優先度） |
 
 ---
 
@@ -114,15 +114,14 @@ netvolante-dns go interface
 | **リソース名** | `rtx_dns` |
 | **説明** | DNS設定 |
 | **参照** | 24_DNS_の設定.md |
-| **ステータス** | ⚠️ 差分あり |
+| **ステータス** | ✅ 一致 |
 
 **Spec内のコマンド構文**:
 ```
-dns domain lookup <on|off>
 dns domain <domain_name>
 dns server <ip_address> [ip_address ...]
 dns server select <id> <servers> <record_type> <query_pattern> [restrict pp <connection_pp>]
-dns static <name> <address>
+dns static <type> <name> <value> [ttl=<ttl>]
 dns service <recursive|off>
 dns private address spoof <on|off>
 ```
@@ -137,9 +136,7 @@ dns static type name value [ttl=ttl]
 dns private address spoof spoof
 ```
 
-**差分**:
-- `dns domain lookup <on|off>` はドキュメントに存在しない（`dns service` で制御）
-- `dns static`: Specは `<name> <address>` 形式、ドキュメントは `type name value [ttl=ttl]` 形式
+**差分**: なし（2026-02-07 Reconcile完了 - `dns domain lookup` 削除、`dns static` をtype必須形式に修正）
 
 ---
 
@@ -743,8 +740,6 @@ bgp import filter filter_num [reject] kind ip_address/mask ... [parameter ...]
 
 | リソース | 差分タイプ | 対応優先度 | 詳細 |
 |---------|-----------|-----------|------|
-| **dns** | 存在しないコマンド | 中 | `dns domain lookup` がドキュメントに存在しない |
-| **schedule** | 構文形式 | 中 | `schedule pp` の形式がドキュメントと異なる |
 | **ddns** | 引数形式・オプション未記載 | 低 | `netvolante-dns server` の引数形式、追加オプション |
 | **ipv6** | オプション未記載 | 低 | `ipv6 prefix` の追加オプション |
 | **ospf** | オプション未記載 | 低 | NSSA、`[auth=auth]` オプション |
@@ -753,6 +748,8 @@ bgp import filter filter_num [reject] kind ip_address/mask ... [parameter ...]
 
 ## 更新履歴
 
+- 2026-02-07: DNS Reconcile完了 - `dns domain lookup` 削除、`dns static` をtype必須形式に修正
+- 2026-02-07: Schedule Reconcile完了 - `*` 対象指定追加、月/日日付形式修正
 - 2026-02-07: VLAN Reconcile完了 - VLAN ID範囲を2-4094に修正（1は予約済み）
 - 2026-02-07: ip_filter Reconcile完了 - syslog構文を`syslog=on`形式に修正、action値を拡張
 - 2026-02-07: BGP Reconcile完了 - neighbor構文、pre-shared-key、2-byte ASN、hold-time範囲を修正
