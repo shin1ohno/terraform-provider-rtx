@@ -102,7 +102,7 @@ func TestSpecIPFilterRTXSyntax(t *testing.T) {
 		},
 		{
 			name:       "dynamic_filter_with_syslog",
-			rtxCommand: `ip filter dynamic 110 * * tcp syslog on`,
+			rtxCommand: `ip filter dynamic 110 * * tcp syslog=on`,
 			parseOnly:  false,
 			buildOnly:  false,
 		},
@@ -303,7 +303,7 @@ func TestSpecIPFilterSyntaxCoverage(t *testing.T) {
 		},
 		{
 			name:        "dynamic_filter_with_syslog",
-			rtxCommand:  `ip filter dynamic 110 * * tcp syslog on`,
+			rtxCommand:  `ip filter dynamic 110 * * tcp syslog=on`,
 			parseOnly:   false,
 			buildOnly:   false,
 			description: "",
@@ -530,7 +530,7 @@ func TestSpecIPFilterRTXTerraformMapping(t *testing.T) {
 		},
 		{
 			name:          "dynamic_filter_with_syslog",
-			rtxCommand:    `ip filter dynamic 110 * * tcp syslog on`,
+			rtxCommand:    `ip filter dynamic 110 * * tcp syslog=on`,
 			terraformJSON: `{"dest":"*","number":110,"protocol":"tcp","source":"*","syslog_on":true}`,
 			parseOnly:     false,
 			buildOnly:     false,

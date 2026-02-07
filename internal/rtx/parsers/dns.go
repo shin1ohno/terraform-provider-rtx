@@ -9,7 +9,6 @@ import (
 
 // DNSConfig represents DNS server configuration on an RTX router
 type DNSConfig struct {
-	DomainLookup bool              `json:"domain_lookup"` // dns domain lookup enable/disable
 	DomainName   string            `json:"domain_name"`   // dns domain name
 	NameServers  []string          `json:"name_servers"`  // dns server <ip1> [<ip2>]
 	ServerSelect []DNSServerSelect `json:"server_select"` // dns server select entries
@@ -35,9 +34,13 @@ type DNSServerSelect struct {
 }
 
 // DNSHost represents a static DNS host entry
+// Reference: dns static type name value [ttl=ttl]
+// type: a, aaaa, ptr, mx, ns, cname
 type DNSHost struct {
-	Name    string `json:"name"`    // Hostname
-	Address string `json:"address"` // IP address
+	Type    string `json:"type"`    // Record type: a, aaaa, ptr, mx, ns, cname
+	Name    string `json:"name"`    // Hostname/FQDN
+	Address string `json:"address"` // IP address or value
+	TTL     int    `json:"ttl"`     // Optional TTL (0 = not specified)
 }
 
 // validRecordTypes contains the valid DNS record types for server select
@@ -62,7 +65,6 @@ func NewDNSParser() *DNSParser {
 // ParseDNSConfig parses the output of "show config" command for DNS configuration
 func (p *DNSParser) ParseDNSConfig(raw string) (*DNSConfig, error) {
 	config := &DNSConfig{
-		DomainLookup: true,  // Default: enabled
 		ServiceOn:    false, // Default: off
 		PrivateSpoof: false, // Default: off
 		NameServers:  []string{},
@@ -94,8 +96,6 @@ func (p *DNSParser) ParseDNSConfig(raw string) (*DNSConfig, error) {
 	lines := strings.Split(raw, "\n")
 
 	// Patterns for different DNS configuration lines
-	// dns domain lookup on/off
-	domainLookupPattern := regexp.MustCompile(`^\s*dns\s+domain\s+lookup\s+(on|off)\s*$`)
 	// dns domain <name>
 	domainNamePattern := regexp.MustCompile(`^\s*dns\s+domain\s+(\S+)\s*$`)
 	// dns server <ip1> [<ip2>] [<ip3>]
@@ -103,30 +103,17 @@ func (p *DNSParser) ParseDNSConfig(raw string) (*DNSConfig, error) {
 	// dns server select <id> <server> [<server2>] <domain1> [<domain2>...]
 	// Format: dns server select <id> <server(s)> <domain(s)>
 	dnsServerSelectPattern := regexp.MustCompile(`^\s*dns\s+server\s+select\s+(\d+)\s+(.+)\s*$`)
-	// dns static <hostname> <ip>
-	dnsStaticPattern := regexp.MustCompile(`^\s*dns\s+static\s+(\S+)\s+(\S+)\s*$`)
+	// dns static <type> <name> <value> [ttl=<ttl>]
+	// Reference: type is required (a, aaaa, ptr, mx, ns, cname)
+	dnsStaticPattern := regexp.MustCompile(`^\s*dns\s+static\s+(a|aaaa|ptr|mx|ns|cname)\s+(\S+)\s+(\S+)(?:\s+ttl=(\d+))?\s*$`)
 	// dns service on/off/recursive
 	dnsServicePattern := regexp.MustCompile(`^\s*dns\s+service\s+(on|off|recursive)\s*$`)
 	// dns private address spoof on/off
 	dnsPrivateSpoofPattern := regexp.MustCompile(`^\s*dns\s+private\s+address\s+spoof\s+(on|off)\s*$`)
-	// no dns domain lookup (disable)
-	noDomainLookupPattern := regexp.MustCompile(`^\s*no\s+dns\s+domain\s+lookup\s*$`)
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		// Try domain lookup pattern
-		if matches := domainLookupPattern.FindStringSubmatch(line); len(matches) >= 2 {
-			config.DomainLookup = matches[1] == "on"
-			continue
-		}
-
-		// Try no domain lookup pattern
-		if noDomainLookupPattern.MatchString(line) {
-			config.DomainLookup = false
 			continue
 		}
 
@@ -176,11 +163,20 @@ func (p *DNSParser) ParseDNSConfig(raw string) (*DNSConfig, error) {
 		}
 
 		// Try DNS static pattern
-		if matches := dnsStaticPattern.FindStringSubmatch(line); len(matches) >= 3 {
-			config.Hosts = append(config.Hosts, DNSHost{
-				Name:    matches[1],
-				Address: matches[2],
-			})
+		// Format: dns static <type> <name> <value> [ttl=<ttl>]
+		if matches := dnsStaticPattern.FindStringSubmatch(line); len(matches) >= 4 {
+			host := DNSHost{
+				Type:    matches[1],
+				Name:    matches[2],
+				Address: matches[3],
+			}
+			// Parse optional TTL
+			if len(matches) >= 5 && matches[4] != "" {
+				if ttl, err := strconv.Atoi(matches[4]); err == nil {
+					host.TTL = ttl
+				}
+			}
+			config.Hosts = append(config.Hosts, host)
 			continue
 		}
 	}
@@ -378,18 +374,27 @@ func BuildDeleteDNSServerSelectCommand(id int) string {
 }
 
 // BuildDNSStaticCommand builds the command for a static DNS host entry
-// Command format: dns static <hostname> <ip>
+// Command format: dns static <type> <name> <value> [ttl=<ttl>]
+// Reference: type is required (a, aaaa, ptr, mx, ns, cname)
 func BuildDNSStaticCommand(host DNSHost) string {
-	if host.Name == "" || host.Address == "" {
+	if host.Type == "" || host.Name == "" || host.Address == "" {
 		return ""
 	}
-	return fmt.Sprintf("dns static %s %s", host.Name, host.Address)
+	cmd := fmt.Sprintf("dns static %s %s %s", host.Type, host.Name, host.Address)
+	if host.TTL > 0 {
+		cmd = fmt.Sprintf("%s ttl=%d", cmd, host.TTL)
+	}
+	return cmd
 }
 
 // BuildDeleteDNSStaticCommand builds the command to remove a static DNS host entry
-// Command format: no dns static <hostname>
-func BuildDeleteDNSStaticCommand(hostname string) string {
-	return fmt.Sprintf("no dns static %s", hostname)
+// Command format: no dns static <type> <name> [value]
+// Reference: type is required
+func BuildDeleteDNSStaticCommand(recordType, hostname string) string {
+	if recordType == "" || hostname == "" {
+		return ""
+	}
+	return fmt.Sprintf("no dns static %s %s", recordType, hostname)
 }
 
 // BuildDNSServiceCommand builds the command to enable/disable DNS service
@@ -408,15 +413,6 @@ func BuildDNSPrivateSpoofCommand(enable bool) string {
 		return "dns private address spoof on"
 	}
 	return "dns private address spoof off"
-}
-
-// BuildDNSDomainLookupCommand builds the command to enable/disable DNS domain lookup
-// Command format: dns domain lookup on/off (or no dns domain lookup)
-func BuildDNSDomainLookupCommand(enable bool) string {
-	if enable {
-		return "dns domain lookup on"
-	}
-	return "no dns domain lookup"
 }
 
 // BuildDNSDomainNameCommand builds the command to set the domain name
@@ -488,13 +484,24 @@ func ValidateDNSConfig(config DNSConfig) error {
 		}
 	}
 
+	// Valid dns static record types
+	validStaticTypes := map[string]bool{
+		"a": true, "aaaa": true, "ptr": true, "mx": true, "ns": true, "cname": true,
+	}
+
 	// Validate static hosts
 	for _, host := range config.Hosts {
+		if host.Type == "" {
+			return fmt.Errorf("dns static record type is required")
+		}
+		if !validStaticTypes[host.Type] {
+			return fmt.Errorf("dns static: invalid record type %q, must be one of: a, aaaa, ptr, mx, ns, cname", host.Type)
+		}
 		if host.Name == "" {
 			return fmt.Errorf("dns static host name cannot be empty")
 		}
-		if !isValidIPForDNS(host.Address) {
-			return fmt.Errorf("dns static host %s: invalid IP address: %s", host.Name, host.Address)
+		if host.Address == "" {
+			return fmt.Errorf("dns static host %s: value/address cannot be empty", host.Name)
 		}
 	}
 

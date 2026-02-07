@@ -29,12 +29,13 @@ command:
     # =============================================================================
     # NetVolante DNS Commands
     # =============================================================================
+    # Reference: interface is "pp 1" (with space), not "pp1"
     - name: netvolante_hostname
-      rtx: "netvolante-dns hostname host pp1 myhost.netvolante.jp"
+      rtx: "netvolante-dns hostname host pp 1 myhost.aa0.netvolante.jp"
       terraform:
         netvolante:
-          - interface: "pp1"
-            hostname: "myhost.netvolante.jp"
+          - interface: "pp 1"
+            hostname: "myhost.aa0.netvolante.jp"
 
     - name: netvolante_hostname_lan
       rtx: "netvolante-dns hostname host lan1 router.netvolante.jp"
@@ -62,10 +63,10 @@ command:
           - timeout: 30
 
     - name: netvolante_use_ipv6_on
-      rtx: "netvolante-dns use ipv6 pp1 on"
+      rtx: "netvolante-dns use ipv6 pp 1 on"
       terraform:
         netvolante:
-          - interface: "pp1"
+          - interface: "pp 1"
             ipv6: true
 
     - name: netvolante_use_ipv6_off
@@ -76,17 +77,17 @@ command:
             ipv6: false
 
     - name: netvolante_auto_hostname_on
-      rtx: "netvolante-dns auto hostname pp1 on"
+      rtx: "netvolante-dns auto hostname pp 1 on"
       terraform:
         netvolante:
-          - interface: "pp1"
+          - interface: "pp 1"
             auto_hostname: true
 
     - name: netvolante_use_on
-      rtx: "netvolante-dns use pp1 on"
+      rtx: "netvolante-dns use pp 1 on"
       terraform:
         netvolante:
-          - interface: "pp1"
+          - interface: "pp 1"
             use: true
 
     - name: netvolante_use_off
@@ -97,10 +98,10 @@ command:
             use: false
 
     - name: netvolante_go
-      rtx: "netvolante-dns go pp1"
+      rtx: "netvolante-dns go pp 1"
       terraform:
         netvolante:
-          - interface: "pp1"
+          - interface: "pp 1"
       build_only: true
 
     # =============================================================================
@@ -139,9 +140,9 @@ command:
     # Delete Commands (build_only)
     # =============================================================================
     - name: delete_netvolante_hostname
-      rtx: "no netvolante-dns hostname host pp1"
+      rtx: "no netvolante-dns hostname host pp 1"
       terraform:
-        interface: "pp1"
+        interface: "pp 1"
       build_only: true
 
     - name: delete_ddns_server_url

@@ -46,24 +46,8 @@ func TestDNSRoundTrip_Parse(t *testing.T) {
 				}
 			},
 		},
-		{
-			name: "dns_domain_lookup_on",
-			rtx:  "dns domain lookup on",
-			checkFunc: func(t *testing.T, config *DNSConfig) {
-				if config.DomainLookup != true {
-					t.Errorf("DomainLookup = %v, want true", config.DomainLookup)
-				}
-			},
-		},
-		{
-			name: "dns_domain_lookup_off",
-			rtx:  "dns domain lookup off",
-			checkFunc: func(t *testing.T, config *DNSConfig) {
-				if config.DomainLookup != false {
-					t.Errorf("DomainLookup = %v, want false", config.DomainLookup)
-				}
-			},
-		},
+		// Note: dns domain lookup command does not exist in RTX Command Reference
+		// Removed dns_domain_lookup_on and dns_domain_lookup_off test cases
 		{
 			name: "dns_service_on",
 			rtx:  "dns service on",
@@ -93,11 +77,14 @@ func TestDNSRoundTrip_Parse(t *testing.T) {
 		},
 		{
 			name: "dns_static",
-			rtx:  "dns static myhost.local 192.168.1.100",
+			rtx:  "dns static a myhost.local 192.168.1.100",
 			checkFunc: func(t *testing.T, config *DNSConfig) {
 				if len(config.Hosts) != 1 {
 					t.Errorf("Hosts count = %v, want 1", len(config.Hosts))
 					return
+				}
+				if config.Hosts[0].Type != "a" {
+					t.Errorf("Hosts[0].Type = %v, want a", config.Hosts[0].Type)
 				}
 				if config.Hosts[0].Name != "myhost.local" {
 					t.Errorf("Hosts[0].Name = %v, want myhost.local", config.Hosts[0].Name)
@@ -175,20 +162,8 @@ func TestDNSRoundTrip_Build(t *testing.T) {
 			},
 			expectedRTX: "dns server 8.8.8.8 8.8.4.4",
 		},
-		{
-			name: "dns_domain_lookup_on",
-			buildFunc: func() string {
-				return BuildDNSDomainLookupCommand(true)
-			},
-			expectedRTX: "dns domain lookup on",
-		},
-		{
-			name: "dns_domain_lookup_off",
-			buildFunc: func() string {
-				return BuildDNSDomainLookupCommand(false)
-			},
-			expectedRTX: "no dns domain lookup",
-		},
+		// Note: dns domain lookup command does not exist in RTX Command Reference
+		// Removed dns_domain_lookup_on and dns_domain_lookup_off test cases
 		{
 			name: "dns_service_on",
 			buildFunc: func() string {
@@ -220,9 +195,9 @@ func TestDNSRoundTrip_Build(t *testing.T) {
 		{
 			name: "dns_static",
 			buildFunc: func() string {
-				return BuildDNSStaticCommand(DNSHost{Name: "myhost.local", Address: "192.168.1.100"})
+				return BuildDNSStaticCommand(DNSHost{Type: "a", Name: "myhost.local", Address: "192.168.1.100"})
 			},
-			expectedRTX: "dns static myhost.local 192.168.1.100",
+			expectedRTX: "dns static a myhost.local 192.168.1.100",
 		},
 		{
 			name: "dns_domain_name",
@@ -263,9 +238,9 @@ func TestDNSRoundTrip_Build(t *testing.T) {
 		{
 			name: "delete_dns_static",
 			buildFunc: func() string {
-				return BuildDeleteDNSStaticCommand("myhost.local")
+				return BuildDeleteDNSStaticCommand("a", "myhost.local")
 			},
-			expectedRTX: "no dns static myhost.local",
+			expectedRTX: "no dns static a myhost.local",
 		},
 		{
 			name: "delete_dns_server_select",
@@ -300,7 +275,7 @@ func TestDNSRoundTrip_ParseBuildParse(t *testing.T) {
 		},
 		{
 			name: "dns_static",
-			rtx:  "dns static myhost.local 192.168.1.100",
+			rtx:  "dns static a myhost.local 192.168.1.100",
 		},
 	}
 

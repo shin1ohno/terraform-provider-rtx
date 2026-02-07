@@ -9,7 +9,7 @@ import (
 
 // VLAN represents a VLAN configuration on an RTX router
 type VLAN struct {
-	VlanID        int    `json:"vlan_id"`              // VLAN ID (1-4094)
+	VlanID        int    `json:"vlan_id"`              // VLAN ID (2-4094, 1 is reserved)
 	Name          string `json:"name,omitempty"`       // VLAN name/description
 	Interface     string `json:"interface"`            // Parent interface (lan1, lan2)
 	VlanInterface string `json:"vlan_interface"`       // Computed: lan1/1, lan1/2, etc.
@@ -263,9 +263,9 @@ func BuildShowAllVLANsCommand() string {
 
 // ValidateVLAN validates a VLAN configuration
 func ValidateVLAN(vlan VLAN) error {
-	// Validate VLAN ID (1-4094)
-	if vlan.VlanID < 1 || vlan.VlanID > 4094 {
-		return fmt.Errorf("vlan_id must be between 1 and 4094, got %d", vlan.VlanID)
+	// Validate VLAN ID (2-4094, VLAN ID 1 is reserved)
+	if vlan.VlanID < 2 || vlan.VlanID > 4094 {
+		return fmt.Errorf("vlan_id must be 2-4094 (1 is reserved), got %d", vlan.VlanID)
 	}
 
 	// Validate interface name

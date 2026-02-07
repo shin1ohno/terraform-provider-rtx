@@ -431,9 +431,9 @@ func TestSpecVlanConfigRTXTerraformMapping(t *testing.T) {
 			buildOnly:     false,
 		},
 		{
-			name:          "vlan_create_vid_1",
-			rtxCommand:    `vlan lan1/3 802.1q vid=1`,
-			terraformJSON: `{"interface":"lan1","slot":3,"vlan_id":1}`,
+			name:          "vlan_create_vid_2",
+			rtxCommand:    `vlan lan1/3 802.1q vid=2`,
+			terraformJSON: `{"interface":"lan1","slot":3,"vlan_id":2}`,
 			parseOnly:     false,
 			buildOnly:     false,
 		},

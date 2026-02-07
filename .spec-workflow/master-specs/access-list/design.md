@@ -138,8 +138,8 @@ type AccessListExtendedIPv6Entry struct {
 ```go
 // IPFilter represents a static IP filter rule on an RTX router
 type IPFilter struct {
-    Number        int    `json:"number"`                // Filter number (1-2147483647)
-    Action        string `json:"action"`                // pass, reject, restrict, restrict-log
+    Number        int    `json:"number"`                // Filter number (1-65535)
+    Action        string `json:"action"`                // pass, reject, restrict
     SourceAddress string `json:"source_address"`        // Source IP/network or "*"
     SourceMask    string `json:"source_mask,omitempty"` // Source mask (for non-CIDR format)
     DestAddress   string `json:"dest_address"`          // Destination IP/network or "*"
@@ -335,7 +335,7 @@ ipv6 access-list extended ipv6-web
 
 **Create:**
 ```
-ip filter <number> pass|reject|restrict|restrict-log <src> <dest> <proto> [<src-port> <dst-port>] [established]
+ip filter <number> pass|reject|restrict <src> <dest> <proto> [<src-port> <dst-port>] [established]
 ```
 
 **Example:**
@@ -353,7 +353,7 @@ no ip filter <number>
 
 **Create:**
 ```
-ipv6 filter <number> pass|reject|restrict|restrict-log <src> <dest> <proto> [<src-port> <dst-port>]
+ipv6 filter <number> pass|reject|restrict <src> <dest> <proto> [<src-port> <dst-port>]
 ```
 
 **Example:**
@@ -735,3 +735,4 @@ internal/
 | 2026-02-01 | Implementation Audit | Verified alignment with Terraform Plugin Framework implementation |
 | 2026-02-01 | Structure Sync | Updated file paths to resources/{name}/ structure, added _apply and _dynamic resources |
 | 2026-02-07 | Implementation Audit | Full audit against implementation code; requirements.md updated with 5 new resources |
+| 2026-02-07 | RTX Reference Sync | IP Filter: action `restrict-nolog` removed (not in RTX reference), filter number range 1-65535 |

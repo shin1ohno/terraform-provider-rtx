@@ -1445,7 +1445,6 @@ type PPTPIPPool struct {
 
 // DNSConfig represents DNS server configuration on an RTX router
 type DNSConfig struct {
-	DomainLookup bool              `json:"domain_lookup"` // dns domain lookup enable/disable
 	DomainName   string            `json:"domain_name"`   // dns domain name
 	NameServers  []string          `json:"name_servers"`  // dns server <ip1> [<ip2>]
 	ServerSelect []DNSServerSelect `json:"server_select"` // dns server select entries
@@ -1471,9 +1470,12 @@ type DNSServerSelect struct {
 }
 
 // DNSHost represents a static DNS host entry
+// Reference: dns static <type> <name> <value> [ttl=<ttl>]
 type DNSHost struct {
-	Name    string `json:"name"`    // Hostname
-	Address string `json:"address"` // IP address
+	Type    string `json:"type"`    // Record type: a, aaaa, ptr, mx, ns, cname
+	Name    string `json:"name"`    // Hostname/FQDN
+	Address string `json:"address"` // IP address or value
+	TTL     int    `json:"ttl"`     // Optional TTL (0 = not specified)
 }
 
 // ClassMap represents a class-map configuration for traffic classification

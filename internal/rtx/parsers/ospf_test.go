@@ -60,25 +60,8 @@ ospf area 1 stub no-summary`,
 				Neighbors: []OSPFNeighbor{},
 			},
 		},
-		{
-			name: "OSPF with NSSA",
-			input: `ospf use on
-ospf router id 10.0.0.1
-ospf area 2 nssa
-ospf area 3 nssa no-summary`,
-			expected: &OSPFConfig{
-				Enabled:   true,
-				RouterID:  "10.0.0.1",
-				ProcessID: 1,
-				Distance:  110,
-				Networks:  []OSPFNetwork{},
-				Areas: []OSPFArea{
-					{ID: "2", Type: "nssa"},
-					{ID: "3", Type: "nssa", NoSummary: true},
-				},
-				Neighbors: []OSPFNeighbor{},
-			},
-		},
+		// Note: NSSA is not supported by RTX routers
+		// NSSA test case removed per RTX Command Reference
 		{
 			name: "OSPF with interface in area",
 			input: `ospf use on
@@ -102,18 +85,17 @@ ip lan2 ospf area 1`,
 			name: "OSPF with redistribution",
 			input: `ospf use on
 ospf router id 10.0.0.1
-ospf import from static
-ospf import from connected`,
+ospf import from static`,
 			expected: &OSPFConfig{
-				Enabled:               true,
-				RouterID:              "10.0.0.1",
-				ProcessID:             1,
-				Distance:              110,
-				Networks:              []OSPFNetwork{},
-				Areas:                 []OSPFArea{},
-				Neighbors:             []OSPFNeighbor{},
-				RedistributeStatic:    true,
-				RedistributeConnected: true,
+				Enabled:            true,
+				RouterID:           "10.0.0.1",
+				ProcessID:          1,
+				Distance:           110,
+				Networks:           []OSPFNetwork{},
+				Areas:              []OSPFArea{},
+				Neighbors:          []OSPFNeighbor{},
+				RedistributeStatic: true,
+				// Note: RTX supports ospf import from static, rip, bgp (not connected)
 			},
 		},
 		{
@@ -218,13 +200,7 @@ func TestBuildOSPFCommands(t *testing.T) {
 		}
 	})
 
-	t.Run("BuildOSPFAreaCommand nssa", func(t *testing.T) {
-		area := OSPFArea{ID: "2", Type: "nssa"}
-		expected := "ospf area 2 nssa"
-		if got := BuildOSPFAreaCommand(area); got != expected {
-			t.Errorf("BuildOSPFAreaCommand() = %v, want %v", got, expected)
-		}
-	})
+	// Note: NSSA test case removed - RTX does not support NSSA areas
 
 	t.Run("BuildIPOSPFAreaCommand", func(t *testing.T) {
 		expected := "ip lan1 ospf area 0"

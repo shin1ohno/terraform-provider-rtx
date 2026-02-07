@@ -200,15 +200,15 @@ Same create/read/update/delete semantics as IPv4 extended ACL.
 ##### Acceptance Criteria
 
 1. WHEN creating a filter THEN the system SHALL use the `ip filter` command
-2. WHEN specifying action THEN the system SHALL accept: pass, reject, restrict, restrict-log
+2. WHEN specifying action THEN the system SHALL accept: pass, reject, restrict
 3. WHEN specifying addresses THEN the system SHALL accept CIDR notation or "*"
 
 ### Schema Specification
 
 | Attribute | Type | Required | ForceNew | Computed | Description |
 |-----------|------|----------|----------|----------|-------------|
-| `sequence` | int | Yes | Yes | No | Filter number (1-2147483647) |
-| `action` | string | Yes | No | No | Action: pass, reject, restrict, restrict-log |
+| `sequence` | int | Yes | Yes | No | Filter number (1-65535) |
+| `action` | string | Yes | No | No | Action: pass, reject, restrict |
 | `source` | string | Yes | No | No | Source IP/CIDR or "*" |
 | `destination` | string | Yes | No | No | Destination IP/CIDR or "*" |
 | `protocol` | string | No | No | Yes | Protocol: tcp, udp, icmp, ip, gre, esp, ah, tcpfin, tcprst, * |
@@ -218,8 +218,8 @@ Same create/read/update/delete semantics as IPv4 extended ACL.
 
 ### Validation Rules
 
-1. `filter_id` must be between 1 and 2147483647
-2. `action` must be one of: pass, reject, restrict, restrict-log
+1. `filter_id` must be between 1 and 65535
+2. `action` must be one of: pass, reject, restrict
 3. `established` is only valid for TCP protocol
 
 ---
@@ -247,8 +247,8 @@ Same as `rtx_access_list_ip` with IPv6 addressing.
 
 | Attribute | Type | Required | ForceNew | Computed | Description |
 |-----------|------|----------|----------|----------|-------------|
-| `sequence` | int | Yes | Yes | No | Filter number (1-2147483647) |
-| `action` | string | Yes | No | No | Action: pass, reject, restrict, restrict-log |
+| `sequence` | int | Yes | Yes | No | Filter number (1-65535) |
+| `action` | string | Yes | No | No | Action: pass, reject, restrict |
 | `source` | string | Yes | No | No | Source IPv6/prefix or "*" |
 | `destination` | string | Yes | No | No | Destination IPv6/prefix or "*" |
 | `protocol` | string | Yes | No | No | Protocol: tcp, udp, icmp6, ip, *, gre, esp, ah |
@@ -257,8 +257,8 @@ Same as `rtx_access_list_ip` with IPv6 addressing.
 
 ### Validation Rules
 
-1. `filter_id` must be between 1 and 2147483647
-2. `action` must be one of: pass, reject, restrict, restrict-log
+1. `filter_id` must be between 1 and 65535
+2. `action` must be one of: pass, reject, restrict
 3. Protocol "icmp6" is IPv6-specific (not "icmp")
 
 ---
@@ -674,12 +674,12 @@ ip access-list extended <name>
 ipv6 access-list extended <name>
   <sequence> permit|deny <protocol> <source>/<len> <dest>/<len> [ports] [established] [log]
 
-# IP Filter (Native)
-ip filter <number> pass|reject|restrict|restrict-log <src> <dest> <proto> [ports] [established]
+# IP Filter (Native) - filter number 1-65535
+ip filter <number> pass|reject|restrict <src> <dest> <proto> [ports] [established]
 no ip filter <number>
 
-# IPv6 Filter (Native)
-ipv6 filter <number> pass|reject|restrict|restrict-log <src> <dest> <proto> [ports]
+# IPv6 Filter (Native) - filter number 1-65535
+ipv6 filter <number> pass|reject|restrict <src> <dest> <proto> [ports]
 no ipv6 filter <number>
 
 # Ethernet Filter (MAC)
@@ -888,3 +888,4 @@ resource "rtx_access_list_mac" "mac_filter" {
 |------|--------|---------|
 | 2025-01-23 | Implementation Analysis | Initial master spec created from implementation |
 | 2026-02-07 | Implementation Audit | Full audit: add 5 resources (ip_apply, ipv6_apply, mac_apply, ip_dynamic, ipv6_dynamic); integrate filter spec content; add parsing reliability requirements |
+| 2026-02-07 | RTX Reference Sync | IP Filter: action `restrict-nolog` removed (not in RTX reference), filter number range 1-65535 |

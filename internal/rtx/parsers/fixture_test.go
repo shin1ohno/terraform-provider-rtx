@@ -108,9 +108,7 @@ func TestFixture_DNSServerSelectMultiServer(t *testing.T) {
 	if !config.ServiceOn {
 		t.Error("DNS service should be on")
 	}
-	if !config.DomainLookup {
-		t.Error("DNS domain lookup should be on")
-	}
+	// Note: dns domain lookup command does not exist in RTX Command Reference
 	if config.DomainName != "example.local" {
 		t.Errorf("Expected domain name 'example.local', got %q", config.DomainName)
 	}

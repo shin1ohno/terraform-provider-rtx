@@ -15,7 +15,6 @@ import (
 // DNSServerModel describes the resource data model.
 type DNSServerModel struct {
 	ID                  types.String `tfsdk:"id"`
-	DomainLookup        types.Bool   `tfsdk:"domain_lookup"`
 	DomainName          types.String `tfsdk:"domain_name"`
 	NameServers         types.List   `tfsdk:"name_servers"`
 	ServerSelect        types.List   `tfsdk:"server_select"`

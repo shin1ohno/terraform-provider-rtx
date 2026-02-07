@@ -31,8 +31,8 @@ type OSPFNetwork struct {
 // OSPFArea represents an OSPF area configuration
 type OSPFArea struct {
 	ID        string `json:"id"`                   // Area ID (decimal or dotted decimal)
-	Type      string `json:"type,omitempty"`       // Area type: normal, stub, nssa
-	NoSummary bool   `json:"no_summary,omitempty"` // Totally stubby/NSSA (no summary LSAs)
+	Type      string `json:"type,omitempty"`       // Area type: normal, stub (RTX does not support nssa)
+	NoSummary bool   `json:"no_summary,omitempty"` // Totally stubby (no summary LSAs)
 }
 
 // OSPFNeighbor represents an OSPF neighbor configuration (for NBMA networks)
@@ -69,9 +69,9 @@ func (p *OSPFParser) ParseOSPFConfig(raw string) (*OSPFConfig, error) {
 	ospfRouterIDPattern := regexp.MustCompile(`^\s*ospf\s+router\s+id\s+([0-9.]+)\s*$`)
 	ospfAreaPattern := regexp.MustCompile(`^\s*ospf\s+area\s+([0-9.]+)\s*$`)
 	ospfAreaStubPattern := regexp.MustCompile(`^\s*ospf\s+area\s+([0-9.]+)\s+stub(?:\s+(no-summary))?\s*$`)
-	ospfAreaNSSAPattern := regexp.MustCompile(`^\s*ospf\s+area\s+([0-9.]+)\s+nssa(?:\s+(no-summary))?\s*$`)
+	// Note: RTX does not support NSSA areas
 	ospfImportStaticPattern := regexp.MustCompile(`^\s*ospf\s+import\s+from\s+static\s*$`)
-	ospfImportConnectedPattern := regexp.MustCompile(`^\s*ospf\s+import\s+from\s+connected\s*$`)
+	// Note: RTX supports ospf import from static, rip, bgp (not connected)
 	// ip <interface> ospf area <area>
 	ipOspfAreaPattern := regexp.MustCompile(`^\s*ip\s+(\S+)\s+ospf\s+area\s+([0-9.]+)\s*$`)
 
@@ -117,20 +117,7 @@ func (p *OSPFParser) ParseOSPFConfig(raw string) (*OSPFConfig, error) {
 			continue
 		}
 
-		// OSPF area NSSA
-		if matches := ospfAreaNSSAPattern.FindStringSubmatch(line); len(matches) >= 2 {
-			areaID := matches[1]
-			area, exists := areas[areaID]
-			if !exists {
-				area = &OSPFArea{ID: areaID}
-				areas[areaID] = area
-			}
-			area.Type = "nssa"
-			if len(matches) > 2 && matches[2] == "no-summary" {
-				area.NoSummary = true
-			}
-			continue
-		}
+		// Note: NSSA is not supported by RTX routers
 
 		// ip <interface> ospf area <area>
 		if matches := ipOspfAreaPattern.FindStringSubmatch(line); len(matches) >= 3 {
@@ -150,11 +137,7 @@ func (p *OSPFParser) ParseOSPFConfig(raw string) (*OSPFConfig, error) {
 			continue
 		}
 
-		// OSPF redistribute connected
-		if ospfImportConnectedPattern.MatchString(line) {
-			config.RedistributeConnected = true
-			continue
-		}
+		// Note: RTX supports ospf import from static, rip, bgp (not connected)
 	}
 
 	// Convert areas map to slice
@@ -184,18 +167,13 @@ func BuildOSPFRouterIDCommand(routerID string) string {
 }
 
 // BuildOSPFAreaCommand builds the command to configure an OSPF area
-// Command format: ospf area <area_id> [stub|nssa] [no-summary]
+// Command format: ospf area <area_id> [stub] [no-summary]
+// Note: RTX does not support NSSA areas
 func BuildOSPFAreaCommand(area OSPFArea) string {
 	cmd := fmt.Sprintf("ospf area %s", area.ID)
 
-	switch area.Type {
-	case "stub":
+	if area.Type == "stub" {
 		cmd += " stub"
-		if area.NoSummary {
-			cmd += " no-summary"
-		}
-	case "nssa":
-		cmd += " nssa"
 		if area.NoSummary {
 			cmd += " no-summary"
 		}
@@ -254,8 +232,8 @@ func ValidateOSPFConfig(config OSPFConfig) error {
 		if !isValidAreaID(area.ID) {
 			return fmt.Errorf("invalid area id: %s (must be decimal or dotted decimal)", area.ID)
 		}
-		if area.Type != "" && area.Type != "normal" && area.Type != "stub" && area.Type != "nssa" {
-			return fmt.Errorf("invalid area type: %s (must be normal, stub, or nssa)", area.Type)
+		if area.Type != "" && area.Type != "normal" && area.Type != "stub" {
+			return fmt.Errorf("invalid area type: %s (must be normal or stub)", area.Type)
 		}
 	}
 

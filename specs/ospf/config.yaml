@@ -87,20 +87,18 @@ command:
             type: "stub"
             no_summary: true
 
-    - name: ospf_area_nssa
-      rtx: "ospf area 2 nssa"
-      terraform:
-        areas:
-          - id: "2"
-            type: "nssa"
+    # Note: NSSA is NOT supported on RTX routers according to reference
+    # ospf area command only supports: backbone, normal area, stub area
+    # Removed: ospf_area_nssa and ospf_area_nssa_no_summary
 
-    - name: ospf_area_nssa_no_summary
-      rtx: "ospf area 2 nssa no-summary"
+    # OSPF area with stub cost
+    - name: ospf_area_stub_with_cost
+      rtx: "ospf area 1 stub cost=10"
       terraform:
         areas:
-          - id: "2"
-            type: "nssa"
-            no_summary: true
+          - id: "1"
+            type: "stub"
+            cost: 10
 
     # =============================================================================
     # Interface OSPF Area
@@ -134,10 +132,25 @@ command:
       terraform:
         redistribute_static: true
 
-    - name: ospf_import_connected
-      rtx: "ospf import from connected"
+    # Note: 'connected' is NOT a valid protocol for ospf import from
+    # Reference only supports: static, rip, bgp
+    # Removed: ospf_import_connected
+
+    - name: ospf_import_rip
+      rtx: "ospf import from rip"
       terraform:
-        redistribute_connected: true
+        redistribute_rip: true
+
+    - name: ospf_import_bgp
+      rtx: "ospf import from bgp"
+      terraform:
+        redistribute_bgp: true
+
+    - name: ospf_import_static_with_filter
+      rtx: "ospf import from static filter 1 2"
+      terraform:
+        redistribute_static: true
+        filters: [1, 2]
 
     # =============================================================================
     # Delete Commands (build_only)
@@ -173,45 +186,46 @@ command:
       terraform:
         area: "4294967295"
 
-    - name: ospf_network_class_a
-      rtx: "ospf network 10.0.0.0/8 area 0"
-      description: "クラスAネットワーク"
-      terraform:
-        network: "10.0.0.0/8"
-        area: 0
+    # Note: 'ospf network' command does NOT exist in RTX
+    # Use 'ospf area network <area> <network>/<mask>' instead for route summarization
+    # Removed: ospf_network_class_a, ospf_network_class_b
 
-    - name: ospf_network_class_b
-      rtx: "ospf network 172.16.0.0/12 area 0"
-      description: "クラスBネットワーク"
+    - name: ospf_area_network_summarize
+      rtx: "ospf area network 1 192.168.0.0/16"
+      description: "エリア間経路集約"
       terraform:
-        network: "172.16.0.0/12"
-        area: 0
+        area: "1"
+        network: "192.168.0.0"
+        mask: 16
 
-    - name: ospf_cost_min
-      rtx: "ospf interface cost lan1 1"
-      description: "コスト最小"
+    - name: ospf_area_network_restrict
+      rtx: "ospf area network 1 10.0.0.0/8 restrict"
+      description: "経路広告抑制"
+      terraform:
+        area: "1"
+        network: "10.0.0.0"
+        mask: 8
+        restrict: true
+
+    # Note: 'ospf interface cost' command does NOT exist in RTX
+    # Use 'ip <interface> ospf area <area> cost=<value>' instead
+    # Removed: ospf_cost_min, ospf_cost_max
+
+    - name: ip_ospf_area_with_cost
+      rtx: "ip lan1 ospf area 1 cost=10"
+      description: "インタフェースコスト指定"
       terraform:
         interface: "lan1"
-        cost: 1
+        area: "1"
+        cost: 10
 
-    - name: ospf_cost_max
-      rtx: "ospf interface cost lan1 65535"
-      description: "コスト最大"
+    - name: ip_ospf_area_with_priority
+      rtx: "ip lan1 ospf area 1 priority=0"
+      description: "DR選出無効化"
       terraform:
         interface: "lan1"
-        cost: 65535
-
-    - name: ospf_redistribute_static
-      rtx: "ospf import from static"
-      description: "スタティック再配布"
-      terraform:
-        redistribute_static: true
-
-    - name: ospf_redistribute_connected
-      rtx: "ospf import from connected"
-      description: "直接接続再配布"
-      terraform:
-        redistribute_connected: true
+        area: "1"
+        priority: 0
 
 
   boundary_tests:
@@ -231,12 +245,15 @@ command:
         description: "ドット形式"
 
     area_type:
+      # Reference: NSSA is NOT supported on RTX routers
       - value: "normal"
         valid: true
       - value: "stub"
         valid: true
       - value: "nssa"
-        valid: true
+        valid: false
+        description: "NSSAはRTXでサポートされていない"
+        error_contains: "invalid area type"
       - value: "invalid"
         valid: false
         error_contains: "invalid area type"

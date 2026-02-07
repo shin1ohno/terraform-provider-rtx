@@ -41,7 +41,8 @@ type IPFilterSet struct {
 }
 
 // ValidIPFilterActions defines the valid actions for IP filters
-var ValidIPFilterActions = []string{"pass", "reject", "restrict", "restrict-log", "restrict-nolog"}
+// Reference: RTX Command Reference - pass, pass-log, pass-nolog, reject, reject-log, reject-nolog, restrict, restrict-log, restrict-nolog
+var ValidIPFilterActions = []string{"pass", "pass-log", "pass-nolog", "reject", "reject-log", "reject-nolog", "restrict", "restrict-log", "restrict-nolog"}
 
 // ValidIPFilterProtocols defines the valid protocols for IP filters
 var ValidIPFilterProtocols = []string{"tcp", "udp", "icmp", "ip", "*", "gre", "esp", "ah", "icmp6", "tcpfin", "tcprst", "tcpsyn", "established"}
@@ -123,7 +124,7 @@ func ParseIPFilterDynamicConfig(raw string) ([]IPFilterDynamic, error) {
 	// Pattern for dynamic IP filter:
 	// ip filter dynamic <n> <src> <dst> <protocol> [options]
 	dynamicPattern := regexp.MustCompile(`^\s*ip\s+filter\s+dynamic\s+(\d+)\s+(\S+)\s+(\S+)\s+(\S+)(?:\s+(.*))?$`)
-	syslogPattern := regexp.MustCompile(`\bsyslog\s+on\b`)
+	syslogPattern := regexp.MustCompile(`\bsyslog=on\b`)
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -298,7 +299,7 @@ func BuildIPFilterCommand(filter IPFilter) string {
 }
 
 // BuildIPFilterDynamicCommand builds the command to create a dynamic IP filter
-// Command format: ip filter dynamic <n> <src> <dst> <protocol> [syslog on]
+// Command format: ip filter dynamic <n> <src> <dst> <protocol> [syslog=on]
 func BuildIPFilterDynamicCommand(filter IPFilterDynamic) string {
 	parts := []string{
 		"ip", "filter", "dynamic",
@@ -309,7 +310,7 @@ func BuildIPFilterDynamicCommand(filter IPFilterDynamic) string {
 	}
 
 	if filter.SyslogOn {
-		parts = append(parts, "syslog", "on")
+		parts = append(parts, "syslog=on")
 	}
 
 	return strings.Join(parts, " ")
@@ -372,10 +373,10 @@ func BuildShowIPFilterByNumberCommand(number int) string {
 }
 
 // ValidateIPFilterNumber validates that the filter number is in valid range.
-// RTX routers support filter numbers up to 2147483647, but practical usage is typically under 1000000.
+// Reference: RTX Command Reference - filter numbers are 1-65535
 func ValidateIPFilterNumber(n int) error {
-	if n < 1 || n > 2147483647 {
-		return fmt.Errorf("filter number must be between 1 and 2147483647, got %d", n)
+	if n < 1 || n > 65535 {
+		return fmt.Errorf("filter number must be between 1 and 65535, got %d", n)
 	}
 	return nil
 }
@@ -782,7 +783,7 @@ func ParseIPv6FilterDynamicConfig(raw string) ([]IPFilterDynamic, error) {
 	// Pattern for dynamic IPv6 filter:
 	// ipv6 filter dynamic <n> <src> <dst> <protocol> [options]
 	dynamicPattern := regexp.MustCompile(`^\s*ipv6\s+filter\s+dynamic\s+(\d+)\s+(\S+)\s+(\S+)\s+(\S+)(?:\s+(.*))?$`)
-	syslogPattern := regexp.MustCompile(`\bsyslog\s+on\b`)
+	syslogPattern := regexp.MustCompile(`\bsyslog=on\b`)
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -818,7 +819,7 @@ func ParseIPv6FilterDynamicConfig(raw string) ([]IPFilterDynamic, error) {
 }
 
 // BuildIPv6FilterDynamicCommand builds the command to create a dynamic IPv6 filter
-// Command format: ipv6 filter dynamic <n> <src> <dst> <protocol> [syslog on]
+// Command format: ipv6 filter dynamic <n> <src> <dst> <protocol> [syslog=on]
 func BuildIPv6FilterDynamicCommand(filter IPFilterDynamic) string {
 	parts := []string{
 		"ipv6", "filter", "dynamic",
@@ -829,7 +830,7 @@ func BuildIPv6FilterDynamicCommand(filter IPFilterDynamic) string {
 	}
 
 	if filter.SyslogOn {
-		parts = append(parts, "syslog", "on")
+		parts = append(parts, "syslog=on")
 	}
 
 	return strings.Join(parts, " ")
@@ -973,15 +974,15 @@ func BuildDeleteInterfaceIPv6SecureFilterCommand(iface string, direction string)
 
 // ParseIPFilterDynamicConfigExtended parses the output of "show config" for dynamic IP filter lines
 // Handles both forms:
-// Form 1: ip filter dynamic <id> <src> <dst> <protocol> [syslog on|off] [timeout=N]
-// Form 2: ip filter dynamic <id> <src> <dst> filter <list> [in <list>] [out <list>] [syslog on|off] [timeout=N]
+// Form 1: ip filter dynamic <id> <src> <dst> <protocol> [syslog=on|off] [timeout=N]
+// Form 2: ip filter dynamic <id> <src> <dst> filter <list> [in <list>] [out <list>] [syslog=on|off] [timeout=N]
 func ParseIPFilterDynamicConfigExtended(raw string) ([]IPFilterDynamic, error) {
 	filters := []IPFilterDynamic{}
 	lines := strings.Split(raw, "\n")
 
 	// Pattern for dynamic IP filter lines
 	dynamicPattern := regexp.MustCompile(`^\s*ip\s+filter\s+dynamic\s+(\d+)\s+(\S+)\s+(\S+)\s+(.+)$`)
-	syslogOnPattern := regexp.MustCompile(`\bsyslog\s+on\b`)
+	syslogOnPattern := regexp.MustCompile(`\bsyslog=on\b`)
 	timeoutPattern := regexp.MustCompile(`\btimeout=(\d+)\b`)
 	filterListPattern := regexp.MustCompile(`^filter\s+(.+)`)
 
@@ -1061,8 +1062,8 @@ func parseFilterLists(filter *IPFilterDynamic, remainder string) {
 			state = "out"
 			continue
 		}
-		// Check for options (syslog, timeout)
-		if part == "syslog" || strings.HasPrefix(part, "timeout=") {
+		// Check for options (syslog=on, timeout=N)
+		if strings.HasPrefix(part, "syslog=") || strings.HasPrefix(part, "timeout=") {
 			break // Options are handled separately
 		}
 
@@ -1089,8 +1090,8 @@ func parseFilterLists(filter *IPFilterDynamic, remainder string) {
 
 // BuildIPFilterDynamicCommandExtended builds the command to create a dynamic IP filter
 // Handles both forms:
-// Form 1: ip filter dynamic <id> <src> <dst> <protocol> [syslog on|off] [timeout=N]
-// Form 2: ip filter dynamic <id> <src> <dst> filter <list> [in <list>] [out <list>] [syslog on|off] [timeout=N]
+// Form 1: ip filter dynamic <id> <src> <dst> <protocol> [syslog=on|off] [timeout=N]
+// Form 2: ip filter dynamic <id> <src> <dst> filter <list> [in <list>] [out <list>] [syslog=on|off] [timeout=N]
 func BuildIPFilterDynamicCommandExtended(filter IPFilterDynamic) string {
 	parts := []string{
 		"ip", "filter", "dynamic",
@@ -1127,7 +1128,7 @@ func BuildIPFilterDynamicCommandExtended(filter IPFilterDynamic) string {
 
 	// Add syslog option
 	if filter.SyslogOn {
-		parts = append(parts, "syslog", "on")
+		parts = append(parts, "syslog=on")
 	}
 
 	// Add timeout option

@@ -260,7 +260,7 @@ func TestParseIPFilterDynamicConfig(t *testing.T) {
 		},
 		{
 			name:  "dynamic filter with syslog",
-			input: "ip filter dynamic 20 * * www syslog on",
+			input: "ip filter dynamic 20 * * www syslog=on",
 			expected: []IPFilterDynamic{
 				{
 					Number:   20,
@@ -287,7 +287,7 @@ func TestParseIPFilterDynamicConfig(t *testing.T) {
 			name: "multiple dynamic filters",
 			input: `ip filter dynamic 10 * * ftp
 ip filter dynamic 20 * * www
-ip filter dynamic 30 * * smtp syslog on`,
+ip filter dynamic 30 * * smtp syslog=on`,
 			expected: []IPFilterDynamic{
 				{Number: 10, Source: "*", Dest: "*", Protocol: "ftp"},
 				{Number: 20, Source: "*", Dest: "*", Protocol: "www"},
@@ -612,7 +612,7 @@ func TestBuildIPFilterDynamicCommand(t *testing.T) {
 				Protocol: "www",
 				SyslogOn: true,
 			},
-			expected: "ip filter dynamic 20 * * www syslog on",
+			expected: "ip filter dynamic 20 * * www syslog=on",
 		},
 		{
 			name: "dynamic filter with source network",
@@ -846,23 +846,25 @@ func TestValidateIPFilterNumber(t *testing.T) {
 			name:    "zero",
 			number:  0,
 			wantErr: true,
-			errMsg:  "filter number must be between 1 and 2147483647",
+			errMsg:  "filter number must be between 1 and 65535",
 		},
 		{
 			name:    "negative",
 			number:  -1,
 			wantErr: true,
-			errMsg:  "filter number must be between 1 and 2147483647",
+			errMsg:  "filter number must be between 1 and 65535",
 		},
 		{
-			name:    "large valid (200000)",
+			name:    "too large (200000)",
 			number:  200000,
-			wantErr: false,
+			wantErr: true,
+			errMsg:  "filter number must be between 1 and 65535",
 		},
 		{
-			name:    "large valid (500000)",
+			name:    "too large (500000)",
 			number:  500000,
-			wantErr: false,
+			wantErr: true,
+			errMsg:  "filter number must be between 1 and 65535",
 		},
 	}
 
@@ -942,6 +944,7 @@ func TestValidateIPFilterAction(t *testing.T) {
 		{name: "reject", action: "reject", wantErr: false},
 		{name: "restrict", action: "restrict", wantErr: false},
 		{name: "restrict-log", action: "restrict-log", wantErr: false},
+		// restrict-nolog is a valid action in RTX Command Reference
 		{name: "restrict-nolog", action: "restrict-nolog", wantErr: false},
 		{name: "uppercase PASS", action: "PASS", wantErr: false},
 		{name: "invalid action", action: "allow", wantErr: true},
@@ -1005,7 +1008,7 @@ func TestValidateIPFilter(t *testing.T) {
 				Protocol:      "tcp",
 			},
 			wantErr: true,
-			errMsg:  "filter number must be between 1 and 2147483647",
+			errMsg:  "filter number must be between 1 and 65535",
 		},
 		{
 			name: "invalid action",
@@ -1125,7 +1128,7 @@ func TestValidateIPFilterDynamic(t *testing.T) {
 				Protocol: "ftp",
 			},
 			wantErr: true,
-			errMsg:  "filter number must be between 1 and 2147483647",
+			errMsg:  "filter number must be between 1 and 65535",
 		},
 		{
 			name: "empty source",
@@ -1348,8 +1351,8 @@ func TestParseIPFilterDynamicConfigExtended(t *testing.T) {
 		},
 		// Form 1 with syslog option
 		{
-			name:  "Form 1 - with syslog on",
-			input: "ip filter dynamic 100 * * ftp syslog on",
+			name:  "Form 1 - with syslog=on",
+			input: "ip filter dynamic 100 * * ftp syslog=on",
 			expected: []IPFilterDynamic{
 				{
 					Number:   100,
@@ -1402,8 +1405,8 @@ func TestParseIPFilterDynamicConfigExtended(t *testing.T) {
 		},
 		// Form 1 with combined options
 		{
-			name:  "Form 1 - syslog on and timeout",
-			input: "ip filter dynamic 140 * * smtp syslog on timeout=120",
+			name:  "Form 1 - syslog=on and timeout",
+			input: "ip filter dynamic 140 * * smtp syslog=on timeout=120",
 			expected: []IPFilterDynamic{
 				{
 					Number:   140,
@@ -1416,8 +1419,8 @@ func TestParseIPFilterDynamicConfigExtended(t *testing.T) {
 			},
 		},
 		{
-			name:  "Form 1 - timeout and syslog on (reverse order)",
-			input: "ip filter dynamic 150 * * pop3 timeout=60 syslog on",
+			name:  "Form 1 - timeout and syslog=on (reverse order)",
+			input: "ip filter dynamic 150 * * pop3 timeout=60 syslog=on",
 			expected: []IPFilterDynamic{
 				{
 					Number:   150,
@@ -1510,8 +1513,8 @@ func TestParseIPFilterDynamicConfigExtended(t *testing.T) {
 		},
 		// Form 2 with options
 		{
-			name:  "Form 2 - filter with syslog on",
-			input: "ip filter dynamic 260 * * filter 100 syslog on",
+			name:  "Form 2 - filter with syslog=on",
+			input: "ip filter dynamic 260 * * filter 100 syslog=on",
 			expected: []IPFilterDynamic{
 				{
 					Number:     260,
@@ -1537,7 +1540,7 @@ func TestParseIPFilterDynamicConfigExtended(t *testing.T) {
 		},
 		{
 			name:  "Form 2 - full configuration",
-			input: "ip filter dynamic 280 192.168.1.0/24 10.0.0.0/8 filter 100 101 in 200 out 300 syslog on timeout=120",
+			input: "ip filter dynamic 280 192.168.1.0/24 10.0.0.0/8 filter 100 101 in 200 out 300 syslog=on timeout=120",
 			expected: []IPFilterDynamic{
 				{
 					Number:        280,
@@ -1555,7 +1558,7 @@ func TestParseIPFilterDynamicConfigExtended(t *testing.T) {
 		{
 			name: "Multiple dynamic filters - mixed forms",
 			input: `ip filter dynamic 10 * * ftp
-ip filter dynamic 20 * * www syslog on
+ip filter dynamic 20 * * www syslog=on
 ip filter dynamic 30 * * filter 100 101 in 200 out 300
 ip filter dynamic 40 192.168.1.0/24 * tcp timeout=60`,
 			expected: []IPFilterDynamic{
@@ -1684,7 +1687,7 @@ func TestBuildIPFilterDynamicCommandExtended(t *testing.T) {
 			expected: "ip filter dynamic 20 192.168.1.0/24 10.0.0.0/8 www",
 		},
 		{
-			name: "Form 1 - with syslog on",
+			name: "Form 1 - with syslog=on",
 			filter: IPFilterDynamic{
 				Number:   30,
 				Source:   "*",
@@ -1692,7 +1695,7 @@ func TestBuildIPFilterDynamicCommandExtended(t *testing.T) {
 				Protocol: "smtp",
 				SyslogOn: true,
 			},
-			expected: "ip filter dynamic 30 * * smtp syslog on",
+			expected: "ip filter dynamic 30 * * smtp syslog=on",
 		},
 		{
 			name: "Form 1 - with timeout",
@@ -1706,7 +1709,7 @@ func TestBuildIPFilterDynamicCommandExtended(t *testing.T) {
 			expected: "ip filter dynamic 40 * * tcp timeout=60",
 		},
 		{
-			name: "Form 1 - with syslog on and timeout",
+			name: "Form 1 - with syslog=on and timeout",
 			filter: IPFilterDynamic{
 				Number:   50,
 				Source:   "*",
@@ -1715,7 +1718,7 @@ func TestBuildIPFilterDynamicCommandExtended(t *testing.T) {
 				SyslogOn: true,
 				Timeout:  &timeout120,
 			},
-			expected: "ip filter dynamic 50 * * udp syslog on timeout=120",
+			expected: "ip filter dynamic 50 * * udp syslog=on timeout=120",
 		},
 		{
 			name: "Form 1 - extended protocol https",
@@ -1813,7 +1816,7 @@ func TestBuildIPFilterDynamicCommandExtended(t *testing.T) {
 			expected: "ip filter dynamic 140 * * filter 100 101 in 200 out 300",
 		},
 		{
-			name: "Form 2 - filter with syslog on",
+			name: "Form 2 - filter with syslog=on",
 			filter: IPFilterDynamic{
 				Number:     150,
 				Source:     "*",
@@ -1821,7 +1824,7 @@ func TestBuildIPFilterDynamicCommandExtended(t *testing.T) {
 				FilterList: []int{100},
 				SyslogOn:   true,
 			},
-			expected: "ip filter dynamic 150 * * filter 100 syslog on",
+			expected: "ip filter dynamic 150 * * filter 100 syslog=on",
 		},
 		{
 			name: "Form 2 - filter with timeout",
@@ -1846,7 +1849,7 @@ func TestBuildIPFilterDynamicCommandExtended(t *testing.T) {
 				SyslogOn:      true,
 				Timeout:       &timeout120,
 			},
-			expected: "ip filter dynamic 170 192.168.1.0/24 10.0.0.0/8 filter 100 101 in 200 201 out 300 301 syslog on timeout=120",
+			expected: "ip filter dynamic 170 192.168.1.0/24 10.0.0.0/8 filter 100 101 in 200 201 out 300 301 syslog=on timeout=120",
 		},
 		// Edge cases
 		{
@@ -1901,7 +1904,7 @@ func TestParseAndBuildRoundTripExtended(t *testing.T) {
 		},
 		{
 			name:  "Form 1 - with syslog",
-			input: "ip filter dynamic 30 * * smtp syslog on",
+			input: "ip filter dynamic 30 * * smtp syslog=on",
 		},
 		{
 			name:  "Form 1 - with timeout",
@@ -1909,7 +1912,7 @@ func TestParseAndBuildRoundTripExtended(t *testing.T) {
 		},
 		{
 			name:  "Form 1 - with syslog and timeout",
-			input: "ip filter dynamic 50 * * udp syslog on timeout=120",
+			input: "ip filter dynamic 50 * * udp syslog=on timeout=120",
 		},
 		// Form 2 cases
 		{
@@ -1930,7 +1933,7 @@ func TestParseAndBuildRoundTripExtended(t *testing.T) {
 		},
 		{
 			name:  "Form 2 - full config",
-			input: "ip filter dynamic 140 192.168.1.0/24 * filter 100 101 in 200 out 300 syslog on timeout=60",
+			input: "ip filter dynamic 140 192.168.1.0/24 * filter 100 101 in 200 out 300 syslog=on timeout=60",
 		},
 	}
 
@@ -2077,8 +2080,8 @@ func TestParseIPv6FilterDynamicConfig(t *testing.T) {
 			},
 		},
 		{
-			name:  "with syslog on",
-			input: "ipv6 filter dynamic 100 * * ftp syslog on",
+			name:  "with syslog=on",
+			input: "ipv6 filter dynamic 100 * * ftp syslog=on",
 			expected: []IPFilterDynamic{
 				{
 					Number:   100,
@@ -2136,9 +2139,9 @@ ipv6 filter dynamic 80 * * udp`,
 		},
 		{
 			name: "multiple filters with syslog options",
-			input: `ipv6 filter dynamic 10 * * ftp syslog on
+			input: `ipv6 filter dynamic 10 * * ftp syslog=on
 ipv6 filter dynamic 20 * * www
-ipv6 filter dynamic 30 * * smtp syslog on`,
+ipv6 filter dynamic 30 * * smtp syslog=on`,
 			expected: []IPFilterDynamic{
 				{Number: 10, Source: "*", Dest: "*", Protocol: "ftp", SyslogOn: true},
 				{Number: 20, Source: "*", Dest: "*", Protocol: "www", SyslogOn: false},
@@ -2253,7 +2256,7 @@ func TestBuildIPv6FilterDynamicCommand(t *testing.T) {
 				Protocol: "www",
 				SyslogOn: true,
 			},
-			expected: "ipv6 filter dynamic 30 * * www syslog on",
+			expected: "ipv6 filter dynamic 30 * * www syslog=on",
 		},
 		{
 			name: "smtp protocol with IPv6 network",
@@ -2284,7 +2287,7 @@ func TestBuildIPv6FilterDynamicCommand(t *testing.T) {
 				Protocol: "submission",
 				SyslogOn: true,
 			},
-			expected: "ipv6 filter dynamic 60 * * submission syslog on",
+			expected: "ipv6 filter dynamic 60 * * submission syslog=on",
 		},
 	}
 
@@ -2346,7 +2349,7 @@ func TestParseAndBuildIPv6DynamicRoundTrip(t *testing.T) {
 		},
 		{
 			name:  "with syslog",
-			input: "ipv6 filter dynamic 40 * * smtp syslog on",
+			input: "ipv6 filter dynamic 40 * * smtp syslog=on",
 		},
 		{
 			name:  "with IPv6 network",

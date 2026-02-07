@@ -378,13 +378,22 @@ func TestValidateVLAN(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "VLAN ID too low",
+			name: "VLAN ID too low (0)",
 			vlan: VLAN{
 				VlanID:    0,
 				Interface: "lan1",
 			},
 			wantErr: true,
-			errMsg:  "vlan_id must be between 1 and 4094",
+			errMsg:  "vlan_id must be 2-4094",
+		},
+		{
+			name: "VLAN ID 1 is reserved",
+			vlan: VLAN{
+				VlanID:    1,
+				Interface: "lan1",
+			},
+			wantErr: true,
+			errMsg:  "vlan_id must be 2-4094",
 		},
 		{
 			name: "VLAN ID too high",
@@ -393,7 +402,7 @@ func TestValidateVLAN(t *testing.T) {
 				Interface: "lan1",
 			},
 			wantErr: true,
-			errMsg:  "vlan_id must be between 1 and 4094",
+			errMsg:  "vlan_id must be 2-4094",
 		},
 		{
 			name: "empty interface",
@@ -456,15 +465,15 @@ func TestValidateVLAN(t *testing.T) {
 			errMsg:  "invalid IP mask",
 		},
 		{
-			name: "valid VLAN ID 1",
+			name: "valid VLAN ID 2 (minimum)",
 			vlan: VLAN{
-				VlanID:    1,
+				VlanID:    2,
 				Interface: "lan1",
 			},
 			wantErr: false,
 		},
 		{
-			name: "valid VLAN ID 4094",
+			name: "valid VLAN ID 4094 (maximum)",
 			vlan: VLAN{
 				VlanID:    4094,
 				Interface: "lan1",

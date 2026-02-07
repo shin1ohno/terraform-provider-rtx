@@ -210,7 +210,7 @@ func TestIPFilterDynamicRoundTrip_Parse(t *testing.T) {
 		},
 		{
 			name: "dynamic_filter_with_syslog",
-			rtx:  "ip filter dynamic 2 * * www syslog on",
+			rtx:  "ip filter dynamic 2 * * www syslog=on",
 			checkFunc: func(t *testing.T, filters []IPFilterDynamic) {
 				if len(filters) != 1 {
 					t.Errorf("Filters count = %v, want 1", len(filters))
@@ -264,7 +264,7 @@ func TestIPFilterRoundTrip_BuildDynamic(t *testing.T) {
 					SyslogOn: true,
 				})
 			},
-			expectedRTX: "ip filter dynamic 2 * * www syslog on",
+			expectedRTX: "ip filter dynamic 2 * * www syslog=on",
 		},
 		{
 			name: "delete_dynamic_filter",

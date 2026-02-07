@@ -63,14 +63,7 @@ func (s *DNSService) Configure(ctx context.Context, config DNSConfig) error {
 	default:
 	}
 
-	// Configure domain lookup
-	if !config.DomainLookup {
-		cmd := parsers.BuildDNSDomainLookupCommand(false)
-		logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Setting domain lookup with command: %s", cmd)
-		if _, err := s.executor.Run(ctx, cmd); err != nil {
-			return fmt.Errorf("failed to set domain lookup: %w", err)
-		}
-	}
+	// Note: dns domain lookup command does not exist in RTX Command Reference
 
 	// Configure domain name
 	if config.DomainName != "" {
@@ -167,14 +160,7 @@ func (s *DNSService) Update(ctx context.Context, config DNSConfig) error {
 		currentConfig = &DNSConfig{}
 	}
 
-	// Update domain lookup
-	if config.DomainLookup != currentConfig.DomainLookup {
-		cmd := parsers.BuildDNSDomainLookupCommand(config.DomainLookup)
-		logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Updating domain lookup with command: %s", cmd)
-		if _, err := s.executor.Run(ctx, cmd); err != nil {
-			return fmt.Errorf("failed to update domain lookup: %w", err)
-		}
-	}
+	// Note: dns domain lookup command does not exist in RTX Command Reference
 
 	// Update domain name
 	if config.DomainName != currentConfig.DomainName {
@@ -249,7 +235,7 @@ func (s *DNSService) Update(ctx context.Context, config DNSConfig) error {
 			}
 		}
 		if !found {
-			cmd := parsers.BuildDeleteDNSStaticCommand(currentHost.Name)
+			cmd := parsers.BuildDeleteDNSStaticCommand(currentHost.Type, currentHost.Name)
 			logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Removing DNS static host %s with command: %s", currentHost.Name, cmd)
 			_, _ = s.executor.Run(ctx, cmd)
 		}
@@ -257,8 +243,10 @@ func (s *DNSService) Update(ctx context.Context, config DNSConfig) error {
 	// Add/update new entries
 	for _, host := range config.Hosts {
 		parserHost := parsers.DNSHost{
+			Type:    host.Type,
 			Name:    host.Name,
 			Address: host.Address,
+			TTL:     host.TTL,
 		}
 		cmd := parsers.BuildDNSStaticCommand(parserHost)
 		if cmd == "" {
@@ -323,7 +311,7 @@ func (s *DNSService) Reset(ctx context.Context) error {
 
 	// Remove static hosts
 	for _, host := range currentConfig.Hosts {
-		cmd := parsers.BuildDeleteDNSStaticCommand(host.Name)
+		cmd := parsers.BuildDeleteDNSStaticCommand(host.Type, host.Name)
 		logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Removing DNS static host %s with command: %s", host.Name, cmd)
 		_, _ = s.executor.Run(ctx, cmd)
 	}
@@ -357,13 +345,14 @@ func (s *DNSService) toParserConfig(config DNSConfig) parsers.DNSConfig {
 	hosts := make([]parsers.DNSHost, len(config.Hosts))
 	for i, host := range config.Hosts {
 		hosts[i] = parsers.DNSHost{
+			Type:    host.Type,
 			Name:    host.Name,
 			Address: host.Address,
+			TTL:     host.TTL,
 		}
 	}
 
 	return parsers.DNSConfig{
-		DomainLookup: config.DomainLookup,
 		DomainName:   config.DomainName,
 		NameServers:  config.NameServers,
 		ServerSelect: serverSelect,
@@ -383,13 +372,14 @@ func (s *DNSService) fromParserConfig(parserConfig *parsers.DNSConfig) DNSConfig
 	hosts := make([]DNSHost, len(parserConfig.Hosts))
 	for i, host := range parserConfig.Hosts {
 		hosts[i] = DNSHost{
+			Type:    host.Type,
 			Name:    host.Name,
 			Address: host.Address,
+			TTL:     host.TTL,
 		}
 	}
 
 	return DNSConfig{
-		DomainLookup: parserConfig.DomainLookup,
 		DomainName:   parserConfig.DomainName,
 		NameServers:  parserConfig.NameServers,
 		ServerSelect: serverSelect,

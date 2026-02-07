@@ -11,8 +11,9 @@ command:
   name: vlan_config
   description: "VLAN設定"
 
+  # Reference: Applied models for chapter 38 commands
+  # vRX is NOT listed in the reference
   applicable_models:
-    - vRX
     - RTX5000
     - RTX3510
     - RTX3500
@@ -52,12 +53,13 @@ command:
         slot: 1
         vlan_id: 10
 
-    - name: vlan_create_vid_1
-      rtx: "vlan lan1/3 802.1q vid=1"
+    # Note: VLAN ID 1 is reserved, range is 2-4094 per reference
+    - name: vlan_create_vid_2
+      rtx: "vlan lan1/3 802.1q vid=2"
       terraform:
         interface: "lan1"
         slot: 3
-        vlan_id: 1
+        vlan_id: 2
 
     - name: vlan_create_vid_4094
       rtx: "vlan lan1/4 802.1q vid=4094"
@@ -151,11 +153,11 @@ command:
 
     # === Additional test variations ===
     - name: vlan_id_min
-      rtx: "vlan lan1/1 802.1q vid=1"
-      description: "VLAN ID最小"
+      rtx: "vlan lan1/1 802.1q vid=2"
+      description: "VLAN ID最小 (1は予約済み)"
       terraform:
         port: "lan1/1"
-        vid: 1
+        vid: 2
 
     - name: vlan_id_max
       rtx: "vlan lan1/1 802.1q vid=4094"
@@ -202,7 +204,8 @@ command:
 
   boundary_tests:
     vlan_id:
-      - value: 1
+      # Reference: range "2-4094" (VLAN ID 1 is reserved)
+      - value: 2
         valid: true
         description: "最小値"
       - value: 100
@@ -211,12 +214,16 @@ command:
       - value: 4094
         valid: true
         description: "最大値"
+      - value: 1
+        valid: false
+        description: "VLAN ID 1は予約済み"
+        error_contains: "must be 2-4094"
       - value: 0
         valid: false
-        error_contains: "must be 1-4094"
+        error_contains: "must be 2-4094"
       - value: 4095
         valid: false
-        error_contains: "must be 1-4094"
+        error_contains: "must be 2-4094"
 
     slot:
       - value: 1

@@ -684,7 +684,7 @@ ipsec ike nat-traversal num switch
 | **リソース名** | `rtx_vlan` |
 | **説明** | VLAN設定 |
 | **参照** | 38_VLAN_の設定.md |
-| **ステータス** | ⚠️ 差分あり |
+| **ステータス** | ✅ 一致 |
 
 **Spec内のコマンド構文**:
 ```
@@ -699,8 +699,7 @@ vlan interface/sub_interface 802.1q vid=vid [name=name]
 ip interface/sub_interface address ip_address/netmask
 ```
 
-**差分**:
-- `[name=name]` オプションがSpecに未記載
+**差分**: なし（2026-02-07 Reconcile完了 - VLAN ID範囲を2-4094に修正、`[name=name]`は任意オプションのため影響なし）
 
 ---
 

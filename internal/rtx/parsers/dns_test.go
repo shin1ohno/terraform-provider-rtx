@@ -98,10 +98,12 @@ dns server select 2 10.0.0.1 edns=on 10.0.0.2 edns=on any .
 }
 
 func TestParseDNSConfig_StaticHosts(t *testing.T) {
+	// Reference: dns static <type> <name> <value> [ttl=<ttl>]
 	raw := `
-dns static myhost.local 192.168.1.100
-dns static server1.example.com 10.0.0.1
-dns static router.home 192.168.1.1
+dns static a myhost.local 192.168.1.100
+dns static a server1.example.com 10.0.0.1
+dns static aaaa router.home 2001:db8::1
+dns static a router.home 192.168.1.1 ttl=3600
 `
 	parser := NewDNSParser()
 	config, err := parser.ParseDNSConfig(raw)
@@ -109,60 +111,34 @@ dns static router.home 192.168.1.1
 		t.Fatalf("Failed to parse DNS config: %v", err)
 	}
 
-	if len(config.Hosts) != 3 {
-		t.Fatalf("Expected 3 static hosts, got %d", len(config.Hosts))
+	if len(config.Hosts) != 4 {
+		t.Fatalf("Expected 4 static hosts, got %d", len(config.Hosts))
 	}
 
 	// Check first host
+	if config.Hosts[0].Type != "a" {
+		t.Errorf("Expected type 'a', got '%s'", config.Hosts[0].Type)
+	}
 	if config.Hosts[0].Name != "myhost.local" {
 		t.Errorf("Expected hostname 'myhost.local', got '%s'", config.Hosts[0].Name)
 	}
 	if config.Hosts[0].Address != "192.168.1.100" {
 		t.Errorf("Expected address '192.168.1.100', got '%s'", config.Hosts[0].Address)
 	}
-}
 
-func TestParseDNSConfig_DomainLookup(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected bool
-	}{
-		{
-			name:     "domain lookup on",
-			input:    "dns domain lookup on",
-			expected: true,
-		},
-		{
-			name:     "domain lookup off",
-			input:    "dns domain lookup off",
-			expected: false,
-		},
-		{
-			name:     "no domain lookup",
-			input:    "no dns domain lookup",
-			expected: false,
-		},
-		{
-			name:     "default (no config)",
-			input:    "",
-			expected: true,
-		},
+	// Check third host (aaaa type)
+	if config.Hosts[2].Type != "aaaa" {
+		t.Errorf("Expected type 'aaaa', got '%s'", config.Hosts[2].Type)
 	}
 
-	parser := NewDNSParser()
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			config, err := parser.ParseDNSConfig(tt.input)
-			if err != nil {
-				t.Fatalf("Failed to parse: %v", err)
-			}
-			if config.DomainLookup != tt.expected {
-				t.Errorf("Expected DomainLookup=%v, got %v", tt.expected, config.DomainLookup)
-			}
-		})
+	// Check fourth host with TTL
+	if config.Hosts[3].TTL != 3600 {
+		t.Errorf("Expected TTL 3600, got %d", config.Hosts[3].TTL)
 	}
 }
+
+// Note: dns domain lookup command does not exist in RTX Command Reference
+// Removed TestParseDNSConfig_DomainLookup test
 
 func TestParseDNSConfig_ServiceAndSpoof(t *testing.T) {
 	tests := []struct {
@@ -228,13 +204,12 @@ func TestParseDNSConfig_ServiceAndSpoof(t *testing.T) {
 
 func TestParseDNSConfig_FullConfiguration(t *testing.T) {
 	raw := `
-dns domain lookup on
 dns domain example.com
 dns server 8.8.8.8 1.1.1.1
 dns server select 1 192.168.1.1 internal.example.com
 dns server select 2 10.0.0.1 *.local
-dns static router 192.168.1.1
-dns static nas 192.168.1.10
+dns static a router.local 192.168.1.1
+dns static a nas.local 192.168.1.10
 dns service on
 dns private address spoof on
 `
@@ -244,9 +219,6 @@ dns private address spoof on
 		t.Fatalf("Failed to parse DNS config: %v", err)
 	}
 
-	if !config.DomainLookup {
-		t.Error("Expected DomainLookup to be true")
-	}
 	if config.DomainName != "example.com" {
 		t.Errorf("Expected domain 'example.com', got '%s'", config.DomainName)
 	}
@@ -614,6 +586,7 @@ func TestBuildDNSServerSelectCommand(t *testing.T) {
 }
 
 func TestBuildDNSStaticCommand(t *testing.T) {
+	// Reference: dns static <type> <name> <value> [ttl=<ttl>]
 	tests := []struct {
 		name     string
 		host     DNSHost
@@ -621,17 +594,32 @@ func TestBuildDNSStaticCommand(t *testing.T) {
 	}{
 		{
 			name:     "valid host",
-			host:     DNSHost{Name: "myhost", Address: "192.168.1.100"},
-			expected: "dns static myhost 192.168.1.100",
+			host:     DNSHost{Type: "a", Name: "myhost", Address: "192.168.1.100"},
+			expected: "dns static a myhost 192.168.1.100",
+		},
+		{
+			name:     "valid host with ttl",
+			host:     DNSHost{Type: "a", Name: "myhost", Address: "192.168.1.100", TTL: 3600},
+			expected: "dns static a myhost 192.168.1.100 ttl=3600",
+		},
+		{
+			name:     "aaaa record",
+			host:     DNSHost{Type: "aaaa", Name: "myhost", Address: "2001:db8::1"},
+			expected: "dns static aaaa myhost 2001:db8::1",
+		},
+		{
+			name:     "empty type",
+			host:     DNSHost{Type: "", Name: "myhost", Address: "192.168.1.100"},
+			expected: "",
 		},
 		{
 			name:     "empty name",
-			host:     DNSHost{Name: "", Address: "192.168.1.100"},
+			host:     DNSHost{Type: "a", Name: "", Address: "192.168.1.100"},
 			expected: "",
 		},
 		{
 			name:     "empty address",
-			host:     DNSHost{Name: "myhost", Address: ""},
+			host:     DNSHost{Type: "a", Name: "myhost", Address: ""},
 			expected: "",
 		},
 	}
@@ -665,14 +653,8 @@ func TestBuildDNSPrivateSpoofCommand(t *testing.T) {
 	}
 }
 
-func TestBuildDNSDomainLookupCommand(t *testing.T) {
-	if result := BuildDNSDomainLookupCommand(true); result != "dns domain lookup on" {
-		t.Errorf("Expected 'dns domain lookup on', got '%s'", result)
-	}
-	if result := BuildDNSDomainLookupCommand(false); result != "no dns domain lookup" {
-		t.Errorf("Expected 'no dns domain lookup', got '%s'", result)
-	}
-}
+// Note: dns domain lookup command does not exist in RTX Command Reference
+// Removed TestBuildDNSDomainLookupCommand test
 
 func TestBuildDNSDomainNameCommand(t *testing.T) {
 	if result := BuildDNSDomainNameCommand("example.com"); result != "dns domain example.com" {
@@ -690,8 +672,8 @@ func TestBuildDeleteDNSCommands(t *testing.T) {
 	if result := BuildDeleteDNSServerSelectCommand(5); result != "no dns server select 5" {
 		t.Errorf("Expected 'no dns server select 5', got '%s'", result)
 	}
-	if result := BuildDeleteDNSStaticCommand("myhost"); result != "no dns static myhost" {
-		t.Errorf("Expected 'no dns static myhost', got '%s'", result)
+	if result := BuildDeleteDNSStaticCommand("a", "myhost"); result != "no dns static a myhost" {
+		t.Errorf("Expected 'no dns static a myhost', got '%s'", result)
 	}
 	if result := BuildDeleteDNSDomainNameCommand(); result != "no dns domain" {
 		t.Errorf("Expected 'no dns domain', got '%s'", result)
@@ -783,25 +765,43 @@ func TestValidateDNSConfig(t *testing.T) {
 			name: "valid static host",
 			config: DNSConfig{
 				Hosts: []DNSHost{
-					{Name: "myhost", Address: "192.168.1.100"},
+					{Type: "a", Name: "myhost", Address: "192.168.1.100"},
 				},
 			},
 			expectErr: false,
 		},
 		{
-			name: "static host empty name",
+			name: "static host missing type",
 			config: DNSConfig{
 				Hosts: []DNSHost{
-					{Name: "", Address: "192.168.1.100"},
+					{Type: "", Name: "myhost", Address: "192.168.1.100"},
 				},
 			},
 			expectErr: true,
 		},
 		{
-			name: "static host invalid address",
+			name: "static host invalid type",
 			config: DNSConfig{
 				Hosts: []DNSHost{
-					{Name: "myhost", Address: "invalid"},
+					{Type: "invalid", Name: "myhost", Address: "192.168.1.100"},
+				},
+			},
+			expectErr: true,
+		},
+		{
+			name: "static host empty name",
+			config: DNSConfig{
+				Hosts: []DNSHost{
+					{Type: "a", Name: "", Address: "192.168.1.100"},
+				},
+			},
+			expectErr: true,
+		},
+		{
+			name: "static host empty address",
+			config: DNSConfig{
+				Hosts: []DNSHost{
+					{Type: "a", Name: "myhost", Address: ""},
 				},
 			},
 			expectErr: true,

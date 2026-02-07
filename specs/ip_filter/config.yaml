@@ -155,7 +155,8 @@ command:
         protocol: "dns"
 
     - name: dynamic_filter_with_syslog
-      rtx: "ip filter dynamic 110 * * tcp syslog on"
+      # Reference: option syslog=on|off (= 形式)
+      rtx: "ip filter dynamic 110 * * tcp syslog=on"
       terraform:
         number: 110
         source: "*"
@@ -270,18 +271,23 @@ command:
 
   boundary_tests:
     filter_number:
+      # Reference: range "1-65535"
       - value: 1
         valid: true
+        description: "最小値"
       - value: 65535
         valid: true
-      - value: 2147483647
-        valid: true
         description: "最大値"
+      - value: 65536
+        valid: false
+        description: "範囲外"
+        error_contains: "must be between 1 and 65535"
       - value: 0
         valid: false
         error_contains: "must be positive"
 
     action:
+      # Reference: values [pass, reject, restrict, restrict-log]
       - value: "pass"
         valid: true
       - value: "reject"
@@ -291,7 +297,17 @@ command:
       - value: "restrict-log"
         valid: true
       - value: "restrict-nolog"
-        valid: true
+        valid: false
+        description: "リファレンスに存在しないアクション"
+        error_contains: "invalid action"
+      - value: "pass-log"
+        valid: false
+        description: "リファレンスに存在しないアクション"
+        error_contains: "invalid action"
+      - value: "reject-log"
+        valid: false
+        description: "リファレンスに存在しないアクション"
+        error_contains: "invalid action"
       - value: "drop"
         valid: false
         error_contains: "invalid action"

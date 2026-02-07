@@ -1,11 +1,12 @@
 # Schedule Command Specification
-# Reference: RTX Command Reference
+# Reference: RTX Command Reference Chapter 37
 #
 # Covers:
-# - schedule at ID TIME COMMAND: 時刻指定スケジュール（毎日繰り返し）
-# - schedule at ID startup COMMAND: 起動時スケジュール
-# - schedule at ID DATE TIME COMMAND: 日時指定スケジュール（1回のみ）
-# - schedule pp N DAY TIME ACTION: PP接続スケジュール
+# - schedule at ID [DATE] TIME * COMMAND: 時刻指定スケジュール
+# - schedule at ID startup * COMMAND: 起動時スケジュール
+# - schedule at ID DATE TIME * COMMAND: 日時指定スケジュール（月/日形式）
+# - schedule at ID DATE TIME pp N COMMAND: PP接続コンテキストスケジュール
+# - schedule at ID +TIMER * COMMAND: タイマー形式スケジュール
 
 command:
   name: schedule
@@ -23,12 +24,15 @@ command:
     - RTX830
 
   syntax:
-    set_time: "schedule at {id} {time} {command}"
-    set_startup: "schedule at {id} startup {command}"
-    set_datetime: "schedule at {id} {date} {time} {command}"
-    set_pp: "schedule pp {pp_num} {day_of_week} {time} {action}"
+    # Reference: schedule at <id> [<date>] <time> * <command>
+    set_time: "schedule at {id} {time} * {command}"
+    set_startup: "schedule at {id} startup * {command}"
+    set_datetime: "schedule at {id} {date} {time} * {command}"
+    set_pp: "schedule at {id} {date} {time} pp {pp_num} {command}"
+    set_tunnel: "schedule at {id} {date} {time} tunnel {tunnel_num} {command}"
+    set_switch: "schedule at {id} {date} {time} switch {switch} {command}"
+    set_timer: "schedule at {id} +{timer} * {command}"
     delete: "no schedule at {id}"
-    delete_pp: "no schedule pp {pp_num} {day_of_week} {time}"
 
   terraform:
     resource_name: rtx_schedule
@@ -50,10 +54,10 @@ command:
       pattern: "\\d{1,2}:\\d{2}"
 
     date:
-      description: "実行日（YYYY/MM/DD形式）"
+      description: "実行日（月/日形式、例: 1/1, */mon-fri, */*）"
       required: false
       type: string
-      pattern: "\\d{4}/\\d{2}/\\d{2}"
+      pattern: "(\\d{1,2}|\\*)/((\\d{1,2})|\\*|(mon|tue|wed|thu|fri|sat|sun)(-|,)?)+|\\d{4}/\\d{1,2}/\\d{1,2}"
 
     day_of_week:
       description: "曜日指定（mon, tue, wed, thu, fri, sat, sun、範囲形式 mon-fri、カンマ区切り sat,sun）"
@@ -67,15 +71,23 @@ command:
       type: integer
       range: [1, 150]
 
-    action:
-      description: "PP操作（connect/disconnect）"
+    timer:
+      description: "タイマー秒数（+N形式で指定）"
       required: false
-      type: enum
-      enum_values:
-        - value: "connect"
-          description: "接続"
-        - value: "disconnect"
-          description: "切断"
+      type: integer
+      range: [1, 3600]
+
+    tunnel_num:
+      description: "トンネル番号"
+      required: false
+      type: integer
+      range: [1, 65535]
+
+    switch:
+      description: "スイッチ識別子（MACアドレスまたはパス）"
+      required: false
+      type: string
+      examples: ["00:a0:de:01:02:03", "lan1:4"]
 
     command:
       description: "実行コマンド"
@@ -85,18 +97,19 @@ command:
   syntax_tests:
     # =============================================================================
     # Time-based schedules (daily recurring)
+    # Reference: schedule at <id> <time> * <command>
     # =============================================================================
     - name: schedule_at_time_noon
-      rtx: "schedule at 1 12:00 ping 8.8.8.8"
+      rtx: "schedule at 1 8:00 * pp auth accept on"
       terraform:
         id: 1
-        at_time: "12:00"
+        at_time: "8:00"
         recurring: true
         enabled: true
-        commands: ["ping 8.8.8.8"]
+        commands: ["pp auth accept on"]
 
     - name: schedule_at_time_midnight
-      rtx: "schedule at 2 0:00 save"
+      rtx: "schedule at 2 0:00 * save"
       terraform:
         id: 2
         at_time: "0:00"
@@ -104,47 +117,30 @@ command:
         enabled: true
         commands: ["save"]
 
-    - name: schedule_at_time_late
-      rtx: "schedule at 3 23:59 restart"
+    - name: schedule_at_time_wildcard
+      rtx: "schedule at 1 12:*:00 * lua script.lua"
       terraform:
-        id: 3
-        at_time: "23:59"
+        id: 1
+        at_time: "12:*:00"
         recurring: true
         enabled: true
-        commands: ["restart"]
-
-    - name: schedule_at_time_morning
-      rtx: "schedule at 10 6:30 show environment"
-      terraform:
-        id: 10
-        at_time: "6:30"
-        recurring: true
-        enabled: true
-        commands: ["show environment"]
-
-    - name: schedule_at_time_afternoon
-      rtx: "schedule at 100 14:15 show status pp 1"
-      terraform:
-        id: 100
-        at_time: "14:15"
-        recurring: true
-        enabled: true
-        commands: ["show status pp 1"]
+        commands: ["lua script.lua"]
 
     # =============================================================================
     # Startup schedules
+    # Reference: schedule at <id> startup * <command>
     # =============================================================================
-    - name: schedule_at_startup_pp_select
-      rtx: "schedule at 1 startup pp select 1"
+    - name: schedule_at_startup
+      rtx: "schedule at 1 startup * console info on"
       terraform:
         id: 1
         on_startup: true
         recurring: false
         enabled: true
-        commands: ["pp select 1"]
+        commands: ["console info on"]
 
     - name: schedule_at_startup_connect
-      rtx: "schedule at 2 startup connect pp 1"
+      rtx: "schedule at 2 startup * connect pp 1"
       terraform:
         id: 2
         on_startup: true
@@ -152,109 +148,157 @@ command:
         enabled: true
         commands: ["connect pp 1"]
 
-    - name: schedule_at_startup_tunnel
-      rtx: "schedule at 3 startup tunnel select 1"
-      terraform:
-        id: 3
-        on_startup: true
-        recurring: false
-        enabled: true
-        commands: ["tunnel select 1"]
-
-    - name: schedule_at_startup_save
-      rtx: "schedule at 100 startup save"
-      terraform:
-        id: 100
-        on_startup: true
-        recurring: false
-        enabled: true
-        commands: ["save"]
-
     # =============================================================================
-    # Date/time schedules (one-time)
+    # Date/time schedules
+    # Reference: date format is month/day (e.g., 1/1, */mon-fri, */* for daily)
     # =============================================================================
     - name: schedule_at_datetime_new_year
-      rtx: "schedule at 1 2025/01/01 0:00 restart"
+      rtx: "schedule at 1 1/1 0:0 * ip route 192.168.0.0/24 gateway pp 2"
       terraform:
         id: 1
-        date: "2025/01/01"
-        at_time: "0:00"
-        recurring: false
+        date: "1/1"
+        at_time: "0:0"
+        recurring: true
         enabled: true
-        commands: ["restart"]
+        commands: ["ip route 192.168.0.0/24 gateway pp 2"]
 
     - name: schedule_at_datetime_year_end
-      rtx: "schedule at 2 2024/12/31 23:59 save"
+      rtx: "schedule at 2 2024/12/31 23:59 * restart"
       terraform:
         id: 2
         date: "2024/12/31"
         at_time: "23:59"
         recurring: false
         enabled: true
-        commands: ["save"]
+        commands: ["restart"]
 
-    - name: schedule_at_datetime_maintenance
-      rtx: "schedule at 10 2025/06/15 3:00 cold start"
+    - name: schedule_at_weekday
+      rtx: "schedule at 1 */mon-fri 8:00 * pp auth accept on"
       terraform:
-        id: 10
-        date: "2025/06/15"
-        at_time: "3:00"
-        recurring: false
-        enabled: true
-        commands: ["cold start"]
-
-    # =============================================================================
-    # PP schedules (weekday-based connection control)
-    # =============================================================================
-    - name: schedule_pp_weekday_connect
-      rtx: "schedule pp 1 mon-fri 8:00 connect"
-      terraform:
-        id: -1
-        day_of_week: "mon-fri"
+        id: 1
+        date: "*/mon-fri"
         at_time: "8:00"
         recurring: true
         enabled: true
-        commands: ["connect"]
+        commands: ["pp auth accept on"]
 
-    - name: schedule_pp_weekday_disconnect
-      rtx: "schedule pp 1 mon-fri 18:00 disconnect"
+    - name: schedule_at_weekend
+      rtx: "schedule at 1 */sat,sun 9:00 * nat masquerade on"
       terraform:
-        id: -1
-        day_of_week: "mon-fri"
-        at_time: "18:00"
-        recurring: true
-        enabled: true
-        commands: ["disconnect"]
-
-    - name: schedule_pp_weekend_connect
-      rtx: "schedule pp 2 sat,sun 9:00 connect"
-      terraform:
-        id: -2
-        day_of_week: "sat,sun"
+        id: 1
+        date: "*/sat,sun"
         at_time: "9:00"
         recurring: true
         enabled: true
-        commands: ["connect"]
+        commands: ["nat masquerade on"]
 
-    - name: schedule_pp_single_day
-      rtx: "schedule pp 1 mon 7:00 connect"
+    - name: schedule_at_daily
+      rtx: "schedule at 1 */* 03:00 * restart"
       terraform:
-        id: -1
-        day_of_week: "mon"
-        at_time: "7:00"
+        id: 1
+        date: "*/*"
+        at_time: "03:00"
         recurring: true
         enabled: true
-        commands: ["connect"]
+        commands: ["restart"]
 
-    - name: schedule_pp_multi_day
-      rtx: "schedule pp 3 mon,wed,fri 12:00 connect"
+    # =============================================================================
+    # PP context schedules
+    # Reference: schedule at <id> [<date>] <time> pp <peer_num> <command>
+    # =============================================================================
+    - name: schedule_pp_weekday_connect
+      rtx: "schedule at 1 */mon-fri 8:00 pp 1 isdn auto connect on"
       terraform:
-        id: -3
-        day_of_week: "mon,wed,fri"
-        at_time: "12:00"
+        id: 1
+        date: "*/mon-fri"
+        at_time: "8:00"
+        pp_num: 1
         recurring: true
         enabled: true
-        commands: ["connect"]
+        commands: ["isdn auto connect on"]
+
+    - name: schedule_pp_weekday_disconnect
+      rtx: "schedule at 2 */mon-fri 17:00 pp 1 isdn auto connect off"
+      terraform:
+        id: 2
+        date: "*/mon-fri"
+        at_time: "17:00"
+        pp_num: 1
+        recurring: true
+        enabled: true
+        commands: ["isdn auto connect off"]
+
+    - name: schedule_pp_hourly
+      rtx: "schedule at 1 *:00 pp 1 isdn auto connect on"
+      terraform:
+        id: 1
+        at_time: "*:00"
+        pp_num: 1
+        recurring: true
+        enabled: true
+        commands: ["isdn auto connect on"]
+
+    # =============================================================================
+    # Tunnel context schedules
+    # Reference: schedule at <id> [<date>] <time> tunnel <tunnel_num> <command>
+    # =============================================================================
+    - name: schedule_tunnel_daily
+      rtx: "schedule at 1 8:00 tunnel 1 ipsec sa delete 1"
+      terraform:
+        id: 1
+        at_time: "8:00"
+        tunnel_num: 1
+        recurring: true
+        enabled: true
+        commands: ["ipsec sa delete 1"]
+
+    # =============================================================================
+    # Switch context schedules
+    # Reference: schedule at <id> [<date>] <time> switch <switch> <command>
+    # =============================================================================
+    - name: schedule_switch_by_mac
+      rtx: "schedule at 1 */* 03:00 switch 00:a0:de:01:02:03 switch control function execute restart"
+      terraform:
+        id: 1
+        date: "*/*"
+        at_time: "03:00"
+        switch: "00:a0:de:01:02:03"
+        recurring: true
+        enabled: true
+        commands: ["switch control function execute restart"]
+
+    - name: schedule_switch_by_path
+      rtx: "schedule at 2 */* 03:00 switch lan1:4 switch control function execute restart"
+      terraform:
+        id: 2
+        date: "*/*"
+        at_time: "03:00"
+        switch: "lan1:4"
+        recurring: true
+        enabled: true
+        commands: ["switch control function execute restart"]
+
+    # =============================================================================
+    # Timer schedules (+delay)
+    # Reference: schedule at <id> +<timer> * <command>
+    # =============================================================================
+    - name: schedule_timer_restart
+      rtx: "schedule at 1 +600 * restart"
+      terraform:
+        id: 1
+        timer: 600
+        recurring: false
+        enabled: true
+        commands: ["restart"]
+
+    - name: schedule_timer_syslog
+      rtx: "schedule at 2 +60 * syslog notice 'Timer expired'"
+      terraform:
+        id: 2
+        timer: 60
+        recurring: false
+        enabled: true
+        commands: ["syslog notice 'Timer expired'"]
 
     # =============================================================================
     # Delete schedules (build_only)
@@ -271,61 +315,38 @@ command:
         id: 100
       build_only: true
 
-    - name: delete_schedule_pp_weekday
-      rtx: "no schedule pp 1 mon-fri 8:00"
-      terraform:
-        pp_num: 1
-        day_of_week: "mon-fri"
-        at_time: "8:00"
-      build_only: true
-
-    - name: delete_schedule_pp_weekend
-      rtx: "no schedule pp 2 sat,sun 9:00"
-      terraform:
-        pp_num: 2
-        day_of_week: "sat,sun"
-        at_time: "9:00"
-      build_only: true
-
     # =============================================================================
     # Multiline Configuration Parse Test
     # =============================================================================
     - name: multiple_schedules
       rtx: |
-        schedule at 1 12:00 save
-        schedule at 2 startup connect pp 1
-        schedule at 3 2025/01/01 0:00 restart
-        schedule pp 1 mon-fri 8:00 connect
-        schedule pp 1 mon-fri 18:00 disconnect
+        schedule at 1 8:00 * pp auth accept on
+        schedule at 2 startup * console info on
+        schedule at 3 */mon-fri 17:00 pp 1 isdn auto connect off
+        schedule at 4 +600 * restart
       terraform:
         - id: 1
-          at_time: "12:00"
+          at_time: "8:00"
           recurring: true
           enabled: true
-          commands: ["save"]
+          commands: ["pp auth accept on"]
         - id: 2
           on_startup: true
           recurring: false
           enabled: true
-          commands: ["connect pp 1"]
+          commands: ["console info on"]
         - id: 3
-          date: "2025/01/01"
-          at_time: "0:00"
+          date: "*/mon-fri"
+          at_time: "17:00"
+          pp_num: 1
+          recurring: true
+          enabled: true
+          commands: ["isdn auto connect off"]
+        - id: 4
+          timer: 600
           recurring: false
           enabled: true
           commands: ["restart"]
-        - id: -1
-          day_of_week: "mon-fri"
-          at_time: "8:00"
-          recurring: true
-          enabled: true
-          commands: ["connect"]
-        - id: -1
-          day_of_week: "mon-fri"
-          at_time: "18:00"
-          recurring: true
-          enabled: true
-          commands: ["disconnect"]
       parse_only: true
 
   # =============================================================================
@@ -386,56 +407,43 @@ command:
         valid: false
         error_contains: "must be 0-59"
 
-    year:
-      - value: 2000
-        valid: true
-        description: "最小年"
-      - value: 2025
-        valid: true
-        description: "現在年付近"
-      - value: 2099
-        valid: true
-        description: "最大年"
-      - value: 1999
-        valid: false
-        error_contains: "must be 2000-2099"
-      - value: 2100
-        valid: false
-        error_contains: "must be 2000-2099"
-
-    month:
+    timer:
       - value: 1
         valid: true
-        description: "1月"
-      - value: 6
+        description: "最小値"
+      - value: 600
         valid: true
-        description: "6月"
-      - value: 12
+        description: "10分"
+      - value: 3600
         valid: true
-        description: "12月"
+        description: "最大値（1時間）"
       - value: 0
         valid: false
-        error_contains: "must be 1-12"
-      - value: 13
+        error_contains: "must be 1-3600"
+      - value: 3601
         valid: false
-        error_contains: "must be 1-12"
+        error_contains: "must be 1-3600"
 
-    day:
-      - value: 1
+    date:
+      # Reference: 月/日 形式
+      - value: "1/1"
         valid: true
-        description: "1日"
-      - value: 15
+        description: "1月1日"
+      - value: "*/mon-fri"
         valid: true
-        description: "中旬"
-      - value: 31
+        description: "毎月の月〜金"
+      - value: "*/*"
         valid: true
-        description: "31日"
-      - value: 0
-        valid: false
-        error_contains: "must be 1-31"
-      - value: 32
-        valid: false
-        error_contains: "must be 1-31"
+        description: "毎日"
+      - value: "*/sat,sun"
+        valid: true
+        description: "毎月の土日"
+      - value: "12/31"
+        valid: true
+        description: "12月31日"
+      - value: "2024/12/31"
+        valid: true
+        description: "完全日付形式（一度限り）"
 
     day_of_week:
       - value: "mon"

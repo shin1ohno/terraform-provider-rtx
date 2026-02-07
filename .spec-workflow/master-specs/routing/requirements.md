@@ -130,7 +130,7 @@ These routing resources directly support the product's goal of enabling Infrastr
 
 ##### Create
 - Configure OSPF router ID (required)
-- Configure OSPF areas with their types (normal, stub, nssa)
+- Configure OSPF areas with their types (normal, stub)
 - Assign interfaces to OSPF areas
 - Enable route redistribution if specified
 - Enable OSPF service (`ospf use on`)
@@ -171,9 +171,9 @@ These routing resources directly support the product's goal of enabling Infrastr
 **Acceptance Criteria:**
 1. WHEN an area with type "normal" is defined THEN the system SHALL configure `ospf area <id>`
 2. WHEN an area with type "stub" is defined THEN the system SHALL configure `ospf area <id> stub`
-3. WHEN an area with type "nssa" is defined THEN the system SHALL configure `ospf area <id> nssa`
-4. WHEN no_summary is true for stub/nssa THEN the system SHALL append `no-summary`
-5. WHEN area ID is provided as dotted decimal THEN the system SHALL accept it (e.g., "0.0.0.0")
+3. WHEN no_summary is true for stub THEN the system SHALL append `no-summary`
+4. WHEN area ID is provided as dotted decimal THEN the system SHALL accept it (e.g., "0.0.0.0")
+5. RTX does NOT support NSSA area type (only normal and stub)
 
 ##### Requirement 3: Interface Area Assignment
 
@@ -189,8 +189,8 @@ These routing resources directly support the product's goal of enabling Infrastr
 
 **Acceptance Criteria:**
 1. WHEN redistribute_static is true THEN the system SHALL configure `ospf import from static`
-2. WHEN redistribute_connected is true THEN the system SHALL configure `ospf import from connected`
-3. WHEN redistribution is disabled THEN the system SHALL configure `no ospf import from <type>`
+2. WHEN redistribution is disabled THEN the system SHALL configure `no ospf import from <type>`
+3. RTX supports redistribution from: static, rip, bgp (NOT connected)
 
 ---
 
@@ -284,7 +284,7 @@ These routing resources directly support the product's goal of enabling Infrastr
 ### Validation
 - ASN validated as integer 1-65535 (2-byte ASN only, RTX limitation)
 - IPv4 addresses validated with net.ParseIP
-- OSPF area types validated: "normal", "stub", "nssa"
+- OSPF area types validated: "normal", "stub" (NSSA not supported by RTX)
 - Route distance validated: 1-100
 - BGP hold-time: 3-28800
 - BGP keepalive: 1-21845
@@ -343,25 +343,21 @@ ospf use off
 # Set router ID
 ospf router id <ip>
 
-# Configure areas
+# Configure areas (RTX supports normal and stub only, NOT NSSA)
 ospf area <id>
 ospf area <id> stub
 ospf area <id> stub no-summary
-ospf area <id> nssa
-ospf area <id> nssa no-summary
 
 # Interface to area assignment
 ip <interface> ospf area <area>
 
-# Redistribution
+# Redistribution (RTX supports static/rip/bgp, NOT connected)
 ospf import from static
-ospf import from connected
 
 # Delete commands
 no ospf area <id>
 no ip <interface> ospf area
 no ospf import from static
-no ospf import from connected
 
 # Show configuration
 show config | grep ospf
@@ -491,7 +487,7 @@ resource "rtx_ospf" "backbone" {
   }
 
   redistribute_static    = true
-  redistribute_connected = false
+  # Note: redistribute_connected is NOT supported by RTX
 }
 ```
 
@@ -569,3 +565,4 @@ resource "rtx_static_route" "vpn_route" {
 | 2026-02-01 | Implementation Audit | Fix attribute names: neighbor.id→index, area.id→area_id |
 | 2026-02-07 | Implementation Audit | Full audit against implementation code |
 | 2026-02-07 | RTX Reference Sync | BGP commands updated to match RTX reference: neighbor inline format, pre-shared-key, CIDR notation, 2-byte ASN (1-65535), hold-time 3-28800 |
+| 2026-02-07 | RTX Reference Sync | OSPF: removed NSSA area type (RTX supports normal/stub only), removed redistribute_connected (RTX supports static/rip/bgp only) |

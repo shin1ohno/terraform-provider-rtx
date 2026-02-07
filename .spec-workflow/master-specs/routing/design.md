@@ -291,7 +291,7 @@ type OSPFConfig struct {
     Areas                 []OSPFArea     `json:"areas,omitempty"`
     Neighbors             []OSPFNeighbor `json:"neighbors,omitempty"`
     RedistributeStatic    bool           `json:"redistribute_static,omitempty"`
-    RedistributeConnected bool           `json:"redistribute_connected,omitempty"`
+    // Note: RedistributeConnected is NOT supported by RTX (only static/rip/bgp)
 }
 
 type OSPFNetwork struct {
@@ -302,8 +302,8 @@ type OSPFNetwork struct {
 
 type OSPFArea struct {
     AreaID    string `json:"area_id"`              // "0" or "0.0.0.0"
-    Type      string `json:"type,omitempty"`       // "normal", "stub", "nssa"
-    NoSummary bool   `json:"no_summary,omitempty"` // Totally stubby/NSSA
+    Type      string `json:"type,omitempty"`       // "normal", "stub" (RTX does not support NSSA)
+    NoSummary bool   `json:"no_summary,omitempty"` // Totally stubby
 }
 
 type OSPFNeighbor struct {
@@ -373,7 +373,7 @@ resource "rtx_ospf" "example" {
 
   area {
     area_id    = "0"                     # Required, decimal or dotted
-    type       = "normal"                # Optional: normal/stub/nssa
+    type       = "normal"                # Optional: normal/stub (NSSA not supported by RTX)
     no_summary = false                   # Optional, computed
   }
 
@@ -391,7 +391,7 @@ resource "rtx_ospf" "example" {
 
   default_information_originate = false  # Optional, computed
   redistribute_static           = true   # Optional, computed
-  redistribute_connected        = false  # Optional, computed
+  # Note: redistribute_connected is NOT supported by RTX (only static/rip/bgp)
 }
 ```
 
@@ -446,12 +446,10 @@ resource "rtx_static_route" "example" {
 | Add Normal Area | `ospf area <id>` | `ospf area 0` |
 | Add Stub Area | `ospf area <id> stub` | `ospf area 1 stub` |
 | Add Totally Stubby | `ospf area <id> stub no-summary` | `ospf area 1 stub no-summary` |
-| Add NSSA | `ospf area <id> nssa` | `ospf area 2 nssa` |
-| Add Totally NSSA | `ospf area <id> nssa no-summary` | `ospf area 2 nssa no-summary` |
 | Interface to Area | `ip <iface> ospf area <id>` | `ip lan1 ospf area 0` |
 | Redistribute | `ospf import from <type>` | `ospf import from static` |
 | Delete Area | `no ospf area <id>` | `no ospf area 1` |
-| Delete Redistribute | `no ospf import from <type>` | `no ospf import from connected` |
+| Delete Redistribute | `no ospf import from <type>` | `no ospf import from static` |
 | Show Config | `show config \| grep ospf` | `show config \| grep ospf` |
 
 ### Static Route Commands
@@ -598,3 +596,4 @@ internal/
 | 2026-02-01 | Structure Sync | Updated file paths to resources/{name}/ modular structure |
 | 2026-02-07 | Implementation Audit | Full audit against implementation code |
 | 2026-02-07 | RTX Reference Sync | BGP commands updated to match RTX reference: neighbor inline format, pre-shared-key, CIDR notation, 2-byte ASN only, hold-time 3-28800 |
+| 2026-02-07 | RTX Reference Sync | OSPF: removed NSSA area type (RTX supports normal/stub only), removed redistribute_connected (RTX supports static/rip/bgp only) |

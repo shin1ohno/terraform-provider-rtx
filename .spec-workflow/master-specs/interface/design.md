@@ -294,7 +294,7 @@ type PPIPConfig struct {
 
 ```go
 type VLAN struct {
-    VlanID        int    `json:"vlan_id"`        // 1-4094
+    VlanID        int    `json:"vlan_id"`        // 2-4094
     Name          string `json:"name,omitempty"`
     Interface     string `json:"interface"`      // Parent (lan1)
     VlanInterface string `json:"vlan_interface"` // Computed (lan1/1)
@@ -677,3 +677,4 @@ resource "rtx_bridge" "internal" {
 | 2026-01-25 | Implementation Sync | Add computed `interface_name` for rtx_interface/rtx_bridge, `pp_interface` for rtx_pp_interface |
 | 2026-02-01 | Implementation Audit | Update to Plugin Framework, modular file structure, mark filter attributes as not implemented |
 | 2026-02-07 | Implementation Audit | Full audit against implementation code |
+| 2026-02-07 | RTX Reference Sync | VLAN ID range: 1-4094 → 2-4094 (RTX reference: VLAN ID 1 is reserved) |

@@ -30,20 +30,8 @@ command:
 
   syntax_tests:
     # =============================================================================
-    # DNS Domain Lookup
-    # =============================================================================
-    - name: dns_domain_lookup_on
-      rtx: "dns domain lookup on"
-      terraform:
-        domain_lookup: true
-
-    - name: dns_domain_lookup_off
-      rtx: "dns domain lookup off"
-      terraform:
-        domain_lookup: false
-
-    # =============================================================================
     # DNS Domain Name
+    # Note: "dns domain lookup" command does NOT exist in RTX reference
     # =============================================================================
     - name: dns_domain_name
       rtx: "dns domain example.com"
@@ -126,20 +114,40 @@ command:
 
     # =============================================================================
     # DNS Static (Host entries)
+    # Reference: dns static <type> <name> <value> [ttl=<ttl>]
+    # Type is REQUIRED: a, aaaa, ptr, mx, ns, cname
     # =============================================================================
-    - name: dns_static_ipv4
-      rtx: "dns static server.local 192.168.1.100"
+    - name: dns_static_a_record
+      rtx: "dns static a server.local 192.168.1.100"
       terraform:
         hosts:
           - name: "server.local"
             address: "192.168.1.100"
+            type: "a"
 
-    - name: dns_static_router
-      rtx: "dns static router.local 192.168.1.1"
+    - name: dns_static_a_router
+      rtx: "dns static a router.local 192.168.1.1"
       terraform:
         hosts:
           - name: "router.local"
             address: "192.168.1.1"
+            type: "a"
+
+    - name: dns_static_ptr
+      rtx: "dns static ptr 192.168.1.100 server.local"
+      terraform:
+        hosts:
+          - name: "192.168.1.100"
+            address: "server.local"
+            type: "ptr"
+
+    - name: dns_static_aaaa
+      rtx: "dns static aaaa server6.local 2001:db8::1"
+      terraform:
+        hosts:
+          - name: "server6.local"
+            address: "2001:db8::1"
+            type: "aaaa"
 
     # =============================================================================
     # DNS Service
@@ -187,9 +195,10 @@ command:
       build_only: true
 
     - name: delete_dns_static
-      rtx: "no dns static server.local"
+      rtx: "no dns static a server.local"
       terraform:
         name: "server.local"
+        type: "a"
       build_only: true
 
     # === Additional test variations ===
@@ -230,11 +239,12 @@ command:
 
     - name: dns_static_host
       rtx: "dns static a host.example.com 192.168.1.100"
-      description: "静的ホスト"
+      description: "静的ホスト (Aレコード)"
       terraform:
         static_hosts:
           - hostname: "host.example.com"
             ip: "192.168.1.100"
+            type: "a"
 
     - name: dns_private_on
       rtx: "dns private address spoof on"
@@ -242,11 +252,8 @@ command:
       terraform:
         private_address_spoof: true
 
-    - name: dns_cache_max
-      rtx: "dns cache max entry 10000"
-      description: "キャッシュ最大エントリ"
-      terraform:
-        cache_max_entry: 10000
+    # Note: "dns cache max entry" command is NOT in reference Chapter 24
+    # Removed: dns_cache_max test case
 
 
   boundary_tests:
