@@ -53,10 +53,10 @@ type sshSessionInterface interface {
 
 // sftpClientInterface abstracts the SFTP client for testing
 type sftpClientInterface interface {
-   Open(path string) (sftpFileInterface, error)
-   ReadDir(path string) ([]os.FileInfo, error)
-   Create(path string) (sftpFileWriteCloserInterface, error)
-   Close() error
+	Open(path string) (sftpFileInterface, error)
+	ReadDir(path string) ([]os.FileInfo, error)
+	Create(path string) (sftpFileWriteCloserInterface, error)
+	Close() error
 }
 
 // sftpFileInterface abstracts the SFTP file for testing
@@ -64,10 +64,11 @@ type sftpFileInterface interface {
 	io.Reader
 	Close() error
 }
+
 // sftpFileWriteCloserInterface abstracts write-capable SFTP files for testing
 // Implementations should write content and close.
 type sftpFileWriteCloserInterface interface {
-   io.WriteCloser
+	io.WriteCloser
 }
 
 // sftpClientImpl is the implementation of SFTPClient
@@ -128,9 +129,10 @@ func (w *sftpClientWrapper) Open(path string) (sftpFileInterface, error) {
 func (w *sftpClientWrapper) ReadDir(path string) ([]os.FileInfo, error) {
 	return w.client.ReadDir(path)
 }
+
 // Create opens or truncates a remote file for writing
 func (w *sftpClientWrapper) Create(path string) (sftpFileWriteCloserInterface, error) {
-   return w.client.Create(path)
+	return w.client.Create(path)
 }
 
 func (w *sftpClientWrapper) Close() error {
@@ -162,13 +164,13 @@ func NewSFTPClient(ctx context.Context, config *Config) (SFTPClient, error) {
 		// RTX routers only support legacy ssh-rsa algorithm for host keys
 		// Modern OpenSSH defaults to rsa-sha2-256/512 which RTX doesn't support
 		HostKeyAlgorithms: []string{
-			ssh.KeyAlgoRSA,          // ssh-rsa (legacy, required by RTX)
-			ssh.KeyAlgoRSASHA512,    // rsa-sha2-512
-			ssh.KeyAlgoRSASHA256,    // rsa-sha2-256
-			ssh.KeyAlgoED25519,      // ssh-ed25519
-			ssh.KeyAlgoECDSA256,     // ecdsa-sha2-nistp256
-			ssh.KeyAlgoECDSA384,     // ecdsa-sha2-nistp384
-			ssh.KeyAlgoECDSA521,     // ecdsa-sha2-nistp521
+			ssh.KeyAlgoRSA,       // ssh-rsa (legacy, required by RTX)
+			ssh.KeyAlgoRSASHA512, // rsa-sha2-512
+			ssh.KeyAlgoRSASHA256, // rsa-sha2-256
+			ssh.KeyAlgoED25519,   // ssh-ed25519
+			ssh.KeyAlgoECDSA256,  // ecdsa-sha2-nistp256
+			ssh.KeyAlgoECDSA384,  // ecdsa-sha2-nistp384
+			ssh.KeyAlgoECDSA521,  // ecdsa-sha2-nistp521
 		},
 	}
 
