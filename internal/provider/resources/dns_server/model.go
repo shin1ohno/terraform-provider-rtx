@@ -53,7 +53,6 @@ type DNSHostModel struct {
 // ToClient converts the Terraform model to a client.DNSConfig.
 func (m *DNSServerModel) ToClient(ctx context.Context, diags *diag.Diagnostics) client.DNSConfig {
 	config := client.DNSConfig{
-		DomainLookup: fwhelpers.GetBoolValue(m.DomainLookup),
 		DomainName:   fwhelpers.GetStringValue(m.DomainName),
 		ServiceOn:    fwhelpers.GetBoolValue(m.ServiceOn),
 		PrivateSpoof: fwhelpers.GetBoolValue(m.PrivateAddressSpoof),
@@ -138,8 +137,10 @@ func (m *DNSServerModel) ToClient(ctx context.Context, diags *diag.Diagnostics) 
 		if !diags.HasError() {
 			for _, host := range hosts {
 				config.Hosts = append(config.Hosts, client.DNSHost{
+					Type:    fwhelpers.GetStringValue(host.Type),
 					Name:    fwhelpers.GetStringValue(host.Name),
 					Address: fwhelpers.GetStringValue(host.Address),
+					TTL:     int(fwhelpers.GetInt64Value(host.TTL)),
 				})
 			}
 		}
@@ -151,7 +152,6 @@ func (m *DNSServerModel) ToClient(ctx context.Context, diags *diag.Diagnostics) 
 // FromClient updates the Terraform model from a client.DNSConfig.
 func (m *DNSServerModel) FromClient(ctx context.Context, config *client.DNSConfig, diags *diag.Diagnostics) {
 	m.ID = types.StringValue("dns")
-	m.DomainLookup = types.BoolValue(config.DomainLookup)
 	m.DomainName = fwhelpers.StringValueOrNull(config.DomainName)
 	m.ServiceOn = types.BoolValue(config.ServiceOn)
 	m.PrivateAddressSpoof = types.BoolValue(config.PrivateSpoof)
@@ -225,8 +225,10 @@ func (m *DNSServerModel) FromClient(ctx context.Context, config *client.DNSConfi
 			hostObj, d := types.ObjectValue(
 				DNSHostAttrTypes(),
 				map[string]attr.Value{
+					"type":    types.StringValue(host.Type),
 					"name":    types.StringValue(host.Name),
 					"address": types.StringValue(host.Address),
+					"ttl":     types.Int64Value(int64(host.TTL)),
 				},
 			)
 			diags.Append(d...)

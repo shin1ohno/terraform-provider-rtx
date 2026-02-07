@@ -8,8 +8,8 @@
 
 | ステータス | 件数 | 説明 |
 |-----------|------|------|
-| ✅ 一致 | 13 | Specとドキュメントの構文が完全一致 |
-| ⚠️ 差分あり | 7 | 構文やオプションに差異がある |
+| ✅ 一致 | 15 | Specとドキュメントの構文が完全一致 |
+| ⚠️ 差分あり | 5 | 構文やオプションに差異がある |
 
 ---
 
@@ -753,7 +753,8 @@ bgp import filter filter_num [reject] kind ip_address/mask ... [parameter ...]
 
 ## 更新履歴
 
+- 2026-02-07: VLAN Reconcile完了 - VLAN ID範囲を2-4094に修正（1は予約済み）
+- 2026-02-07: ip_filter Reconcile完了 - syslog構文を`syslog=on`形式に修正、action値を拡張
 - 2026-02-07: BGP Reconcile完了 - neighbor構文、pre-shared-key、2-byte ASN、hold-time範囲を修正
-- 2026-02-07: ip_filterの差分を追加 (`syslog on` vs `syslog=on`)
 - 2026-02-07: L2TP/IPIPドキュメントのタイプミス修正 ("intarval" → "interval")
 - 2026-02-07: 初版作成 - 全22リソースの対照表を作成
