@@ -1,0 +1,301 @@
+# Reconcile Workflow
+# RTXコマンドリファレンスを正として、spec・master-spec・実装を修正するワークフロー
+#
+# フロー:
+# audit -> fix_spec -> fix_master_spec -> fix_implementation (条件付き) -> supervise -> COMPLETE
+#            ↓              ↓                    ↓                              ↓
+#         (差分なし→supervise)                (テスト失敗→fix)            (REJECT→該当ステップ)
+#
+# エージェント構成:
+# - Reference Auditor: RTXコマンドリファレンスと他の差分を特定（読み取り専用）
+# - Spec Fixer: specs/以下のYAMLを修正
+# - Master-Spec Fixer: master-specs/以下のドキュメントを修正
+# - Implementation Fixer: パーサー・サービスを修正（テスト失敗時のみ）
+# - Reconcile Supervisor: 最終検証と承認
+#
+# 原則:
+# docs/RTX-commands/ は公式リファレンスであり絶対に正しい。
+# 他のドキュメント・実装と異なる場合、リファレンス以外を修正する。
+
+name: reconcile
+description: RTXコマンドリファレンスを正としてspec・master-spec・実装を修正
+
+max_iterations: 25
+
+initial_step: audit
+
+steps:
+  # ===========================================
+  # Phase 1: Audit（差分特定）
+  # ===========================================
+  - name: audit
+    edit: false
+    agent: ~/.takt/agents/reconcile/reference-auditor.md
+    report:
+      name: 00-audit-report.md
+      format: |
+        ```markdown
+        # 差分レポート: {resource_name}
+
+        ## リファレンス情報
+        - ファイル: docs/RTX-commands/{file}.md
+        - セクション: {section}
+
+        ## 差分一覧
+
+        | 項目 | リファレンス（正） | 現在の記述（誤） | 場所 | 修正優先度 |
+        |------|------------------|-----------------|------|-----------|
+        | {項目} | {正しい構文} | {現在の構文} | {ファイル:行} | 高/中/低 |
+
+        ## 影響範囲
+        - [ ] specs/ の修正が必要
+        - [ ] master-specs/ の修正が必要
+        - [ ] 実装の修正が必要
+
+        ## 結果: DIFFERENCES_FOUND / NO_DIFFERENCES
+        ```
+    allowed_tools:
+      - Read
+      - Glob
+      - Grep
+      - Write
+    instruction_template: |
+      対象リソース: {task}
+
+      RTXコマンドリファレンス（`docs/RTX-commands/`）を正として、以下の差分を特定してください:
+
+      1. **リファレンス確認**: 対象リソースのRTXコマンド構文をリファレンスから抽出
+      2. **Spec監査**: `specs/{resource}/config.yaml` との差分を確認
+      3. **Master-Spec監査**: `.spec-workflow/master-specs/{resource}/` との差分を確認
+      4. **実装監査**: `internal/` のパーサー・サービスとの差分を確認（必要な場合）
+
+      **重要**: `docs/RTX-commands/` の内容は絶対に正しい。変更してはいけない。
+    rules:
+      - condition: 差分が見つかった
+        next: fix_spec
+      - condition: 差分が見つからなかった
+        next: supervise
+
+  # ===========================================
+  # Phase 2: Spec修正
+  # ===========================================
+  - name: fix_spec
+    edit: true
+    agent: ~/.takt/agents/reconcile/spec-fixer.md
+    report:
+      name: 01-spec-fix-report.md
+      format: |
+        ```markdown
+        # Spec修正レポート: {resource_name}
+
+        ## 修正内容
+
+        | ファイル | 行 | 修正前 | 修正後 |
+        |---------|-----|--------|--------|
+        | {file} | {line} | {before} | {after} |
+
+        ## テスト結果
+        - specgen: ✅/❌
+        - テスト実行: ✅ PASS / ❌ FAIL
+
+        ## 結果: SPEC_FIXED / NEEDS_IMPLEMENTATION_FIX
+        ```
+    allowed_tools:
+      - Read
+      - Glob
+      - Grep
+      - Edit
+      - Write
+      - Bash
+    instruction_template: |
+      Auditorの差分レポート（00-audit-report.md）に従って、`specs/` 以下を修正してください。
+
+      **手順:**
+      1. 差分レポートを読み、修正すべき箇所を確認
+      2. `specs/{resource}/config.yaml` を修正
+      3. specgenでテストを再生成: `go run ./cmd/specgen -spec specs/{resource}/config.yaml`
+      4. テストを実行: `go test ./internal/rtx/parsers/... -v -run "{resource}"`
+
+      **重要**: Auditorが指摘した箇所のみ修正。独自判断での変更は禁止。
+    pass_previous_response: true
+    rules:
+      - condition: Spec修正が完了し、テストも通過した
+        next: fix_master_spec
+      - condition: Spec修正は完了したが、テストが失敗した（実装修正が必要）
+        next: fix_implementation
+
+  # ===========================================
+  # Phase 3: Master-Spec修正
+  # ===========================================
+  - name: fix_master_spec
+    edit: true
+    agent: ~/.takt/agents/reconcile/master-spec-fixer.md
+    report:
+      name: 02-master-spec-fix-report.md
+      format: |
+        ```markdown
+        # Master-Spec修正レポート: {resource_name}
+
+        ## design.md修正
+
+        | セクション | 修正前 | 修正後 |
+        |-----------|--------|--------|
+        | {section} | {before} | {after} |
+
+        ## requirements.md修正
+
+        | セクション | 修正前 | 修正後 |
+        |-----------|--------|--------|
+        | {section} | {before} | {after} |
+
+        ## 結果: MASTER_SPEC_FIXED
+        ```
+    allowed_tools:
+      - Read
+      - Glob
+      - Grep
+      - Edit
+      - Write
+    instruction_template: |
+      Auditorの差分レポート（00-audit-report.md）に従って、`.spec-workflow/master-specs/` 以下を修正してください。
+
+      **修正対象:**
+      - `.spec-workflow/master-specs/{resource}/design.md` の RTX Command Mapping セクション
+      - `.spec-workflow/master-specs/{resource}/requirements.md` の RTX Commands Reference セクション
+
+      **重要**: RTXコマンド構文のみ修正。設計内容は変更しない。
+    pass_previous_response: true
+    rules:
+      - condition: Master-Spec修正が完了した
+        next: supervise
+
+  # ===========================================
+  # Phase 4: 実装修正（テスト失敗時のみ）
+  # ===========================================
+  - name: fix_implementation
+    edit: true
+    agent: ~/.takt/agents/reconcile/implementation-fixer.md
+    report:
+      name: 03-implementation-fix-report.md
+      format: |
+        ```markdown
+        # 実装修正レポート: {resource_name}
+
+        ## パーサー修正
+
+        | ファイル | 修正内容 |
+        |---------|---------|
+        | {file} | {change} |
+
+        ## サービス修正
+
+        | ファイル | 修正内容 |
+        |---------|---------|
+        | {file} | {change} |
+
+        ## テスト結果
+        - パーサーテスト: ✅/❌
+        - サービステスト: ✅/❌
+        - 全テスト: ✅/❌
+
+        ## 結果: IMPLEMENTATION_FIXED / NEEDS_MORE_WORK
+        ```
+    allowed_tools:
+      - Read
+      - Glob
+      - Grep
+      - Edit
+      - Write
+      - Bash
+    instruction_template: |
+      Spec Fixerのテストが失敗したため、実装を修正してください。
+
+      **手順:**
+      1. 失敗したテストを分析: `go test ./internal/rtx/parsers/... -v -run "{test}"`
+      2. パーサーの正規表現パターンを修正
+      3. サービスのコマンド生成ロジックを修正（必要な場合）
+      4. テストを再実行して全通過を確認
+
+      **重要**: 実装はRTXコマンドリファレンスに従わなければならない。
+    pass_previous_response: true
+    rules:
+      - condition: 実装修正が完了し、全テストが通過した
+        next: fix_master_spec
+      - condition: 修正を進行できない
+        next: audit
+
+  # ===========================================
+  # Phase 5: 最終検証
+  # ===========================================
+  - name: supervise
+    edit: true
+    agent: ~/.takt/agents/reconcile/reconcile-supervisor.md
+    report:
+      - Validation: 04-validation-report.md
+      - Summary: summary.md
+    allowed_tools:
+      - Read
+      - Glob
+      - Grep
+      - Edit
+      - Write
+      - Bash
+    instruction_template: |
+      Reconcile作業の最終検証を行ってください。
+
+      **検証手順:**
+      1. 各レポート（00〜03）を確認
+      2. 全テストを実行: `make test` または `go test ./... -v`
+      3. リファレンスとの最終照合
+      4. 対照表を更新: `docs/dev/spec-command-reference.md`
+      5. コミットを作成
+
+      **承認基準:**
+      - 全ての差分が修正された
+      - 全テストが通過
+      - 対照表が更新された
+
+      **Validation レポートフォーマット:**
+      ```markdown
+      # 最終検証結果
+
+      ## 結果: APPROVE / REJECT
+
+      ## 検証サマリー
+      | 項目 | 状態 | 確認方法 |
+      |------|------|---------|
+      | specs修正 | ✅ | 差分レポートと照合 |
+      | master-specs修正 | ✅ | 差分レポートと照合 |
+      | 実装修正 | ✅/N/A | テスト実行 |
+      | 全テスト | ✅ | `go test ./...` |
+      | 対照表更新 | ✅ | ファイル確認 |
+
+      ## 未完了項目（REJECTの場合）
+      | # | 項目 | 理由 |
+      |---|------|------|
+      ```
+
+      **Summary レポートフォーマット（APPROVEの場合）:**
+      ```markdown
+      # Reconcile完了: {resource}
+
+      ## 結果
+      ✅ RTXコマンドリファレンスとの整合性を確保
+
+      ## 修正ファイル
+      | ファイル | 変更内容 |
+      |---------|---------|
+
+      ## 対照表ステータス
+      - 修正前: ⚠️ 差分あり
+      - 修正後: ✅ 一致
+      ```
+    rules:
+      - condition: すべての検証が完了し、コミット可能な状態
+        next: COMPLETE
+      - condition: Spec修正に問題がある
+        next: fix_spec
+      - condition: Master-Spec修正に問題がある
+        next: fix_master_spec
+      - condition: 実装修正に問題がある
+        next: fix_implementation

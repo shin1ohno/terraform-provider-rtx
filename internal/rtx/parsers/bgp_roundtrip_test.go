@@ -22,7 +22,6 @@ func TestBGPRoundTrip_Parse(t *testing.T) {
 			name: "bgp_use_on",
 			rtx:  "bgp use on",
 			checkFunc: func(t *testing.T, config *BGPConfig) {
-				// Expected terraform: enabled: true
 				if config.Enabled != true {
 					t.Errorf("Enabled = %v, want %v", config.Enabled, true)
 				}
@@ -32,7 +31,6 @@ func TestBGPRoundTrip_Parse(t *testing.T) {
 			name: "bgp_use_off",
 			rtx:  "bgp use off",
 			checkFunc: func(t *testing.T, config *BGPConfig) {
-				// Expected terraform: enabled: false
 				if config.Enabled != false {
 					t.Errorf("Enabled = %v, want %v", config.Enabled, false)
 				}
@@ -42,19 +40,17 @@ func TestBGPRoundTrip_Parse(t *testing.T) {
 			name: "bgp_asn_2byte",
 			rtx:  "bgp autonomous-system 65001",
 			checkFunc: func(t *testing.T, config *BGPConfig) {
-				// Expected terraform: asn: "65001"
 				if config.ASN != "65001" {
 					t.Errorf("ASN = %v, want %v", config.ASN, "65001")
 				}
 			},
 		},
 		{
-			name: "bgp_asn_4byte",
-			rtx:  "bgp autonomous-system 4200000001",
+			name: "bgp_asn_min",
+			rtx:  "bgp autonomous-system 100",
 			checkFunc: func(t *testing.T, config *BGPConfig) {
-				// Expected terraform: asn: "4200000001"
-				if config.ASN != "4200000001" {
-					t.Errorf("ASN = %v, want %v", config.ASN, "4200000001")
+				if config.ASN != "100" {
+					t.Errorf("ASN = %v, want %v", config.ASN, "100")
 				}
 			},
 		},
@@ -62,17 +58,25 @@ func TestBGPRoundTrip_Parse(t *testing.T) {
 			name: "bgp_router_id",
 			rtx:  "bgp router id 192.168.1.1",
 			checkFunc: func(t *testing.T, config *BGPConfig) {
-				// Expected terraform: router_id: "192.168.1.1"
 				if config.RouterID != "192.168.1.1" {
 					t.Errorf("RouterID = %v, want %v", config.RouterID, "192.168.1.1")
 				}
 			},
 		},
 		{
-			name: "bgp_neighbor",
-			rtx:  "bgp neighbor 1 address 203.0.113.1 as 65002",
+			name: "bgp_router_id_loopback",
+			rtx:  "bgp router id 10.0.0.1",
 			checkFunc: func(t *testing.T, config *BGPConfig) {
-				// Expected terraform: neighbors[0]: id=1, ip="203.0.113.1", remote_as="65002"
+				if config.RouterID != "10.0.0.1" {
+					t.Errorf("RouterID = %v, want %v", config.RouterID, "10.0.0.1")
+				}
+			},
+		},
+		{
+			// Reference: bgp neighbor <n> <as> <ip>
+			name: "bgp_neighbor",
+			rtx:  "bgp neighbor 1 65002 203.0.113.1",
+			checkFunc: func(t *testing.T, config *BGPConfig) {
 				if len(config.Neighbors) != 1 {
 					t.Errorf("Neighbors count = %v, want 1", len(config.Neighbors))
 					return
@@ -90,16 +94,129 @@ func TestBGPRoundTrip_Parse(t *testing.T) {
 			},
 		},
 		{
-			name: "bgp_neighbor_holdtime",
-			rtx:  "bgp neighbor 1 hold-time 90",
+			name: "bgp_neighbor_second",
+			rtx:  "bgp neighbor 2 65003 203.0.113.2",
 			checkFunc: func(t *testing.T, config *BGPConfig) {
-				// Expected terraform: neighbors[0]: id=1, hold_time=90
 				if len(config.Neighbors) != 1 {
 					t.Errorf("Neighbors count = %v, want 1", len(config.Neighbors))
 					return
 				}
-				if config.Neighbors[0].HoldTime != 90 {
-					t.Errorf("Neighbor HoldTime = %v, want 90", config.Neighbors[0].HoldTime)
+				n := config.Neighbors[0]
+				if n.ID != 2 {
+					t.Errorf("Neighbor ID = %v, want 2", n.ID)
+				}
+				if n.IP != "203.0.113.2" {
+					t.Errorf("Neighbor IP = %v, want 203.0.113.2", n.IP)
+				}
+				if n.RemoteAS != "65003" {
+					t.Errorf("Neighbor RemoteAS = %v, want 65003", n.RemoteAS)
+				}
+			},
+		},
+		{
+			// Reference: bgp neighbor <n> <as> <ip> hold-time=<sec>
+			name: "bgp_neighbor_holdtime",
+			rtx:  "bgp neighbor 1 65002 192.168.1.2 hold-time=90",
+			checkFunc: func(t *testing.T, config *BGPConfig) {
+				if len(config.Neighbors) != 1 {
+					t.Errorf("Neighbors count = %v, want 1", len(config.Neighbors))
+					return
+				}
+				n := config.Neighbors[0]
+				if n.ID != 1 {
+					t.Errorf("Neighbor ID = %v, want 1", n.ID)
+				}
+				if n.RemoteAS != "65002" {
+					t.Errorf("Neighbor RemoteAS = %v, want 65002", n.RemoteAS)
+				}
+				if n.IP != "192.168.1.2" {
+					t.Errorf("Neighbor IP = %v, want 192.168.1.2", n.IP)
+				}
+				if n.HoldTime != 90 {
+					t.Errorf("Neighbor HoldTime = %v, want 90", n.HoldTime)
+				}
+			},
+		},
+		{
+			// Reference: bgp neighbor <n> <as> <ip> local-address=<ip>
+			name: "bgp_neighbor_local_address",
+			rtx:  "bgp neighbor 1 65002 192.168.1.2 local-address=192.168.1.1",
+			checkFunc: func(t *testing.T, config *BGPConfig) {
+				if len(config.Neighbors) != 1 {
+					t.Errorf("Neighbors count = %v, want 1", len(config.Neighbors))
+					return
+				}
+				n := config.Neighbors[0]
+				if n.LocalAddress != "192.168.1.1" {
+					t.Errorf("Neighbor LocalAddress = %v, want 192.168.1.1", n.LocalAddress)
+				}
+			},
+		},
+		{
+			// Reference: bgp neighbor <n> <as> <ip> passive=on
+			name: "bgp_neighbor_passive",
+			rtx:  "bgp neighbor 1 65002 192.168.1.2 passive=on",
+			checkFunc: func(t *testing.T, config *BGPConfig) {
+				if len(config.Neighbors) != 1 {
+					t.Errorf("Neighbors count = %v, want 1", len(config.Neighbors))
+					return
+				}
+				n := config.Neighbors[0]
+				if n.Passive != true {
+					t.Errorf("Neighbor Passive = %v, want true", n.Passive)
+				}
+			},
+		},
+		{
+			// Reference: bgp neighbor pre-shared-key <n> text <password>
+			name: "bgp_neighbor_preshared_key",
+			rtx:  "bgp neighbor pre-shared-key 1 text mysecret",
+			checkFunc: func(t *testing.T, config *BGPConfig) {
+				if len(config.Neighbors) != 1 {
+					t.Errorf("Neighbors count = %v, want 1", len(config.Neighbors))
+					return
+				}
+				n := config.Neighbors[0]
+				if n.ID != 1 {
+					t.Errorf("Neighbor ID = %v, want 1", n.ID)
+				}
+				if n.Password != "mysecret" {
+					t.Errorf("Neighbor Password = %v, want mysecret", n.Password)
+				}
+			},
+		},
+		{
+			// Reference: bgp import filter <n> include <prefix>/<cidr>
+			name: "bgp_network",
+			rtx:  "bgp import filter 1 include 192.168.0.0/16",
+			checkFunc: func(t *testing.T, config *BGPConfig) {
+				if len(config.Networks) != 1 {
+					t.Errorf("Networks count = %v, want 1", len(config.Networks))
+					return
+				}
+				n := config.Networks[0]
+				if n.Prefix != "192.168.0.0" {
+					t.Errorf("Network Prefix = %v, want 192.168.0.0", n.Prefix)
+				}
+				if n.Mask != "255.255.0.0" {
+					t.Errorf("Network Mask = %v, want 255.255.0.0", n.Mask)
+				}
+			},
+		},
+		{
+			name: "bgp_network_24",
+			rtx:  "bgp import filter 1 include 10.0.0.0/24",
+			checkFunc: func(t *testing.T, config *BGPConfig) {
+				if len(config.Networks) != 1 {
+					t.Errorf("Networks count = %v, want 1", len(config.Networks))
+					return
+				}
+				n := config.Networks[0]
+				if n.Prefix != "10.0.0.0" {
+					t.Errorf("Network Prefix = %v, want 10.0.0.0", n.Prefix)
+				}
+				if n.Mask != "255.255.255.0" {
+					t.Errorf("Network Mask = %v, want 255.255.255.0", n.Mask)
 				}
 			},
 		},
@@ -107,7 +224,6 @@ func TestBGPRoundTrip_Parse(t *testing.T) {
 			name: "bgp_import_static",
 			rtx:  "bgp import from static",
 			checkFunc: func(t *testing.T, config *BGPConfig) {
-				// Expected terraform: redistribute_static: true
 				if config.RedistributeStatic != true {
 					t.Errorf("RedistributeStatic = %v, want true", config.RedistributeStatic)
 				}
@@ -117,7 +233,6 @@ func TestBGPRoundTrip_Parse(t *testing.T) {
 			name: "bgp_import_connected",
 			rtx:  "bgp import from connected",
 			checkFunc: func(t *testing.T, config *BGPConfig) {
-				// Expected terraform: redistribute_connected: true
 				if config.RedistributeConnected != true {
 					t.Errorf("RedistributeConnected = %v, want true", config.RedistributeConnected)
 				}
@@ -166,13 +281,6 @@ func TestBGPRoundTrip_Build(t *testing.T) {
 			expectedRTX: "bgp autonomous-system 65001",
 		},
 		{
-			name: "bgp_asn_4byte",
-			buildFunc: func() string {
-				return BuildBGPASNCommand("4200000001")
-			},
-			expectedRTX: "bgp autonomous-system 4200000001",
-		},
-		{
 			name: "bgp_router_id",
 			buildFunc: func() string {
 				return BuildBGPRouterIDCommand("192.168.1.1")
@@ -180,6 +288,7 @@ func TestBGPRoundTrip_Build(t *testing.T) {
 			expectedRTX: "bgp router id 192.168.1.1",
 		},
 		{
+			// Reference: bgp neighbor <n> <as> <ip>
 			name: "bgp_neighbor",
 			buildFunc: func() string {
 				return BuildBGPNeighborCommand(BGPNeighbor{
@@ -188,42 +297,83 @@ func TestBGPRoundTrip_Build(t *testing.T) {
 					RemoteAS: "65002",
 				})
 			},
-			expectedRTX: "bgp neighbor 1 address 203.0.113.1 as 65002",
+			expectedRTX: "bgp neighbor 1 65002 203.0.113.1",
 		},
 		{
+			// Reference: bgp neighbor <n> <as> <ip> hold-time=<sec>
 			name: "bgp_neighbor_holdtime",
 			buildFunc: func() string {
-				return BuildBGPNeighborHoldTimeCommand(1, 90)
+				return BuildBGPNeighborCommand(BGPNeighbor{
+					ID:       1,
+					IP:       "192.168.1.2",
+					RemoteAS: "65002",
+					HoldTime: 90,
+				})
 			},
-			expectedRTX: "bgp neighbor 1 hold-time 90",
+			expectedRTX: "bgp neighbor 1 65002 192.168.1.2 hold-time=90",
 		},
 		{
-			name: "bgp_neighbor_keepalive",
+			// Reference: bgp neighbor <n> <as> <ip> local-address=<ip>
+			name: "bgp_neighbor_local_address",
 			buildFunc: func() string {
-				return BuildBGPNeighborKeepaliveCommand(1, 30)
+				return BuildBGPNeighborCommand(BGPNeighbor{
+					ID:           1,
+					IP:           "192.168.1.2",
+					RemoteAS:     "65002",
+					LocalAddress: "192.168.1.1",
+				})
 			},
-			expectedRTX: "bgp neighbor 1 keepalive 30",
+			expectedRTX: "bgp neighbor 1 65002 192.168.1.2 local-address=192.168.1.1",
 		},
 		{
-			name: "bgp_neighbor_multihop",
+			// Reference: bgp neighbor <n> <as> <ip> passive=on
+			name: "bgp_neighbor_passive",
 			buildFunc: func() string {
-				return BuildBGPNeighborMultihopCommand(1, 2)
+				return BuildBGPNeighborCommand(BGPNeighbor{
+					ID:       1,
+					IP:       "192.168.1.2",
+					RemoteAS: "65002",
+					Passive:  true,
+				})
 			},
-			expectedRTX: "bgp neighbor 1 multihop 2",
+			expectedRTX: "bgp neighbor 1 65002 192.168.1.2 passive=on",
 		},
 		{
+			// Reference: bgp neighbor pre-shared-key <n> text <password>
+			name: "bgp_neighbor_preshared_key",
+			buildFunc: func() string {
+				return BuildBGPNeighborPreSharedKeyCommand(1, "mysecret")
+			},
+			expectedRTX: "bgp neighbor pre-shared-key 1 text mysecret",
+		},
+		{
+			// Backward compatibility alias
 			name: "bgp_neighbor_password",
 			buildFunc: func() string {
 				return BuildBGPNeighborPasswordCommand(1, "mysecret")
 			},
-			expectedRTX: "bgp neighbor 1 password mysecret",
+			expectedRTX: "bgp neighbor pre-shared-key 1 text mysecret",
 		},
 		{
-			name: "bgp_neighbor_local_address",
+			// Reference: bgp import filter <n> include <prefix>/<cidr>
+			name: "bgp_network",
 			buildFunc: func() string {
-				return BuildBGPNeighborLocalAddressCommand(1, "192.168.1.1")
+				return BuildBGPNetworkCommand(1, BGPNetwork{
+					Prefix: "192.168.0.0",
+					Mask:   "255.255.0.0",
+				})
 			},
-			expectedRTX: "bgp neighbor 1 local-address 192.168.1.1",
+			expectedRTX: "bgp import filter 1 include 192.168.0.0/16",
+		},
+		{
+			name: "bgp_network_24",
+			buildFunc: func() string {
+				return BuildBGPNetworkCommand(1, BGPNetwork{
+					Prefix: "10.0.0.0",
+					Mask:   "255.255.255.0",
+				})
+			},
+			expectedRTX: "bgp import filter 1 include 10.0.0.0/24",
 		},
 		{
 			name: "bgp_import_static",

@@ -27,12 +27,12 @@ bgp router id 10.0.0.1`,
 			},
 		},
 		{
+			// Reference: bgp neighbor <n> <as> <ip> [hold-time=<sec>]
 			name: "BGP with neighbor",
 			input: `bgp use on
 bgp autonomous-system 65001
 bgp router id 10.0.0.1
-bgp neighbor 1 address 10.0.0.2 as 65002
-bgp neighbor 1 hold-time 90`,
+bgp neighbor 1 65002 10.0.0.2 hold-time=90`,
 			expected: &BGPConfig{
 				Enabled:            true,
 				ASN:                "65001",
@@ -46,14 +46,13 @@ bgp neighbor 1 hold-time 90`,
 			},
 		},
 		{
+			// Reference: Multiple neighbors with different options
 			name: "BGP with multiple neighbors",
 			input: `bgp use on
 bgp autonomous-system 65001
-bgp neighbor 1 address 10.0.0.2 as 65002
-bgp neighbor 1 hold-time 90
-bgp neighbor 1 password secret123
-bgp neighbor 2 address 10.0.0.3 as 65003
-bgp neighbor 2 multihop 2`,
+bgp neighbor 1 65002 10.0.0.2 hold-time=90
+bgp neighbor pre-shared-key 1 text secret123
+bgp neighbor 2 65003 10.0.0.3 multihop=2`,
 			expected: &BGPConfig{
 				Enabled:            true,
 				ASN:                "65001",
@@ -67,11 +66,12 @@ bgp neighbor 2 multihop 2`,
 			},
 		},
 		{
+			// Reference: bgp import filter <n> include <prefix>/<cidr>
 			name: "BGP with network announcements",
 			input: `bgp use on
 bgp autonomous-system 65001
-bgp import filter 1 include 192.168.1.0/255.255.255.0
-bgp import filter 2 include 10.0.0.0/255.0.0.0`,
+bgp import filter 1 include 192.168.1.0/24
+bgp import filter 2 include 10.0.0.0/8`,
 			expected: &BGPConfig{
 				Enabled:            true,
 				ASN:                "65001",
@@ -183,30 +183,35 @@ func TestBuildBGPCommands(t *testing.T) {
 	})
 
 	t.Run("BuildBGPNeighborCommand", func(t *testing.T) {
+		// Reference: bgp neighbor <n> <as> <ip>
 		neighbor := BGPNeighbor{ID: 1, IP: "10.0.0.2", RemoteAS: "65002"}
-		expected := "bgp neighbor 1 address 10.0.0.2 as 65002"
+		expected := "bgp neighbor 1 65002 10.0.0.2"
 		if got := BuildBGPNeighborCommand(neighbor); got != expected {
 			t.Errorf("BuildBGPNeighborCommand() = %v, want %v", got, expected)
 		}
 	})
 
-	t.Run("BuildBGPNeighborHoldTimeCommand", func(t *testing.T) {
-		expected := "bgp neighbor 1 hold-time 90"
-		if got := BuildBGPNeighborHoldTimeCommand(1, 90); got != expected {
-			t.Errorf("BuildBGPNeighborHoldTimeCommand() = %v, want %v", got, expected)
+	t.Run("BuildBGPNeighborCommand_WithHoldTime", func(t *testing.T) {
+		// Reference: bgp neighbor <n> <as> <ip> hold-time=<sec>
+		neighbor := BGPNeighbor{ID: 1, IP: "10.0.0.2", RemoteAS: "65002", HoldTime: 90}
+		expected := "bgp neighbor 1 65002 10.0.0.2 hold-time=90"
+		if got := BuildBGPNeighborCommand(neighbor); got != expected {
+			t.Errorf("BuildBGPNeighborCommand() = %v, want %v", got, expected)
 		}
 	})
 
 	t.Run("BuildBGPNeighborPasswordCommand", func(t *testing.T) {
-		expected := "bgp neighbor 1 password secret"
+		// Reference: bgp neighbor pre-shared-key <n> text <password>
+		expected := "bgp neighbor pre-shared-key 1 text secret"
 		if got := BuildBGPNeighborPasswordCommand(1, "secret"); got != expected {
 			t.Errorf("BuildBGPNeighborPasswordCommand() = %v, want %v", got, expected)
 		}
 	})
 
 	t.Run("BuildBGPNetworkCommand", func(t *testing.T) {
+		// Reference: bgp import filter <n> include <prefix>/<cidr>
 		network := BGPNetwork{Prefix: "192.168.1.0", Mask: "255.255.255.0"}
-		expected := "bgp import filter 1 include 192.168.1.0/255.255.255.0"
+		expected := "bgp import filter 1 include 192.168.1.0/24"
 		if got := BuildBGPNetworkCommand(1, network); got != expected {
 			t.Errorf("BuildBGPNetworkCommand() = %v, want %v", got, expected)
 		}
@@ -272,7 +277,7 @@ func TestValidateBGPConfig(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "invalid neighbor hold-time",
+			name: "invalid neighbor hold-time (below minimum)",
 			config: BGPConfig{
 				ASN: "65001",
 				Neighbors: []BGPNeighbor{
@@ -282,9 +287,16 @@ func TestValidateBGPConfig(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "4-byte ASN",
+			name: "4-byte ASN (not supported by RTX)",
 			config: BGPConfig{
 				ASN: "4200000001",
+			},
+			wantErr: true,
+		},
+		{
+			name: "2-byte ASN max (supported)",
+			config: BGPConfig{
+				ASN: "65535",
 			},
 			wantErr: false,
 		},

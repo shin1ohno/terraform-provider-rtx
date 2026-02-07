@@ -191,19 +191,18 @@ graph TD
   func BuildBGPASNCommand(asn string) string
   func BuildBGPRouterIDCommand(routerID string) string
   func BuildBGPNeighborCommand(neighbor BGPNeighbor) string
-  func BuildBGPNeighborHoldTimeCommand(id, holdTime int) string
-  func BuildBGPNeighborKeepaliveCommand(id, keepalive int) string
-  func BuildBGPNeighborMultihopCommand(id, ttl int) string
-  func BuildBGPNeighborPasswordCommand(id int, password string) string
-  func BuildBGPNeighborLocalAddressCommand(id int, localAddr string) string
+  func BuildBGPNeighborPreSharedKeyCommand(neighborID int, password string) string
+  func BuildBGPNeighborPasswordCommand(neighborID int, password string) string  // Alias for PreSharedKey
   func BuildBGPNetworkCommand(filterID int, network BGPNetwork) string
   func BuildBGPRedistributeCommand(routeType string) string
   func BuildDeleteBGPNeighborCommand(id int) string
+  func BuildDeleteBGPNetworkCommand(filterID int) string
   func BuildDeleteBGPRedistributeCommand(routeType string) string
   func ValidateBGPConfig(config BGPConfig) error
   ```
 - **Dependencies:** Standard library only (regexp, strconv, strings)
 - **Reuses:** isValidIP() helper function
+- **Note:** Neighbor options (hold-time, local-address, passive) are inline parameters in BuildBGPNeighborCommand
 
 ### Component 5: OSPF Parser (`internal/rtx/parsers/ospf.go`)
 
@@ -264,12 +263,13 @@ type BGPConfig struct {
 type BGPNeighbor struct {
     Index        int    `json:"index"`                   // Neighbor index (1-based)
     IP           string `json:"ip"`                      // Neighbor IP address
-    RemoteAS     string `json:"remote_as"`               // Remote AS number
-    HoldTime     int    `json:"hold_time,omitempty"`     // 3-65535 seconds
+    RemoteAS     string `json:"remote_as"`               // Remote AS number (1-65535)
+    HoldTime     int    `json:"hold_time,omitempty"`     // 3-28800 seconds
     Keepalive    int    `json:"keepalive,omitempty"`     // 1-21845 seconds
     Multihop     int    `json:"multihop,omitempty"`      // 1-255 TTL
-    Password     string `json:"password,omitempty"`      // MD5 authentication
+    Password     string `json:"password,omitempty"`      // MD5 authentication (pre-shared-key)
     LocalAddress string `json:"local_address,omitempty"` // Local source address
+    Passive      bool   `json:"passive,omitempty"`       // Passive mode
 }
 
 type BGPNetwork struct {
@@ -338,23 +338,24 @@ type StaticRouteHop struct {
 
 ```hcl
 resource "rtx_bgp" "example" {
-  asn       = "65001"                    # Required, string, 1-4294967295
+  asn       = "65001"                    # Required, string, 1-65535 (2-byte ASN only)
   router_id = "10.0.0.1"                 # Optional, IPv4 address
 
   neighbor {
     index         = 1                    # Required, int >= 1
     ip            = "10.0.0.2"           # Required, IPv4 address
-    remote_as     = "65002"              # Required, string
-    hold_time     = 90                   # Optional, 3-65535
+    remote_as     = "65002"              # Required, string, 1-65535
+    hold_time     = 90                   # Optional, 3-28800
     keepalive     = 30                   # Optional, 1-21845
     multihop      = 2                    # Optional, 1-255
-    password      = "secret"             # Optional, sensitive
+    password      = "secret"             # Optional, sensitive (uses pre-shared-key)
     local_address = "10.0.0.1"           # Optional, IPv4 address
+    passive       = false                # Optional, passive mode
   }
 
   network {
     prefix = "192.168.1.0"               # Required, IPv4 address
-    mask   = "255.255.255.0"             # Required, dotted decimal
+    mask   = "255.255.255.0"             # Required, dotted decimal (output as CIDR)
   }
 
   redistribute_static    = true          # Optional, computed
@@ -426,13 +427,10 @@ resource "rtx_static_route" "example" {
 | Disable BGP | `bgp use off` | `bgp use off` |
 | Set ASN | `bgp autonomous-system <asn>` | `bgp autonomous-system 65001` |
 | Set Router ID | `bgp router id <ip>` | `bgp router id 10.0.0.1` |
-| Add Neighbor | `bgp neighbor <n> address <ip> as <asn>` | `bgp neighbor 1 address 10.0.0.2 as 65002` |
-| Set Hold Time | `bgp neighbor <n> hold-time <sec>` | `bgp neighbor 1 hold-time 90` |
-| Set Keepalive | `bgp neighbor <n> keepalive <sec>` | `bgp neighbor 1 keepalive 30` |
-| Set Multihop | `bgp neighbor <n> multihop <ttl>` | `bgp neighbor 1 multihop 2` |
-| Set Password | `bgp neighbor <n> password <pw>` | `bgp neighbor 1 password secret` |
-| Set Local Addr | `bgp neighbor <n> local-address <ip>` | `bgp neighbor 1 local-address 10.0.0.1` |
-| Announce Network | `bgp import filter <n> include <prefix>/<mask>` | `bgp import filter 1 include 192.168.1.0/255.255.255.0` |
+| Add Neighbor | `bgp neighbor <n> <as> <ip> [options...]` | `bgp neighbor 1 65002 10.0.0.2` |
+| Neighbor with Options | `bgp neighbor <n> <as> <ip> hold-time=<sec> local-address=<ip> passive=on` | `bgp neighbor 1 65002 10.0.0.2 hold-time=90 local-address=10.0.0.1` |
+| Set Password | `bgp neighbor pre-shared-key <n> text <password>` | `bgp neighbor pre-shared-key 1 text secret` |
+| Announce Network | `bgp import filter <n> include <prefix>/<cidr>` | `bgp import filter 1 include 192.168.1.0/24` |
 | Redistribute | `bgp import from <type>` | `bgp import from static` |
 | Delete Neighbor | `no bgp neighbor <n>` | `no bgp neighbor 1` |
 | Delete Redistribute | `no bgp import from <type>` | `no bgp import from static` |
@@ -599,3 +597,4 @@ internal/
 | 2026-02-01 | Implementation Audit | Update to Plugin Framework, fix attribute names (neighbor.index, area.area_id) |
 | 2026-02-01 | Structure Sync | Updated file paths to resources/{name}/ modular structure |
 | 2026-02-07 | Implementation Audit | Full audit against implementation code |
+| 2026-02-07 | RTX Reference Sync | BGP commands updated to match RTX reference: neighbor inline format, pre-shared-key, CIDR notation, 2-byte ASN only, hold-time 3-28800 |

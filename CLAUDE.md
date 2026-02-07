@@ -102,6 +102,22 @@ log.Debug().Interface("config", cfg).Msg("Configuration loaded")
 - Main logging infrastructure: `internal/logging/logger.go`
 - Environment variables: `TF_LOG` (level), `TF_LOG_JSON` (format)
 
+## Documentation Structure
+
+### RTX Command Reference (docs/RTX-commands/)
+
+The `docs/RTX-commands/` directory contains the **official Yamaha RTX router command reference**. This is the authoritative source for RTX command syntax and should be treated as correct. When comparing spec files or implementation against RTX commands, always defer to `docs/RTX-commands/` as the ground truth.
+
+### Spec Files (specs/)
+
+The `specs/` directory contains test specifications in YAML format for each resource. These include example RTX commands and expected behaviors used for testing.
+
+**Important**: If there are discrepancies between `specs/` files and `docs/RTX-commands/`, the documentation in `docs/RTX-commands/` is correct and the spec files should be updated.
+
+### Spec-Command Reference Comparison
+
+A comparison table between specs and official RTX command documentation is maintained at `docs/dev/spec-command-reference.md`.
+
 ## Yamaha RTX Router Integration
 
 Yamaha RTX routers are enterprise-grade networking devices that support:

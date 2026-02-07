@@ -1169,8 +1169,9 @@ type BGPNeighbor struct {
 	HoldTime     int    `json:"hold_time,omitempty"`     // Hold time in seconds
 	Keepalive    int    `json:"keepalive,omitempty"`     // Keepalive interval
 	Multihop     int    `json:"multihop,omitempty"`      // eBGP multihop TTL
-	Password     string `json:"password,omitempty"`      // MD5 authentication password
+	Password     string `json:"password,omitempty"`      // MD5 authentication password (pre-shared-key)
 	LocalAddress string `json:"local_address,omitempty"` // Local address for session
+	Passive      bool   `json:"passive,omitempty"`       // Passive mode
 }
 
 // BGPNetwork represents a BGP network announcement

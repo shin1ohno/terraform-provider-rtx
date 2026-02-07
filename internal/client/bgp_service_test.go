@@ -20,6 +20,7 @@ func TestBGPService_Get(t *testing.T) {
 		{
 			name: "Successful get with basic config",
 			mockSetup: func(m *MockExecutor) {
+				// Reference: bgp neighbor <n> <as> <ip>
 				output := `bgp use on
 bgp autonomous-system 65000
 bgp router id 192.168.1.1
@@ -50,9 +51,9 @@ bgp neighbor 1 65001 192.168.1.2
 bgp autonomous-system 65000
 bgp router id 192.168.1.1
 bgp neighbor 1 65001 192.168.1.2
-bgp network 1 192.168.0.0/24
-bgp import filter 1 include static
-bgp import filter 2 include connected
+bgp import filter 1 include 192.168.0.0/24
+bgp import from static
+bgp import from connected
 `
 				m.On("Run", mock.Anything, `show config | grep bgp`).
 					Return([]byte(output), nil)
@@ -138,6 +139,7 @@ func TestBGPService_Configure(t *testing.T) {
 			},
 			mockSetup: func(m *MockExecutor) {
 				// Expected batch commands including ASN, router ID, neighbor, and enable
+				// Reference: bgp neighbor <n> <as> <ip>
 				m.On("RunBatch", mock.Anything, mock.MatchedBy(func(cmds []string) bool {
 					hasASN := false
 					hasNeighbor := false
@@ -146,7 +148,7 @@ func TestBGPService_Configure(t *testing.T) {
 						if cmd == "bgp autonomous-system 65000" {
 							hasASN = true
 						}
-						if cmd == "bgp neighbor 1 address 192.168.1.2 as 65001" {
+						if cmd == "bgp neighbor 1 65001 192.168.1.2" {
 							hasNeighbor = true
 						}
 						if cmd == "bgp use on" {
@@ -282,10 +284,11 @@ bgp router id 192.168.1.1
 				})).Return([]byte(currentOutput), nil)
 
 				// Then: RunBatch with neighbor commands
+				// Reference: bgp neighbor <n> <as> <ip>
 				m.On("RunBatch", mock.Anything, mock.MatchedBy(func(cmds []string) bool {
 					hasNeighbor := false
 					for _, cmd := range cmds {
-						if cmd == "bgp neighbor 1 address 192.168.1.2 as 65001" {
+						if cmd == "bgp neighbor 1 65001 192.168.1.2" {
 							hasNeighbor = true
 						}
 					}
@@ -481,6 +484,7 @@ func TestBGPService_UsesRunBatch(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Verify essential commands are present
+		// Reference: bgp neighbor <n> <as> <ip>
 		hasASN := false
 		hasNeighbor := false
 		hasEnable := false
@@ -488,7 +492,7 @@ func TestBGPService_UsesRunBatch(t *testing.T) {
 			if cmd == "bgp autonomous-system 65000" {
 				hasASN = true
 			}
-			if cmd == "bgp neighbor 1 address 192.168.1.2 as 65001" {
+			if cmd == "bgp neighbor 1 65001 192.168.1.2" {
 				hasNeighbor = true
 			}
 			if cmd == "bgp use on" {
@@ -531,9 +535,10 @@ bgp router id 192.168.1.1
 		assert.NoError(t, err)
 
 		// Verify neighbor command is present (since it was added)
+		// Reference: bgp neighbor <n> <as> <ip>
 		hasNeighbor := false
 		for _, cmd := range capturedCommands {
-			if cmd == "bgp neighbor 1 address 192.168.1.2 as 65001" {
+			if cmd == "bgp neighbor 1 65001 192.168.1.2" {
 				hasNeighbor = true
 				break
 			}

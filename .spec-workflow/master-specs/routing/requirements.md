@@ -88,29 +88,30 @@ These routing resources directly support the product's goal of enabling Infrastr
 **User Story:** As a network administrator, I want to configure my BGP autonomous system number, so that my router can participate in BGP routing.
 
 **Acceptance Criteria:**
-1. WHEN a valid ASN (1-4294967295) is provided THEN the system SHALL configure `bgp autonomous-system <asn>`
+1. WHEN a valid ASN (1-65535) is provided THEN the system SHALL configure `bgp autonomous-system <asn>`
 2. WHEN an invalid ASN is provided THEN the system SHALL reject with a validation error
-3. IF 4-byte ASN is provided THEN the system SHALL accept it as a string value
+3. RTX supports 2-byte ASN only (1-65535)
 
 ##### Requirement 2: BGP Neighbor Configuration
 
 **User Story:** As a network administrator, I want to configure BGP neighbors with their connection parameters, so that I can establish peering sessions.
 
 **Acceptance Criteria:**
-1. WHEN a neighbor is defined with IP and remote_as THEN the system SHALL configure `bgp neighbor <n> address <ip> as <asn>`
-2. WHEN hold_time is specified (3-65535) THEN the system SHALL configure `bgp neighbor <n> hold-time <seconds>`
-3. WHEN keepalive is specified (1-21845) THEN the system SHALL configure `bgp neighbor <n> keepalive <seconds>`
-4. WHEN multihop is specified (1-255) THEN the system SHALL configure `bgp neighbor <n> multihop <ttl>`
-5. WHEN password is specified THEN the system SHALL configure `bgp neighbor <n> password <password>`
-6. WHEN local_address is specified THEN the system SHALL configure `bgp neighbor <n> local-address <ip>`
+1. WHEN a neighbor is defined with IP and remote_as THEN the system SHALL configure `bgp neighbor <n> <as> <ip>`
+2. WHEN hold_time is specified (3-28800) THEN the system SHALL include `hold-time=<seconds>` as inline parameter
+3. WHEN local_address is specified THEN the system SHALL include `local-address=<ip>` as inline parameter
+4. WHEN passive mode is enabled THEN the system SHALL include `passive=on` as inline parameter
+5. WHEN password is specified THEN the system SHALL configure `bgp neighbor pre-shared-key <n> text <password>`
+6. All options are inline parameters in the neighbor command: `bgp neighbor <n> <as> <ip> [hold-time=<sec>] [local-address=<ip>] [passive=on]`
 
 ##### Requirement 3: Network Announcements
 
 **User Story:** As a network administrator, I want to announce networks via BGP, so that my routes are advertised to peers.
 
 **Acceptance Criteria:**
-1. WHEN a network is defined with prefix and mask THEN the system SHALL configure `bgp import filter <n> include <prefix>/<mask>`
+1. WHEN a network is defined with prefix and mask THEN the system SHALL configure `bgp import filter <n> include <prefix>/<cidr>`
 2. WHEN multiple networks are defined THEN each SHALL be configured with unique filter IDs
+3. Network mask in Terraform schema is dotted decimal but output as CIDR notation (e.g., /24)
 
 ##### Requirement 4: Route Redistribution
 
@@ -281,11 +282,11 @@ These routing resources directly support the product's goal of enabling Infrastr
 - Configuration saved to persistent memory after each operation
 
 ### Validation
-- ASN validated as integer 1-4294967295
+- ASN validated as integer 1-65535 (2-byte ASN only, RTX limitation)
 - IPv4 addresses validated with net.ParseIP
 - OSPF area types validated: "normal", "stub", "nssa"
 - Route distance validated: 1-100
-- BGP hold-time: 3-65535
+- BGP hold-time: 3-28800
 - BGP keepalive: 1-21845
 - BGP multihop: 1-255
 - OSPF neighbor priority: 0-255
@@ -302,22 +303,21 @@ These routing resources directly support the product's goal of enabling Infrastr
 bgp use on
 bgp use off
 
-# Set AS number
+# Set AS number (1-65535, 2-byte ASN only)
 bgp autonomous-system <asn>
 
 # Set router ID
 bgp router id <ip>
 
-# Configure neighbor
-bgp neighbor <n> address <ip> as <asn>
-bgp neighbor <n> hold-time <seconds>
-bgp neighbor <n> keepalive <seconds>
-bgp neighbor <n> multihop <ttl>
-bgp neighbor <n> password <password>
-bgp neighbor <n> local-address <ip>
+# Configure neighbor (inline options format)
+bgp neighbor <n> <as> <ip>
+bgp neighbor <n> <as> <ip> hold-time=<seconds> local-address=<ip> passive=on
 
-# Network announcements
-bgp import filter <n> include <prefix>/<mask>
+# Configure neighbor password (pre-shared-key)
+bgp neighbor pre-shared-key <n> text <password>
+
+# Network announcements (CIDR notation)
+bgp import filter <n> include <prefix>/<cidr>
 
 # Redistribution
 bgp import from static
@@ -568,3 +568,4 @@ resource "rtx_static_route" "vpn_route" {
 | 2025-01-23 | Initial | Created from implementation code analysis |
 | 2026-02-01 | Implementation Audit | Fix attribute names: neighbor.id→index, area.id→area_id |
 | 2026-02-07 | Implementation Audit | Full audit against implementation code |
+| 2026-02-07 | RTX Reference Sync | BGP commands updated to match RTX reference: neighbor inline format, pre-shared-key, CIDR notation, 2-byte ASN (1-65535), hold-time 3-28800 |

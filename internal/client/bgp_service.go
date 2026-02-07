@@ -57,6 +57,7 @@ func (s *BGPService) Get(ctx context.Context) (*BGPConfig, error) {
 			Multihop:     n.Multihop,
 			Password:     n.Password,
 			LocalAddress: n.LocalAddress,
+			Passive:      n.Passive,
 		}
 	}
 
@@ -90,28 +91,22 @@ func (s *BGPService) Configure(ctx context.Context, config BGPConfig) error {
 	}
 
 	// 3. Configure neighbors
+	// Reference: bgp neighbor <n> <as> <ip> [hold-time=<sec>] [local-address=<ip>] [passive=on|off]
+	// Reference: bgp neighbor pre-shared-key <n> text <password>
 	for _, neighbor := range config.Neighbors {
 		parserNeighbor := parsers.BGPNeighbor{
-			ID:       neighbor.ID,
-			IP:       neighbor.IP,
-			RemoteAS: neighbor.RemoteAS,
+			ID:           neighbor.ID,
+			IP:           neighbor.IP,
+			RemoteAS:     neighbor.RemoteAS,
+			HoldTime:     neighbor.HoldTime,
+			LocalAddress: neighbor.LocalAddress,
+			Passive:      neighbor.Passive,
 		}
 		commands = append(commands, parsers.BuildBGPNeighborCommand(parserNeighbor))
 
-		if neighbor.HoldTime > 0 {
-			commands = append(commands, parsers.BuildBGPNeighborHoldTimeCommand(neighbor.ID, neighbor.HoldTime))
-		}
-		if neighbor.Keepalive > 0 {
-			commands = append(commands, parsers.BuildBGPNeighborKeepaliveCommand(neighbor.ID, neighbor.Keepalive))
-		}
-		if neighbor.Multihop > 0 {
-			commands = append(commands, parsers.BuildBGPNeighborMultihopCommand(neighbor.ID, neighbor.Multihop))
-		}
+		// Password is a separate command: bgp neighbor pre-shared-key <n> text <password>
 		if neighbor.Password != "" {
-			commands = append(commands, parsers.BuildBGPNeighborPasswordCommand(neighbor.ID, neighbor.Password))
-		}
-		if neighbor.LocalAddress != "" {
-			commands = append(commands, parsers.BuildBGPNeighborLocalAddressCommand(neighbor.ID, neighbor.LocalAddress))
+			commands = append(commands, parsers.BuildBGPNeighborPreSharedKeyCommand(neighbor.ID, neighbor.Password))
 		}
 	}
 
@@ -195,28 +190,22 @@ func (s *BGPService) Update(ctx context.Context, config BGPConfig) error {
 	}
 
 	// Add/update neighbors
+	// Reference: bgp neighbor <n> <as> <ip> [hold-time=<sec>] [local-address=<ip>] [passive=on|off]
+	// Reference: bgp neighbor pre-shared-key <n> text <password>
 	for _, neighbor := range config.Neighbors {
 		parserNeighbor := parsers.BGPNeighbor{
-			ID:       neighbor.ID,
-			IP:       neighbor.IP,
-			RemoteAS: neighbor.RemoteAS,
+			ID:           neighbor.ID,
+			IP:           neighbor.IP,
+			RemoteAS:     neighbor.RemoteAS,
+			HoldTime:     neighbor.HoldTime,
+			LocalAddress: neighbor.LocalAddress,
+			Passive:      neighbor.Passive,
 		}
 		commands = append(commands, parsers.BuildBGPNeighborCommand(parserNeighbor))
 
-		if neighbor.HoldTime > 0 {
-			commands = append(commands, parsers.BuildBGPNeighborHoldTimeCommand(neighbor.ID, neighbor.HoldTime))
-		}
-		if neighbor.Keepalive > 0 {
-			commands = append(commands, parsers.BuildBGPNeighborKeepaliveCommand(neighbor.ID, neighbor.Keepalive))
-		}
-		if neighbor.Multihop > 0 {
-			commands = append(commands, parsers.BuildBGPNeighborMultihopCommand(neighbor.ID, neighbor.Multihop))
-		}
+		// Password is a separate command: bgp neighbor pre-shared-key <n> text <password>
 		if neighbor.Password != "" {
-			commands = append(commands, parsers.BuildBGPNeighborPasswordCommand(neighbor.ID, neighbor.Password))
-		}
-		if neighbor.LocalAddress != "" {
-			commands = append(commands, parsers.BuildBGPNeighborLocalAddressCommand(neighbor.ID, neighbor.LocalAddress))
+			commands = append(commands, parsers.BuildBGPNeighborPreSharedKeyCommand(neighbor.ID, neighbor.Password))
 		}
 	}
 
@@ -300,6 +289,7 @@ func convertToParserBGPConfig(config BGPConfig) parsers.BGPConfig {
 			Multihop:     n.Multihop,
 			Password:     n.Password,
 			LocalAddress: n.LocalAddress,
+			Passive:      n.Passive,
 		}
 	}
 

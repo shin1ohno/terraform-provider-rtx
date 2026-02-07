@@ -44,16 +44,17 @@ command:
 
     # =============================================================================
     # BGP Autonomous System
+    # Reference: AS range is 1-65535 (2-byte AS only)
     # =============================================================================
     - name: bgp_asn_2byte
       rtx: "bgp autonomous-system 65001"
       terraform:
         asn: "65001"
 
-    - name: bgp_asn_4byte
-      rtx: "bgp autonomous-system 4200000001"
+    - name: bgp_asn_min
+      rtx: "bgp autonomous-system 100"
       terraform:
-        asn: "4200000001"
+        asn: "100"
 
     # =============================================================================
     # BGP Router ID
@@ -70,9 +71,10 @@ command:
 
     # =============================================================================
     # BGP Neighbor
+    # Reference: bgp neighbor <neighbor_id> <remote_as> <remote_address> [<parameter>...]
     # =============================================================================
     - name: bgp_neighbor
-      rtx: "bgp neighbor 1 address 203.0.113.1 as 65002"
+      rtx: "bgp neighbor 1 65002 203.0.113.1"
       terraform:
         neighbors:
           - id: 1
@@ -80,58 +82,57 @@ command:
             remote_as: "65002"
 
     - name: bgp_neighbor_second
-      rtx: "bgp neighbor 2 address 203.0.113.2 as 65003"
+      rtx: "bgp neighbor 2 65003 203.0.113.2"
       terraform:
         neighbors:
           - id: 2
             ip: "203.0.113.2"
             remote_as: "65003"
 
-    - name: bgp_neighbor_4byte_as
-      rtx: "bgp neighbor 1 address 10.0.0.1 as 4200000001"
-      terraform:
-        neighbors:
-          - id: 1
-            ip: "10.0.0.1"
-            remote_as: "4200000001"
+    # Note: RTX supports 2-byte AS only (1-65535), removed 4-byte AS test case
 
     # =============================================================================
     # BGP Neighbor Options
+    # Note: These options are specified as inline parameters in the neighbor command
+    # Reference: bgp neighbor <n> <as> <ip> [hold-time=<sec>] [local-address=<ip>] [passive=on|off]
     # =============================================================================
     - name: bgp_neighbor_holdtime
-      rtx: "bgp neighbor 1 hold-time 90"
+      rtx: "bgp neighbor 1 65002 192.168.1.2 hold-time=90"
       terraform:
         neighbors:
           - id: 1
+            remote_as: "65002"
+            ip: "192.168.1.2"
             hold_time: 90
 
-    - name: bgp_neighbor_keepalive
-      rtx: "bgp neighbor 1 keepalive 30"
+    - name: bgp_neighbor_local_address
+      rtx: "bgp neighbor 1 65002 192.168.1.2 local-address=192.168.1.1"
       terraform:
         neighbors:
           - id: 1
-            keepalive: 30
+            remote_as: "65002"
+            ip: "192.168.1.2"
+            local_address: "192.168.1.1"
 
-    - name: bgp_neighbor_multihop
-      rtx: "bgp neighbor 1 multihop 2"
+    - name: bgp_neighbor_passive
+      rtx: "bgp neighbor 1 65002 192.168.1.2 passive=on"
       terraform:
         neighbors:
           - id: 1
-            multihop: 2
+            remote_as: "65002"
+            ip: "192.168.1.2"
+            passive: true
 
-    - name: bgp_neighbor_password
-      rtx: "bgp neighbor 1 password mysecret"
+    # =============================================================================
+    # BGP Neighbor Pre-Shared Key (TCP MD5 Authentication)
+    # Reference: bgp neighbor pre-shared-key <neighbor_id> text <text_key>
+    # =============================================================================
+    - name: bgp_neighbor_preshared_key
+      rtx: "bgp neighbor pre-shared-key 1 text mysecret"
       terraform:
         neighbors:
           - id: 1
             password: "mysecret"
-
-    - name: bgp_neighbor_local_address
-      rtx: "bgp neighbor 1 local-address 192.168.1.1"
-      terraform:
-        neighbors:
-          - id: 1
-            local_address: "192.168.1.1"
 
     # =============================================================================
     # BGP Network (Import Filter)
@@ -186,55 +187,35 @@ command:
       - value: "65535"
         valid: true
         description: "2バイトAS最大値"
-      - value: "4294967295"
-        valid: true
-        description: "4バイトAS最大値"
       - value: "0"
         valid: false
+        error_contains: "invalid AS number"
+      - value: "65536"
+        valid: false
+        description: "2バイトAS範囲外"
         error_contains: "invalid AS number"
 
     neighbor_id:
       - value: 1
         valid: true
-      - value: 100
+      - value: 2147483647
         valid: true
+        description: "最大値"
       - value: 0
         valid: false
         error_contains: "must be positive"
 
     hold_time:
-      - value: 0
-        valid: true
-        description: "無効化"
       - value: 3
         valid: true
         description: "最小値"
-      - value: 90
+      - value: 180
         valid: true
-        description: "標準値"
-      - value: 65535
+        description: "デフォルト値"
+      - value: 28800
         valid: true
         description: "最大値"
-
-    keepalive:
-      - value: 1
-        valid: true
-      - value: 30
-        valid: true
-        description: "標準値"
-      - value: 21845
-        valid: true
-        description: "最大値（hold_time/3）"
-
-    multihop:
-      - value: 1
-        valid: true
       - value: 2
-        valid: true
-        description: "標準値"
-      - value: 255
-        valid: true
-        description: "最大値"
-      - value: 0
         valid: false
-        error_contains: "must be positive"
+        description: "最小値未満"
+        error_contains: "hold_time must be between 3 and 28800"
