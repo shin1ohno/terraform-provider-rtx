@@ -126,12 +126,12 @@ resource "rtx_vlan" "guest" {
 |----------|-----------|
 | **Interfaces** | [interface](docs/resources/interface.md), [bridge](docs/resources/bridge.md), [vlan](docs/resources/vlan.md), [pp_interface](docs/resources/pp_interface.md), [ipv6_interface](docs/resources/ipv6_interface.md), [ipv6_prefix](docs/resources/ipv6_prefix.md) |
 | **Connectivity** | [pppoe](docs/resources/pppoe.md), [static_route](docs/resources/static_route.md), [bgp](docs/resources/bgp.md), [ospf](docs/resources/ospf.md) |
-| **VPN** | [ipsec_tunnel](docs/resources/ipsec_tunnel.md), [ipsec_transport](docs/resources/ipsec_transport.md), [l2tp](docs/resources/l2tp.md), [l2tp_service](docs/resources/l2tp_service.md), [pptp](docs/resources/pptp.md) |
+| **VPN** | [tunnel](docs/resources/tunnel.md), [ipsec_tunnel](docs/resources/ipsec_tunnel.md), [ipsec_transport](docs/resources/ipsec_transport.md), [l2tp](docs/resources/l2tp.md), [l2tp_service](docs/resources/l2tp_service.md), [pptp](docs/resources/pptp.md) |
 | **NAT** | [nat_masquerade](docs/resources/nat_masquerade.md), [nat_static](docs/resources/nat_static.md) |
-| **Security** | [access_list_ip](docs/resources/access_list_ip.md), [access_list_ipv6](docs/resources/access_list_ipv6.md), [access_list_ip_dynamic](docs/resources/access_list_ip_dynamic.md), [access_list_ipv6_dynamic](docs/resources/access_list_ipv6_dynamic.md), [access_list_mac](docs/resources/access_list_mac.md), [access_list_extended](docs/resources/access_list_extended.md), [access_list_extended_ipv6](docs/resources/access_list_extended_ipv6.md) |
+| **Security** | [access_list_ip](docs/resources/access_list_ip.md), [access_list_ip_apply](docs/resources/access_list_ip_apply.md), [access_list_ipv6](docs/resources/access_list_ipv6.md), [access_list_ipv6_apply](docs/resources/access_list_ipv6_apply.md), [access_list_ip_dynamic](docs/resources/access_list_ip_dynamic.md), [access_list_ipv6_dynamic](docs/resources/access_list_ipv6_dynamic.md), [access_list_mac](docs/resources/access_list_mac.md), [access_list_mac_apply](docs/resources/access_list_mac_apply.md), [access_list_extended](docs/resources/access_list_extended.md), [access_list_extended_ipv6](docs/resources/access_list_extended_ipv6.md) |
 | **DHCP & DNS** | [dhcp_scope](docs/resources/dhcp_scope.md), [dhcp_binding](docs/resources/dhcp_binding.md), [dns_server](docs/resources/dns_server.md), [ddns](docs/resources/ddns.md), [netvolante_dns](docs/resources/netvolante_dns.md) |
 | **QoS** | [class_map](docs/resources/class_map.md), [policy_map](docs/resources/policy_map.md), [service_policy](docs/resources/service_policy.md), [shape](docs/resources/shape.md) |
-| **Services** | [sshd](docs/resources/sshd.md), [sftpd](docs/resources/sftpd.md), [httpd](docs/resources/httpd.md), [snmp_server](docs/resources/snmp_server.md), [syslog](docs/resources/syslog.md) |
+| **Services** | [sshd](docs/resources/sshd.md), [sshd_authorized_keys](docs/resources/sshd_authorized_keys.md), [sshd_host_key](docs/resources/sshd_host_key.md), [sftpd](docs/resources/sftpd.md), [httpd](docs/resources/httpd.md), [snmp_server](docs/resources/snmp_server.md), [syslog](docs/resources/syslog.md) |
 | **Administration** | [admin](docs/resources/admin.md), [admin_user](docs/resources/admin_user.md), [system](docs/resources/system.md), [kron_schedule](docs/resources/kron_schedule.md), [kron_policy](docs/resources/kron_policy.md) |
 
 ## Examples
@@ -142,12 +142,21 @@ resource "rtx_vlan" "guest" {
 | [vlan](examples/vlan/) | 802.1Q VLAN setup |
 | [pppoe](examples/pppoe/) | PPPoE connection for ISP |
 | [ipv6_interface](examples/ipv6_interface/) | IPv6 with SLAAC and DHCPv6 |
+| [tunnel](examples/tunnel/) | Unified tunnel (IPsec, L2TPv3, L2TPv2) |
 | [ipsec_tunnel](examples/ipsec_tunnel/) | Site-to-site IPsec VPN |
+| [ipsec_transport](examples/ipsec_transport/) | IPsec transport mode for L2TP |
 | [l2tp](examples/l2tp/) | L2TP/L2TPv3 VPN tunnels |
 | [nat_masquerade](examples/nat_masquerade/) | NAT/PAT configuration |
+| [nat_static](examples/nat_static/) | Static NAT (1:1 mapping) |
+| [access_list_ip](examples/access_list_ip/) | IP access list filtering |
+| [access_list_ipv6](examples/access_list_ipv6/) | IPv6 access list filtering |
+| [access_list_mac](examples/access_list_mac/) | MAC access list filtering |
 | [static_route](examples/static_route/) | Static routing |
 | [dhcp](examples/dhcp/) | DHCP server setup |
 | [dns_server](examples/dns_server/) | DNS server and forwarding |
+| [ddns](examples/ddns/) | Dynamic DNS configuration |
+| [snmp](examples/snmp/) | SNMP server monitoring |
+| [syslog](examples/syslog/) | Syslog configuration |
 | [qos](examples/qos/) | QoS with class/policy maps |
 | [bgp](examples/bgp/) | BGP routing |
 | [ospf](examples/ospf/) | OSPF routing |
@@ -313,13 +322,15 @@ terraform import rtx_bridge.internal bridge1
 
 This provider is designed for Yamaha RTX series routers including:
 
-- RTX830
-- RTX1210
-- RTX1220
-- RTX3500
+- vRX (virtual router)
 - RTX5000
-- NVR510
-- NVR700W
+- RTX3510
+- RTX3500
+- RTX1300
+- RTX1220
+- RTX1210
+- RTX840
+- RTX830
 
 ## Development
 
