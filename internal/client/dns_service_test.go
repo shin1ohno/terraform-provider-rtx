@@ -28,7 +28,6 @@ dns private address spoof on
 `), nil)
 			},
 			expected: &DNSConfig{
-				DomainLookup: true,
 				DomainName:   "example.com",
 				NameServers:  []string{"8.8.8.8", "8.8.4.4"},
 				ServerSelect: []DNSServerSelect{},
@@ -41,22 +40,22 @@ dns private address spoof on
 		{
 			name: "Successful get - full config",
 			mockSetup: func(m *MockExecutor) {
+				// Note: dns static now requires type prefix (e.g., "dns static a router 192.168.1.1")
 				m.On("Run", mock.Anything, "show config | grep dns").
 					Return([]byte(`dns server 8.8.8.8
 dns server select 1 192.168.1.1 internal.example.com
-dns static router 192.168.1.1
+dns static a router 192.168.1.1
 dns service recursive
 `), nil)
 			},
 			expected: &DNSConfig{
-				DomainLookup: true,
-				DomainName:   "",
-				NameServers:  []string{"8.8.8.8"},
+				DomainName:  "",
+				NameServers: []string{"8.8.8.8"},
 				ServerSelect: []DNSServerSelect{
 					{ID: 1, Servers: []DNSServer{{Address: "192.168.1.1"}}, RecordType: "a", QueryPattern: "internal.example.com"},
 				},
 				Hosts: []DNSHost{
-					{Name: "router", Address: "192.168.1.1"},
+					{Type: "a", Name: "router", Address: "192.168.1.1"},
 				},
 				ServiceOn:    true,
 				PrivateSpoof: false,
@@ -70,7 +69,6 @@ dns service recursive
 					Return([]byte(""), nil)
 			},
 			expected: &DNSConfig{
-				DomainLookup: true,
 				NameServers:  []string{},
 				ServerSelect: []DNSServerSelect{},
 				Hosts:        []DNSHost{},
@@ -105,7 +103,7 @@ dns service recursive
 				}
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, tt.expected.DomainLookup, config.DomainLookup)
+				// Note: DomainLookup field removed - not in RTX reference
 				assert.Equal(t, tt.expected.DomainName, config.DomainName)
 				assert.Equal(t, tt.expected.NameServers, config.NameServers)
 				assert.Equal(t, len(tt.expected.ServerSelect), len(config.ServerSelect))
@@ -130,7 +128,6 @@ func TestDNSService_Configure(t *testing.T) {
 		{
 			name: "Successful basic configuration",
 			config: DNSConfig{
-				DomainLookup: true,
 				NameServers:  []string{"8.8.8.8", "8.8.4.4"},
 				ServiceOn:    true,
 				PrivateSpoof: false,
@@ -148,7 +145,6 @@ func TestDNSService_Configure(t *testing.T) {
 		{
 			name: "Configuration with domain name",
 			config: DNSConfig{
-				DomainLookup: true,
 				DomainName:   "example.com",
 				NameServers:  []string{"8.8.8.8"},
 				ServiceOn:    true,
@@ -167,35 +163,14 @@ func TestDNSService_Configure(t *testing.T) {
 			expectedErr: false,
 		},
 		{
-			name: "Configuration with domain lookup disabled",
-			config: DNSConfig{
-				DomainLookup: false,
-				NameServers:  []string{"8.8.8.8"},
-				ServiceOn:    false,
-				PrivateSpoof: false,
-			},
-			mockSetup: func(m *MockExecutor) {
-				m.On("Run", mock.Anything, "no dns domain lookup").
-					Return([]byte(""), nil)
-				m.On("Run", mock.Anything, "dns server 8.8.8.8").
-					Return([]byte(""), nil)
-				m.On("Run", mock.Anything, "dns service off").
-					Return([]byte(""), nil)
-				m.On("Run", mock.Anything, "dns private address spoof off").
-					Return([]byte(""), nil)
-			},
-			expectedErr: false,
-		},
-		{
 			name: "Configuration with server select and hosts",
 			config: DNSConfig{
-				DomainLookup: true,
-				NameServers:  []string{"8.8.8.8"},
+				NameServers: []string{"8.8.8.8"},
 				ServerSelect: []DNSServerSelect{
-					{ID: 1, Servers: []DNSServer{{Address: "192.168.1.1"}}, QueryPattern: "internal.example.com"},
+					{ID: 1, Servers: []DNSServer{{Address: "192.168.1.1"}}, RecordType: "a", QueryPattern: "internal.example.com"},
 				},
 				Hosts: []DNSHost{
-					{Name: "router", Address: "192.168.1.1"},
+					{Type: "a", Name: "router", Address: "192.168.1.1"},
 				},
 				ServiceOn:    true,
 				PrivateSpoof: false,
@@ -203,9 +178,10 @@ func TestDNSService_Configure(t *testing.T) {
 			mockSetup: func(m *MockExecutor) {
 				m.On("Run", mock.Anything, "dns server 8.8.8.8").
 					Return([]byte(""), nil)
+				// Note: RecordType "a" is default and not included in command
 				m.On("Run", mock.Anything, "dns server select 1 192.168.1.1 internal.example.com").
 					Return([]byte(""), nil)
-				m.On("Run", mock.Anything, "dns static router 192.168.1.1").
+				m.On("Run", mock.Anything, "dns static a router 192.168.1.1").
 					Return([]byte(""), nil)
 				m.On("Run", mock.Anything, "dns service recursive").
 					Return([]byte(""), nil)
@@ -235,7 +211,6 @@ func TestDNSService_Configure(t *testing.T) {
 		{
 			name: "Execution error",
 			config: DNSConfig{
-				DomainLookup: true,
 				NameServers:  []string{"8.8.8.8"},
 				ServiceOn:    true,
 				PrivateSpoof: false,
@@ -298,12 +273,12 @@ func TestDNSService_Reset(t *testing.T) {
 			mockSetup: func(m *MockExecutor) {
 				m.On("Run", mock.Anything, "show config | grep dns").
 					Return([]byte(`dns server 8.8.8.8
-dns server select 1 192.168.1.1 internal.example.com
-dns static router 192.168.1.1
+dns server select 1 192.168.1.1 a internal.example.com
+dns static a router 192.168.1.1
 `), nil)
 				m.On("Run", mock.Anything, "no dns server select 1").
 					Return([]byte(""), nil)
-				m.On("Run", mock.Anything, "no dns static router").
+				m.On("Run", mock.Anything, "no dns static a router").
 					Return([]byte(""), nil)
 				m.On("Run", mock.Anything, "no dns server").
 					Return([]byte(""), nil)

@@ -99,8 +99,10 @@ func (s *DNSService) Configure(ctx context.Context, config DNSConfig) error {
 	// Configure static hosts
 	for _, host := range config.Hosts {
 		parserHost := parsers.DNSHost{
+			Type:    host.Type,
 			Name:    host.Name,
 			Address: host.Address,
+			TTL:     host.TTL,
 		}
 		cmd := parsers.BuildDNSStaticCommand(parserHost)
 		if cmd == "" {

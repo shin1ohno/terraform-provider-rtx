@@ -89,19 +89,8 @@ func TestOSPFRoundTrip_Parse(t *testing.T) {
 				}
 			},
 		},
-		{
-			name: "ospf_area_nssa",
-			rtx:  "ospf area 2 nssa",
-			checkFunc: func(t *testing.T, config *OSPFConfig) {
-				if len(config.Areas) != 1 {
-					t.Errorf("Areas count = %v, want 1", len(config.Areas))
-					return
-				}
-				if config.Areas[0].Type != "nssa" {
-					t.Errorf("Areas[0].Type = %v, want nssa", config.Areas[0].Type)
-				}
-			},
-		},
+		// Note: NSSA is NOT supported on RTX routers according to reference
+		// ospf_area_nssa test case removed
 		{
 			name: "ospf_import_static",
 			rtx:  "ospf import from static",
@@ -111,15 +100,9 @@ func TestOSPFRoundTrip_Parse(t *testing.T) {
 				}
 			},
 		},
-		{
-			name: "ospf_import_connected",
-			rtx:  "ospf import from connected",
-			checkFunc: func(t *testing.T, config *OSPFConfig) {
-				if config.RedistributeConnected != true {
-					t.Errorf("RedistributeConnected = %v, want true", config.RedistributeConnected)
-				}
-			},
-		},
+		// Note: 'connected' is NOT a valid protocol for ospf import from
+		// Reference only supports: static, rip, bgp
+		// ospf_import_connected test case removed
 		{
 			name: "ip_interface_ospf_area",
 			rtx:  "ip lan1 ospf area 0",
@@ -198,20 +181,8 @@ func TestOSPFRoundTrip_Build(t *testing.T) {
 			},
 			expectedRTX: "ospf area 1 stub no-summary",
 		},
-		{
-			name: "ospf_area_nssa",
-			buildFunc: func() string {
-				return BuildOSPFAreaCommand(OSPFArea{ID: "2", Type: "nssa"})
-			},
-			expectedRTX: "ospf area 2 nssa",
-		},
-		{
-			name: "ospf_area_nssa_no_summary",
-			buildFunc: func() string {
-				return BuildOSPFAreaCommand(OSPFArea{ID: "2", Type: "nssa", NoSummary: true})
-			},
-			expectedRTX: "ospf area 2 nssa no-summary",
-		},
+		// Note: NSSA is NOT supported on RTX routers according to reference
+		// ospf_area_nssa and ospf_area_nssa_no_summary test cases removed
 		{
 			name: "ip_ospf_area",
 			buildFunc: func() string {
@@ -226,13 +197,8 @@ func TestOSPFRoundTrip_Build(t *testing.T) {
 			},
 			expectedRTX: "ospf import from static",
 		},
-		{
-			name: "ospf_import_connected",
-			buildFunc: func() string {
-				return BuildOSPFImportCommand("connected")
-			},
-			expectedRTX: "ospf import from connected",
-		},
+		// Note: 'connected' is NOT a valid protocol for ospf import from
+		// ospf_import_connected test case removed
 		{
 			name: "delete_ospf_area",
 			buildFunc: func() string {
@@ -290,10 +256,8 @@ func TestOSPFRoundTrip_ParseBuildParse(t *testing.T) {
 			name: "ospf_import_static",
 			rtx:  "ospf import from static",
 		},
-		{
-			name: "ospf_import_connected",
-			rtx:  "ospf import from connected",
-		},
+		// Note: 'connected' is NOT a valid protocol for ospf import from
+		// ospf_import_connected test case removed
 	}
 
 	for _, tc := range testCases {
@@ -323,8 +287,6 @@ func TestOSPFRoundTrip_ParseBuildParse(t *testing.T) {
 				rebuiltRTX = BuildOSPFRouterIDCommand(config.RouterID)
 			case "ospf_import_static":
 				rebuiltRTX = BuildOSPFImportCommand("static")
-			case "ospf_import_connected":
-				rebuiltRTX = BuildOSPFImportCommand("connected")
 			}
 
 			// Step 3: Verify the rebuilt command matches the original
