@@ -210,7 +210,9 @@ func (s *DNSService) Update(ctx context.Context, config DNSConfig) error {
 		if !found {
 			cmd := parsers.BuildDeleteDNSServerSelectCommand(currentSel.ID)
 			logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Removing DNS server select %d with command: %s", currentSel.ID, cmd)
-			_, _ = s.executor.Run(ctx, cmd)
+			if _, err := s.executor.Run(ctx, cmd); err != nil {
+				return fmt.Errorf("failed to delete DNS server select %d: %w", currentSel.ID, err)
+			}
 		}
 	}
 	// Add/update new entries
@@ -239,7 +241,9 @@ func (s *DNSService) Update(ctx context.Context, config DNSConfig) error {
 		if !found {
 			cmd := parsers.BuildDeleteDNSStaticCommand(currentHost.Type, currentHost.Name)
 			logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Removing DNS static host %s with command: %s", currentHost.Name, cmd)
-			_, _ = s.executor.Run(ctx, cmd)
+			if _, err := s.executor.Run(ctx, cmd); err != nil {
+				return fmt.Errorf("failed to delete DNS static host %s: %w", currentHost.Name, err)
+			}
 		}
 	}
 	// Add/update new entries

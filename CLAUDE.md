@@ -25,8 +25,11 @@ Project structure:
 ## Common Development Commands
 
 ```bash
-# Build the provider
-go build -o terraform-provider-rtx
+# Build the provider binary (MUST use this before terraform plan/apply)
+go build -o terraform-provider-rtx .
+
+# IMPORTANT: `go build ./...` only checks compilation and does NOT update the binary.
+# Always use the command above to rebuild before testing with Terraform.
 
 # Run tests
 go test ./...

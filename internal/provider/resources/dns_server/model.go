@@ -3,6 +3,7 @@ package dns_server
 import (
 	"context"
 	"sort"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -169,47 +170,19 @@ func (m *DNSServerModel) FromClient(ctx context.Context, config *client.DNSConfi
 		m.NameServers = types.ListValueMust(types.StringType, []attr.Value{})
 	}
 
-	// Convert server_select
+	// Convert server_select, preserving previous state ordering when available
 	if len(config.ServerSelect) > 0 {
-		// Sort server_select by ID to ensure consistent ordering
-		sortedServerSelect := make([]client.DNSServerSelect, len(config.ServerSelect))
-		copy(sortedServerSelect, config.ServerSelect)
-		sort.Slice(sortedServerSelect, func(i, j int) bool {
-			return sortedServerSelect[i].ID < sortedServerSelect[j].ID
-		})
+		orderedEntries := m.orderServerSelectEntries(ctx, config.ServerSelect, diags)
+		if diags.HasError() {
+			return
+		}
 
-		serverSelectValues := make([]attr.Value, len(sortedServerSelect))
-		for i, sel := range sortedServerSelect {
-			// Convert servers
-			serverValues := make([]attr.Value, len(sel.Servers))
-			for j, srv := range sel.Servers {
-				serverObj, d := types.ObjectValue(
-					DNSServerEntryAttrTypes(),
-					map[string]attr.Value{
-						"address": types.StringValue(srv.Address),
-						"edns":    types.BoolValue(srv.EDNS),
-					},
-				)
-				diags.Append(d...)
-				serverValues[j] = serverObj
-			}
-
-			serverListVal, d := types.ListValue(types.ObjectType{AttrTypes: DNSServerEntryAttrTypes()}, serverValues)
-			diags.Append(d...)
-
-			selectObj, d := types.ObjectValue(
-				DNSServerSelectAttrTypes(),
-				map[string]attr.Value{
-					"priority":        types.Int64Value(int64(sel.ID)),
-					"server":          serverListVal,
-					"record_type":     fwhelpers.StringValueOrNull(sel.RecordType),
-					"query_pattern":   types.StringValue(sel.QueryPattern),
-					"original_sender": fwhelpers.StringValueOrNull(sel.OriginalSender),
-					"restrict_pp":     types.Int64Value(int64(sel.RestrictPP)),
-				},
-			)
-			diags.Append(d...)
-			serverSelectValues[i] = selectObj
+		serverSelectValues := make([]attr.Value, len(orderedEntries))
+		for i, sel := range orderedEntries {
+			serverSelectValues[i] = buildServerSelectAttrValue(sel, diags)
+		}
+		if diags.HasError() {
+			return
 		}
 		listVal, d := types.ListValue(types.ObjectType{AttrTypes: DNSServerSelectAttrTypes()}, serverSelectValues)
 		diags.Append(d...)
@@ -304,13 +277,17 @@ func (m *DNSServerModel) reorderServerSelectToMatchPlan(ctx context.Context, pla
 		return
 	}
 
-	// Build a map of priority -> index in current list
+	// Build maps for matching: by priority and by content (fallback)
 	currentByPriority := make(map[int64]int)
+	currentByContent := make(map[serverSelectContentKey]int)
 	for i, sel := range currentSelects {
 		currentByPriority[sel.Priority.ValueInt64()] = i
+		key := makeContentKey(sel.QueryPattern.ValueString(), sel.RecordType.ValueString())
+		currentByContent[key] = i
 	}
 
 	// Reorder current selects to match plan order
+	usedIndices := make(map[int]bool)
 	reorderedValues := make([]attr.Value, len(planSelects))
 	for i := range planSelects {
 		var priority int64
@@ -322,7 +299,20 @@ func (m *DNSServerModel) reorderServerSelectToMatchPlan(ctx context.Context, pla
 			priority = planSelects[i].Priority.ValueInt64()
 		}
 
-		if idx, ok := currentByPriority[priority]; ok {
+		// Try matching by priority first, then fall back to content matching
+		idx := -1
+		if j, ok := currentByPriority[priority]; ok && !usedIndices[j] {
+			idx = j
+		} else {
+			// Fallback: match by (query_pattern, record_type)
+			planKey := makeContentKey(planSelects[i].QueryPattern.ValueString(), planSelects[i].RecordType.ValueString())
+			if j, ok := currentByContent[planKey]; ok && !usedIndices[j] {
+				idx = j
+			}
+		}
+
+		if idx >= 0 {
+			usedIndices[idx] = true
 			sel := currentSelects[idx]
 
 			// Convert servers
@@ -372,4 +362,120 @@ func (m *DNSServerModel) reorderServerSelectToMatchPlan(ctx context.Context, pla
 	listVal, d := types.ListValue(types.ObjectType{AttrTypes: DNSServerSelectAttrTypes()}, reorderedValues)
 	diags.Append(d...)
 	m.ServerSelect = listVal
+}
+
+// normalizeRecordType normalizes a record type string for comparison.
+// Empty string and "a" are treated as equivalent (default value).
+func normalizeRecordType(rt string) string {
+	rt = strings.ToLower(strings.TrimSpace(rt))
+	if rt == "" {
+		return "a"
+	}
+	return rt
+}
+
+// serverSelectContentKey returns a key for matching server_select entries by content.
+type serverSelectContentKey struct {
+	queryPattern string
+	recordType   string
+}
+
+func makeContentKey(queryPattern, recordType string) serverSelectContentKey {
+	return serverSelectContentKey{
+		queryPattern: queryPattern,
+		recordType:   normalizeRecordType(recordType),
+	}
+}
+
+// orderServerSelectEntries orders router entries to match previous state ordering.
+// If no previous state exists, entries are sorted by ID.
+func (m *DNSServerModel) orderServerSelectEntries(ctx context.Context, routerEntries []client.DNSServerSelect, diags *diag.Diagnostics) []client.DNSServerSelect {
+	// Check if we have previous state to preserve ordering
+	if m.ServerSelect.IsNull() || m.ServerSelect.IsUnknown() || len(m.ServerSelect.Elements()) == 0 {
+		// No previous state: sort by ID (original behavior)
+		sorted := make([]client.DNSServerSelect, len(routerEntries))
+		copy(sorted, routerEntries)
+		sort.Slice(sorted, func(i, j int) bool {
+			return sorted[i].ID < sorted[j].ID
+		})
+		return sorted
+	}
+
+	// Extract previous state entries to get their ordering
+	var prevSelects []DNSServerSelectModel
+	d := m.ServerSelect.ElementsAs(ctx, &prevSelects, false)
+	diags.Append(d...)
+	if diags.HasError() {
+		return nil
+	}
+
+	// Build a map of (query_pattern, record_type) -> router entry
+	routerByContent := make(map[serverSelectContentKey]client.DNSServerSelect)
+	for _, entry := range routerEntries {
+		key := makeContentKey(entry.QueryPattern, entry.RecordType)
+		routerByContent[key] = entry
+	}
+
+	// Track which router entries have been matched
+	matched := make(map[serverSelectContentKey]bool)
+	result := make([]client.DNSServerSelect, 0, len(routerEntries))
+
+	// Walk previous state in order, matching against router entries
+	for _, prev := range prevSelects {
+		key := makeContentKey(prev.QueryPattern.ValueString(), prev.RecordType.ValueString())
+		if entry, ok := routerByContent[key]; ok && !matched[key] {
+			result = append(result, entry)
+			matched[key] = true
+		}
+		// If not found in router entries, skip (entry was deleted from router)
+	}
+
+	// Append any unmatched router entries (new entries not in previous state)
+	// Sort them by ID for consistency
+	var unmatched []client.DNSServerSelect
+	for _, entry := range routerEntries {
+		key := makeContentKey(entry.QueryPattern, entry.RecordType)
+		if !matched[key] {
+			unmatched = append(unmatched, entry)
+		}
+	}
+	sort.Slice(unmatched, func(i, j int) bool {
+		return unmatched[i].ID < unmatched[j].ID
+	})
+	result = append(result, unmatched...)
+
+	return result
+}
+
+// buildServerSelectAttrValue converts a client.DNSServerSelect to a Terraform attr.Value.
+func buildServerSelectAttrValue(sel client.DNSServerSelect, diags *diag.Diagnostics) attr.Value {
+	serverValues := make([]attr.Value, len(sel.Servers))
+	for j, srv := range sel.Servers {
+		serverObj, d := types.ObjectValue(
+			DNSServerEntryAttrTypes(),
+			map[string]attr.Value{
+				"address": types.StringValue(srv.Address),
+				"edns":    types.BoolValue(srv.EDNS),
+			},
+		)
+		diags.Append(d...)
+		serverValues[j] = serverObj
+	}
+
+	serverListVal, d := types.ListValue(types.ObjectType{AttrTypes: DNSServerEntryAttrTypes()}, serverValues)
+	diags.Append(d...)
+
+	selectObj, d := types.ObjectValue(
+		DNSServerSelectAttrTypes(),
+		map[string]attr.Value{
+			"priority":        types.Int64Value(int64(sel.ID)),
+			"server":          serverListVal,
+			"record_type":     fwhelpers.StringValueOrNull(sel.RecordType),
+			"query_pattern":   types.StringValue(sel.QueryPattern),
+			"original_sender": fwhelpers.StringValueOrNull(sel.OriginalSender),
+			"restrict_pp":     types.Int64Value(int64(sel.RestrictPP)),
+		},
+	)
+	diags.Append(d...)
+	return selectObj
 }
