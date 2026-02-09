@@ -65,23 +65,11 @@ func (s *NATStaticService) Create(ctx context.Context, nat NATStatic) error {
 	}
 
 	// Execute all commands in batch
-	output, err := s.executor.RunBatch(ctx, commands)
-	if err != nil {
+	if err := runBatchCommands(ctx, s.executor, commands); err != nil {
 		return fmt.Errorf("failed to create NAT static: %w", err)
 	}
 
-	if len(output) > 0 && containsError(string(output)) {
-		return fmt.Errorf("command failed: %s", string(output))
-	}
-
-	// Save configuration
-	if s.client != nil {
-		if err := s.client.SaveConfig(ctx); err != nil {
-			return fmt.Errorf("NAT static created but failed to save configuration: %w", err)
-		}
-	}
-
-	return nil
+	return saveConfig(ctx, s.client, "NAT static created")
 }
 
 // Get retrieves a NAT static configuration
@@ -184,25 +172,11 @@ func (s *NATStaticService) Update(ctx context.Context, nat NATStatic) error {
 	}
 
 	// Execute all commands in batch
-	if len(commands) > 0 {
-		output, err := s.executor.RunBatch(ctx, commands)
-		if err != nil {
-			return fmt.Errorf("failed to update NAT static: %w", err)
-		}
-
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("command failed: %s", string(output))
-		}
+	if err := runBatchCommands(ctx, s.executor, commands); err != nil {
+		return fmt.Errorf("failed to update NAT static: %w", err)
 	}
 
-	// Save configuration
-	if s.client != nil {
-		if err := s.client.SaveConfig(ctx); err != nil {
-			return fmt.Errorf("NAT static updated but failed to save configuration: %w", err)
-		}
-	}
-
-	return nil
+	return saveConfig(ctx, s.client, "NAT static updated")
 }
 
 // Delete removes a NAT static configuration
@@ -223,22 +197,11 @@ func (s *NATStaticService) Delete(ctx context.Context, descriptorID int) error {
 		return fmt.Errorf("failed to delete NAT static: %w", err)
 	}
 
-	if len(output) > 0 && containsError(string(output)) {
-		// Check if it's already gone
-		if strings.Contains(strings.ToLower(string(output)), "not found") {
-			return nil
-		}
-		return fmt.Errorf("command failed: %s", string(output))
+	if err := checkOutputErrorIgnoringNotFound(output, "failed to delete NAT static"); err != nil {
+		return err
 	}
 
-	// Save configuration
-	if s.client != nil {
-		if err := s.client.SaveConfig(ctx); err != nil {
-			return fmt.Errorf("NAT static deleted but failed to save configuration: %w", err)
-		}
-	}
-
-	return nil
+	return saveConfig(ctx, s.client, "NAT static deleted")
 }
 
 // List retrieves all NAT static configurations

@@ -1,7 +1,6 @@
 package class_map
 
 import (
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
@@ -27,8 +26,8 @@ func (m *ClassMapModel) ToClient() client.ClassMap {
 		MatchFilter:   fwhelpers.GetInt64Value(m.MatchFilter),
 	}
 
-	cm.MatchDestinationPort = getInt64ListValues(m.MatchDestinationPort)
-	cm.MatchSourcePort = getInt64ListValues(m.MatchSourcePort)
+	cm.MatchDestinationPort = fwhelpers.ListToIntSlice(m.MatchDestinationPort)
+	cm.MatchSourcePort = fwhelpers.ListToIntSlice(m.MatchSourcePort)
 
 	return cm
 }
@@ -40,36 +39,15 @@ func (m *ClassMapModel) FromClient(cm *client.ClassMap) {
 	m.MatchDSCP = fwhelpers.StringValueOrNull(cm.MatchDSCP)
 	m.MatchFilter = fwhelpers.Int64ValueOrNull(cm.MatchFilter)
 
-	m.MatchDestinationPort = intSliceToList(cm.MatchDestinationPort)
-	m.MatchSourcePort = intSliceToList(cm.MatchSourcePort)
-}
-
-// Helper functions
-
-func getInt64ListValues(list types.List) []int {
-	if list.IsNull() || list.IsUnknown() {
-		return nil
+	// Preserve empty list vs null: absence of port match on RTX is equivalent to empty list
+	if cm.MatchDestinationPort == nil && !m.MatchDestinationPort.IsNull() {
+		m.MatchDestinationPort = fwhelpers.IntSliceToList([]int{})
+	} else {
+		m.MatchDestinationPort = fwhelpers.IntSliceToList(cm.MatchDestinationPort)
 	}
-
-	var result []int
-	elements := list.Elements()
-	for _, elem := range elements {
-		if intVal, ok := elem.(types.Int64); ok {
-			result = append(result, int(intVal.ValueInt64()))
-		}
+	if cm.MatchSourcePort == nil && !m.MatchSourcePort.IsNull() {
+		m.MatchSourcePort = fwhelpers.IntSliceToList([]int{})
+	} else {
+		m.MatchSourcePort = fwhelpers.IntSliceToList(cm.MatchSourcePort)
 	}
-	return result
-}
-
-func intSliceToList(slice []int) types.List {
-	if len(slice) == 0 {
-		return types.ListNull(types.Int64Type)
-	}
-
-	elements := make([]attr.Value, len(slice))
-	for i, v := range slice {
-		elements[i] = types.Int64Value(int64(v))
-	}
-	listVal, _ := types.ListValue(types.Int64Type, elements)
-	return listVal
 }

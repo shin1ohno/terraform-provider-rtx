@@ -67,22 +67,10 @@ func (m *DHCPScopeModel) ToClient(ctx context.Context, diagnostics *diag.Diagnos
 	// Handle options block
 	if m.Options != nil {
 		// Parse routers
-		if !m.Options.Routers.IsNull() && !m.Options.Routers.IsUnknown() {
-			var routers []types.String
-			diagnostics.Append(m.Options.Routers.ElementsAs(ctx, &routers, false)...)
-			if !diagnostics.HasError() {
-				scope.Options.Routers = fwhelpers.GetStringListValue(routers)
-			}
-		}
+		scope.Options.Routers = fwhelpers.ListToStringSlice(m.Options.Routers)
 
 		// Parse dns_servers
-		if !m.Options.DNSServers.IsNull() && !m.Options.DNSServers.IsUnknown() {
-			var dnsServers []types.String
-			diagnostics.Append(m.Options.DNSServers.ElementsAs(ctx, &dnsServers, false)...)
-			if !diagnostics.HasError() {
-				scope.Options.DNSServers = fwhelpers.GetStringListValue(dnsServers)
-			}
-		}
+		scope.Options.DNSServers = fwhelpers.ListToStringSlice(m.Options.DNSServers)
 
 		// Parse domain_name
 		scope.Options.DomainName = fwhelpers.GetStringValue(m.Options.DomainName)
@@ -118,36 +106,18 @@ func (m *DHCPScopeModel) FromClient(ctx context.Context, scope *client.DHCPScope
 			m.Options = &OptionsModel{}
 		}
 
-		// Build routers list
-		if len(scope.Options.Routers) > 0 {
-			routerElements := make([]attr.Value, len(scope.Options.Routers))
-			for i, r := range scope.Options.Routers {
-				routerElements[i] = types.StringValue(r)
-			}
-			list, diags := types.ListValue(types.StringType, routerElements)
-			diagnostics.Append(diags...)
-			if diagnostics.HasError() {
-				return
-			}
-			m.Options.Routers = list
+		// Build routers list (preserve empty list vs null)
+		if scope.Options.Routers == nil && m.Options != nil && !m.Options.Routers.IsNull() {
+			m.Options.Routers = fwhelpers.StringSliceToList([]string{})
 		} else {
-			m.Options.Routers = types.ListNull(types.StringType)
+			m.Options.Routers = fwhelpers.StringSliceToList(scope.Options.Routers)
 		}
 
-		// Build dns_servers list
-		if len(scope.Options.DNSServers) > 0 {
-			dnsElements := make([]attr.Value, len(scope.Options.DNSServers))
-			for i, d := range scope.Options.DNSServers {
-				dnsElements[i] = types.StringValue(d)
-			}
-			list, diags := types.ListValue(types.StringType, dnsElements)
-			diagnostics.Append(diags...)
-			if diagnostics.HasError() {
-				return
-			}
-			m.Options.DNSServers = list
+		// Build dns_servers list (preserve empty list vs null)
+		if scope.Options.DNSServers == nil && m.Options != nil && !m.Options.DNSServers.IsNull() {
+			m.Options.DNSServers = fwhelpers.StringSliceToList([]string{})
 		} else {
-			m.Options.DNSServers = types.ListNull(types.StringType)
+			m.Options.DNSServers = fwhelpers.StringSliceToList(scope.Options.DNSServers)
 		}
 
 		// Build domain_name

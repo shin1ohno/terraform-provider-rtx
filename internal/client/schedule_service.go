@@ -64,24 +64,12 @@ func (s *ScheduleService) CreateSchedule(ctx context.Context, schedule Schedule)
 
 		logging.FromContext(ctx).Debug().Str("service", "schedule").Msgf("Creating schedule with command: %s", cmd)
 
-		output, err := s.executor.Run(ctx, cmd)
-		if err != nil {
+		if err := runCommand(ctx, s.executor, cmd); err != nil {
 			return fmt.Errorf("failed to create schedule: %w", err)
 		}
-
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("command failed: %s", string(output))
-		}
 	}
 
-	// Save configuration
-	if s.client != nil {
-		if err := s.client.SaveConfig(ctx); err != nil {
-			return fmt.Errorf("schedule created but failed to save configuration: %w", err)
-		}
-	}
-
-	return nil
+	return saveConfig(ctx, s.client, "schedule created")
 }
 
 // GetSchedule retrieves a schedule configuration
@@ -150,14 +138,7 @@ func (s *ScheduleService) DeleteSchedule(ctx context.Context, id int) error {
 		return err
 	}
 
-	// Save configuration
-	if s.client != nil {
-		if err := s.client.SaveConfig(ctx); err != nil {
-			return fmt.Errorf("schedule deleted but failed to save configuration: %w", err)
-		}
-	}
-
-	return nil
+	return saveConfig(ctx, s.client, "schedule deleted")
 }
 
 // deleteScheduleCommands deletes all schedule commands with the given ID
@@ -170,15 +151,7 @@ func (s *ScheduleService) deleteScheduleCommands(ctx context.Context, id int) er
 		return fmt.Errorf("failed to delete schedule: %w", err)
 	}
 
-	if len(output) > 0 && containsError(string(output)) {
-		// Check if it's already gone
-		if strings.Contains(strings.ToLower(string(output)), "not found") {
-			return nil
-		}
-		return fmt.Errorf("command failed: %s", string(output))
-	}
-
-	return nil
+	return checkOutputErrorIgnoringNotFound(output, "failed to delete schedule")
 }
 
 // ListSchedules retrieves all schedules

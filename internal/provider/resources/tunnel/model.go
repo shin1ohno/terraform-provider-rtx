@@ -1,54 +1,13 @@
 package tunnel
 
 import (
-	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
 	"github.com/sh1/terraform-provider-rtx/internal/provider/fwhelpers"
 )
-
-// convertListToIntSlice converts a types.List to []int
-func convertListToIntSlice(list types.List) []int {
-	if list.IsNull() || list.IsUnknown() {
-		return nil
-	}
-
-	elements := list.Elements()
-	if len(elements) == 0 {
-		return nil
-	}
-
-	result := make([]int, 0, len(elements))
-	for _, elem := range elements {
-		if int64Val, ok := elem.(types.Int64); ok && !int64Val.IsNull() && !int64Val.IsUnknown() {
-			result = append(result, int(int64Val.ValueInt64()))
-		}
-	}
-
-	return result
-}
-
-// convertIntSliceToList converts []int to types.List
-func convertIntSliceToList(ints []int) types.List {
-	if len(ints) == 0 {
-		return types.ListNull(types.Int64Type)
-	}
-
-	elements := make([]attr.Value, len(ints))
-	for i, v := range ints {
-		elements[i] = types.Int64Value(int64(v))
-	}
-
-	list, _ := types.ListValue(types.Int64Type, elements)
-	return list
-}
-
-// Ensure context is used (for future use with diagnostics)
-var _ = context.Background
 
 // TunnelModel describes the unified tunnel resource data model.
 type TunnelModel struct {
@@ -155,8 +114,8 @@ func (m *TunnelModel) ToClient() client.Tunnel {
 			IKERemoteNameType: fwhelpers.GetStringValue(m.IPsec.IKERemoteNameType),
 			IKEKeepaliveLog:   fwhelpers.GetBoolValue(m.IPsec.IKEKeepaliveLog),
 			IKELog:            fwhelpers.GetStringValue(m.IPsec.IKELog),
-			SecureFilterIn:    convertListToIntSlice(m.IPsec.SecureFilterIn),
-			SecureFilterOut:   convertListToIntSlice(m.IPsec.SecureFilterOut),
+			SecureFilterIn:    fwhelpers.ListToIntSlice(m.IPsec.SecureFilterIn),
+			SecureFilterOut:   fwhelpers.ListToIntSlice(m.IPsec.SecureFilterOut),
 			TCPMSSLimit:       fwhelpers.GetStringValue(m.IPsec.TCPMSSLimit),
 		}
 
@@ -242,8 +201,19 @@ func (m *TunnelModel) FromClient(tunnel *client.Tunnel) {
 		m.IPsec.IKERemoteNameType = fwhelpers.StringValueOrNull(tunnel.IPsec.IKERemoteNameType)
 		m.IPsec.IKEKeepaliveLog = types.BoolValue(tunnel.IPsec.IKEKeepaliveLog)
 		m.IPsec.IKELog = fwhelpers.StringValueOrNull(tunnel.IPsec.IKELog)
-		m.IPsec.SecureFilterIn = convertIntSliceToList(tunnel.IPsec.SecureFilterIn)
-		m.IPsec.SecureFilterOut = convertIntSliceToList(tunnel.IPsec.SecureFilterOut)
+		// Preserve empty list vs null: on the RTX router, "no filter line" is equivalent
+		// to "empty filter list". When the config explicitly sets secure_filter_in = []
+		// but the router returns nil (no line), normalize to empty list.
+		if tunnel.IPsec.SecureFilterIn == nil && !m.IPsec.SecureFilterIn.IsNull() {
+			m.IPsec.SecureFilterIn = fwhelpers.IntSliceToList([]int{})
+		} else {
+			m.IPsec.SecureFilterIn = fwhelpers.IntSliceToList(tunnel.IPsec.SecureFilterIn)
+		}
+		if tunnel.IPsec.SecureFilterOut == nil && !m.IPsec.SecureFilterOut.IsNull() {
+			m.IPsec.SecureFilterOut = fwhelpers.IntSliceToList([]int{})
+		} else {
+			m.IPsec.SecureFilterOut = fwhelpers.IntSliceToList(tunnel.IPsec.SecureFilterOut)
+		}
 		m.IPsec.TCPMSSLimit = fwhelpers.StringValueOrNull(tunnel.IPsec.TCPMSSLimit)
 
 		// Handle IPsec transform

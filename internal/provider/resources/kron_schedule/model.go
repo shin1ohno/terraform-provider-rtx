@@ -1,7 +1,6 @@
 package kron_schedule
 
 import (
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
@@ -39,16 +38,7 @@ func (m *KronScheduleModel) ToClient() client.Schedule {
 	}
 
 	// Convert command lines list
-	if !m.CommandLines.IsNull() && !m.CommandLines.IsUnknown() {
-		elements := m.CommandLines.Elements()
-		commands := make([]string, len(elements))
-		for i, elem := range elements {
-			if strVal, ok := elem.(types.String); ok {
-				commands[i] = strVal.ValueString()
-			}
-		}
-		schedule.Commands = commands
-	}
+	schedule.Commands = fwhelpers.ListToStringSlice(m.CommandLines)
 
 	// Date-specific schedules are one-time
 	if schedule.Date != "" {
@@ -69,15 +59,10 @@ func (m *KronScheduleModel) FromClient(schedule *client.Schedule) {
 	m.OnStartup = types.BoolValue(schedule.OnStartup)
 	m.PolicyList = fwhelpers.StringValueOrNull(schedule.PolicyList)
 
-	// Convert commands to list
-	if len(schedule.Commands) > 0 {
-		elements := make([]attr.Value, len(schedule.Commands))
-		for i, cmd := range schedule.Commands {
-			elements[i] = types.StringValue(cmd)
-		}
-		listVal, _ := types.ListValue(types.StringType, elements)
-		m.CommandLines = listVal
+	// Preserve empty list vs null: no commands on RTX is equivalent to empty list
+	if schedule.Commands == nil && !m.CommandLines.IsNull() {
+		m.CommandLines = fwhelpers.StringSliceToList([]string{})
 	} else {
-		m.CommandLines = types.ListNull(types.StringType)
+		m.CommandLines = fwhelpers.StringSliceToList(schedule.Commands)
 	}
 }

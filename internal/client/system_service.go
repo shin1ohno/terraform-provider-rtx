@@ -95,25 +95,11 @@ func (s *SystemService) Configure(ctx context.Context, config SystemConfig) erro
 	}
 
 	// Execute all commands in batch
-	if len(commands) > 0 {
-		output, err := s.executor.RunBatch(ctx, commands)
-		if err != nil {
-			return fmt.Errorf("failed to configure system: %w", err)
-		}
-
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("command failed: %s", string(output))
-		}
+	if err := runBatchCommands(ctx, s.executor, commands); err != nil {
+		return fmt.Errorf("failed to configure system: %w", err)
 	}
 
-	// Save configuration
-	if s.client != nil {
-		if err := s.client.SaveConfig(ctx); err != nil {
-			return fmt.Errorf("system config set but failed to save configuration: %w", err)
-		}
-	}
-
-	return nil
+	return saveConfig(ctx, s.client, "system config set")
 }
 
 // Get retrieves system configuration
@@ -297,25 +283,11 @@ func (s *SystemService) Update(ctx context.Context, config SystemConfig) error {
 	}
 
 	// Execute all commands in batch
-	if len(commands) > 0 {
-		output, err := s.executor.RunBatch(ctx, commands)
-		if err != nil {
-			return fmt.Errorf("failed to update system config: %w", err)
-		}
-
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("command failed: %s", string(output))
-		}
+	if err := runBatchCommands(ctx, s.executor, commands); err != nil {
+		return fmt.Errorf("failed to update system config: %w", err)
 	}
 
-	// Save configuration
-	if s.client != nil {
-		if err := s.client.SaveConfig(ctx); err != nil {
-			return fmt.Errorf("system config updated but failed to save configuration: %w", err)
-		}
-	}
-
-	return nil
+	return saveConfig(ctx, s.client, "system config updated")
 }
 
 // Reset resets system configuration to defaults
@@ -341,26 +313,14 @@ func (s *SystemService) Reset(ctx context.Context) error {
 		logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Resetting system config with command: %s", cmd)
 	}
 
-	// Execute all commands in batch
+	// Execute all commands in batch — log warnings but continue since some settings might not exist
 	if len(commands) > 0 {
-		output, err := s.executor.RunBatch(ctx, commands)
-		if err != nil {
-			// Log but continue - some settings might not exist
-			logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Warning: batch command failed: %v", err)
-		} else if len(output) > 0 && containsError(string(output)) {
-			// Log but continue
-			logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Warning: command output indicates error: %s", string(output))
+		if err := runBatchCommands(ctx, s.executor, commands); err != nil {
+			logging.FromContext(ctx).Debug().Str("service", "system").Msgf("Warning: reset command failed (may be expected): %v", err)
 		}
 	}
 
-	// Save configuration
-	if s.client != nil {
-		if err := s.client.SaveConfig(ctx); err != nil {
-			return fmt.Errorf("system config reset but failed to save configuration: %w", err)
-		}
-	}
-
-	return nil
+	return saveConfig(ctx, s.client, "system config reset")
 }
 
 // toParserConfig converts client.SystemConfig to parsers.SystemConfig

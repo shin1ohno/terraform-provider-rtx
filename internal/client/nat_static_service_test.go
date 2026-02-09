@@ -392,7 +392,7 @@ func TestNATStaticService_Delete(t *testing.T) {
 					Return([]byte("Error: descriptor in use"), nil)
 			},
 			expectedErr: true,
-			errMessage:  "command failed",
+			errMessage:  "failed to delete NAT static",
 		},
 	}
 

@@ -50,12 +50,8 @@ func (s *IPv6InterfaceService) Configure(ctx context.Context, config IPv6Interfa
 		})
 		if addrCmd != "" {
 			logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Setting IPv6 address with command: %s", addrCmd)
-			output, err := s.executor.Run(ctx, addrCmd)
-			if err != nil {
+			if err := runCommand(ctx, s.executor, addrCmd); err != nil {
 				return fmt.Errorf("failed to set IPv6 address: %w", err)
-			}
-			if len(output) > 0 && containsError(string(output)) {
-				return fmt.Errorf("IPv6 address command failed: %s", string(output))
 			}
 		}
 	}
@@ -70,12 +66,8 @@ func (s *IPv6InterfaceService) Configure(ctx context.Context, config IPv6Interfa
 			Lifetime: config.RTADV.Lifetime,
 		})
 		logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Setting RTADV with command: %s", rtadvCmd)
-		output, err := s.executor.Run(ctx, rtadvCmd)
-		if err != nil {
+		if err := runCommand(ctx, s.executor, rtadvCmd); err != nil {
 			return fmt.Errorf("failed to set RTADV: %w", err)
-		}
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("RTADV command failed: %s", string(output))
 		}
 	}
 
@@ -83,12 +75,8 @@ func (s *IPv6InterfaceService) Configure(ctx context.Context, config IPv6Interfa
 	if config.DHCPv6Service != "" && config.DHCPv6Service != "off" {
 		dhcpCmd := parsers.BuildIPv6DHCPv6Command(config.Interface, config.DHCPv6Service)
 		logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Setting DHCPv6 service with command: %s", dhcpCmd)
-		output, err := s.executor.Run(ctx, dhcpCmd)
-		if err != nil {
+		if err := runCommand(ctx, s.executor, dhcpCmd); err != nil {
 			return fmt.Errorf("failed to set DHCPv6 service: %w", err)
-		}
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("DHCPv6 service command failed: %s", string(output))
 		}
 	}
 
@@ -96,26 +84,15 @@ func (s *IPv6InterfaceService) Configure(ctx context.Context, config IPv6Interfa
 	if config.MTU > 0 {
 		mtuCmd := parsers.BuildIPv6MTUCommand(config.Interface, config.MTU)
 		logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Setting IPv6 MTU with command: %s", mtuCmd)
-		output, err := s.executor.Run(ctx, mtuCmd)
-		if err != nil {
+		if err := runCommand(ctx, s.executor, mtuCmd); err != nil {
 			return fmt.Errorf("failed to set IPv6 MTU: %w", err)
-		}
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("IPv6 MTU command failed: %s", string(output))
 		}
 	}
 
 	// Note: Access list bindings (access_list_ipv6_in, access_list_ipv6_out, etc.)
 	// are managed by separate ACL resources and not configured here
 
-	// Save configuration
-	if s.client != nil {
-		if err := s.client.SaveConfig(ctx); err != nil {
-			return fmt.Errorf("IPv6 interface configured but failed to save configuration: %w", err)
-		}
-	}
-
-	return nil
+	return saveConfig(ctx, s.client, "IPv6 interface configured")
 }
 
 // Get retrieves an IPv6 interface configuration
@@ -194,12 +171,8 @@ func (s *IPv6InterfaceService) Update(ctx context.Context, config IPv6InterfaceC
 			})
 			if addrCmd != "" {
 				logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Setting IPv6 address with command: %s", addrCmd)
-				output, err := s.executor.Run(ctx, addrCmd)
-				if err != nil {
+				if err := runCommand(ctx, s.executor, addrCmd); err != nil {
 					return fmt.Errorf("failed to set IPv6 address: %w", err)
-				}
-				if len(output) > 0 && containsError(string(output)) {
-					return fmt.Errorf("IPv6 address command failed: %s", string(output))
 				}
 			}
 		}
@@ -223,12 +196,8 @@ func (s *IPv6InterfaceService) Update(ctx context.Context, config IPv6InterfaceC
 				Lifetime: config.RTADV.Lifetime,
 			})
 			logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Setting RTADV with command: %s", rtadvCmd)
-			output, err := s.executor.Run(ctx, rtadvCmd)
-			if err != nil {
+			if err := runCommand(ctx, s.executor, rtadvCmd); err != nil {
 				return fmt.Errorf("failed to set RTADV: %w", err)
-			}
-			if len(output) > 0 && containsError(string(output)) {
-				return fmt.Errorf("RTADV command failed: %s", string(output))
 			}
 		}
 	}
@@ -245,12 +214,8 @@ func (s *IPv6InterfaceService) Update(ctx context.Context, config IPv6InterfaceC
 		if config.DHCPv6Service != "" && config.DHCPv6Service != "off" {
 			dhcpCmd := parsers.BuildIPv6DHCPv6Command(config.Interface, config.DHCPv6Service)
 			logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Setting DHCPv6 service with command: %s", dhcpCmd)
-			output, err := s.executor.Run(ctx, dhcpCmd)
-			if err != nil {
+			if err := runCommand(ctx, s.executor, dhcpCmd); err != nil {
 				return fmt.Errorf("failed to set DHCPv6 service: %w", err)
-			}
-			if len(output) > 0 && containsError(string(output)) {
-				return fmt.Errorf("DHCPv6 service command failed: %s", string(output))
 			}
 		}
 	}
@@ -265,12 +230,8 @@ func (s *IPv6InterfaceService) Update(ctx context.Context, config IPv6InterfaceC
 		if config.MTU > 0 {
 			mtuCmd := parsers.BuildIPv6MTUCommand(config.Interface, config.MTU)
 			logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Setting IPv6 MTU with command: %s", mtuCmd)
-			output, err := s.executor.Run(ctx, mtuCmd)
-			if err != nil {
+			if err := runCommand(ctx, s.executor, mtuCmd); err != nil {
 				return fmt.Errorf("failed to set IPv6 MTU: %w", err)
-			}
-			if len(output) > 0 && containsError(string(output)) {
-				return fmt.Errorf("IPv6 MTU command failed: %s", string(output))
 			}
 		}
 	}
@@ -278,14 +239,7 @@ func (s *IPv6InterfaceService) Update(ctx context.Context, config IPv6InterfaceC
 	// Note: Access list bindings (access_list_ipv6_in, access_list_ipv6_out, etc.)
 	// are managed by separate ACL resources and not configured here
 
-	// Save configuration
-	if s.client != nil {
-		if err := s.client.SaveConfig(ctx); err != nil {
-			return fmt.Errorf("IPv6 interface updated but failed to save configuration: %w", err)
-		}
-	}
-
-	return nil
+	return saveConfig(ctx, s.client, "IPv6 interface updated")
 }
 
 // Reset removes IPv6 interface configuration (resets to defaults)
@@ -309,14 +263,7 @@ func (s *IPv6InterfaceService) Reset(ctx context.Context, interfaceName string) 
 		_, _ = s.executor.Run(ctx, cmd)
 	}
 
-	// Save configuration
-	if s.client != nil {
-		if err := s.client.SaveConfig(ctx); err != nil {
-			return fmt.Errorf("IPv6 interface reset but failed to save configuration: %w", err)
-		}
-	}
-
-	return nil
+	return saveConfig(ctx, s.client, "IPv6 interface reset")
 }
 
 // List retrieves all IPv6 interface configurations

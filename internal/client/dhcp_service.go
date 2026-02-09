@@ -54,19 +54,11 @@ func (s *DHCPService) CreateBinding(ctx context.Context, binding DHCPBinding) er
 		return fmt.Errorf("failed to create DHCP binding: %w", err)
 	}
 
-	// Check if there's an error in the output
-	if len(output) > 0 && containsError(string(output)) {
-		return fmt.Errorf("command failed: %s", string(output))
+	if err := checkOutputError(output, "command failed"); err != nil {
+		return err
 	}
 
-	// Save configuration after successful creation
-	if s.client != nil {
-		if err := s.client.SaveConfig(ctx); err != nil {
-			return fmt.Errorf("binding created but failed to save configuration: %w", err)
-		}
-	}
-
-	return nil
+	return saveConfig(ctx, s.client, "binding created")
 }
 
 // DeleteBinding removes a DHCP binding
@@ -77,19 +69,11 @@ func (s *DHCPService) DeleteBinding(ctx context.Context, scopeID int, ipAddress 
 		return fmt.Errorf("failed to delete DHCP binding: %w", err)
 	}
 
-	// Check if there's an error in the output
-	if len(output) > 0 && containsError(string(output)) {
-		return fmt.Errorf("command failed: %s", string(output))
+	if err := checkOutputError(output, "command failed"); err != nil {
+		return err
 	}
 
-	// Save configuration after successful deletion
-	if s.client != nil {
-		if err := s.client.SaveConfig(ctx); err != nil {
-			return fmt.Errorf("binding deleted but failed to save configuration: %w", err)
-		}
-	}
-
-	return nil
+	return saveConfig(ctx, s.client, "binding deleted")
 }
 
 // ListBindings retrieves all DHCP bindings for a scope

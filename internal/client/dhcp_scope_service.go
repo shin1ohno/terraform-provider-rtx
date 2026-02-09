@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/sh1/terraform-provider-rtx/internal/logging"
 
@@ -68,23 +67,11 @@ func (s *DHCPScopeService) CreateScope(ctx context.Context, scope DHCPScope) err
 	}
 
 	// Execute all commands in batch
-	output, err := s.executor.RunBatch(ctx, commands)
-	if err != nil {
+	if err := runBatchCommands(ctx, s.executor, commands); err != nil {
 		return fmt.Errorf("failed to create DHCP scope: %w", err)
 	}
 
-	if len(output) > 0 && containsError(string(output)) {
-		return fmt.Errorf("command failed: %s", string(output))
-	}
-
-	// Save configuration
-	if s.client != nil {
-		if err := s.client.SaveConfig(ctx); err != nil {
-			return fmt.Errorf("scope created but failed to save configuration: %w", err)
-		}
-	}
-
-	return nil
+	return saveConfig(ctx, s.client, "scope created")
 }
 
 // GetScope retrieves a DHCP scope configuration
@@ -206,23 +193,11 @@ func (s *DHCPScopeService) UpdateScope(ctx context.Context, scope DHCPScope) err
 	}
 
 	// Execute all commands in batch
-	output, err := s.executor.RunBatch(ctx, commands)
-	if err != nil {
+	if err := runBatchCommands(ctx, s.executor, commands); err != nil {
 		return fmt.Errorf("failed to update DHCP scope: %w", err)
 	}
 
-	if len(output) > 0 && containsError(string(output)) {
-		return fmt.Errorf("command failed: %s", string(output))
-	}
-
-	// Save configuration
-	if s.client != nil {
-		if err := s.client.SaveConfig(ctx); err != nil {
-			return fmt.Errorf("scope updated but failed to save configuration: %w", err)
-		}
-	}
-
-	return nil
+	return saveConfig(ctx, s.client, "scope updated")
 }
 
 // DeleteScope removes a DHCP scope
@@ -243,22 +218,11 @@ func (s *DHCPScopeService) DeleteScope(ctx context.Context, scopeID int) error {
 		return fmt.Errorf("failed to delete DHCP scope: %w", err)
 	}
 
-	if len(output) > 0 && containsError(string(output)) {
-		// Check if it's already gone
-		if strings.Contains(strings.ToLower(string(output)), "not found") {
-			return nil
-		}
-		return fmt.Errorf("command failed: %s", string(output))
+	if err := checkOutputErrorIgnoringNotFound(output, "failed to delete DHCP scope"); err != nil {
+		return err
 	}
 
-	// Save configuration
-	if s.client != nil {
-		if err := s.client.SaveConfig(ctx); err != nil {
-			return fmt.Errorf("scope deleted but failed to save configuration: %w", err)
-		}
-	}
-
-	return nil
+	return saveConfig(ctx, s.client, "scope deleted")
 }
 
 // ListScopes retrieves all DHCP scopes

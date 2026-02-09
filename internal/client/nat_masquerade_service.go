@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/sh1/terraform-provider-rtx/internal/logging"
 
@@ -75,23 +74,11 @@ func (s *NATMasqueradeService) Create(ctx context.Context, nat NATMasquerade) er
 	}
 
 	// Execute all commands in batch
-	output, err := s.executor.RunBatch(ctx, commands)
-	if err != nil {
+	if err := runBatchCommands(ctx, s.executor, commands); err != nil {
 		return fmt.Errorf("failed to create NAT masquerade: %w", err)
 	}
 
-	if len(output) > 0 && containsError(string(output)) {
-		return fmt.Errorf("command failed: %s", string(output))
-	}
-
-	// Save configuration
-	if s.client != nil {
-		if err := s.client.SaveConfig(ctx); err != nil {
-			return fmt.Errorf("NAT masquerade created but failed to save configuration: %w", err)
-		}
-	}
-
-	return nil
+	return saveConfig(ctx, s.client, "NAT masquerade created")
 }
 
 // Get retrieves a NAT masquerade configuration by descriptor ID
@@ -201,25 +188,11 @@ func (s *NATMasqueradeService) Update(ctx context.Context, nat NATMasquerade) er
 	}
 
 	// Execute all commands in batch
-	if len(commands) > 0 {
-		output, err := s.executor.RunBatch(ctx, commands)
-		if err != nil {
-			return fmt.Errorf("failed to update NAT masquerade: %w", err)
-		}
-
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("command failed: %s", string(output))
-		}
+	if err := runBatchCommands(ctx, s.executor, commands); err != nil {
+		return fmt.Errorf("failed to update NAT masquerade: %w", err)
 	}
 
-	// Save configuration
-	if s.client != nil {
-		if err := s.client.SaveConfig(ctx); err != nil {
-			return fmt.Errorf("NAT masquerade updated but failed to save configuration: %w", err)
-		}
-	}
-
-	return nil
+	return saveConfig(ctx, s.client, "NAT masquerade updated")
 }
 
 // Delete removes a NAT masquerade configuration
@@ -240,22 +213,11 @@ func (s *NATMasqueradeService) Delete(ctx context.Context, descriptorID int) err
 		return fmt.Errorf("failed to delete NAT masquerade: %w", err)
 	}
 
-	if len(output) > 0 && containsError(string(output)) {
-		// Check if it's already gone
-		if strings.Contains(strings.ToLower(string(output)), "not found") {
-			return nil
-		}
-		return fmt.Errorf("command failed: %s", string(output))
+	if err := checkOutputErrorIgnoringNotFound(output, "failed to delete NAT masquerade"); err != nil {
+		return err
 	}
 
-	// Save configuration
-	if s.client != nil {
-		if err := s.client.SaveConfig(ctx); err != nil {
-			return fmt.Errorf("NAT masquerade deleted but failed to save configuration: %w", err)
-		}
-	}
-
-	return nil
+	return saveConfig(ctx, s.client, "NAT masquerade deleted")
 }
 
 // List retrieves all NAT masquerade configurations

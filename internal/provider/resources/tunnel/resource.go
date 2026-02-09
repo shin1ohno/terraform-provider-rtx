@@ -480,13 +480,6 @@ func (r *TunnelResource) Update(ctx context.Context, req resource.UpdateRequest,
 	ctx = logging.WithResource(ctx, "rtx_tunnel", strconv.FormatInt(data.TunnelID.ValueInt64(), 10))
 	logger := logging.FromContext(ctx)
 
-	// Preserve planned IPsec secure filter values before read-back
-	var plannedSecureFilterIn, plannedSecureFilterOut types.List
-	if data.IPsec != nil {
-		plannedSecureFilterIn = data.IPsec.SecureFilterIn
-		plannedSecureFilterOut = data.IPsec.SecureFilterOut
-	}
-
 	tunnel := data.ToClient()
 	logger.Debug().Str("resource", "rtx_tunnel").Msgf("Updating tunnel: %+v", tunnel)
 
@@ -502,16 +495,6 @@ func (r *TunnelResource) Update(ctx context.Context, req resource.UpdateRequest,
 	r.read(ctx, &data, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
-	}
-
-	// Restore planned secure filter values that router may return inconsistently
-	if data.IPsec != nil {
-		if !plannedSecureFilterIn.IsUnknown() {
-			data.IPsec.SecureFilterIn = plannedSecureFilterIn
-		}
-		if !plannedSecureFilterOut.IsUnknown() {
-			data.IPsec.SecureFilterOut = plannedSecureFilterOut
-		}
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

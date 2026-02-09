@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/sh1/terraform-provider-rtx/internal/logging"
 
@@ -50,18 +49,11 @@ func (s *IPv6PrefixService) CreatePrefix(ctx context.Context, prefix IPv6Prefix)
 		return fmt.Errorf("failed to create IPv6 prefix: %w", err)
 	}
 
-	if len(output) > 0 && containsError(string(output)) {
-		return fmt.Errorf("command failed: %s", string(output))
+	if err := checkOutputError(output, "command failed"); err != nil {
+		return err
 	}
 
-	// Save configuration
-	if s.client != nil {
-		if err := s.client.SaveConfig(ctx); err != nil {
-			return fmt.Errorf("prefix created but failed to save configuration: %w", err)
-		}
-	}
-
-	return nil
+	return saveConfig(ctx, s.client, "prefix created")
 }
 
 // GetPrefix retrieves an IPv6 prefix configuration
@@ -130,18 +122,11 @@ func (s *IPv6PrefixService) UpdatePrefix(ctx context.Context, prefix IPv6Prefix)
 		return fmt.Errorf("failed to update IPv6 prefix: %w", err)
 	}
 
-	if len(output) > 0 && containsError(string(output)) {
-		return fmt.Errorf("command failed: %s", string(output))
+	if err := checkOutputError(output, "command failed"); err != nil {
+		return err
 	}
 
-	// Save configuration
-	if s.client != nil {
-		if err := s.client.SaveConfig(ctx); err != nil {
-			return fmt.Errorf("prefix updated but failed to save configuration: %w", err)
-		}
-	}
-
-	return nil
+	return saveConfig(ctx, s.client, "prefix updated")
 }
 
 // DeletePrefix removes an IPv6 prefix
@@ -161,22 +146,11 @@ func (s *IPv6PrefixService) DeletePrefix(ctx context.Context, prefixID int) erro
 		return fmt.Errorf("failed to delete IPv6 prefix: %w", err)
 	}
 
-	if len(output) > 0 && containsError(string(output)) {
-		// Check if it's already gone
-		if strings.Contains(strings.ToLower(string(output)), "not found") {
-			return nil
-		}
-		return fmt.Errorf("command failed: %s", string(output))
+	if err := checkOutputErrorIgnoringNotFound(output, "failed to delete IPv6 prefix"); err != nil {
+		return err
 	}
 
-	// Save configuration
-	if s.client != nil {
-		if err := s.client.SaveConfig(ctx); err != nil {
-			return fmt.Errorf("prefix deleted but failed to save configuration: %w", err)
-		}
-	}
-
-	return nil
+	return saveConfig(ctx, s.client, "prefix deleted")
 }
 
 // ListPrefixes retrieves all IPv6 prefixes

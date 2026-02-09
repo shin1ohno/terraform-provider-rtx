@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
@@ -80,14 +79,7 @@ func (s *AdminService) ConfigureAdmin(ctx context.Context, config AdminConfig) e
 		}
 	}
 
-	// Save configuration
-	if s.client != nil {
-		if err := s.client.SaveConfig(ctx); err != nil {
-			return fmt.Errorf("admin config set but failed to save configuration: %w", err)
-		}
-	}
-
-	return nil
+	return saveConfig(ctx, s.client, "admin config set")
 }
 
 // UpdateAdminConfig updates admin password configuration
@@ -113,12 +105,8 @@ func (s *AdminService) ResetAdmin(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to remove login password: %w", err)
 	}
-
-	if len(output) > 0 && containsError(string(output)) {
-		// Ignore "not found" errors
-		if !strings.Contains(strings.ToLower(string(output)), "not found") {
-			return fmt.Errorf("command failed: %s", string(output))
-		}
+	if err := checkOutputErrorIgnoringNotFound(output, "failed to remove login password"); err != nil {
+		return err
 	}
 
 	// Remove admin password
@@ -129,22 +117,11 @@ func (s *AdminService) ResetAdmin(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to remove administrator password: %w", err)
 	}
-
-	if len(output) > 0 && containsError(string(output)) {
-		// Ignore "not found" errors
-		if !strings.Contains(strings.ToLower(string(output)), "not found") {
-			return fmt.Errorf("command failed: %s", string(output))
-		}
+	if err := checkOutputErrorIgnoringNotFound(output, "failed to remove administrator password"); err != nil {
+		return err
 	}
 
-	// Save configuration
-	if s.client != nil {
-		if err := s.client.SaveConfig(ctx); err != nil {
-			return fmt.Errorf("admin config removed but failed to save configuration: %w", err)
-		}
-	}
-
-	return nil
+	return saveConfig(ctx, s.client, "admin config removed")
 }
 
 // GetAdminUser retrieves an admin user configuration
@@ -198,13 +175,8 @@ func (s *AdminService) CreateAdminUser(ctx context.Context, user AdminUser) erro
 	cmd := parsers.BuildUserCommand(parserUser)
 	logging.FromContext(ctx).Debug().Str("service", "admin").Str("command", SanitizeCommandForLog(cmd)).Msg("Creating admin user")
 
-	output, err := s.executor.Run(ctx, cmd)
-	if err != nil {
+	if err := runCommand(ctx, s.executor, cmd); err != nil {
 		return fmt.Errorf("failed to create admin user: %w", err)
-	}
-
-	if len(output) > 0 && containsError(string(output)) {
-		return fmt.Errorf("command failed: %s", string(output))
 	}
 
 	// Set user attributes if any are specified
@@ -214,25 +186,13 @@ func (s *AdminService) CreateAdminUser(ctx context.Context, user AdminUser) erro
 		if attrCmd != "" {
 			logging.FromContext(ctx).Debug().Str("service", "admin").Str("command", SanitizeCommandForLog(attrCmd)).Msg("Setting user attributes")
 
-			output, err = s.executor.Run(ctx, attrCmd)
-			if err != nil {
+			if err := runCommand(ctx, s.executor, attrCmd); err != nil {
 				return fmt.Errorf("failed to set user attributes: %w", err)
 			}
-
-			if len(output) > 0 && containsError(string(output)) {
-				return fmt.Errorf("attributes command failed: %s", string(output))
-			}
 		}
 	}
 
-	// Save configuration
-	if s.client != nil {
-		if err := s.client.SaveConfig(ctx); err != nil {
-			return fmt.Errorf("user created but failed to save configuration: %w", err)
-		}
-	}
-
-	return nil
+	return saveConfig(ctx, s.client, "user created")
 }
 
 // UpdateAdminUser updates an existing admin user
@@ -265,13 +225,8 @@ func (s *AdminService) UpdateAdminUser(ctx context.Context, user AdminUser) erro
 		cmd := parsers.BuildUserCommand(parserUser)
 		logging.FromContext(ctx).Debug().Str("service", "admin").Str("command", SanitizeCommandForLog(cmd)).Msg("Updating admin user")
 
-		output, err := s.executor.Run(ctx, cmd)
-		if err != nil {
+		if err := runCommand(ctx, s.executor, cmd); err != nil {
 			return fmt.Errorf("failed to update admin user: %w", err)
-		}
-
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("command failed: %s", string(output))
 		}
 	}
 
@@ -280,24 +235,12 @@ func (s *AdminService) UpdateAdminUser(ctx context.Context, user AdminUser) erro
 	if attrCmd != "" {
 		logging.FromContext(ctx).Debug().Str("service", "admin").Str("command", SanitizeCommandForLog(attrCmd)).Msg("Updating user attributes")
 
-		output, err := s.executor.Run(ctx, attrCmd)
-		if err != nil {
+		if err := runCommand(ctx, s.executor, attrCmd); err != nil {
 			return fmt.Errorf("failed to update user attributes: %w", err)
 		}
-
-		if len(output) > 0 && containsError(string(output)) {
-			return fmt.Errorf("attributes command failed: %s", string(output))
-		}
 	}
 
-	// Save configuration
-	if s.client != nil {
-		if err := s.client.SaveConfig(ctx); err != nil {
-			return fmt.Errorf("user updated but failed to save configuration: %w", err)
-		}
-	}
-
-	return nil
+	return saveConfig(ctx, s.client, "user updated")
 }
 
 // DeleteAdminUser removes an admin user
@@ -324,22 +267,11 @@ func (s *AdminService) DeleteAdminUser(ctx context.Context, username string) err
 		return fmt.Errorf("failed to delete admin user: %w", err)
 	}
 
-	if len(output) > 0 && containsError(string(output)) {
-		// Check if it's already gone
-		if strings.Contains(strings.ToLower(string(output)), "not found") {
-			return nil
-		}
-		return fmt.Errorf("command failed: %s", string(output))
+	if err := checkOutputErrorIgnoringNotFound(output, "failed to delete admin user"); err != nil {
+		return err
 	}
 
-	// Save configuration
-	if s.client != nil {
-		if err := s.client.SaveConfig(ctx); err != nil {
-			return fmt.Errorf("user deleted but failed to save configuration: %w", err)
-		}
-	}
-
-	return nil
+	return saveConfig(ctx, s.client, "user deleted")
 }
 
 // ListAdminUsers retrieves all admin users
