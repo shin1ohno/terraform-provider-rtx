@@ -1,0 +1,8 @@
+{
+  "status": "error",
+  "errorMessage": "Movement execution failed: Status not found for movement \"reviewers\": no rule matched after all detection phases",
+  "timestamp": "2026-02-08T14:26:36.017Z",
+  "pieceName": "expert-cqrs",
+  "taskContent": "会話の文脈を把握しました。直前でユーザーは「Tier 1のsystemを実行」を依頼し、system カテゴリの指示書が出力済みです。今回の expert-cqrs ピースへの指示書としてそのまま出力します。\n\n---\n\n# system カテゴリ Reconciliation\n\n## 概要\n`system` カテゴリの master spec・YAML spec・実装を公式リファレンスと照合し、...",
+  "lastMovement": "fix"
+}

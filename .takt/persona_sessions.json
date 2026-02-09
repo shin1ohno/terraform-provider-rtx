@@ -1,0 +1,17 @@
+{
+  "personaSessions": {
+    "interactive": "995102c3-4ae3-4f94-8a26-a88e31452cb4",
+    "../personas/melchior.md": "dcc5ed68-2e58-4055-833c-48fa6d59de18",
+    "../personas/balthasar.md": "c44e4417-d05d-4061-a6de-d09710b6c159",
+    "../personas/casper.md": "2e109c37-9cc3-49b9-b8ef-8c34798c12e9",
+    "../personas/planner.md": "5bbdc841-9d62-41c8-9f15-11796acccefc",
+    "../personas/coder.md": "e5938e47-115c-4c00-b8ac-3f666a6961a6",
+    "../personas/ai-antipattern-reviewer.md": "042ddc75-744b-4a62-9422-6b91051c4515",
+    "../personas/frontend-reviewer.md": "78563ff6-ccd9-46f9-aa75-f0bc2d5bdd12",
+    "../personas/qa-reviewer.md": "fb33aaf9-58f9-4fd1-b40a-731aa730de93",
+    "../personas/cqrs-es-reviewer.md": "cfff6fad-43ad-401f-8970-b5e0dcf704bc",
+    "../personas/security-reviewer.md": "0cb4c809-ed2c-4d8d-b38f-9458cdbe1366"
+  },
+  "updatedAt": "2026-02-08T14:19:37.094Z",
+  "provider": "claude"
+}
