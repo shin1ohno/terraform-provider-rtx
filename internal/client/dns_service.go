@@ -228,39 +228,43 @@ func (s *DNSService) Update(ctx context.Context, config DNSConfig) error {
 		}
 	}
 
-	// Update static hosts
-	// First, remove hosts that are no longer needed
-	for _, currentHost := range currentConfig.Hosts {
-		found := false
-		for _, newHost := range config.Hosts {
-			if newHost.Name == currentHost.Name {
-				found = true
-				break
-			}
-		}
-		if !found {
-			cmd := parsers.BuildDeleteDNSStaticCommand(currentHost.Type, currentHost.Name)
-			logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Removing DNS static host %s with command: %s", currentHost.Name, cmd)
+	// Update static hosts using group-based diff
+	// Group by (type, name) to handle multiple IPs per hostname correctly
+	currentGroups := groupHostsByKey(currentConfig.Hosts)
+	newGroups := groupHostsByKey(config.Hosts)
+
+	// Remove groups that are deleted or changed
+	for key := range currentGroups {
+		newGroup, exists := newGroups[key]
+		if !exists || !hostsGroupEqual(currentGroups[key], newGroup) {
+			cmd := parsers.BuildDeleteDNSStaticCommand(key.recordType, key.name)
+			logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Removing DNS static host group %s/%s with command: %s", key.recordType, key.name, cmd)
 			if _, err := s.executor.Run(ctx, cmd); err != nil {
-				return fmt.Errorf("failed to delete DNS static host %s: %w", currentHost.Name, err)
+				return fmt.Errorf("failed to delete DNS static host %s: %w", key.name, err)
 			}
 		}
 	}
-	// Add/update new entries
-	for _, host := range config.Hosts {
-		parserHost := parsers.DNSHost{
-			Type:    host.Type,
-			Name:    host.Name,
-			Address: host.Address,
-			TTL:     host.TTL,
-		}
-		cmd := parsers.BuildDNSStaticCommand(parserHost)
-		if cmd == "" {
-			continue
-		}
-		logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Setting DNS static host with command: %s", cmd)
-		if _, err := s.executor.Run(ctx, cmd); err != nil {
-			return fmt.Errorf("failed to set DNS static host %s: %w", host.Name, err)
+
+	// Add groups that are new or changed
+	for key, newGroup := range newGroups {
+		currentGroup, exists := currentGroups[key]
+		if !exists || !hostsGroupEqual(currentGroup, newGroup) {
+			for _, host := range newGroup {
+				parserHost := parsers.DNSHost{
+					Type:    host.Type,
+					Name:    host.Name,
+					Address: host.Address,
+					TTL:     host.TTL,
+				}
+				cmd := parsers.BuildDNSStaticCommand(parserHost)
+				if cmd == "" {
+					continue
+				}
+				logging.FromContext(ctx).Debug().Str("service", "dns").Msgf("Setting DNS static host with command: %s", cmd)
+				if _, err := s.executor.Run(ctx, cmd); err != nil {
+					return fmt.Errorf("failed to set DNS static host %s: %w", host.Name, err)
+				}
+			}
 		}
 	}
 
@@ -431,6 +435,46 @@ func convertDNSServerSelectFromParser(sel parsers.DNSServerSelect) DNSServerSele
 		OriginalSender: sel.OriginalSender,
 		RestrictPP:     sel.RestrictPP,
 	}
+}
+
+// hostGroupKey identifies a group of DNS host entries by (type, name).
+type hostGroupKey struct {
+	recordType string
+	name       string
+}
+
+// groupHostsByKey groups DNS hosts by (type, name).
+func groupHostsByKey(hosts []DNSHost) map[hostGroupKey][]DNSHost {
+	groups := make(map[hostGroupKey][]DNSHost)
+	for _, h := range hosts {
+		key := hostGroupKey{recordType: h.Type, name: h.Name}
+		groups[key] = append(groups[key], h)
+	}
+	return groups
+}
+
+// hostsGroupEqual compares two groups of hosts by their (address, TTL) sets,
+// ignoring order.
+func hostsGroupEqual(a, b []DNSHost) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	type addrTTL struct {
+		address string
+		ttl     int
+	}
+	setA := make(map[addrTTL]int)
+	for _, h := range a {
+		setA[addrTTL{address: h.Address, ttl: h.TTL}]++
+	}
+	for _, h := range b {
+		key := addrTTL{address: h.Address, ttl: h.TTL}
+		if setA[key] <= 0 {
+			return false
+		}
+		setA[key]--
+	}
+	return true
 }
 
 // slicesEqual compares two string slices for equality

@@ -312,6 +312,208 @@ dns static a router 192.168.1.1
 	}
 }
 
+func TestDNSService_Update_MultiIPHostDeletion(t *testing.T) {
+	tests := []struct {
+		name        string
+		config      DNSConfig
+		mockSetup   func(*MockExecutor)
+		expectedErr bool
+	}{
+		{
+			name: "Remove one IP from multi-IP hostname",
+			config: DNSConfig{
+				NameServers: []string{"8.8.8.8"},
+				Hosts: []DNSHost{
+					{Type: "a", Name: "pro.home.local", Address: "192.168.1.20"},
+					// 192.168.1.21 removed
+				},
+				ServiceOn:    true,
+				PrivateSpoof: true,
+			},
+			mockSetup: func(m *MockExecutor) {
+				// Get returns current config with two IPs
+				m.On("Run", mock.Anything, "show config | grep dns").
+					Return([]byte(`dns server 8.8.8.8
+dns static a pro.home.local 192.168.1.20
+dns static a pro.home.local 192.168.1.21
+dns service recursive
+dns private address spoof on
+`), nil)
+				// Group changed: delete all entries for (a, pro.home.local)
+				m.On("Run", mock.Anything, "no dns static a pro.home.local").
+					Return([]byte(""), nil)
+				// Re-add the remaining entry
+				m.On("Run", mock.Anything, "dns static a pro.home.local 192.168.1.20").
+					Return([]byte(""), nil)
+			},
+			expectedErr: false,
+		},
+		{
+			name: "Add IP to existing multi-IP hostname",
+			config: DNSConfig{
+				NameServers: []string{"8.8.8.8"},
+				Hosts: []DNSHost{
+					{Type: "a", Name: "pro.home.local", Address: "192.168.1.20"},
+					{Type: "a", Name: "pro.home.local", Address: "192.168.1.21"},
+					{Type: "a", Name: "pro.home.local", Address: "192.168.1.22"},
+				},
+				ServiceOn:    true,
+				PrivateSpoof: true,
+			},
+			mockSetup: func(m *MockExecutor) {
+				m.On("Run", mock.Anything, "show config | grep dns").
+					Return([]byte(`dns server 8.8.8.8
+dns static a pro.home.local 192.168.1.20
+dns static a pro.home.local 192.168.1.21
+dns service recursive
+dns private address spoof on
+`), nil)
+				// Group changed: delete all, re-add all
+				m.On("Run", mock.Anything, "no dns static a pro.home.local").
+					Return([]byte(""), nil)
+				m.On("Run", mock.Anything, "dns static a pro.home.local 192.168.1.20").
+					Return([]byte(""), nil)
+				m.On("Run", mock.Anything, "dns static a pro.home.local 192.168.1.21").
+					Return([]byte(""), nil)
+				m.On("Run", mock.Anything, "dns static a pro.home.local 192.168.1.22").
+					Return([]byte(""), nil)
+			},
+			expectedErr: false,
+		},
+		{
+			name: "No change to multi-IP hostname - no commands issued",
+			config: DNSConfig{
+				NameServers: []string{"8.8.8.8"},
+				Hosts: []DNSHost{
+					{Type: "a", Name: "pro.home.local", Address: "192.168.1.20"},
+					{Type: "a", Name: "pro.home.local", Address: "192.168.1.21"},
+				},
+				ServiceOn:    true,
+				PrivateSpoof: true,
+			},
+			mockSetup: func(m *MockExecutor) {
+				m.On("Run", mock.Anything, "show config | grep dns").
+					Return([]byte(`dns server 8.8.8.8
+dns static a pro.home.local 192.168.1.20
+dns static a pro.home.local 192.168.1.21
+dns service recursive
+dns private address spoof on
+`), nil)
+				// No host commands should be issued since nothing changed
+			},
+			expectedErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockExecutor := new(MockExecutor)
+			tt.mockSetup(mockExecutor)
+
+			service := &DNSService{executor: mockExecutor}
+			err := service.Update(context.Background(), tt.config)
+
+			if tt.expectedErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			mockExecutor.AssertExpectations(t)
+		})
+	}
+}
+
+func TestHostsGroupEqual(t *testing.T) {
+	tests := []struct {
+		name     string
+		a        []DNSHost
+		b        []DNSHost
+		expected bool
+	}{
+		{
+			name:     "Equal single entry",
+			a:        []DNSHost{{Type: "a", Name: "host", Address: "1.2.3.4"}},
+			b:        []DNSHost{{Type: "a", Name: "host", Address: "1.2.3.4"}},
+			expected: true,
+		},
+		{
+			name: "Equal multi entry different order",
+			a: []DNSHost{
+				{Type: "a", Name: "host", Address: "1.2.3.4"},
+				{Type: "a", Name: "host", Address: "5.6.7.8"},
+			},
+			b: []DNSHost{
+				{Type: "a", Name: "host", Address: "5.6.7.8"},
+				{Type: "a", Name: "host", Address: "1.2.3.4"},
+			},
+			expected: true,
+		},
+		{
+			name: "Different length",
+			a: []DNSHost{
+				{Type: "a", Name: "host", Address: "1.2.3.4"},
+			},
+			b: []DNSHost{
+				{Type: "a", Name: "host", Address: "1.2.3.4"},
+				{Type: "a", Name: "host", Address: "5.6.7.8"},
+			},
+			expected: false,
+		},
+		{
+			name: "Different address",
+			a: []DNSHost{
+				{Type: "a", Name: "host", Address: "1.2.3.4"},
+			},
+			b: []DNSHost{
+				{Type: "a", Name: "host", Address: "9.9.9.9"},
+			},
+			expected: false,
+		},
+		{
+			name: "Different TTL",
+			a: []DNSHost{
+				{Type: "a", Name: "host", Address: "1.2.3.4", TTL: 300},
+			},
+			b: []DNSHost{
+				{Type: "a", Name: "host", Address: "1.2.3.4", TTL: 600},
+			},
+			expected: false,
+		},
+		{
+			name:     "Both empty",
+			a:        []DNSHost{},
+			b:        []DNSHost{},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := hostsGroupEqual(tt.a, tt.b)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestGroupHostsByKey(t *testing.T) {
+	hosts := []DNSHost{
+		{Type: "a", Name: "pro.home.local", Address: "192.168.1.20"},
+		{Type: "a", Name: "pro.home.local", Address: "192.168.1.21"},
+		{Type: "a", Name: "hnd.home.local", Address: "192.168.1.253"},
+	}
+
+	groups := groupHostsByKey(hosts)
+
+	assert.Len(t, groups, 2)
+
+	proKey := hostGroupKey{recordType: "a", name: "pro.home.local"}
+	assert.Len(t, groups[proKey], 2)
+
+	hndKey := hostGroupKey{recordType: "a", name: "hnd.home.local"}
+	assert.Len(t, groups[hndKey], 1)
+}
+
 func TestSlicesEqual(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -259,6 +259,195 @@ func TestFromClient_DeletedStateEntries(t *testing.T) {
 	}
 }
 
+// buildHostsList constructs a types.List of host entries for test setup.
+func buildHostsList(t *testing.T, entries []struct {
+	recordType string
+	name       string
+	address    string
+	ttl        int64
+}) types.List {
+	t.Helper()
+	var diags diag.Diagnostics
+	values := make([]attr.Value, len(entries))
+	for i, e := range entries {
+		obj, d := types.ObjectValue(
+			DNSHostAttrTypes(),
+			map[string]attr.Value{
+				"type":    types.StringValue(e.recordType),
+				"name":    types.StringValue(e.name),
+				"address": types.StringValue(e.address),
+				"ttl":     types.Int64Value(e.ttl),
+			},
+		)
+		diags.Append(d...)
+		values[i] = obj
+	}
+	if diags.HasError() {
+		t.Fatalf("failed to build hosts list: %v", diags.Errors())
+	}
+	listVal, d := types.ListValue(types.ObjectType{AttrTypes: DNSHostAttrTypes()}, values)
+	diags.Append(d...)
+	if diags.HasError() {
+		t.Fatalf("failed to build hosts list: %v", diags.Errors())
+	}
+	return listVal
+}
+
+func TestFromClient_HostsPreservesStateOrdering(t *testing.T) {
+	ctx := context.Background()
+
+	// Previous state has entries in specific order
+	prevHosts := buildHostsList(t, []struct {
+		recordType string
+		name       string
+		address    string
+		ttl        int64
+	}{
+		{recordType: "a", name: "pro.home.local", address: "192.168.1.20", ttl: 0},
+		{recordType: "a", name: "pro.home.local", address: "192.168.1.21", ttl: 0},
+		{recordType: "a", name: "hnd.home.local", address: "192.168.1.253", ttl: 0},
+	})
+
+	model := &DNSServerModel{
+		Hosts:        prevHosts,
+		ServerSelect: types.ListNull(types.ObjectType{AttrTypes: DNSServerSelectAttrTypes()}),
+	}
+
+	// Router returns entries in different order
+	routerConfig := &client.DNSConfig{
+		Hosts: []client.DNSHost{
+			{Type: "a", Name: "hnd.home.local", Address: "192.168.1.253"},
+			{Type: "a", Name: "pro.home.local", Address: "192.168.1.21"},
+			{Type: "a", Name: "pro.home.local", Address: "192.168.1.20"},
+		},
+	}
+
+	var diags diag.Diagnostics
+	model.FromClient(ctx, routerConfig, &diags)
+	if diags.HasError() {
+		t.Fatalf("FromClient returned errors: %v", diags.Errors())
+	}
+
+	var resultHosts []DNSHostModel
+	d := model.Hosts.ElementsAs(ctx, &resultHosts, false)
+	if d.HasError() {
+		t.Fatalf("failed to extract result: %v", d.Errors())
+	}
+
+	if len(resultHosts) != 3 {
+		t.Fatalf("expected 3 entries, got %d", len(resultHosts))
+	}
+
+	// Order should match previous state
+	if resultHosts[0].Address.ValueString() != "192.168.1.20" {
+		t.Errorf("expected first entry 192.168.1.20, got %s", resultHosts[0].Address.ValueString())
+	}
+	if resultHosts[1].Address.ValueString() != "192.168.1.21" {
+		t.Errorf("expected second entry 192.168.1.21, got %s", resultHosts[1].Address.ValueString())
+	}
+	if resultHosts[2].Address.ValueString() != "192.168.1.253" {
+		t.Errorf("expected third entry 192.168.1.253, got %s", resultHosts[2].Address.ValueString())
+	}
+}
+
+func TestFromClient_HostsHandlesNewEntries(t *testing.T) {
+	ctx := context.Background()
+
+	// Previous state has 2 entries
+	prevHosts := buildHostsList(t, []struct {
+		recordType string
+		name       string
+		address    string
+		ttl        int64
+	}{
+		{recordType: "a", name: "hnd.home.local", address: "192.168.1.253", ttl: 0},
+		{recordType: "a", name: "pro.home.local", address: "192.168.1.20", ttl: 0},
+	})
+
+	model := &DNSServerModel{
+		Hosts:        prevHosts,
+		ServerSelect: types.ListNull(types.ObjectType{AttrTypes: DNSServerSelectAttrTypes()}),
+	}
+
+	// Router returns 3 entries (one new)
+	routerConfig := &client.DNSConfig{
+		Hosts: []client.DNSHost{
+			{Type: "a", Name: "pro.home.local", Address: "192.168.1.20"},
+			{Type: "a", Name: "itm.home.local", Address: "192.168.1.254"},
+			{Type: "a", Name: "hnd.home.local", Address: "192.168.1.253"},
+		},
+	}
+
+	var diags diag.Diagnostics
+	model.FromClient(ctx, routerConfig, &diags)
+	if diags.HasError() {
+		t.Fatalf("FromClient returned errors: %v", diags.Errors())
+	}
+
+	var resultHosts []DNSHostModel
+	d := model.Hosts.ElementsAs(ctx, &resultHosts, false)
+	if d.HasError() {
+		t.Fatalf("failed to extract result: %v", d.Errors())
+	}
+
+	if len(resultHosts) != 3 {
+		t.Fatalf("expected 3 entries, got %d", len(resultHosts))
+	}
+
+	// First two match previous state order
+	if resultHosts[0].Name.ValueString() != "hnd.home.local" {
+		t.Errorf("expected first entry hnd.home.local, got %s", resultHosts[0].Name.ValueString())
+	}
+	if resultHosts[1].Name.ValueString() != "pro.home.local" {
+		t.Errorf("expected second entry pro.home.local, got %s", resultHosts[1].Name.ValueString())
+	}
+	// New entry appended at end
+	if resultHosts[2].Name.ValueString() != "itm.home.local" {
+		t.Errorf("expected third entry itm.home.local, got %s", resultHosts[2].Name.ValueString())
+	}
+}
+
+func TestFromClient_HostsEmptyPreviousState(t *testing.T) {
+	ctx := context.Background()
+
+	// No previous state
+	model := &DNSServerModel{
+		Hosts:        types.ListNull(types.ObjectType{AttrTypes: DNSHostAttrTypes()}),
+		ServerSelect: types.ListNull(types.ObjectType{AttrTypes: DNSServerSelectAttrTypes()}),
+	}
+
+	routerConfig := &client.DNSConfig{
+		Hosts: []client.DNSHost{
+			{Type: "a", Name: "pro.home.local", Address: "192.168.1.20"},
+			{Type: "a", Name: "hnd.home.local", Address: "192.168.1.253"},
+		},
+	}
+
+	var diags diag.Diagnostics
+	model.FromClient(ctx, routerConfig, &diags)
+	if diags.HasError() {
+		t.Fatalf("FromClient returned errors: %v", diags.Errors())
+	}
+
+	var resultHosts []DNSHostModel
+	d := model.Hosts.ElementsAs(ctx, &resultHosts, false)
+	if d.HasError() {
+		t.Fatalf("failed to extract result: %v", d.Errors())
+	}
+
+	if len(resultHosts) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(resultHosts))
+	}
+
+	// Should be in router order (no previous state to match)
+	if resultHosts[0].Name.ValueString() != "pro.home.local" {
+		t.Errorf("expected first entry pro.home.local, got %s", resultHosts[0].Name.ValueString())
+	}
+	if resultHosts[1].Name.ValueString() != "hnd.home.local" {
+		t.Errorf("expected second entry hnd.home.local, got %s", resultHosts[1].Name.ValueString())
+	}
+}
+
 func TestNormalizeRecordType(t *testing.T) {
 	tests := []struct {
 		input    string

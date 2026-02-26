@@ -191,10 +191,15 @@ func (m *DNSServerModel) FromClient(ctx context.Context, config *client.DNSConfi
 		m.ServerSelect = types.ListValueMust(types.ObjectType{AttrTypes: DNSServerSelectAttrTypes()}, []attr.Value{})
 	}
 
-	// Convert hosts
+	// Convert hosts, preserving previous state ordering when available
 	if len(config.Hosts) > 0 {
-		hostValues := make([]attr.Value, len(config.Hosts))
-		for i, host := range config.Hosts {
+		orderedHosts := m.orderHostEntries(ctx, config.Hosts, diags)
+		if diags.HasError() {
+			return
+		}
+
+		hostValues := make([]attr.Value, len(orderedHosts))
+		for i, host := range orderedHosts {
 			hostObj, d := types.ObjectValue(
 				DNSHostAttrTypes(),
 				map[string]attr.Value{
@@ -443,6 +448,93 @@ func (m *DNSServerModel) orderServerSelectEntries(ctx context.Context, routerEnt
 		return unmatched[i].ID < unmatched[j].ID
 	})
 	result = append(result, unmatched...)
+
+	return result
+}
+
+// hostContentKey identifies a host entry by its content for ordering purposes.
+type hostContentKey struct {
+	recordType string
+	name       string
+	address    string
+}
+
+// orderHostEntries orders router host entries to match previous state ordering.
+// If no previous state exists, entries are returned as-is from the router.
+func (m *DNSServerModel) orderHostEntries(ctx context.Context, routerEntries []client.DNSHost, diags *diag.Diagnostics) []client.DNSHost {
+	// Check if we have previous state to preserve ordering
+	if m.Hosts.IsNull() || m.Hosts.IsUnknown() || len(m.Hosts.Elements()) == 0 {
+		// No previous state: return as-is
+		result := make([]client.DNSHost, len(routerEntries))
+		copy(result, routerEntries)
+		return result
+	}
+
+	// Extract previous state entries to get their ordering
+	var prevHosts []DNSHostModel
+	d := m.Hosts.ElementsAs(ctx, &prevHosts, false)
+	diags.Append(d...)
+	if diags.HasError() {
+		return nil
+	}
+
+	// Build a map of (type, name, address) -> router entry index for matching
+	type routerIdx struct {
+		entry client.DNSHost
+		used  bool
+	}
+	routerByContent := make(map[hostContentKey]*routerIdx)
+	// Track duplicates: if multiple router entries have the same key, store them in a slice
+	routerDuplicates := make(map[hostContentKey][]*routerIdx)
+	for _, entry := range routerEntries {
+		key := hostContentKey{
+			recordType: strings.ToLower(entry.Type),
+			name:       entry.Name,
+			address:    entry.Address,
+		}
+		ri := &routerIdx{entry: entry}
+		if _, exists := routerByContent[key]; exists {
+			routerDuplicates[key] = append(routerDuplicates[key], ri)
+		} else {
+			routerByContent[key] = ri
+			routerDuplicates[key] = []*routerIdx{ri}
+		}
+	}
+
+	result := make([]client.DNSHost, 0, len(routerEntries))
+
+	// Walk previous state in order, matching against router entries
+	for _, prev := range prevHosts {
+		key := hostContentKey{
+			recordType: strings.ToLower(prev.Type.ValueString()),
+			name:       prev.Name.ValueString(),
+			address:    prev.Address.ValueString(),
+		}
+		// Find an unused entry with this key
+		for _, ri := range routerDuplicates[key] {
+			if !ri.used {
+				result = append(result, ri.entry)
+				ri.used = true
+				break
+			}
+		}
+	}
+
+	// Append any unmatched router entries (new entries not in previous state)
+	for _, entry := range routerEntries {
+		key := hostContentKey{
+			recordType: strings.ToLower(entry.Type),
+			name:       entry.Name,
+			address:    entry.Address,
+		}
+		for _, ri := range routerDuplicates[key] {
+			if !ri.used {
+				result = append(result, ri.entry)
+				ri.used = true
+				break
+			}
+		}
+	}
 
 	return result
 }
