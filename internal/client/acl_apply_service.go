@@ -23,6 +23,25 @@ func NewACLApplyService(executor Executor, client *rtxClient) *ACLApplyService {
 	}
 }
 
+// runPossiblyMultilineCmd executes a command string that may contain
+// multiple commands separated by newline (as produced by
+// parsers.Build*InterfaceSecureFilter* helpers for pp/tunnel interfaces).
+// Single-line commands go through executor.Run for prompt handling; multi-
+// line commands are split and sent via executor.RunBatch.
+func runPossiblyMultilineCmd(ctx context.Context, executor Executor, cmd string) ([]byte, error) {
+	if !strings.Contains(cmd, "\n") {
+		return executor.Run(ctx, cmd)
+	}
+	lines := strings.Split(cmd, "\n")
+	trimmed := make([]string, 0, len(lines))
+	for _, line := range lines {
+		if s := strings.TrimSpace(line); s != "" {
+			trimmed = append(trimmed, s)
+		}
+	}
+	return executor.RunBatch(ctx, trimmed)
+}
+
 // ApplyFiltersToInterface binds filter sequences to an interface
 // The aclType determines which command format to use:
 // - ip: "ip <interface> secure filter <direction> <filter_numbers...>"
@@ -66,7 +85,7 @@ func (s *ACLApplyService) ApplyFiltersToInterface(ctx context.Context, iface, di
 		Ints("filter_ids", filterIDs).
 		Msgf("Applying filters with command: %s", cmd)
 
-	output, err := s.executor.Run(ctx, cmd)
+	output, err := runPossiblyMultilineCmd(ctx, s.executor, cmd)
 	if err != nil {
 		return fmt.Errorf("failed to apply filters to interface %s: %w", iface, err)
 	}
@@ -114,7 +133,7 @@ func (s *ACLApplyService) RemoveFiltersFromInterface(ctx context.Context, iface,
 		Str("acl_type", string(aclType)).
 		Msgf("Removing filters with command: %s", cmd)
 
-	output, err := s.executor.Run(ctx, cmd)
+	output, err := runPossiblyMultilineCmd(ctx, s.executor, cmd)
 	if err != nil {
 		// Ignore "not found" errors since filter may not be applied
 		if strings.Contains(strings.ToLower(err.Error()), "not found") {
@@ -344,7 +363,7 @@ func (s *ACLApplyService) ApplyFiltersToInterfaceWithDynamic(ctx context.Context
 		Ints("dynamic_filter_ids", dynamicFilterIDs).
 		Msgf("Applying filters with command: %s", cmd)
 
-	output, err := s.executor.Run(ctx, cmd)
+	output, err := runPossiblyMultilineCmd(ctx, s.executor, cmd)
 	if err != nil {
 		return fmt.Errorf("failed to apply filters to interface %s: %w", iface, err)
 	}

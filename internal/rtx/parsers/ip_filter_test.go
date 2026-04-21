@@ -710,11 +710,25 @@ func TestBuildInterfaceSecureFilterCommand(t *testing.T) {
 			expected:   "ip lan1 secure filter in 100 101 102",
 		},
 		{
-			name:       "pp interface outbound",
+			name:       "pp interface outbound requires pp select context",
 			iface:      "pp1",
 			direction:  "out",
 			filterNums: []int{200, 201},
-			expected:   "ip pp1 secure filter out 200 201",
+			expected:   "pp select 1\nip pp secure filter out 200 201",
+		},
+		{
+			name:       "tunnel interface inbound requires tunnel select context",
+			iface:      "tunnel1",
+			direction:  "in",
+			filterNums: []int{200, 205},
+			expected:   "tunnel select 1\nip tunnel secure filter in 200 205",
+		},
+		{
+			name:       "bridge interface does not need select context",
+			iface:      "bridge1",
+			direction:  "in",
+			filterNums: []int{100},
+			expected:   "ip bridge1 secure filter in 100",
 		},
 	}
 
@@ -754,12 +768,20 @@ func TestBuildInterfaceSecureFilterWithDynamicCommand(t *testing.T) {
 			expected:    "ip lan1 secure filter in 100 101 dynamic 10 20",
 		},
 		{
-			name:        "multiple dynamic filters",
+			name:        "pp interface requires pp select context",
 			iface:       "pp1",
 			direction:   "out",
 			staticNums:  []int{200},
 			dynamicNums: []int{30, 40, 50},
-			expected:    "ip pp1 secure filter out 200 dynamic 30 40 50",
+			expected:    "pp select 1\nip pp secure filter out 200 dynamic 30 40 50",
+		},
+		{
+			name:        "tunnel interface requires tunnel select context",
+			iface:       "tunnel2",
+			direction:   "in",
+			staticNums:  []int{100},
+			dynamicNums: []int{80, 81},
+			expected:    "tunnel select 2\nip tunnel secure filter in 100 dynamic 80 81",
 		},
 	}
 
@@ -787,10 +809,16 @@ func TestBuildDeleteInterfaceSecureFilterCommand(t *testing.T) {
 			expected:  "no ip lan1 secure filter in",
 		},
 		{
-			name:      "delete outbound filter",
+			name:      "delete pp outbound filter requires pp select context",
 			iface:     "pp1",
 			direction: "out",
-			expected:  "no ip pp1 secure filter out",
+			expected:  "pp select 1\nno ip pp secure filter out",
+		},
+		{
+			name:      "delete tunnel inbound filter requires tunnel select context",
+			iface:     "tunnel1",
+			direction: "in",
+			expected:  "tunnel select 1\nno ip tunnel secure filter in",
 		},
 	}
 

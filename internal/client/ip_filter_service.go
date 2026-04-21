@@ -974,7 +974,7 @@ func (s *IPFilterService) CreateInterfaceACL(ctx context.Context, acl InterfaceA
 			cmd := parsers.BuildInterfaceSecureFilterWithDynamicCommand(acl.Interface, "in", nil, acl.DynamicFiltersIn)
 			logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Applying interface ACL inbound with command: %s", cmd)
 
-			output, err := s.executor.Run(ctx, cmd)
+			output, err := runPossiblyMultilineCmd(ctx, s.executor, cmd)
 			if err != nil {
 				return fmt.Errorf("failed to apply interface ACL inbound: %w", err)
 			}
@@ -991,7 +991,7 @@ func (s *IPFilterService) CreateInterfaceACL(ctx context.Context, acl InterfaceA
 			cmd := parsers.BuildInterfaceSecureFilterWithDynamicCommand(acl.Interface, "out", nil, acl.DynamicFiltersOut)
 			logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Applying interface ACL outbound with command: %s", cmd)
 
-			output, err := s.executor.Run(ctx, cmd)
+			output, err := runPossiblyMultilineCmd(ctx, s.executor, cmd)
 			if err != nil {
 				return fmt.Errorf("failed to apply interface ACL outbound: %w", err)
 			}
@@ -1008,7 +1008,7 @@ func (s *IPFilterService) CreateInterfaceACL(ctx context.Context, acl InterfaceA
 			cmd := parsers.BuildInterfaceIPv6SecureFilterWithDynamicCommand(acl.Interface, "in", nil, acl.IPv6DynamicFiltersIn)
 			logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Applying interface IPv6 ACL inbound with command: %s", cmd)
 
-			output, err := s.executor.Run(ctx, cmd)
+			output, err := runPossiblyMultilineCmd(ctx, s.executor, cmd)
 			if err != nil {
 				return fmt.Errorf("failed to apply interface IPv6 ACL inbound: %w", err)
 			}
@@ -1025,7 +1025,7 @@ func (s *IPFilterService) CreateInterfaceACL(ctx context.Context, acl InterfaceA
 			cmd := parsers.BuildInterfaceIPv6SecureFilterWithDynamicCommand(acl.Interface, "out", nil, acl.IPv6DynamicFiltersOut)
 			logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Applying interface IPv6 ACL outbound with command: %s", cmd)
 
-			output, err := s.executor.Run(ctx, cmd)
+			output, err := runPossiblyMultilineCmd(ctx, s.executor, cmd)
 			if err != nil {
 				return fmt.Errorf("failed to apply interface IPv6 ACL outbound: %w", err)
 			}
@@ -1127,22 +1127,22 @@ func (s *IPFilterService) DeleteInterfaceACL(ctx context.Context, iface string) 
 	// Remove IPv4 inbound filters
 	cmd := parsers.BuildDeleteInterfaceSecureFilterCommand(iface, "in")
 	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Removing interface ACL inbound with command: %s", cmd)
-	_, _ = s.executor.Run(ctx, cmd) // Ignore error if not configured
+	_, _ = runPossiblyMultilineCmd(ctx, s.executor, cmd) // Ignore error if not configured
 
 	// Remove IPv4 outbound filters
 	cmd = parsers.BuildDeleteInterfaceSecureFilterCommand(iface, "out")
 	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Removing interface ACL outbound with command: %s", cmd)
-	_, _ = s.executor.Run(ctx, cmd) // Ignore error if not configured
+	_, _ = runPossiblyMultilineCmd(ctx, s.executor, cmd) // Ignore error if not configured
 
 	// Remove IPv6 inbound filters
 	cmd = parsers.BuildDeleteInterfaceIPv6SecureFilterCommand(iface, "in")
 	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Removing interface IPv6 ACL inbound with command: %s", cmd)
-	_, _ = s.executor.Run(ctx, cmd) // Ignore error if not configured
+	_, _ = runPossiblyMultilineCmd(ctx, s.executor, cmd) // Ignore error if not configured
 
 	// Remove IPv6 outbound filters
 	cmd = parsers.BuildDeleteInterfaceIPv6SecureFilterCommand(iface, "out")
 	logging.FromContext(ctx).Debug().Str("service", "UipUfilterService").Msgf("Removing interface IPv6 ACL outbound with command: %s", cmd)
-	_, _ = s.executor.Run(ctx, cmd) // Ignore error if not configured
+	_, _ = runPossiblyMultilineCmd(ctx, s.executor, cmd) // Ignore error if not configured
 
 	// Save configuration
 	if s.client != nil {

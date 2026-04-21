@@ -328,20 +328,56 @@ func BuildDeleteIPFilterDynamicCommand(number int) string {
 	return fmt.Sprintf("no ip filter dynamic %d", number)
 }
 
-// BuildInterfaceSecureFilterCommand builds the command to apply filters to an interface
+// interfaceSelectContext returns the `<kind> select <N>` prefix required to
+// enter the CLI context for `pp` and `tunnel` interfaces, and the effective
+// token to use in `ip <token> secure filter`. RTX accepts `ip lan<N>` and
+// `ip bridge<N>` directly, but `ip pp<N>` / `ip tunnel<N>` are not valid —
+// the `<N>` must be supplied via a preceding `pp select <N>` or
+// `tunnel select <N>` command, with the filter command using the bare
+// keyword (`ip pp secure filter` / `ip tunnel secure filter`).
+//
+// Returns ("", iface) for interfaces that do not need a context switch.
+func interfaceSelectContext(iface string) (string, string) {
+	lowered := strings.ToLower(iface)
+	for _, prefix := range []string{"tunnel", "pp"} {
+		if strings.HasPrefix(lowered, prefix) {
+			idStr := lowered[len(prefix):]
+			if _, err := strconv.Atoi(idStr); err == nil {
+				return fmt.Sprintf("%s select %s", prefix, idStr), prefix
+			}
+		}
+	}
+	return "", iface
+}
+
+// withSelectContext returns `cmd` unchanged when selectCmd is empty,
+// otherwise returns "<selectCmd>\n<cmd>". Multi-command output is intended
+// to be split on newline by the caller and executed via RunBatch.
+func withSelectContext(selectCmd, cmd string) string {
+	if selectCmd == "" {
+		return cmd
+	}
+	return selectCmd + "\n" + cmd
+}
+
+// BuildInterfaceSecureFilterCommand builds the command to apply filters to an interface.
 // Command format: ip <interface> secure filter <direction> <filter_numbers...>
+// For `pp<N>` and `tunnel<N>` interfaces, a `pp select <N>` / `tunnel select <N>`
+// line is prepended (newline-separated) so callers can send both via RunBatch.
 func BuildInterfaceSecureFilterCommand(iface string, direction string, filterNums []int) string {
-	parts := []string{"ip", iface, "secure", "filter", direction}
+	selectCmd, applyIface := interfaceSelectContext(iface)
+	parts := []string{"ip", applyIface, "secure", "filter", direction}
 	for _, num := range filterNums {
 		parts = append(parts, strconv.Itoa(num))
 	}
-	return strings.Join(parts, " ")
+	return withSelectContext(selectCmd, strings.Join(parts, " "))
 }
 
 // BuildInterfaceSecureFilterWithDynamicCommand builds the command with both static and dynamic filters
 // Command format: ip <interface> secure filter <direction> <static_nums...> dynamic <dynamic_nums...>
 func BuildInterfaceSecureFilterWithDynamicCommand(iface string, direction string, staticNums []int, dynamicNums []int) string {
-	parts := []string{"ip", iface, "secure", "filter", direction}
+	selectCmd, applyIface := interfaceSelectContext(iface)
+	parts := []string{"ip", applyIface, "secure", "filter", direction}
 	for _, num := range staticNums {
 		parts = append(parts, strconv.Itoa(num))
 	}
@@ -351,13 +387,14 @@ func BuildInterfaceSecureFilterWithDynamicCommand(iface string, direction string
 			parts = append(parts, strconv.Itoa(num))
 		}
 	}
-	return strings.Join(parts, " ")
+	return withSelectContext(selectCmd, strings.Join(parts, " "))
 }
 
 // BuildDeleteInterfaceSecureFilterCommand builds the command to remove secure filter from interface
 // Command format: no ip <interface> secure filter <direction>
 func BuildDeleteInterfaceSecureFilterCommand(iface string, direction string) string {
-	return fmt.Sprintf("no ip %s secure filter %s", iface, direction)
+	selectCmd, applyIface := interfaceSelectContext(iface)
+	return withSelectContext(selectCmd, fmt.Sprintf("no ip %s secure filter %s", applyIface, direction))
 }
 
 // BuildShowIPFilterCommand builds the command to show IP filter configuration
@@ -943,17 +980,19 @@ func ParseInterfaceIPv6SecureFilterWithDynamic(raw string) (map[string]map[strin
 // BuildInterfaceIPv6SecureFilterCommand builds the command to apply IPv6 filters to an interface
 // Command format: ipv6 <interface> secure filter <direction> <filter_numbers...>
 func BuildInterfaceIPv6SecureFilterCommand(iface string, direction string, filterNums []int) string {
-	parts := []string{"ipv6", iface, "secure", "filter", direction}
+	selectCmd, applyIface := interfaceSelectContext(iface)
+	parts := []string{"ipv6", applyIface, "secure", "filter", direction}
 	for _, num := range filterNums {
 		parts = append(parts, strconv.Itoa(num))
 	}
-	return strings.Join(parts, " ")
+	return withSelectContext(selectCmd, strings.Join(parts, " "))
 }
 
 // BuildInterfaceIPv6SecureFilterWithDynamicCommand builds the command with both static and dynamic filters
 // Command format: ipv6 <interface> secure filter <direction> <static_nums...> dynamic <dynamic_nums...>
 func BuildInterfaceIPv6SecureFilterWithDynamicCommand(iface string, direction string, staticNums []int, dynamicNums []int) string {
-	parts := []string{"ipv6", iface, "secure", "filter", direction}
+	selectCmd, applyIface := interfaceSelectContext(iface)
+	parts := []string{"ipv6", applyIface, "secure", "filter", direction}
 	for _, num := range staticNums {
 		parts = append(parts, strconv.Itoa(num))
 	}
@@ -963,13 +1002,14 @@ func BuildInterfaceIPv6SecureFilterWithDynamicCommand(iface string, direction st
 			parts = append(parts, strconv.Itoa(num))
 		}
 	}
-	return strings.Join(parts, " ")
+	return withSelectContext(selectCmd, strings.Join(parts, " "))
 }
 
 // BuildDeleteInterfaceIPv6SecureFilterCommand builds the command to remove IPv6 secure filter from interface
 // Command format: no ipv6 <interface> secure filter <direction>
 func BuildDeleteInterfaceIPv6SecureFilterCommand(iface string, direction string) string {
-	return fmt.Sprintf("no ipv6 %s secure filter %s", iface, direction)
+	selectCmd, applyIface := interfaceSelectContext(iface)
+	return withSelectContext(selectCmd, fmt.Sprintf("no ipv6 %s secure filter %s", applyIface, direction))
 }
 
 // ParseIPFilterDynamicConfigExtended parses the output of "show config" for dynamic IP filter lines
