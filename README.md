@@ -27,7 +27,7 @@ terraform {
   required_providers {
     rtx = {
       source  = "shin1ohno/rtx"
-      version = "~> 0.10"
+      version = "~> 0.11"
     }
   }
 }
@@ -42,8 +42,8 @@ Then run `terraform init`.
 
 ```bash
 # Linux/macOS
-mkdir -p ~/.terraform.d/plugins/registry.terraform.io/shin1ohno/rtx/0.10.2/linux_amd64
-unzip terraform-provider-rtx_0.10.2_linux_amd64.zip -d ~/.terraform.d/plugins/registry.terraform.io/shin1ohno/rtx/0.10.2/linux_amd64
+mkdir -p ~/.terraform.d/plugins/registry.terraform.io/shin1ohno/rtx/0.11.0/linux_amd64
+unzip terraform-provider-rtx_0.11.0_linux_amd64.zip -d ~/.terraform.d/plugins/registry.terraform.io/shin1ohno/rtx/0.11.0/linux_amd64
 ```
 
 3. Configure Terraform to use the local provider:
@@ -53,7 +53,7 @@ terraform {
   required_providers {
     rtx = {
       source  = "shin1ohno/rtx"
-      version = "0.10.2"
+      version = "0.11.0"
     }
   }
 }
@@ -95,7 +95,7 @@ terraform {
   required_providers {
     rtx = {
       source  = "shin1ohno/rtx"
-      version = "~> 0.10"
+      version = "~> 0.11"
     }
   }
 }
