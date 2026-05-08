@@ -110,7 +110,11 @@ func (m *SNMPServerModel) FromClient(config *client.SNMPConfig) {
 	m.Contact = fwhelpers.StringValueOrNull(config.SysContact)
 	m.ChassisID = fwhelpers.StringValueOrNull(config.SysName)
 
-	// Convert communities
+	// Convert communities. Preserve prior null vs empty distinction: when the
+	// router returns no communities, leave state null if the config never set
+	// the block, otherwise materialize an empty list so an explicit `community`
+	// block of zero entries is preserved.
+	communityType := types.ObjectType{AttrTypes: CommunityAttrTypes()}
 	if len(config.Communities) > 0 {
 		communityValues := make([]attr.Value, len(config.Communities))
 		for i, c := range config.Communities {
@@ -120,12 +124,15 @@ func (m *SNMPServerModel) FromClient(config *client.SNMPConfig) {
 				"acl":        fwhelpers.StringValueOrNull(c.ACL),
 			})
 		}
-		m.Communities = types.ListValueMust(types.ObjectType{AttrTypes: CommunityAttrTypes()}, communityValues)
+		m.Communities = types.ListValueMust(communityType, communityValues)
+	} else if m.Communities.IsNull() {
+		m.Communities = types.ListNull(communityType)
 	} else {
-		m.Communities = types.ListValueMust(types.ObjectType{AttrTypes: CommunityAttrTypes()}, []attr.Value{})
+		m.Communities = types.ListValueMust(communityType, []attr.Value{})
 	}
 
-	// Convert hosts
+	// Convert hosts. Same null-preservation invariant as Communities.
+	hostType := types.ObjectType{AttrTypes: HostAttrTypes()}
 	if len(config.Hosts) > 0 {
 		hostValues := make([]attr.Value, len(config.Hosts))
 		for i, h := range config.Hosts {
@@ -135,18 +142,24 @@ func (m *SNMPServerModel) FromClient(config *client.SNMPConfig) {
 				"version":    fwhelpers.StringValueOrNull(h.Version),
 			})
 		}
-		m.Hosts = types.ListValueMust(types.ObjectType{AttrTypes: HostAttrTypes()}, hostValues)
+		m.Hosts = types.ListValueMust(hostType, hostValues)
+	} else if m.Hosts.IsNull() {
+		m.Hosts = types.ListNull(hostType)
 	} else {
-		m.Hosts = types.ListValueMust(types.ObjectType{AttrTypes: HostAttrTypes()}, []attr.Value{})
+		m.Hosts = types.ListValueMust(hostType, []attr.Value{})
 	}
 
-	// Convert enable_traps
+	// Convert enable_traps. Same null-preservation invariant: framework rejects
+	// the apply with "was null, but now cty.ListValEmpty(cty.String)" when an
+	// unset attribute resolves to an empty list.
 	if len(config.TrapEnable) > 0 {
 		trapValues := make([]attr.Value, len(config.TrapEnable))
 		for i, t := range config.TrapEnable {
 			trapValues[i] = types.StringValue(t)
 		}
 		m.EnableTraps = types.ListValueMust(types.StringType, trapValues)
+	} else if m.EnableTraps.IsNull() {
+		m.EnableTraps = types.ListNull(types.StringType)
 	} else {
 		m.EnableTraps = types.ListValueMust(types.StringType, []attr.Value{})
 	}
