@@ -234,6 +234,14 @@ func (r *SNMPServerResource) Update(ctx context.Context, req resource.UpdateRequ
 	ctx = logging.WithResource(ctx, "rtx_snmp_server", "snmp")
 	logger := logging.FromContext(ctx)
 
+	// Preserve planned list values before read-back. Mirrors the rtx_tunnel
+	// secure_filter fix (commit 4030206); guards against router read-back
+	// returning a shape that differs from the plan and triggering Terraform's
+	// "Provider produced inconsistent result after apply" check.
+	plannedCommunities := data.Communities
+	plannedHosts := data.Hosts
+	plannedEnableTraps := data.EnableTraps
+
 	config := data.ToClient()
 	logger.Debug().Str("resource", "rtx_snmp_server").Msgf("Updating SNMP configuration: %+v", config)
 
@@ -248,6 +256,16 @@ func (r *SNMPServerResource) Update(ctx context.Context, req resource.UpdateRequ
 	r.read(ctx, &data, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	if !plannedCommunities.IsUnknown() {
+		data.Communities = plannedCommunities
+	}
+	if !plannedHosts.IsUnknown() {
+		data.Hosts = plannedHosts
+	}
+	if !plannedEnableTraps.IsUnknown() {
+		data.EnableTraps = plannedEnableTraps
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
