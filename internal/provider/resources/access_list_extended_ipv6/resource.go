@@ -321,6 +321,8 @@ func (r *AccessListExtendedIPv6Resource) Update(ctx context.Context, req resourc
 	ctx = logging.WithResource(ctx, "rtx_access_list_extended_ipv6", name)
 	logger := logging.FromContext(ctx)
 
+	plannedEntries := data.Entries
+
 	acl := data.ToClient()
 	logger.Debug().Str("resource", "rtx_access_list_extended_ipv6").Msgf("Updating IPv6 access list extended: %+v", acl)
 
@@ -335,6 +337,10 @@ func (r *AccessListExtendedIPv6Resource) Update(ctx context.Context, req resourc
 	r.read(ctx, &data, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	if !plannedEntries.IsUnknown() {
+		data.Entries = plannedEntries
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

@@ -30,17 +30,22 @@ func (m *AccessListIPv6ApplyModel) GetSequencesAsInts() []int {
 }
 
 // SetSequencesFromInts sets the sequences from a slice of integers.
+// Preserves prior null vs empty distinction: when the router returns no IDs,
+// leave state null if the config never set the attribute, otherwise materialize
+// an empty list. Mirrors the null-preservation invariant used by snmp_server's
+// FromClient (commit 00c069b).
 func (m *AccessListIPv6ApplyModel) SetSequencesFromInts(ids []int) {
-	if len(ids) == 0 {
+	if len(ids) > 0 {
+		elements := make([]attr.Value, len(ids))
+		for i, id := range ids {
+			elements[i] = types.Int64Value(int64(id))
+		}
+		m.Sequences = types.ListValueMust(types.Int64Type, elements)
+	} else if m.Sequences.IsNull() {
+		m.Sequences = types.ListNull(types.Int64Type)
+	} else {
 		m.Sequences = types.ListValueMust(types.Int64Type, []attr.Value{})
-		return
 	}
-
-	elements := make([]attr.Value, len(ids))
-	for i, id := range ids {
-		elements[i] = types.Int64Value(int64(id))
-	}
-	m.Sequences = types.ListValueMust(types.Int64Type, elements)
 }
 
 // GetResourceID returns the resource ID in the format "interface:direction".

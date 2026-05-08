@@ -139,6 +139,8 @@ func (m *BGPModel) FromClient(config *client.BGPConfig) {
 			)
 		}
 		m.Neighbors = types.ListValueMust(types.ObjectType{AttrTypes: NeighborAttrTypes()}, neighbors)
+	} else if m.Neighbors.IsNull() {
+		m.Neighbors = types.ListNull(types.ObjectType{AttrTypes: NeighborAttrTypes()})
 	} else {
 		m.Neighbors = types.ListValueMust(types.ObjectType{AttrTypes: NeighborAttrTypes()}, []attr.Value{})
 	}
@@ -156,6 +158,8 @@ func (m *BGPModel) FromClient(config *client.BGPConfig) {
 			)
 		}
 		m.Networks = types.ListValueMust(types.ObjectType{AttrTypes: NetworkAttrTypes()}, networks)
+	} else if m.Networks.IsNull() {
+		m.Networks = types.ListNull(types.ObjectType{AttrTypes: NetworkAttrTypes()})
 	} else {
 		m.Networks = types.ListValueMust(types.ObjectType{AttrTypes: NetworkAttrTypes()}, []attr.Value{})
 	}

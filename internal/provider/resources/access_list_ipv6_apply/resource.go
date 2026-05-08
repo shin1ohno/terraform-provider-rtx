@@ -257,6 +257,8 @@ func (r *AccessListIPv6ApplyResource) Update(ctx context.Context, req resource.U
 		return
 	}
 
+	plannedSequences := data.Sequences
+
 	err := r.client.ApplyIPv6FiltersToInterface(ctx, data.Interface.ValueString(), data.Direction.ValueString(), sequences)
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -270,6 +272,10 @@ func (r *AccessListIPv6ApplyResource) Update(ctx context.Context, req resource.U
 	r.read(ctx, &data, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	if !plannedSequences.IsUnknown() {
+		data.Sequences = plannedSequences
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

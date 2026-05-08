@@ -329,6 +329,9 @@ func (r *BGPResource) Update(ctx context.Context, req resource.UpdateRequest, re
 	ctx = logging.WithResource(ctx, "rtx_bgp", "bgp")
 	logger := logging.FromContext(ctx)
 
+	plannedNeighbors := data.Neighbors
+	plannedNetworks := data.Networks
+
 	config := data.ToClient()
 	logger.Debug().Str("resource", "rtx_bgp").Msgf("Updating BGP configuration: %+v", config)
 
@@ -343,6 +346,13 @@ func (r *BGPResource) Update(ctx context.Context, req resource.UpdateRequest, re
 	r.read(ctx, &data, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	if !plannedNeighbors.IsUnknown() {
+		data.Neighbors = plannedNeighbors
+	}
+	if !plannedNetworks.IsUnknown() {
+		data.Networks = plannedNetworks
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

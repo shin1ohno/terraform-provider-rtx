@@ -250,6 +250,8 @@ func (r *SyslogResource) Update(ctx context.Context, req resource.UpdateRequest,
 	ctx = logging.WithResource(ctx, "rtx_syslog", "syslog")
 	logger := logging.FromContext(ctx)
 
+	plannedHosts := data.Hosts
+
 	config, diags := data.ToClient(ctx)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -269,6 +271,10 @@ func (r *SyslogResource) Update(ctx context.Context, req resource.UpdateRequest,
 	r.read(ctx, &data, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	if !plannedHosts.IsUnknown() {
+		data.Hosts = plannedHosts
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

@@ -258,6 +258,8 @@ func (r *PolicyMapResource) Update(ctx context.Context, req resource.UpdateReque
 	ctx = logging.WithResource(ctx, "rtx_policy_map", data.Name.ValueString())
 	logger := logging.FromContext(ctx)
 
+	plannedClasses := data.Classes
+
 	pm := data.ToClient()
 	logger.Debug().Str("resource", "rtx_policy_map").Msgf("Updating policy-map: %s", pm.Name)
 
@@ -272,6 +274,10 @@ func (r *PolicyMapResource) Update(ctx context.Context, req resource.UpdateReque
 	r.read(ctx, &data, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	if !plannedClasses.IsUnknown() {
+		data.Classes = plannedClasses
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

@@ -101,6 +101,8 @@ func (m *SyslogModel) FromClient(ctx context.Context, config *client.SyslogConfi
 			return diags
 		}
 		m.Hosts = hostSet
+	} else if m.Hosts.IsNull() {
+		m.Hosts = types.SetNull(types.ObjectType{AttrTypes: HostAttrTypes()})
 	} else {
 		m.Hosts = types.SetValueMust(types.ObjectType{AttrTypes: HostAttrTypes()}, []attr.Value{})
 	}
