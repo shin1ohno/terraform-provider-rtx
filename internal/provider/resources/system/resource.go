@@ -270,6 +270,10 @@ func (r *SystemResource) Update(ctx context.Context, req resource.UpdateRequest,
 	ctx = logging.WithResource(ctx, "rtx_system", "system")
 	logger := logging.FromContext(ctx)
 
+	plannedConsole := data.Console
+	plannedPacketBuffer := data.PacketBuffer
+	plannedStatistics := data.Statistics
+
 	config := data.ToClient()
 	logger.Debug().Str("resource", "rtx_system").Msgf("Updating system configuration: %+v", config)
 
@@ -284,6 +288,16 @@ func (r *SystemResource) Update(ctx context.Context, req resource.UpdateRequest,
 	r.read(ctx, &data, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	if !plannedConsole.IsUnknown() {
+		data.Console = plannedConsole
+	}
+	if !plannedPacketBuffer.IsUnknown() {
+		data.PacketBuffer = plannedPacketBuffer
+	}
+	if !plannedStatistics.IsUnknown() {
+		data.Statistics = plannedStatistics
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

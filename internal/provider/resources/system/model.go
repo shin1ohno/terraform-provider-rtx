@@ -128,6 +128,8 @@ func (m *SystemModel) FromClient(config *client.SystemConfig) {
 			"prompt":    fwhelpers.StringValueOrNull(config.Console.Prompt),
 		})
 		m.Console, _ = types.ListValue(types.ObjectType{AttrTypes: ConsoleModelType()}, []attr.Value{consoleObj})
+	} else if m.Console.IsNull() {
+		m.Console = types.ListNull(types.ObjectType{AttrTypes: ConsoleModelType()})
 	} else {
 		m.Console = types.ListValueMust(types.ObjectType{AttrTypes: ConsoleModelType()}, []attr.Value{})
 	}
@@ -144,6 +146,8 @@ func (m *SystemModel) FromClient(config *client.SystemConfig) {
 			pbValues[i] = pbObj
 		}
 		m.PacketBuffer, _ = types.ListValue(types.ObjectType{AttrTypes: PacketBufferModelType()}, pbValues)
+	} else if m.PacketBuffer.IsNull() {
+		m.PacketBuffer = types.ListNull(types.ObjectType{AttrTypes: PacketBufferModelType()})
 	} else {
 		m.PacketBuffer = types.ListValueMust(types.ObjectType{AttrTypes: PacketBufferModelType()}, []attr.Value{})
 	}
@@ -155,6 +159,8 @@ func (m *SystemModel) FromClient(config *client.SystemConfig) {
 			"nat":     types.BoolValue(config.Statistics.NAT),
 		})
 		m.Statistics, _ = types.ListValue(types.ObjectType{AttrTypes: StatisticsModelType()}, []attr.Value{statsObj})
+	} else if m.Statistics.IsNull() {
+		m.Statistics = types.ListNull(types.ObjectType{AttrTypes: StatisticsModelType()})
 	} else {
 		m.Statistics = types.ListValueMust(types.ObjectType{AttrTypes: StatisticsModelType()}, []attr.Value{})
 	}

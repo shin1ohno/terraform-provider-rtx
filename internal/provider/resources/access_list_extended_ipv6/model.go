@@ -121,6 +121,8 @@ func (m *AccessListExtendedIPv6Model) FromClient(acl *client.AccessListExtendedI
 			)
 		}
 		m.Entries = types.ListValueMust(types.ObjectType{AttrTypes: EntryAttrTypes()}, entries)
+	} else if m.Entries.IsNull() {
+		m.Entries = types.ListNull(types.ObjectType{AttrTypes: EntryAttrTypes()})
 	} else {
 		m.Entries = types.ListValueMust(types.ObjectType{AttrTypes: EntryAttrTypes()}, []attr.Value{})
 	}

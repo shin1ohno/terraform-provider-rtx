@@ -468,3 +468,126 @@ func TestNormalizeRecordType(t *testing.T) {
 		}
 	}
 }
+
+func makePriorServerSelect(t *testing.T, mode string) types.List {
+	t.Helper()
+	objType := types.ObjectType{AttrTypes: DNSServerSelectAttrTypes()}
+	switch mode {
+	case "null":
+		return types.ListNull(objType)
+	case "empty":
+		return types.ListValueMust(objType, []attr.Value{})
+	case "populated":
+		serverList := types.ListValueMust(types.ObjectType{AttrTypes: DNSServerEntryAttrTypes()}, []attr.Value{})
+		return types.ListValueMust(objType, []attr.Value{
+			types.ObjectValueMust(DNSServerSelectAttrTypes(), map[string]attr.Value{
+				"priority":        types.Int64Value(10),
+				"server":          serverList,
+				"record_type":     types.StringValue("a"),
+				"query_pattern":   types.StringValue("example.com"),
+				"original_sender": types.StringNull(),
+				"restrict_pp":     types.Int64Value(0),
+			}),
+		})
+	}
+	t.Fatalf("unknown mode: %s", mode)
+	return types.List{}
+}
+
+func makePriorHosts(t *testing.T, mode string) types.List {
+	t.Helper()
+	objType := types.ObjectType{AttrTypes: DNSHostAttrTypes()}
+	switch mode {
+	case "null":
+		return types.ListNull(objType)
+	case "empty":
+		return types.ListValueMust(objType, []attr.Value{})
+	case "populated":
+		return types.ListValueMust(objType, []attr.Value{
+			types.ObjectValueMust(DNSHostAttrTypes(), map[string]attr.Value{
+				"type":    types.StringValue("a"),
+				"name":    types.StringValue("router.local"),
+				"address": types.StringValue("192.0.2.1"),
+				"ttl":     types.Int64Value(0),
+			}),
+		})
+	}
+	t.Fatalf("unknown mode: %s", mode)
+	return types.List{}
+}
+
+func TestFromClient_ServerSelect_NullPreservation(t *testing.T) {
+	ctx := context.Background()
+	cases := []struct {
+		name     string
+		prior    string
+		entries  []client.DNSServerSelect
+		wantNull bool
+		wantSize int
+	}{
+		{"empty + prior null stays null", "null", nil, true, 0},
+		{"empty + prior empty stays empty", "empty", nil, false, 0},
+		{"empty + prior populated overwrites to empty", "populated", nil, false, 0},
+		{"populated over prior null", "null", []client.DNSServerSelect{{ID: 10, RecordType: "a", QueryPattern: "example.com"}}, false, 1},
+		{"populated over prior empty", "empty", []client.DNSServerSelect{{ID: 20, RecordType: "a", QueryPattern: "test.com"}}, false, 1},
+		{"populated over prior populated", "populated", []client.DNSServerSelect{{ID: 30, RecordType: "a", QueryPattern: "other.com"}}, false, 1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var diags diag.Diagnostics
+			m := &DNSServerModel{
+				ServerSelect: makePriorServerSelect(t, tc.prior),
+				Hosts:        types.ListNull(types.ObjectType{AttrTypes: DNSHostAttrTypes()}),
+				NameServers:  types.ListNull(types.StringType),
+			}
+			m.FromClient(ctx, &client.DNSConfig{ServerSelect: tc.entries}, &diags)
+			if diags.HasError() {
+				t.Fatalf("FromClient returned errors: %v", diags.Errors())
+			}
+			if got := m.ServerSelect.IsNull(); got != tc.wantNull {
+				t.Errorf("ServerSelect.IsNull() = %v, want %v", got, tc.wantNull)
+			}
+			if !tc.wantNull && len(m.ServerSelect.Elements()) != tc.wantSize {
+				t.Errorf("len(ServerSelect.Elements()) = %d, want %d", len(m.ServerSelect.Elements()), tc.wantSize)
+			}
+		})
+	}
+}
+
+func TestFromClient_Hosts_NullPreservation(t *testing.T) {
+	ctx := context.Background()
+	cases := []struct {
+		name     string
+		prior    string
+		entries  []client.DNSHost
+		wantNull bool
+		wantSize int
+	}{
+		{"empty + prior null stays null", "null", nil, true, 0},
+		{"empty + prior empty stays empty", "empty", nil, false, 0},
+		{"empty + prior populated overwrites to empty", "populated", nil, false, 0},
+		{"populated over prior null", "null", []client.DNSHost{{Type: "a", Name: "h.local", Address: "192.0.2.1"}}, false, 1},
+		{"populated over prior empty", "empty", []client.DNSHost{{Type: "a", Name: "h2.local", Address: "192.0.2.2"}}, false, 1},
+		{"populated over prior populated", "populated", []client.DNSHost{{Type: "a", Name: "h3.local", Address: "192.0.2.3"}}, false, 1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var diags diag.Diagnostics
+			m := &DNSServerModel{
+				ServerSelect: types.ListNull(types.ObjectType{AttrTypes: DNSServerSelectAttrTypes()}),
+				Hosts:        makePriorHosts(t, tc.prior),
+				NameServers:  types.ListNull(types.StringType),
+			}
+			m.FromClient(ctx, &client.DNSConfig{Hosts: tc.entries}, &diags)
+			if diags.HasError() {
+				t.Fatalf("FromClient returned errors: %v", diags.Errors())
+			}
+			if got := m.Hosts.IsNull(); got != tc.wantNull {
+				t.Errorf("Hosts.IsNull() = %v, want %v", got, tc.wantNull)
+			}
+			if !tc.wantNull && len(m.Hosts.Elements()) != tc.wantSize {
+				t.Errorf("len(Hosts.Elements()) = %d, want %d", len(m.Hosts.Elements()), tc.wantSize)
+			}
+		})
+	}
+}

@@ -187,6 +187,8 @@ func (m *DNSServerModel) FromClient(ctx context.Context, config *client.DNSConfi
 		listVal, d := types.ListValue(types.ObjectType{AttrTypes: DNSServerSelectAttrTypes()}, serverSelectValues)
 		diags.Append(d...)
 		m.ServerSelect = listVal
+	} else if m.ServerSelect.IsNull() {
+		m.ServerSelect = types.ListNull(types.ObjectType{AttrTypes: DNSServerSelectAttrTypes()})
 	} else {
 		m.ServerSelect = types.ListValueMust(types.ObjectType{AttrTypes: DNSServerSelectAttrTypes()}, []attr.Value{})
 	}
@@ -215,6 +217,8 @@ func (m *DNSServerModel) FromClient(ctx context.Context, config *client.DNSConfi
 		listVal, d := types.ListValue(types.ObjectType{AttrTypes: DNSHostAttrTypes()}, hostValues)
 		diags.Append(d...)
 		m.Hosts = listVal
+	} else if m.Hosts.IsNull() {
+		m.Hosts = types.ListNull(types.ObjectType{AttrTypes: DNSHostAttrTypes()})
 	} else {
 		m.Hosts = types.ListValueMust(types.ObjectType{AttrTypes: DNSHostAttrTypes()}, []attr.Value{})
 	}

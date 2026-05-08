@@ -287,6 +287,11 @@ func (r *AccessListIPApplyResource) Update(ctx context.Context, req resource.Upd
 		return
 	}
 
+	// Preserve planned sequences before read-back (mirrors snmp_server fix
+	// pattern; defends against router read-back returning a shape that differs
+	// from the plan and tripping the framework's apply consistency check).
+	plannedSequences := data.Sequences
+
 	// Apply filters to interface (this will replace existing filters)
 	if err := r.client.ApplyIPFiltersToInterface(ctx, iface, direction, sequences); err != nil {
 		resp.Diagnostics.AddError(
@@ -302,6 +307,10 @@ func (r *AccessListIPApplyResource) Update(ctx context.Context, req resource.Upd
 	r.read(ctx, &data, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	if !plannedSequences.IsUnknown() {
+		data.Sequences = plannedSequences
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

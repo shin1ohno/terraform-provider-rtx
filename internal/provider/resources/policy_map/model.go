@@ -92,6 +92,8 @@ func (m *PolicyMapModel) FromClient(pm *client.PolicyMap) {
 		}
 		listVal, _ := types.ListValue(types.ObjectType{AttrTypes: PolicyMapClassAttrTypes()}, classElements)
 		m.Classes = listVal
+	} else if m.Classes.IsNull() {
+		m.Classes = types.ListNull(types.ObjectType{AttrTypes: PolicyMapClassAttrTypes()})
 	} else {
 		m.Classes = types.ListValueMust(types.ObjectType{AttrTypes: PolicyMapClassAttrTypes()}, []attr.Value{})
 	}
