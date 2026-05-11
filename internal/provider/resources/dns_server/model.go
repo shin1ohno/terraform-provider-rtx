@@ -19,7 +19,7 @@ type DNSServerModel struct {
 	DomainName          types.String `tfsdk:"domain_name"`
 	NameServers         types.List   `tfsdk:"name_servers"`
 	ServerSelect        types.List   `tfsdk:"server_select"`
-	Hosts               types.List   `tfsdk:"hosts"`
+	Hosts               types.Set    `tfsdk:"hosts"`
 	ServiceOn           types.Bool   `tfsdk:"service_on"`
 	PrivateAddressSpoof types.Bool   `tfsdk:"private_address_spoof"`
 	PriorityStart       types.Int64  `tfsdk:"priority_start"`
@@ -214,13 +214,13 @@ func (m *DNSServerModel) FromClient(ctx context.Context, config *client.DNSConfi
 			diags.Append(d...)
 			hostValues[i] = hostObj
 		}
-		listVal, d := types.ListValue(types.ObjectType{AttrTypes: DNSHostAttrTypes()}, hostValues)
+		setVal, d := types.SetValue(types.ObjectType{AttrTypes: DNSHostAttrTypes()}, hostValues)
 		diags.Append(d...)
-		m.Hosts = listVal
+		m.Hosts = setVal
 	} else if m.Hosts.IsNull() {
-		m.Hosts = types.ListNull(types.ObjectType{AttrTypes: DNSHostAttrTypes()})
+		m.Hosts = types.SetNull(types.ObjectType{AttrTypes: DNSHostAttrTypes()})
 	} else {
-		m.Hosts = types.ListValueMust(types.ObjectType{AttrTypes: DNSHostAttrTypes()}, []attr.Value{})
+		m.Hosts = types.SetValueMust(types.ObjectType{AttrTypes: DNSHostAttrTypes()}, []attr.Value{})
 	}
 }
 
