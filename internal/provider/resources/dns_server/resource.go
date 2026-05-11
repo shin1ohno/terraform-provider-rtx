@@ -168,8 +168,8 @@ func (r *DNSServerResource) Schema(ctx context.Context, req resource.SchemaReque
 					},
 				},
 			},
-			"hosts": schema.ListNestedBlock{
-				Description: "Static DNS host entries (dns static <type> <name> <value> [ttl=<ttl>])",
+			"hosts": schema.SetNestedBlock{
+				Description: "Static DNS host entries (dns static <type> <name> <value> [ttl=<ttl>]). Set semantics: order-independent so adding an entry does not shift indices of existing entries.",
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
 						"type": schema.StringAttribute{

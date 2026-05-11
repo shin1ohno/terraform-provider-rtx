@@ -259,13 +259,13 @@ func TestFromClient_DeletedStateEntries(t *testing.T) {
 	}
 }
 
-// buildHostsList constructs a types.List of host entries for test setup.
-func buildHostsList(t *testing.T, entries []struct {
+// buildHostsSet constructs a types.Set of host entries for test setup.
+func buildHostsSet(t *testing.T, entries []struct {
 	recordType string
 	name       string
 	address    string
 	ttl        int64
-}) types.List {
+}) types.Set {
 	t.Helper()
 	var diags diag.Diagnostics
 	values := make([]attr.Value, len(entries))
@@ -283,21 +283,21 @@ func buildHostsList(t *testing.T, entries []struct {
 		values[i] = obj
 	}
 	if diags.HasError() {
-		t.Fatalf("failed to build hosts list: %v", diags.Errors())
+		t.Fatalf("failed to build hosts set: %v", diags.Errors())
 	}
-	listVal, d := types.ListValue(types.ObjectType{AttrTypes: DNSHostAttrTypes()}, values)
+	setVal, d := types.SetValue(types.ObjectType{AttrTypes: DNSHostAttrTypes()}, values)
 	diags.Append(d...)
 	if diags.HasError() {
-		t.Fatalf("failed to build hosts list: %v", diags.Errors())
+		t.Fatalf("failed to build hosts set: %v", diags.Errors())
 	}
-	return listVal
+	return setVal
 }
 
 func TestFromClient_HostsPreservesStateOrdering(t *testing.T) {
 	ctx := context.Background()
 
 	// Previous state has entries in specific order
-	prevHosts := buildHostsList(t, []struct {
+	prevHosts := buildHostsSet(t, []struct {
 		recordType string
 		name       string
 		address    string
@@ -354,7 +354,7 @@ func TestFromClient_HostsHandlesNewEntries(t *testing.T) {
 	ctx := context.Background()
 
 	// Previous state has 2 entries
-	prevHosts := buildHostsList(t, []struct {
+	prevHosts := buildHostsSet(t, []struct {
 		recordType string
 		name       string
 		address    string
@@ -412,7 +412,7 @@ func TestFromClient_HostsEmptyPreviousState(t *testing.T) {
 
 	// No previous state
 	model := &DNSServerModel{
-		Hosts:        types.ListNull(types.ObjectType{AttrTypes: DNSHostAttrTypes()}),
+		Hosts:        types.SetNull(types.ObjectType{AttrTypes: DNSHostAttrTypes()}),
 		ServerSelect: types.ListNull(types.ObjectType{AttrTypes: DNSServerSelectAttrTypes()}),
 	}
 
@@ -494,16 +494,16 @@ func makePriorServerSelect(t *testing.T, mode string) types.List {
 	return types.List{}
 }
 
-func makePriorHosts(t *testing.T, mode string) types.List {
+func makePriorHosts(t *testing.T, mode string) types.Set {
 	t.Helper()
 	objType := types.ObjectType{AttrTypes: DNSHostAttrTypes()}
 	switch mode {
 	case "null":
-		return types.ListNull(objType)
+		return types.SetNull(objType)
 	case "empty":
-		return types.ListValueMust(objType, []attr.Value{})
+		return types.SetValueMust(objType, []attr.Value{})
 	case "populated":
-		return types.ListValueMust(objType, []attr.Value{
+		return types.SetValueMust(objType, []attr.Value{
 			types.ObjectValueMust(DNSHostAttrTypes(), map[string]attr.Value{
 				"type":    types.StringValue("a"),
 				"name":    types.StringValue("router.local"),
@@ -513,7 +513,7 @@ func makePriorHosts(t *testing.T, mode string) types.List {
 		})
 	}
 	t.Fatalf("unknown mode: %s", mode)
-	return types.List{}
+	return types.Set{}
 }
 
 func TestFromClient_ServerSelect_NullPreservation(t *testing.T) {
@@ -537,7 +537,7 @@ func TestFromClient_ServerSelect_NullPreservation(t *testing.T) {
 			var diags diag.Diagnostics
 			m := &DNSServerModel{
 				ServerSelect: makePriorServerSelect(t, tc.prior),
-				Hosts:        types.ListNull(types.ObjectType{AttrTypes: DNSHostAttrTypes()}),
+				Hosts:        types.SetNull(types.ObjectType{AttrTypes: DNSHostAttrTypes()}),
 				NameServers:  types.ListNull(types.StringType),
 			}
 			m.FromClient(ctx, &client.DNSConfig{ServerSelect: tc.entries}, &diags)

@@ -60,7 +60,7 @@ resource "rtx_dns_server" "main" {
 ### Optional
 
 - `domain_name` (String) Default domain name for DNS queries (dns domain <name>)
-- `hosts` (Block List) Static DNS host entries (dns static <type> <name> <value> [ttl=<ttl>]) (see [below for nested schema](#nestedblock--hosts))
+- `hosts` (Block Set) Static DNS host entries (dns static <type> <name> <value> [ttl=<ttl>]). Set semantics: order-independent so adding an entry does not shift indices of existing entries. (see [below for nested schema](#nestedblock--hosts))
 - `name_servers` (List of String) List of DNS server IP addresses (up to 3)
 - `priority_start` (Number) Starting priority number for automatic priority calculation in server_select entries. When set, priority numbers are automatically assigned based on definition order. Mutually exclusive with entry-level priority attributes.
 - `priority_step` (Number) Increment value for automatic priority calculation. Only used when priority_start is set. Default is 10.
