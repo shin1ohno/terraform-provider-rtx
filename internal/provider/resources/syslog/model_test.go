@@ -22,7 +22,6 @@ func makePriorHosts(t *testing.T, mode string) types.Set {
 		return types.SetValueMust(objType, []attr.Value{
 			types.ObjectValueMust(HostAttrTypes(), map[string]attr.Value{
 				"address": types.StringValue("192.0.2.1"),
-				"port":    types.Int64Value(514),
 			}),
 		})
 	}

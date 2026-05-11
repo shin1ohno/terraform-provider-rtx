@@ -26,14 +26,12 @@ type SyslogModel struct {
 // HostModel describes a single syslog host.
 type HostModel struct {
 	Address types.String `tfsdk:"address"`
-	Port    types.Int64  `tfsdk:"port"`
 }
 
 // HostAttrTypes returns the attribute types for HostModel.
 func HostAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
 		"address": types.StringType,
-		"port":    types.Int64Type,
 	}
 }
 
@@ -61,7 +59,8 @@ func (m *SyslogModel) ToClient(ctx context.Context) (client.SyslogConfig, diag.D
 		for _, h := range hostModels {
 			host := client.SyslogHost{
 				Address: fwhelpers.GetStringValue(h.Address),
-				Port:    fwhelpers.GetInt64Value(h.Port),
+				// Port is not surfaced in the schema — see resource.go for rationale.
+				// RTX firmware accepts only the fixed default; we send the address alone.
 			}
 			config.Hosts = append(config.Hosts, host)
 		}
@@ -87,7 +86,6 @@ func (m *SyslogModel) FromClient(ctx context.Context, config *client.SyslogConfi
 		for i, host := range config.Hosts {
 			hostObj, d := types.ObjectValue(HostAttrTypes(), map[string]attr.Value{
 				"address": types.StringValue(host.Address),
-				"port":    types.Int64Value(int64(host.Port)),
 			})
 			diags.Append(d...)
 			if diags.HasError() {

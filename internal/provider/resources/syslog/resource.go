@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -101,14 +100,12 @@ func (r *SyslogResource) Schema(ctx context.Context, req resource.SchemaRequest,
 								syslogHostAddressValidator{},
 							},
 						},
-						"port": schema.Int64Attribute{
-							Description: "UDP port (default 514, use 0 to use default).",
-							Optional:    true,
-							Computed:    true,
-							Validators: []validator.Int64{
-								int64validator.Between(0, 65535),
-							},
-						},
+						// `port` was removed (was in v0.12 and earlier).
+						// RTX firmware parses `syslog host <ip> <port>` as two host destinations,
+						// not host+port — specifying a port produced two-IP rendering and
+						// zero-ingest at the intended target. The destination port is firmware-fixed
+						// at UDP 514; bind the receiver on 514 (or use sysctl
+						// `net.ipv4.ip_unprivileged_port_start=514` for non-root listeners).
 					},
 				},
 			},
