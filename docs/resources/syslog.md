@@ -34,7 +34,3 @@ Manages syslog configuration on RTX routers. This is a singleton resource - only
 Required:
 
 - `address` (String) IP address or hostname of the syslog server.
-
-Optional:
-
-- `port` (Number) UDP port (default 514, use 0 to use default).
