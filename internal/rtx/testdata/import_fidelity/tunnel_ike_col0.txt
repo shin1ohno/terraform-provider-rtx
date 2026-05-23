@@ -1,0 +1,37 @@
+# Real RTX1210 `/system/config0` shape: tunnel 1 has IKE lines INSIDE the
+# `tunnel select 1` block (indented), tunnel 2 has IKE lines at column 0
+# (outside any tunnel block). Both must parse correctly. Mirrors the layout
+# encountered in the home-monitor home network at the time fix/tunnel-parser-col0-ike-lines
+# was opened.
+
+tunnel select 1
+ tunnel encapsulation l2tpv3
+ tunnel endpoint name itm.ohno.be fqdn
+ ipsec tunnel 101
+  ipsec sa policy 101 1 esp aes-cbc sha-hmac
+  ipsec ike keepalive log 1 off
+  ipsec ike keepalive use 1 on heartbeat 10 6
+  ipsec ike local address 1 192.168.1.253
+  ipsec ike log 1 key-info message-info payload-info
+  ipsec ike nat-traversal 1 on
+  ipsec ike pre-shared-key 1 text 893kick!
+  ipsec ike remote address 1 119.231.58.172
+  ipsec ike remote name 1 l2tpv3 key-id
+ l2tp always-on on
+ l2tp tunnel disconnect time off
+ tunnel enable 1
+tunnel select 2
+ tunnel encapsulation l2tp
+ ipsec tunnel 1
+  ipsec sa policy 1 1 esp aes-cbc sha-hmac
+ l2tp tunnel disconnect time off
+ tunnel enable 2
+# Unrelated col-0 line between tunnel blocks and the IKE config:
+no tunnel enable all
+ipsec ike encryption 2 aes-cbc
+ipsec ike group 2 modp2048
+ipsec ike hash 2 sha256
+ipsec ike keepalive use 2 on dpd 10 6
+ipsec ike nat-traversal 2 on
+ipsec ike pre-shared-key 2 text 893kick!
+ipsec ike remote address 2 any

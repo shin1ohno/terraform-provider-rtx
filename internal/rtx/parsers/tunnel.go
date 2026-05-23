@@ -146,6 +146,28 @@ func (p *TunnelParser) ParseTunnelConfig(raw string) ([]Tunnel, error) {
 	var anonymousAuth *L2TPAuth
 	var anonymousIPPool *L2TPIPPool
 
+	// resolveIKETunnel returns the tunnel associated with an IKE command line.
+	// Real RTX1210 `show config` / config0 places some `ipsec ike *` lines at
+	// column 0 — outside the `tunnel select N` block — and the line-context
+	// reset clears currentTunnelID before the IKE pattern matches. Fall back
+	// to the IKE gateway ID embedded in the command itself; by this provider's
+	// BuildTunnelCommands convention the gateway ID equals the tunnel ID.
+	// When inside a `tunnel select N` block we still prefer currentTunnelID so
+	// that configs intentionally using a divergent gateway ID keep working.
+	resolveIKETunnel := func(ikeGatewayIDStr string) *Tunnel {
+		if currentTunnelID > 0 {
+			if t, exists := tunnels[currentTunnelID]; exists {
+				return t
+			}
+		}
+		if ikeGatewayID, err := strconv.Atoi(ikeGatewayIDStr); err == nil {
+			if t, exists := tunnels[ikeGatewayID]; exists {
+				return t
+			}
+		}
+		return nil
+	}
+
 	for _, rawLine := range lines {
 		// Check if line is indented (within a context) before trimming
 		// RTX config uses single space indentation for context-specific commands
@@ -232,63 +254,58 @@ func (p *TunnelParser) ParseTunnelConfig(raw string) ([]Tunnel, error) {
 		}
 
 		// IPsec IKE local address
-		// Note: IKE gateway ID may differ from IPsec tunnel ID, so we assign to current tunnel context
-		if matches := ipsecIKELocalAddrPattern.FindStringSubmatch(line); len(matches) >= 3 && currentTunnelID > 0 {
-			if tunnel, exists := tunnels[currentTunnelID]; exists && tunnel.IPsec != nil {
+		// Uses resolveIKETunnel: lines may appear at column 0 (outside the
+		// `tunnel select N` block) in real RTX1210 config dumps.
+		if matches := ipsecIKELocalAddrPattern.FindStringSubmatch(line); len(matches) >= 3 {
+			if tunnel := resolveIKETunnel(matches[1]); tunnel != nil && tunnel.IPsec != nil {
 				tunnel.IPsec.LocalAddress = matches[2]
 			}
 			continue
 		}
 
 		// IPsec IKE remote address
-		// Note: IKE gateway ID may differ from IPsec tunnel ID, so we assign to current tunnel context
-		if matches := ipsecIKERemoteAddrPattern.FindStringSubmatch(line); len(matches) >= 3 && currentTunnelID > 0 {
-			if tunnel, exists := tunnels[currentTunnelID]; exists && tunnel.IPsec != nil {
+		if matches := ipsecIKERemoteAddrPattern.FindStringSubmatch(line); len(matches) >= 3 {
+			if tunnel := resolveIKETunnel(matches[1]); tunnel != nil && tunnel.IPsec != nil {
 				tunnel.IPsec.RemoteAddress = matches[2]
 			}
 			continue
 		}
 
 		// IPsec IKE pre-shared-key
-		// Note: IKE gateway ID may differ from IPsec tunnel ID, so we assign to current tunnel context
-		if matches := ipsecIKEPreSharedKeyPattern.FindStringSubmatch(line); len(matches) >= 3 && currentTunnelID > 0 {
-			if tunnel, exists := tunnels[currentTunnelID]; exists && tunnel.IPsec != nil {
+		if matches := ipsecIKEPreSharedKeyPattern.FindStringSubmatch(line); len(matches) >= 3 {
+			if tunnel := resolveIKETunnel(matches[1]); tunnel != nil && tunnel.IPsec != nil {
 				tunnel.IPsec.PreSharedKey = strings.TrimSpace(matches[2])
 			}
 			continue
 		}
 
 		// IPsec IKE encryption
-		// Note: IKE gateway ID may differ from IPsec tunnel ID, so we assign to current tunnel context
-		if matches := ipsecIKEEncryptionPattern.FindStringSubmatch(line); len(matches) >= 3 && currentTunnelID > 0 {
-			if tunnel, exists := tunnels[currentTunnelID]; exists && tunnel.IPsec != nil {
+		if matches := ipsecIKEEncryptionPattern.FindStringSubmatch(line); len(matches) >= 3 {
+			if tunnel := resolveIKETunnel(matches[1]); tunnel != nil && tunnel.IPsec != nil {
 				parseIKEEncryption(matches[2], &tunnel.IPsec.IKEv2Proposal)
 			}
 			continue
 		}
 
 		// IPsec IKE hash
-		// Note: IKE gateway ID may differ from IPsec tunnel ID, so we assign to current tunnel context
-		if matches := ipsecIKEHashPattern.FindStringSubmatch(line); len(matches) >= 3 && currentTunnelID > 0 {
-			if tunnel, exists := tunnels[currentTunnelID]; exists && tunnel.IPsec != nil {
+		if matches := ipsecIKEHashPattern.FindStringSubmatch(line); len(matches) >= 3 {
+			if tunnel := resolveIKETunnel(matches[1]); tunnel != nil && tunnel.IPsec != nil {
 				parseIKEHash(matches[2], &tunnel.IPsec.IKEv2Proposal)
 			}
 			continue
 		}
 
 		// IPsec IKE group
-		// Note: IKE gateway ID may differ from IPsec tunnel ID, so we assign to current tunnel context
-		if matches := ipsecIKEGroupPattern.FindStringSubmatch(line); len(matches) >= 3 && currentTunnelID > 0 {
-			if tunnel, exists := tunnels[currentTunnelID]; exists && tunnel.IPsec != nil {
+		if matches := ipsecIKEGroupPattern.FindStringSubmatch(line); len(matches) >= 3 {
+			if tunnel := resolveIKETunnel(matches[1]); tunnel != nil && tunnel.IPsec != nil {
 				parseIKEGroup(matches[2], &tunnel.IPsec.IKEv2Proposal)
 			}
 			continue
 		}
 
 		// IPsec IKE keepalive (DPD) with retry
-		// Note: IKE gateway ID may differ from IPsec tunnel ID, so we assign to current tunnel context
-		if matches := ipsecIKEKeepaliveRetryPattern.FindStringSubmatch(line); len(matches) >= 4 && currentTunnelID > 0 {
-			if tunnel, exists := tunnels[currentTunnelID]; exists && tunnel.IPsec != nil {
+		if matches := ipsecIKEKeepaliveRetryPattern.FindStringSubmatch(line); len(matches) >= 4 {
+			if tunnel := resolveIKETunnel(matches[1]); tunnel != nil && tunnel.IPsec != nil {
 				interval, _ := strconv.Atoi(matches[2])
 				retry, _ := strconv.Atoi(matches[3])
 				tunnel.IPsec.Keepalive = &TunnelIPsecKeepalive{
@@ -302,9 +319,8 @@ func (p *TunnelParser) ParseTunnelConfig(raw string) ([]Tunnel, error) {
 		}
 
 		// IPsec IKE keepalive (DPD) without retry
-		// Note: IKE gateway ID may differ from IPsec tunnel ID, so we assign to current tunnel context
-		if matches := ipsecIKEKeepalivePattern.FindStringSubmatch(line); len(matches) >= 3 && currentTunnelID > 0 {
-			if tunnel, exists := tunnels[currentTunnelID]; exists && tunnel.IPsec != nil {
+		if matches := ipsecIKEKeepalivePattern.FindStringSubmatch(line); len(matches) >= 3 {
+			if tunnel := resolveIKETunnel(matches[1]); tunnel != nil && tunnel.IPsec != nil {
 				interval, _ := strconv.Atoi(matches[2])
 				tunnel.IPsec.Keepalive = &TunnelIPsecKeepalive{
 					Enabled:  true,
@@ -316,9 +332,8 @@ func (p *TunnelParser) ParseTunnelConfig(raw string) ([]Tunnel, error) {
 		}
 
 		// IPsec IKE keepalive (heartbeat)
-		// Note: IKE gateway ID may differ from IPsec tunnel ID, so we assign to current tunnel context
-		if matches := ipsecIKEKeepaliveHeartbeatPattern.FindStringSubmatch(line); len(matches) >= 4 && currentTunnelID > 0 {
-			if tunnel, exists := tunnels[currentTunnelID]; exists && tunnel.IPsec != nil {
+		if matches := ipsecIKEKeepaliveHeartbeatPattern.FindStringSubmatch(line); len(matches) >= 4 {
+			if tunnel := resolveIKETunnel(matches[1]); tunnel != nil && tunnel.IPsec != nil {
 				interval, _ := strconv.Atoi(matches[2])
 				retry, _ := strconv.Atoi(matches[3])
 				tunnel.IPsec.Keepalive = &TunnelIPsecKeepalive{
@@ -332,16 +347,16 @@ func (p *TunnelParser) ParseTunnelConfig(raw string) ([]Tunnel, error) {
 		}
 
 		// IPsec IKE NAT traversal
-		if matches := ipsecIKENATTraversalPattern.FindStringSubmatch(line); len(matches) >= 3 && currentTunnelID > 0 {
-			if tunnel, exists := tunnels[currentTunnelID]; exists && tunnel.IPsec != nil {
+		if matches := ipsecIKENATTraversalPattern.FindStringSubmatch(line); len(matches) >= 3 {
+			if tunnel := resolveIKETunnel(matches[1]); tunnel != nil && tunnel.IPsec != nil {
 				tunnel.IPsec.NATTraversal = matches[2] == "on"
 			}
 			continue
 		}
 
 		// IPsec IKE remote name (format: ipsec ike remote name N <value> <type>)
-		if matches := ipsecIKERemoteNamePattern.FindStringSubmatch(line); len(matches) >= 4 && currentTunnelID > 0 {
-			if tunnel, exists := tunnels[currentTunnelID]; exists && tunnel.IPsec != nil {
+		if matches := ipsecIKERemoteNamePattern.FindStringSubmatch(line); len(matches) >= 4 {
+			if tunnel := resolveIKETunnel(matches[1]); tunnel != nil && tunnel.IPsec != nil {
 				tunnel.IPsec.IKERemoteName = matches[2]
 				tunnel.IPsec.IKERemoteNameType = matches[3]
 			}
@@ -349,16 +364,16 @@ func (p *TunnelParser) ParseTunnelConfig(raw string) ([]Tunnel, error) {
 		}
 
 		// IPsec IKE keepalive log
-		if matches := ipsecIKEKeepaliveLogPattern.FindStringSubmatch(line); len(matches) >= 3 && currentTunnelID > 0 {
-			if tunnel, exists := tunnels[currentTunnelID]; exists && tunnel.IPsec != nil {
+		if matches := ipsecIKEKeepaliveLogPattern.FindStringSubmatch(line); len(matches) >= 3 {
+			if tunnel := resolveIKETunnel(matches[1]); tunnel != nil && tunnel.IPsec != nil {
 				tunnel.IPsec.IKEKeepaliveLog = matches[2] == "on"
 			}
 			continue
 		}
 
 		// IPsec IKE log
-		if matches := ipsecIKELogPattern.FindStringSubmatch(line); len(matches) >= 3 && currentTunnelID > 0 {
-			if tunnel, exists := tunnels[currentTunnelID]; exists && tunnel.IPsec != nil {
+		if matches := ipsecIKELogPattern.FindStringSubmatch(line); len(matches) >= 3 {
+			if tunnel := resolveIKETunnel(matches[1]); tunnel != nil && tunnel.IPsec != nil {
 				tunnel.IPsec.IKELog = strings.TrimSpace(matches[2])
 			}
 			continue

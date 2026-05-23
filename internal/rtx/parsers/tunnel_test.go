@@ -1,6 +1,8 @@
 package parsers
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -526,4 +528,54 @@ func TestValidateTunnel(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestTunnelParser_IKELinesAtColumn0 asserts that `ipsec ike *` lines placed
+// at column 0 (outside any `tunnel select N` block) are still associated with
+// the correct tunnel via the embedded IKE gateway ID. Real RTX1210 config0
+// dumps mix indented IKE lines (under tunnel select 1) with col-0 IKE lines
+// (referencing tunnel 2 but outside its tunnel select 2 block). Without this
+// fix, the col-0 lines are silently dropped — Read returns empty fields for
+// tunnel 2 and Terraform produces "inconsistent result after apply" errors
+// on Optional+Computed attrs that the plan filled via UseStateForUnknown.
+func TestTunnelParser_IKELinesAtColumn0(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "testdata", "import_fidelity", "tunnel_ike_col0.txt"))
+	require.NoError(t, err)
+
+	parser := NewTunnelParser()
+	tunnels, err := parser.ParseTunnelConfig(string(data))
+	require.NoError(t, err)
+	require.Len(t, tunnels, 2)
+
+	byID := map[int]Tunnel{}
+	for _, tn := range tunnels {
+		byID[tn.ID] = tn
+	}
+
+	// Tunnel 1: IKE lines are indented, must still parse (regression guard).
+	t1, ok := byID[1]
+	require.True(t, ok, "tunnel 1 missing")
+	require.NotNil(t, t1.IPsec, "tunnel 1 IPsec missing")
+	assert.Equal(t, "l2tpv3", t1.Encapsulation)
+	assert.Equal(t, "192.168.1.253", t1.IPsec.LocalAddress)
+	assert.Equal(t, "119.231.58.172", t1.IPsec.RemoteAddress)
+	assert.Equal(t, "893kick!", t1.IPsec.PreSharedKey)
+	assert.True(t, t1.IPsec.NATTraversal)
+	assert.Equal(t, "key-id", t1.IPsec.IKERemoteNameType)
+
+	// Tunnel 2: IKE lines are at column 0. The fix associates them via the
+	// embedded gateway ID (2) since currentTunnelID was reset to 0 by the
+	// "no tunnel enable all" line before the IKE block.
+	t2, ok := byID[2]
+	require.True(t, ok, "tunnel 2 missing")
+	require.NotNil(t, t2.IPsec, "tunnel 2 IPsec missing")
+	assert.Equal(t, "l2tp", t2.Encapsulation)
+	assert.Equal(t, 1, t2.IPsec.IPsecTunnelID)
+	assert.Equal(t, "any", t2.IPsec.RemoteAddress, "remote_address must be 'any' for L2TP dial-up")
+	assert.Equal(t, "893kick!", t2.IPsec.PreSharedKey)
+	assert.True(t, t2.IPsec.NATTraversal)
+	require.NotNil(t, t2.IPsec.Keepalive)
+	assert.Equal(t, "dpd", t2.IPsec.Keepalive.Mode)
+	assert.Equal(t, 10, t2.IPsec.Keepalive.Interval)
+	assert.Equal(t, 6, t2.IPsec.Keepalive.Retry)
 }
