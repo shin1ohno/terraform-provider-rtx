@@ -21,7 +21,6 @@ import (
 	"github.com/sh1/terraform-provider-rtx/internal/client"
 	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"github.com/sh1/terraform-provider-rtx/internal/provider/fwhelpers"
-	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -301,31 +300,15 @@ func (r *DNSServerResource) read(ctx context.Context, data *DNSServerModel, diag
 
 	logger.Debug().Str("resource", "rtx_dns_server").Msg("Reading DNS server configuration")
 
-	var config *client.DNSConfig
-
-	// Try to use SFTP cache if enabled
-	if r.client.SFTPEnabled() {
-		parsedConfig, err := r.client.GetCachedConfig(ctx)
-		if err == nil && parsedConfig != nil {
-			parsed := parsedConfig.ExtractDNSServer()
-			if parsed != nil {
-				config = convertParsedDNSConfig(parsed)
-				logger.Debug().Str("resource", "rtx_dns_server").Msg("Found DNS config in SFTP cache")
-			}
-		}
-		if config == nil {
-			logger.Debug().Str("resource", "rtx_dns_server").Msg("DNS config not in cache, falling back to SSH")
-		}
-	}
-
-	// Fallback to SSH if SFTP disabled or config not found in cache
-	if config == nil {
-		var err error
-		config, err = r.client.GetDNS(ctx)
-		if err != nil {
-			fwhelpers.AppendDiagError(diagnostics, "Failed to read DNS server configuration", fmt.Sprintf("Could not read DNS server configuration: %v", err))
-			return
-		}
+	// DNS server config is written to the device's RUNNING config; the SFTP path
+	// reads the SAVED config (config0), which can lag running and made
+	// post-apply read-back return stale values ("Provider produced inconsistent
+	// result after apply"). Always read via SSH (running) — matching
+	// rtx_static_route.
+	config, err := r.client.GetDNS(ctx)
+	if err != nil {
+		fwhelpers.AppendDiagError(diagnostics, "Failed to read DNS server configuration", fmt.Sprintf("Could not read DNS server configuration: %v", err))
+		return
 	}
 
 	data.FromClient(ctx, config, diagnostics)
@@ -422,51 +405,8 @@ func (r *DNSServerResource) ImportState(ctx context.Context, req resource.Import
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
-// convertParsedDNSConfig converts a parser DNSConfig to a client DNSConfig.
-func convertParsedDNSConfig(parsed *parsers.DNSConfig) *client.DNSConfig {
-	config := &client.DNSConfig{
-		DomainName:   parsed.DomainName,
-		ServiceOn:    parsed.ServiceOn,
-		PrivateSpoof: parsed.PrivateSpoof,
-		NameServers:  make([]string, len(parsed.NameServers)),
-		ServerSelect: make([]client.DNSServerSelect, len(parsed.ServerSelect)),
-		Hosts:        make([]client.DNSHost, len(parsed.Hosts)),
-	}
-
-	// Copy name servers
-	copy(config.NameServers, parsed.NameServers)
-
-	// Convert server select entries
-	for i, sel := range parsed.ServerSelect {
-		servers := make([]client.DNSServer, len(sel.Servers))
-		for j, srv := range sel.Servers {
-			servers[j] = client.DNSServer{
-				Address: srv.Address,
-				EDNS:    srv.EDNS,
-			}
-		}
-		config.ServerSelect[i] = client.DNSServerSelect{
-			ID:             sel.ID,
-			Servers:        servers,
-			RecordType:     sel.RecordType,
-			QueryPattern:   sel.QueryPattern,
-			OriginalSender: sel.OriginalSender,
-			RestrictPP:     sel.RestrictPP,
-		}
-	}
-
-	// Convert hosts
-	for i, host := range parsed.Hosts {
-		config.Hosts[i] = client.DNSHost{
-			Type:    host.Type,
-			Name:    host.Name,
-			Address: host.Address,
-			TTL:     host.TTL,
-		}
-	}
-
-	return config
-}
+// (SFTP-cache read path removed — DNS server state is read directly from the
+// running config via SSH; see read() above.)
 
 // validateConfig validates the DNS server configuration for auto/manual mode consistency.
 func (r *DNSServerResource) validateConfig(ctx context.Context, data *DNSServerModel, diagnostics *diag.Diagnostics) {
