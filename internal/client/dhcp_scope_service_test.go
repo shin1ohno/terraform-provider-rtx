@@ -293,6 +293,69 @@ func TestDHCPScopeService_DeleteScope(t *testing.T) {
 	}
 }
 
+func TestDHCPScopeService_Option121(t *testing.T) {
+	t.Run("CreateScope emits option 121 command", func(t *testing.T) {
+		mockExecutor := new(MockExecutor)
+
+		var capturedCommands []string
+		mockExecutor.On("RunBatch", mock.Anything, mock.Anything).
+			Run(func(args mock.Arguments) {
+				capturedCommands = args.Get(1).([]string)
+			}).
+			Return([]byte(""), nil)
+
+		service := &DHCPScopeService{executor: mockExecutor}
+		err := service.CreateScope(context.Background(), DHCPScope{
+			ScopeID:   1,
+			Network:   "192.168.1.0/24",
+			LeaseTime: "72:00",
+			Options: DHCPScopeOptions{
+				DNSServers: []string{"192.168.1.253"},
+				Routers:    []string{"192.168.1.253"},
+				ClasslessStaticRoutes: []ClasslessRoute{
+					{Destination: "0.0.0.0/0", Gateway: "192.168.1.253"},
+					{Destination: "10.33.128.0/18", Gateway: "192.168.1.60"},
+					{Destination: "100.64.0.0/10", Gateway: "192.168.1.60"},
+				},
+			},
+		})
+		assert.NoError(t, err)
+
+		wantOptsCmd := "dhcp scope option 1 dns=192.168.1.253 router=192.168.1.253 121=00,c0,a8,01,fd,12,0a,21,80,c0,a8,01,3c,0a,64,40,c0,a8,01,3c"
+		hasOptsCmd := false
+		for _, cmd := range capturedCommands {
+			if cmd == wantOptsCmd {
+				hasOptsCmd = true
+				break
+			}
+		}
+		assert.True(t, hasOptsCmd, "expected option 121 command %q in %v", wantOptsCmd, capturedCommands)
+	})
+
+	t.Run("GetScope parses option 121 back into routes", func(t *testing.T) {
+		mockExecutor := new(MockExecutor)
+		output := `dhcp scope 1 192.168.1.0/24 expire 72:00
+dhcp scope option 1 dns=192.168.1.253 router=192.168.1.253 121=00,c0,a8,01,fd,12,0a,21,80,c0,a8,01,3c,0a,64,40,c0,a8,01,3c
+`
+		mockExecutor.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
+			return cmd == `show config | grep "dhcp scope"`
+		})).Return([]byte(output), nil)
+
+		service := &DHCPScopeService{executor: mockExecutor}
+		result, err := service.GetScope(context.Background(), 1)
+		assert.NoError(t, err)
+		assert.Len(t, result.Options.ClasslessStaticRoutes, 3)
+		assert.Equal(t, ClasslessRoute{Destination: "0.0.0.0/0", Gateway: "192.168.1.253"}, result.Options.ClasslessStaticRoutes[0])
+		assert.Equal(t, ClasslessRoute{Destination: "10.33.128.0/18", Gateway: "192.168.1.60"}, result.Options.ClasslessStaticRoutes[1])
+		assert.Equal(t, ClasslessRoute{Destination: "100.64.0.0/10", Gateway: "192.168.1.60"}, result.Options.ClasslessStaticRoutes[2])
+		// Coexistence: dns + router preserved alongside routes.
+		assert.Equal(t, []string{"192.168.1.253"}, result.Options.DNSServers)
+		assert.Equal(t, []string{"192.168.1.253"}, result.Options.Routers)
+
+		mockExecutor.AssertExpectations(t)
+	})
+}
+
 func TestDHCPScopeService_UsesRunBatch(t *testing.T) {
 	t.Run("CreateScope uses RunBatch for all commands", func(t *testing.T) {
 		mockExecutor := new(MockExecutor)

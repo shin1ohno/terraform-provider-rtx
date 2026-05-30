@@ -30,9 +30,16 @@ type ExcludeRangeModel struct {
 
 // OptionsModel describes the DHCP options nested block.
 type OptionsModel struct {
-	Routers    types.List   `tfsdk:"routers"`
-	DNSServers types.List   `tfsdk:"dns_servers"`
-	DomainName types.String `tfsdk:"domain_name"`
+	Routers               types.List   `tfsdk:"routers"`
+	DNSServers            types.List   `tfsdk:"dns_servers"`
+	DomainName            types.String `tfsdk:"domain_name"`
+	ClasslessStaticRoutes types.List   `tfsdk:"classless_static_routes"`
+}
+
+// ClasslessRouteModel describes a single RFC 3442 classless static route (option 121).
+type ClasslessRouteModel struct {
+	Destination types.String `tfsdk:"destination"`
+	Gateway     types.String `tfsdk:"gateway"`
 }
 
 // ExcludeRangeAttrTypes returns the attribute types for ExcludeRangeModel.
@@ -40,6 +47,14 @@ func ExcludeRangeAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
 		"start": types.StringType,
 		"end":   types.StringType,
+	}
+}
+
+// ClasslessRouteAttrTypes returns the attribute types for ClasslessRouteModel.
+func ClasslessRouteAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"destination": types.StringType,
+		"gateway":     types.StringType,
 	}
 }
 
@@ -74,6 +89,19 @@ func (m *DHCPScopeModel) ToClient(ctx context.Context, diagnostics *diag.Diagnos
 
 		// Parse domain_name
 		scope.Options.DomainName = fwhelpers.GetStringValue(m.Options.DomainName)
+
+		// Parse classless_static_routes (option 121)
+		if !m.Options.ClasslessStaticRoutes.IsNull() && !m.Options.ClasslessStaticRoutes.IsUnknown() {
+			var routes []ClasslessRouteModel
+			m.Options.ClasslessStaticRoutes.ElementsAs(ctx, &routes, false)
+			scope.Options.ClasslessStaticRoutes = make([]client.ClasslessRoute, len(routes))
+			for i, r := range routes {
+				scope.Options.ClasslessStaticRoutes[i] = client.ClasslessRoute{
+					Destination: fwhelpers.GetStringValue(r.Destination),
+					Gateway:     fwhelpers.GetStringValue(r.Gateway),
+				}
+			}
+		}
 	}
 
 	return scope
@@ -101,7 +129,13 @@ func (m *DHCPScopeModel) FromClient(ctx context.Context, scope *client.DHCPScope
 	}
 
 	// Convert Options
-	if len(scope.Options.Routers) > 0 || len(scope.Options.DNSServers) > 0 || scope.Options.DomainName != "" {
+	if len(scope.Options.Routers) > 0 || len(scope.Options.DNSServers) > 0 || scope.Options.DomainName != "" || len(scope.Options.ClasslessStaticRoutes) > 0 {
+		// Capture the prior classless-routes null state before (re)allocating Options.
+		priorClasslessNull := true
+		if m.Options != nil {
+			priorClasslessNull = m.Options.ClasslessStaticRoutes.IsNull()
+		}
+
 		if m.Options == nil {
 			m.Options = &OptionsModel{}
 		}
@@ -122,6 +156,26 @@ func (m *DHCPScopeModel) FromClient(ctx context.Context, scope *client.DHCPScope
 
 		// Build domain_name
 		m.Options.DomainName = fwhelpers.StringValueOrNull(scope.Options.DomainName)
+
+		// Build classless_static_routes (option 121), preserving null vs empty.
+		routeObjType := types.ObjectType{AttrTypes: ClasslessRouteAttrTypes()}
+		if len(scope.Options.ClasslessStaticRoutes) > 0 {
+			elements := make([]attr.Value, len(scope.Options.ClasslessStaticRoutes))
+			for i, r := range scope.Options.ClasslessStaticRoutes {
+				elements[i] = types.ObjectValueMust(
+					ClasslessRouteAttrTypes(),
+					map[string]attr.Value{
+						"destination": types.StringValue(r.Destination),
+						"gateway":     types.StringValue(r.Gateway),
+					},
+				)
+			}
+			m.Options.ClasslessStaticRoutes = types.ListValueMust(routeObjType, elements)
+		} else if priorClasslessNull {
+			m.Options.ClasslessStaticRoutes = types.ListNull(routeObjType)
+		} else {
+			m.Options.ClasslessStaticRoutes = types.ListValueMust(routeObjType, []attr.Value{})
+		}
 	} else {
 		m.Options = nil
 	}

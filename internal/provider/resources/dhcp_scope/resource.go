@@ -3,11 +3,13 @@ package dhcp_scope
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -28,6 +30,14 @@ import (
 var (
 	_ resource.Resource                = &DHCPScopeResource{}
 	_ resource.ResourceWithImportState = &DHCPScopeResource{}
+)
+
+// Validation regexes for classless static route fields (option 121).
+// Note: these are syntactic guards for the schema; net.ParseCIDR / net.ParseIP
+// in the parser perform the authoritative encode-time validation.
+var (
+	ipv4Regex = regexp.MustCompile(`^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$`)
+	cidrRegex = regexp.MustCompile(`^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})$`)
 )
 
 // NewDHCPScopeResource creates a new DHCP scope resource.
@@ -121,6 +131,34 @@ func (r *DHCPScopeResource) Schema(ctx context.Context, req resource.SchemaReque
 					"domain_name": schema.StringAttribute{
 						Description: "Domain name for DHCP clients.",
 						Optional:    true,
+					},
+					"classless_static_routes": schema.ListNestedAttribute{
+						Description: "RFC 3442 classless static routes pushed to DHCP clients (option 121). Each route maps a destination CIDR to a gateway.",
+						Optional:    true,
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"destination": schema.StringAttribute{
+									Description: "Destination network in CIDR notation (e.g., '10.33.128.0/18'). Use '0.0.0.0/0' for a default route.",
+									Required:    true,
+									Validators: []validator.String{
+										stringvalidator.RegexMatches(
+											cidrRegex,
+											"must be a valid IPv4 CIDR (e.g., '10.33.128.0/18' or '0.0.0.0/0')",
+										),
+									},
+								},
+								"gateway": schema.StringAttribute{
+									Description: "Gateway IPv4 address for the destination (e.g., '192.168.1.253').",
+									Required:    true,
+									Validators: []validator.String{
+										stringvalidator.RegexMatches(
+											ipv4Regex,
+											"must be a valid IPv4 address (e.g., '192.168.1.253')",
+										),
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -258,6 +296,14 @@ func (r *DHCPScopeResource) read(ctx context.Context, data *DHCPScopeModel, diag
 
 // convertParsedDHCPScope converts a parser DHCPScope to a client DHCPScope.
 func convertParsedDHCPScope(parsed *parsers.DHCPScope) *client.DHCPScope {
+	classlessRoutes := make([]client.ClasslessRoute, len(parsed.Options.ClasslessStaticRoutes))
+	for i, r := range parsed.Options.ClasslessStaticRoutes {
+		classlessRoutes[i] = client.ClasslessRoute{
+			Destination: r.Destination,
+			Gateway:     r.Gateway,
+		}
+	}
+
 	scope := &client.DHCPScope{
 		ScopeID:    parsed.ScopeID,
 		Network:    parsed.Network,
@@ -265,9 +311,10 @@ func convertParsedDHCPScope(parsed *parsers.DHCPScope) *client.DHCPScope {
 		RangeEnd:   parsed.RangeEnd,
 		LeaseTime:  parsed.LeaseTime,
 		Options: client.DHCPScopeOptions{
-			Routers:    parsed.Options.Routers,
-			DNSServers: parsed.Options.DNSServers,
-			DomainName: parsed.Options.DomainName,
+			Routers:               parsed.Options.Routers,
+			DNSServers:            parsed.Options.DNSServers,
+			DomainName:            parsed.Options.DomainName,
+			ClasslessStaticRoutes: classlessRoutes,
 		},
 		ExcludeRanges: make([]client.ExcludeRange, len(parsed.ExcludeRanges)),
 	}
