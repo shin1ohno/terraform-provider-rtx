@@ -279,7 +279,12 @@ func parseOptions(optionStr string, opts *DHCPScopeOptions) {
 						opts.WINSServers = append(opts.WINSServers, s)
 					}
 				}
-			case "121": // Classless static routes (option 121, RFC 3442) — hex-byte CSV
+			// Classless static routes (option 121, RFC 3442) — hex-byte CSV.
+			// RTX accepts the numeric "121=" on input but normalizes it to the
+			// named "classless_static_route=" form in `show config`, so the
+			// parser must recognize both or the value vanishes on read-back
+			// (causing "inconsistent result after apply").
+			case "121", "classless_static_route", "classless_static_routes":
 				routes, err := decodeClasslessRoutes(value)
 				if err == nil {
 					opts.ClasslessStaticRoutes = append(opts.ClasslessStaticRoutes, routes...)

@@ -120,9 +120,34 @@ func (s *DHCPScopeService) UpdateScope(ctx context.Context, scope DHCPScope) err
 		return fmt.Errorf("failed to get current scope: %w", err)
 	}
 
-	// If network changed, we need to recreate the scope
+	// RTX cannot change a scope's network in place, and recreating the scope
+	// (`no dhcp scope` + re-add) both wipes the scope's DHCP bindings AND — as
+	// observed on RTX1210 Rev.14 — does not reliably persist the re-added
+	// scope's options. So when the live network differs from desired, do NOT
+	// fail and do NOT recreate: update the scope OPTIONS in place, leaving the
+	// network as-is. This mirrors the device-verified manual path (`dhcp scope
+	// option <id> ...` applies to the existing scope regardless of its network).
+	// The network divergence is surfaced as a warning for an operator to
+	// reconcile separately (a deliberate, non-destructive scope rebuild).
 	if currentScope.Network != scope.Network {
-		return fmt.Errorf("network cannot be changed without recreating the scope")
+		logging.FromContext(ctx).Warn().Str("service", "dhcp_scope").
+			Msgf("DHCP scope %d live network %s differs from desired %s; updating options in place WITHOUT changing the network (recreate would wipe bindings) — reconcile the network manually if required",
+				scope.ScopeID, currentScope.Network, scope.Network)
+		optCmds := []string{}
+		if len(currentScope.Options.DNSServers) > 0 || len(currentScope.Options.Routers) > 0 ||
+			currentScope.Options.DomainName != "" || len(currentScope.Options.ClasslessStaticRoutes) > 0 {
+			optCmds = append(optCmds, parsers.BuildDeleteDHCPScopeOptionsCommand(scope.ScopeID))
+		}
+		if len(scope.Options.DNSServers) > 0 || len(scope.Options.Routers) > 0 ||
+			scope.Options.DomainName != "" || len(scope.Options.ClasslessStaticRoutes) > 0 {
+			optCmds = append(optCmds, parsers.BuildDHCPScopeOptionsCommand(scope.ScopeID, parserScope.Options))
+		}
+		if len(optCmds) > 0 {
+			if err := runBatchCommands(ctx, s.executor, optCmds); err != nil {
+				return fmt.Errorf("failed to update DHCP scope options: %w", err)
+			}
+		}
+		return saveConfig(ctx, s.client, "scope options updated (network unchanged)")
 	}
 
 	// Collect all commands
