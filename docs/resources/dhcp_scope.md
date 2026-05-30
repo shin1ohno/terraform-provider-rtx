@@ -70,6 +70,15 @@ Required:
 
 Optional:
 
+- `classless_static_routes` (Attributes List) RFC 3442 classless static routes pushed to DHCP clients (option 121). Each route maps a destination CIDR to a gateway. (see [below for nested schema](#nestedatt--options--classless_static_routes))
 - `dns_servers` (List of String) DNS server addresses for DHCP clients (maximum 3).
 - `domain_name` (String) Domain name for DHCP clients.
 - `routers` (List of String) Default gateway addresses for DHCP clients (maximum 3).
+
+<a id="nestedatt--options--classless_static_routes"></a>
+### Nested Schema for `options.classless_static_routes`
+
+Required:
+
+- `destination` (String) Destination network in CIDR notation (e.g., '10.33.128.0/18'). Use '0.0.0.0/0' for a default route.
+- `gateway` (String) Gateway IPv4 address for the destination (e.g., '192.168.1.253').
