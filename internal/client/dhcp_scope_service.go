@@ -48,8 +48,8 @@ func (s *DHCPScopeService) CreateScope(ctx context.Context, scope DHCPScope) err
 	logging.FromContext(ctx).Debug().Str("service", "dhcp_scope").Msgf("Creating DHCP scope with command: %s", cmd)
 	commands = append(commands, cmd)
 
-	// Configure DHCP options (DNS, routers, domain) if any are specified
-	if len(scope.Options.DNSServers) > 0 || len(scope.Options.Routers) > 0 || scope.Options.DomainName != "" {
+	// Configure DHCP options (DNS, routers, domain, classless routes) if any are specified
+	if len(scope.Options.DNSServers) > 0 || len(scope.Options.Routers) > 0 || scope.Options.DomainName != "" || len(scope.Options.ClasslessStaticRoutes) > 0 {
 		optsCmd := parsers.BuildDHCPScopeOptionsCommand(scope.ScopeID, parserScope.Options)
 		logging.FromContext(ctx).Debug().Str("service", "dhcp_scope").Msgf("Setting DHCP options with command: %s", optsCmd)
 		commands = append(commands, optsCmd)
@@ -136,7 +136,7 @@ func (s *DHCPScopeService) UpdateScope(ctx context.Context, scope DHCPScope) err
 
 	// Update DHCP options (DNS, routers, domain)
 	// First, remove existing options configuration
-	hasCurrentOptions := len(currentScope.Options.DNSServers) > 0 || len(currentScope.Options.Routers) > 0 || currentScope.Options.DomainName != ""
+	hasCurrentOptions := len(currentScope.Options.DNSServers) > 0 || len(currentScope.Options.Routers) > 0 || currentScope.Options.DomainName != "" || len(currentScope.Options.ClasslessStaticRoutes) > 0
 	if hasCurrentOptions {
 		deleteCmd := parsers.BuildDeleteDHCPScopeOptionsCommand(scope.ScopeID)
 		logging.FromContext(ctx).Debug().Str("service", "dhcp_scope").Msgf("Removing existing options with command: %s", deleteCmd)
@@ -144,7 +144,7 @@ func (s *DHCPScopeService) UpdateScope(ctx context.Context, scope DHCPScope) err
 	}
 
 	// Set new options if specified
-	hasNewOptions := len(scope.Options.DNSServers) > 0 || len(scope.Options.Routers) > 0 || scope.Options.DomainName != ""
+	hasNewOptions := len(scope.Options.DNSServers) > 0 || len(scope.Options.Routers) > 0 || scope.Options.DomainName != "" || len(scope.Options.ClasslessStaticRoutes) > 0
 	if hasNewOptions {
 		optsCmd := parsers.BuildDHCPScopeOptionsCommand(scope.ScopeID, parserScope.Options)
 		logging.FromContext(ctx).Debug().Str("service", "dhcp_scope").Msgf("Setting DHCP options with command: %s", optsCmd)
@@ -262,6 +262,14 @@ func (s *DHCPScopeService) toParserScope(scope DHCPScope) parsers.DHCPScope {
 		}
 	}
 
+	classlessRoutes := make([]parsers.ClasslessRoute, len(scope.Options.ClasslessStaticRoutes))
+	for i, r := range scope.Options.ClasslessStaticRoutes {
+		classlessRoutes[i] = parsers.ClasslessRoute{
+			Destination: r.Destination,
+			Gateway:     r.Gateway,
+		}
+	}
+
 	return parsers.DHCPScope{
 		ScopeID:       scope.ScopeID,
 		Network:       scope.Network,
@@ -270,9 +278,10 @@ func (s *DHCPScopeService) toParserScope(scope DHCPScope) parsers.DHCPScope {
 		LeaseTime:     scope.LeaseTime,
 		ExcludeRanges: excludeRanges,
 		Options: parsers.DHCPScopeOptions{
-			DNSServers: scope.Options.DNSServers,
-			Routers:    scope.Options.Routers,
-			DomainName: scope.Options.DomainName,
+			DNSServers:            scope.Options.DNSServers,
+			Routers:               scope.Options.Routers,
+			DomainName:            scope.Options.DomainName,
+			ClasslessStaticRoutes: classlessRoutes,
 		},
 	}
 }
@@ -287,6 +296,14 @@ func (s *DHCPScopeService) fromParserScope(ps parsers.DHCPScope) DHCPScope {
 		}
 	}
 
+	classlessRoutes := make([]ClasslessRoute, len(ps.Options.ClasslessStaticRoutes))
+	for i, r := range ps.Options.ClasslessStaticRoutes {
+		classlessRoutes[i] = ClasslessRoute{
+			Destination: r.Destination,
+			Gateway:     r.Gateway,
+		}
+	}
+
 	return DHCPScope{
 		ScopeID:       ps.ScopeID,
 		Network:       ps.Network,
@@ -295,9 +312,10 @@ func (s *DHCPScopeService) fromParserScope(ps parsers.DHCPScope) DHCPScope {
 		LeaseTime:     ps.LeaseTime,
 		ExcludeRanges: excludeRanges,
 		Options: DHCPScopeOptions{
-			DNSServers: ps.Options.DNSServers,
-			Routers:    ps.Options.Routers,
-			DomainName: ps.Options.DomainName,
+			DNSServers:            ps.Options.DNSServers,
+			Routers:               ps.Options.Routers,
+			DomainName:            ps.Options.DomainName,
+			ClasslessStaticRoutes: classlessRoutes,
 		},
 	}
 }

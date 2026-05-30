@@ -913,9 +913,16 @@ type DHCPScope struct {
 
 // DHCPScopeOptions represents DHCP options for a scope (Cisco-compatible naming)
 type DHCPScopeOptions struct {
-	DNSServers []string `json:"dns_servers,omitempty"` // DNS servers (max 3)
-	Routers    []string `json:"routers,omitempty"`     // Default gateways (max 3)
-	DomainName string   `json:"domain_name,omitempty"` // Domain name
+	DNSServers            []string         `json:"dns_servers,omitempty"`             // DNS servers (max 3)
+	Routers               []string         `json:"routers,omitempty"`                 // Default gateways (max 3)
+	DomainName            string           `json:"domain_name,omitempty"`             // Domain name
+	ClasslessStaticRoutes []ClasslessRoute `json:"classless_static_routes,omitempty"` // Classless static routes (option 121, RFC 3442)
+}
+
+// ClasslessRoute represents a single RFC 3442 classless static route (DHCP option 121)
+type ClasslessRoute struct {
+	Destination string `json:"destination"` // CIDR notation: "10.33.128.0/18"
+	Gateway     string `json:"gateway"`     // IPv4 gateway: "192.168.1.60"
 }
 
 // ExcludeRange represents an IP range excluded from DHCP allocation

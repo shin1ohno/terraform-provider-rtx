@@ -2,6 +2,7 @@ package parsers
 
 import (
 	"fmt"
+	"net"
 	"regexp"
 	"strconv"
 	"strings"
@@ -21,11 +22,18 @@ type DHCPScope struct {
 
 // DHCPScopeOptions represents DHCP options for a scope (Cisco-compatible naming)
 type DHCPScopeOptions struct {
-	DNSServers  []string `json:"dns_servers,omitempty"`  // DNS servers (max 3, option 6)
-	Routers     []string `json:"routers,omitempty"`      // Default gateways (max 3, option 3)
-	DomainName  string   `json:"domain_name,omitempty"`  // Domain name (option 15)
-	Hostname    string   `json:"hostname,omitempty"`     // Hostname (option 12)
-	WINSServers []string `json:"wins_servers,omitempty"` // WINS/NetBIOS name servers (max 3, option 44)
+	DNSServers            []string         `json:"dns_servers,omitempty"`             // DNS servers (max 3, option 6)
+	Routers               []string         `json:"routers,omitempty"`                 // Default gateways (max 3, option 3)
+	DomainName            string           `json:"domain_name,omitempty"`             // Domain name (option 15)
+	Hostname              string           `json:"hostname,omitempty"`                // Hostname (option 12)
+	WINSServers           []string         `json:"wins_servers,omitempty"`            // WINS/NetBIOS name servers (max 3, option 44)
+	ClasslessStaticRoutes []ClasslessRoute `json:"classless_static_routes,omitempty"` // Classless static routes (option 121, RFC 3442)
+}
+
+// ClasslessRoute represents a single RFC 3442 classless static route (DHCP option 121)
+type ClasslessRoute struct {
+	Destination string `json:"destination"` // CIDR notation: "10.33.128.0/18"
+	Gateway     string `json:"gateway"`     // IPv4 gateway: "192.168.1.60"
 }
 
 // ExcludeRange represents an IP range excluded from DHCP allocation
@@ -271,9 +279,134 @@ func parseOptions(optionStr string, opts *DHCPScopeOptions) {
 						opts.WINSServers = append(opts.WINSServers, s)
 					}
 				}
+			case "121": // Classless static routes (option 121, RFC 3442) — hex-byte CSV
+				routes, err := decodeClasslessRoutes(value)
+				if err == nil {
+					opts.ClasslessStaticRoutes = append(opts.ClasslessStaticRoutes, routes...)
+				}
 			}
 		}
 	}
+}
+
+// encodeClasslessRoutes encodes RFC 3442 (DHCP option 121) classless static
+// routes into the YAMAHA RTX hex-byte CSV form, e.g. "12,0a,21,80,c0,a8,01,3c".
+// Each route is encoded as:
+//
+//	[mask_len byte] + [ceil(mask_len/8) significant destination octets] + [4 gateway octets]
+//
+// All bytes are 2-digit lowercase hex, comma-separated, with no surrounding
+// whitespace. Routes are concatenated in order. This is the exact inverse of
+// decodeClasslessRoutes.
+func encodeClasslessRoutes(routes []ClasslessRoute) (string, error) {
+	var b []byte
+
+	for _, route := range routes {
+		_, ipNet, err := net.ParseCIDR(route.Destination)
+		if err != nil {
+			return "", fmt.Errorf("invalid destination CIDR %q: %w", route.Destination, err)
+		}
+
+		// Require IPv4 destinations.
+		dest := ipNet.IP.To4()
+		if dest == nil {
+			return "", fmt.Errorf("destination %q is not an IPv4 network", route.Destination)
+		}
+
+		maskLen, bits := ipNet.Mask.Size()
+		if bits != 32 {
+			return "", fmt.Errorf("destination %q is not an IPv4 mask", route.Destination)
+		}
+		if maskLen < 0 || maskLen > 32 {
+			return "", fmt.Errorf("invalid mask length %d for destination %q", maskLen, route.Destination)
+		}
+
+		gw := net.ParseIP(route.Gateway)
+		if gw == nil {
+			return "", fmt.Errorf("invalid gateway IP %q", route.Gateway)
+		}
+		gw4 := gw.To4()
+		if gw4 == nil {
+			return "", fmt.Errorf("gateway %q is not an IPv4 address", route.Gateway)
+		}
+
+		// Number of significant destination octets = ceil(maskLen / 8).
+		destOctets := (maskLen + 7) / 8
+
+		b = append(b, byte(maskLen))
+		b = append(b, dest[:destOctets]...)
+		b = append(b, gw4...)
+	}
+
+	if len(b) == 0 {
+		return "", nil
+	}
+
+	tokens := make([]string, len(b))
+	for i, v := range b {
+		tokens[i] = fmt.Sprintf("%02x", v)
+	}
+	return strings.Join(tokens, ","), nil
+}
+
+// decodeClasslessRoutes decodes the YAMAHA RTX hex-byte CSV form of DHCP
+// option 121 (RFC 3442) back into a slice of ClasslessRoute. It is the exact
+// inverse of encodeClasslessRoutes: for every route it reads the mask length,
+// then ceil(mask_len/8) destination octets (zero-padded to a full 4-octet IP),
+// then 4 gateway octets, reconstructing "a.b.c.d/len" and "g.g.g.g".
+func decodeClasslessRoutes(s string) ([]ClasslessRoute, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil, nil
+	}
+
+	tokens := strings.Split(s, ",")
+	bytes := make([]byte, 0, len(tokens))
+	for _, tok := range tokens {
+		tok = strings.TrimSpace(tok)
+		if tok == "" {
+			return nil, fmt.Errorf("empty hex byte in option 121 value %q", s)
+		}
+		v, err := strconv.ParseUint(tok, 16, 8)
+		if err != nil {
+			return nil, fmt.Errorf("invalid hex byte %q in option 121 value: %w", tok, err)
+		}
+		bytes = append(bytes, byte(v))
+	}
+
+	var routes []ClasslessRoute
+	pos := 0
+	for pos < len(bytes) {
+		maskLen := int(bytes[pos])
+		pos++
+		if maskLen > 32 {
+			return nil, fmt.Errorf("invalid mask length %d in option 121 value", maskLen)
+		}
+
+		destOctets := (maskLen + 7) / 8
+		if pos+destOctets > len(bytes) {
+			return nil, fmt.Errorf("truncated destination octets in option 121 value (need %d, have %d)", destOctets, len(bytes)-pos)
+		}
+
+		// Reconstruct the 4-octet destination IP, zero-padding the omitted octets.
+		ip := make(net.IP, net.IPv4len)
+		copy(ip, bytes[pos:pos+destOctets])
+		pos += destOctets
+
+		if pos+net.IPv4len > len(bytes) {
+			return nil, fmt.Errorf("truncated gateway octets in option 121 value (need %d, have %d)", net.IPv4len, len(bytes)-pos)
+		}
+		gw := make(net.IP, net.IPv4len)
+		copy(gw, bytes[pos:pos+net.IPv4len])
+		pos += net.IPv4len
+
+		routes = append(routes, ClasslessRoute{
+			Destination: fmt.Sprintf("%s/%d", ip.String(), maskLen),
+			Gateway:     gw.String(),
+		})
+	}
+
+	return routes, nil
 }
 
 // convertRTXLeaseTimeToGo converts RTX lease time format (h:mm or "infinite") to Go duration
@@ -434,6 +567,14 @@ func BuildDHCPScopeOptionsCommand(scopeID int, opts DHCPScopeOptions) string {
 			servers = servers[:3]
 		}
 		parts = append(parts, fmt.Sprintf("wins_server=%s", strings.Join(servers, ",")))
+	}
+
+	// Classless static routes (option 121, RFC 3442) — hex-byte CSV, no spaces.
+	// Coexists on the same "dhcp scope option" line as dns=/router=/domain=.
+	if len(opts.ClasslessStaticRoutes) > 0 {
+		if encoded, err := encodeClasslessRoutes(opts.ClasslessStaticRoutes); err == nil && encoded != "" {
+			parts = append(parts, fmt.Sprintf("121=%s", encoded))
+		}
 	}
 
 	if len(parts) == 0 {
