@@ -50,11 +50,51 @@ func NewDHCPScopeParser() *DHCPScopeParser {
 	return &DHCPScopeParser{}
 }
 
+// dewrapShowConfigLines reconstructs logical "dhcp scope" config lines from the
+// output of `show config | grep "dhcp scope"`.
+//
+// RTX wraps long lines at the console width (default 80 columns) when writing to
+// the terminal, regardless of the SSH PTY width the provider requests (512) —
+// the wrap is applied at display time, after the `| grep`, so grep keeps the
+// whole logical line but the bytes the provider reads contain a hard newline
+// inserted mid-line with no continuation marker or indentation. The
+// `dhcp scope option <id> ... classless_static_route=<hex>` line is long enough
+// to wrap; the split lands inside the word "classless_static_route", so the
+// parser saw "...classless_sta" (no '=', dropped by parseOptions) plus an orphan
+// "tic_route=..." line (matches no pattern, ignored) and returned zero classless
+// routes — producing "Provider produced inconsistent result after apply:
+// .options.classless_static_routes: element N has vanished".
+//
+// Because every real logical line in this grep'd output contains "dhcp scope",
+// any physical line that does NOT is a wrap continuation; re-join it onto the
+// previous logical line with no separator (the wrap split mid-token). This is
+// inert for unwrapped input (every line already contains "dhcp scope").
+func dewrapShowConfigLines(raw string) []string {
+	physical := strings.Split(raw, "\n")
+	logical := make([]string, 0, len(physical))
+	for _, line := range physical {
+		line = strings.TrimRight(line, "\r")
+		if strings.Contains(line, "dhcp scope") {
+			logical = append(logical, line)
+			continue
+		}
+		// Wrap continuation of the preceding logical line (or pre-first-match
+		// noise / blank lines, which we skip).
+		if strings.TrimSpace(line) != "" && len(logical) > 0 {
+			logical[len(logical)-1] += line
+		}
+	}
+	return logical
+}
+
 // ParseScopeConfig parses the output of "show config | grep dhcp scope" command
 // and returns a list of DHCP scopes
 func (p *DHCPScopeParser) ParseScopeConfig(raw string) ([]DHCPScope, error) {
 	scopes := make(map[int]*DHCPScope)
-	lines := strings.Split(raw, "\n")
+	// De-wrap RTX console line-wrapping first so a `dhcp scope option` line whose
+	// classless_static_route= value wrapped at the console width is reassembled
+	// before pattern matching (otherwise option 121 vanishes on read-back).
+	lines := dewrapShowConfigLines(raw)
 
 	// Patterns for different scope configuration lines
 	// dhcp scope <id> <network>/<prefix> [gateway <ip>] [expire <time>] [maxexpire <time>]
