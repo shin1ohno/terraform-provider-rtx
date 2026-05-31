@@ -392,6 +392,40 @@ ip lan1 secure filter out 200 201`,
 			},
 		},
 		{
+			// RTX writes a tunnel/pp secure filter as a bare keyword under a
+			// preceding `tunnel select N` line; the parser must recover "tunnel1".
+			name:  "tunnel secure filter via tunnel select context",
+			input: "tunnel select 1\n ip tunnel secure filter in 300 305\n ip tunnel secure filter out 300 305",
+			expected: map[string]map[string][]int{
+				"tunnel1": {"in": {300, 305}, "out": {300, 305}},
+			},
+		},
+		{
+			name:  "pp secure filter via pp select context",
+			input: "pp select 2\n ip pp secure filter in 100 101",
+			expected: map[string]map[string][]int{
+				"pp2": {"in": {100, 101}},
+			},
+		},
+		{
+			// A concrete-interface filter after a tunnel block must NOT inherit
+			// the tunnel context.
+			name:  "tunnel then lan kept distinct",
+			input: "tunnel select 1\n ip tunnel secure filter in 300\nip lan2 secure filter in 50 55",
+			expected: map[string]map[string][]int{
+				"tunnel1": {"in": {300}},
+				"lan2":    {"in": {50, 55}},
+			},
+		},
+		{
+			name:  "two tunnels keep separate contexts",
+			input: "tunnel select 1\n ip tunnel secure filter in 300\ntunnel select 2\n ip tunnel secure filter in 400",
+			expected: map[string]map[string][]int{
+				"tunnel1": {"in": {300}},
+				"tunnel2": {"in": {400}},
+			},
+		},
+		{
 			name:     "empty input",
 			input:    "",
 			expected: map[string]map[string][]int{},
@@ -2409,4 +2443,56 @@ func TestParseAndBuildIPv6DynamicRoundTrip(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestParseSecureFilter_TunnelSelectContext_Variants covers the three parser
+// variants that lacked dedicated tests, focusing on the `tunnel select N` /
+// `pp select N` context handling that the bare `ip|ipv6 tunnel/pp secure filter`
+// keyword depends on.
+func TestParseSecureFilter_TunnelSelectContext_Variants(t *testing.T) {
+	t.Run("ipv4 with-dynamic tunnel context", func(t *testing.T) {
+		got, err := ParseInterfaceSecureFilterWithDynamic(
+			"tunnel select 1\n ip tunnel secure filter in 300 305 dynamic 10",
+		)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if _, leaked := got["tunnel"]; leaked {
+			t.Errorf("filter leaked under bare \"tunnel\" key: %#v", got)
+		}
+		r := got["tunnel1"]["in"]
+		if len(r.StaticIDs) != 2 || r.StaticIDs[0] != 300 || r.StaticIDs[1] != 305 {
+			t.Errorf("StaticIDs = %v, want [300 305]; full=%#v", r.StaticIDs, got)
+		}
+		if len(r.DynamicIDs) != 1 || r.DynamicIDs[0] != 10 {
+			t.Errorf("DynamicIDs = %v, want [10]", r.DynamicIDs)
+		}
+	})
+
+	t.Run("ipv6 plain tunnel context", func(t *testing.T) {
+		got, err := ParseInterfaceIPv6SecureFilter(
+			"tunnel select 3\n ipv6 tunnel secure filter in 600 605",
+		)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if v := got["tunnel3"]["in"]; len(v) != 2 || v[0] != 600 || v[1] != 605 {
+			t.Errorf("tunnel3/in = %v, want [600 605]; full=%#v", v, got)
+		}
+	})
+
+	t.Run("ipv6 with-dynamic pp context plus concrete lan", func(t *testing.T) {
+		got, err := ParseInterfaceIPv6SecureFilterWithDynamic(
+			"pp select 1\n ipv6 pp secure filter in 700\nipv6 lan2 secure filter in 1 6 11",
+		)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if v := got["pp1"]["in"]; len(v.StaticIDs) != 1 || v.StaticIDs[0] != 700 {
+			t.Errorf("pp1/in static = %v, want [700]; full=%#v", v.StaticIDs, got)
+		}
+		if v := got["lan2"]["in"]; len(v.StaticIDs) != 3 {
+			t.Errorf("lan2/in static = %v, want [1 6 11]", v.StaticIDs)
+		}
+	})
 }
