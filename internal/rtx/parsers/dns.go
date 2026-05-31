@@ -72,28 +72,18 @@ func (p *DNSParser) ParseDNSConfig(raw string) (*DNSConfig, error) {
 		Hosts:        []DNSHost{},
 	}
 
-	// Pre-process: Join lines that were wrapped by RTX router
-	// RTX router wraps long lines at ~80 chars, e.g., "edns=on" becomes "edns\n=on"
-	// Lines starting with "=" are continuation lines and should be joined to previous
-	// Also handle CRLF by normalizing line endings first
-	raw = strings.ReplaceAll(raw, "\r\n", "\n")
-	raw = strings.ReplaceAll(raw, "\r", "\n")
-	rawLines := strings.Split(raw, "\n")
-	var joinedLines []string
-	for _, line := range rawLines {
-		trimmed := strings.TrimSpace(line)
-		// If line starts with "=", it's a continuation of the previous line
-		if strings.HasPrefix(trimmed, "=") && len(joinedLines) > 0 {
-			// Trim the previous line before joining to remove any trailing whitespace
-			prevLine := strings.TrimRight(joinedLines[len(joinedLines)-1], " \t\r")
-			joinedLines[len(joinedLines)-1] = prevLine + trimmed
-		} else {
-			joinedLines = append(joinedLines, line)
-		}
-	}
-	raw = strings.Join(joinedLines, "\n")
-
-	lines := strings.Split(raw, "\n")
+	// De-wrap RTX console line-wrapping. RTX wraps long lines at the console
+	// width (~80 cols) regardless of the SSH PTY width, inserting a bare newline
+	// mid-line with no marker — e.g. a long IPv6 "dns server select" splits as
+	// "...edns=on " + "aaaa ." (dropping the record_type/query_pattern, so the
+	// selector vanishes on read-back), as well as the older "edns" + "=on" split.
+	// A genuine logical line starts with "dns " (or a "dhcp " line that the broad
+	// `show config | grep dns` also returns via a "dns=" substring); any other
+	// non-empty, non-prompt line is a wrap continuation and is rejoined to the
+	// preceding line. Replaces an earlier de-wrap that only handled a leading "=".
+	lines := dewrapConsoleLines(raw, func(trimmed string) bool {
+		return strings.HasPrefix(trimmed, "dns ") || strings.HasPrefix(trimmed, "dhcp ")
+	})
 
 	// Patterns for different DNS configuration lines
 	// dns domain <name>
