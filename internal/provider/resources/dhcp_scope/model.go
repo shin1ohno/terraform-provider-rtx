@@ -180,3 +180,51 @@ func (m *DHCPScopeModel) FromClient(ctx context.Context, scope *client.DHCPScope
 		m.Options = nil
 	}
 }
+
+// reconcileClasslessRoutesWithPlan overwrites the model's classless_static_routes
+// with the planned value after a device read-back.
+//
+// classless_static_routes is an Optional (non-Computed) attribute: when the user
+// sets it in config, Terraform's post-apply consistency check requires the
+// returned state to hold EXACTLY the planned elements (same count, same order,
+// same null-vs-empty). The device read-back via `show config` is unreliable for
+// option 121 on RTX1210 Rev.14 — `r.read` can return a scope whose
+// classless_static_routes is empty/null even though the Update commands wrote all
+// three routes (and `save` lagged). FromClient then emits an empty list, and
+// Terraform reports ".options.classless_static_routes: element 0/1/2 has
+// vanished." Restoring the planned value (which we KNOW was the source of the
+// write commands and round-trips correctly through encode/decode) makes the
+// returned state echo the plan and satisfies the consistency check.
+//
+// Mirrors dns_server.reorderServerSelectToMatchPlan: read-back fills the genuinely
+// Computed fields (range_start/range_end/lease_time), the plan is authoritative
+// for the user-configured option-121 routes.
+func (m *DHCPScopeModel) reconcileClasslessRoutesWithPlan(plan *DHCPScopeModel) {
+	routeObjType := types.ObjectType{AttrTypes: ClasslessRouteAttrTypes()}
+
+	// No planned options at all → nothing to reconcile. If read-back produced an
+	// Options block anyway (device had stale/foreign options), drop the routes to
+	// the plan's null so the consistency check sees null == null.
+	if plan == nil || plan.Options == nil {
+		if m.Options != nil {
+			m.Options.ClasslessStaticRoutes = types.ListNull(routeObjType)
+		}
+		return
+	}
+
+	// The plan configured an options block. read-back may have set m.Options = nil
+	// (no options seen in running config) — materialize it so we can echo the
+	// planned routes. Other option fields (routers/dns_servers/domain_name) are
+	// left as read-back produced them; only the option-121 routes are plan-authoritative.
+	if m.Options == nil {
+		m.Options = &OptionsModel{
+			Routers:    plan.Options.Routers,
+			DNSServers: plan.Options.DNSServers,
+			DomainName: plan.Options.DomainName,
+		}
+	}
+
+	// Echo the planned classless_static_routes verbatim — preserves count, order,
+	// and the null-vs-empty distinction the consistency check enforces.
+	m.Options.ClasslessStaticRoutes = plan.Options.ClasslessStaticRoutes
+}
