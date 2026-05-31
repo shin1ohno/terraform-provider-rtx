@@ -368,6 +368,35 @@ func (m *DNSServerModel) reorderServerSelectToMatchPlan(ctx context.Context, pla
 		return
 	}
 
+	// Fill any plan entries that found no matching read-back entry with the
+	// plan's own element. Without this those slots stay nil, and
+	// types.ListValue -> basetypes.NewListValue dereferences the nil element
+	// (panic: nil pointer at list_value.go:73) — crashing the whole provider
+	// during Update/Create (the v0.14.2 home-monitor crash). Using the plan
+	// element also keeps the reordered list at exactly len(planSelects) entries
+	// in plan order, so Terraform's post-apply consistency check passes:
+	// query_pattern is a Required attribute, so the applied list must hold the
+	// planned query_patterns at their planned indices. A plan entry can be
+	// unmatched when the router read-back returns it under a different priority
+	// ID, omits it, or reports a record_type that does not round-trip (e.g.
+	// "any"), so neither the priority nor the (query_pattern, record_type)
+	// content key matches — exactly the home-monitor rtx_dns_server.main shape
+	// (auto mode, 3 server_select blocks, two sharing query_pattern "."). The
+	// device value is reflected on the next Read, so genuine drift still
+	// surfaces. Mirrors dhcp_scope.reconcileClasslessRoutesWithPlan.
+	planElements := plan.ServerSelect.Elements()
+	for i := range reorderedValues {
+		if reorderedValues[i] != nil {
+			continue
+		}
+		if i >= len(planElements) {
+			// planSelects is derived from plan.ServerSelect, so the lengths
+			// always match; bail out rather than emit a nil/short list.
+			return
+		}
+		reorderedValues[i] = planElements[i]
+	}
+
 	listVal, d := types.ListValue(types.ObjectType{AttrTypes: DNSServerSelectAttrTypes()}, reorderedValues)
 	diags.Append(d...)
 	m.ServerSelect = listVal

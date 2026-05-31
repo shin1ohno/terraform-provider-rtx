@@ -186,8 +186,18 @@ func (r *DHCPScopeResource) Configure(ctx context.Context, req resource.Configur
 // Create creates the resource and sets the initial Terraform state.
 func (r *DHCPScopeResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data DHCPScopeModel
+	var planData DHCPScopeModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Preserve the planned classless_static_routes (Optional, non-Computed) so the
+	// returned state echoes the plan exactly — device read-back of option 121 is
+	// unreliable on RTX1210 Rev.14 and can drop the routes (see
+	// reconcileClasslessRoutesWithPlan).
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &planData)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -216,6 +226,9 @@ func (r *DHCPScopeResource) Create(ctx context.Context, req resource.CreateReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	// Echo the planned classless_static_routes so post-apply consistency holds.
+	data.reconcileClasslessRoutesWithPlan(&planData)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -280,8 +293,18 @@ func (r *DHCPScopeResource) read(ctx context.Context, data *DHCPScopeModel, diag
 // Update updates the resource and sets the updated Terraform state on success.
 func (r *DHCPScopeResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var data DHCPScopeModel
+	var planData DHCPScopeModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Preserve the planned classless_static_routes (Optional, non-Computed) so the
+	// returned state echoes the plan exactly — device read-back of option 121 is
+	// unreliable on RTX1210 Rev.14 and can drop the routes (see
+	// reconcileClasslessRoutesWithPlan).
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &planData)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -309,6 +332,9 @@ func (r *DHCPScopeResource) Update(ctx context.Context, req resource.UpdateReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	// Echo the planned classless_static_routes so post-apply consistency holds.
+	data.reconcileClasslessRoutesWithPlan(&planData)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
