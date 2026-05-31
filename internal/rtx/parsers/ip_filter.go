@@ -165,6 +165,24 @@ type InterfaceSecureFilterResult struct {
 	DynamicIDs []int
 }
 
+// selectContextPattern matches `tunnel select <N>` / `pp select <N>` lines. RTX
+// enters a CLI context for tunnel/pp interfaces and writes their secure-filter
+// commands with the bare keyword (`ip tunnel secure filter`), so when parsing
+// `show config` back we must carry that context to recover "tunnel<N>" / "pp<N>"
+// — the inverse of interfaceSelectContext (the write side).
+var selectContextPattern = regexp.MustCompile(`^(tunnel|pp)\s+select\s+(\d+)`)
+
+// resolveSecureFilterIface maps the interface token from an
+// `ip|ipv6 <iface> secure filter` line to its effective name. The bare `tunnel`
+// / `pp` keyword resolves to the most recent `<kind> select <N>` context;
+// concrete tokens (lan1, bridge1, ...) are returned unchanged.
+func resolveSecureFilterIface(iface, currentSelect string) string {
+	if (iface == "tunnel" || iface == "pp") && strings.HasPrefix(currentSelect, iface) {
+		return currentSelect
+	}
+	return iface
+}
+
 // ParseInterfaceSecureFilter parses the interface secure filter configuration
 // Returns a map of interface -> direction -> filter numbers
 func ParseInterfaceSecureFilter(raw string) (map[string]map[string][]int, error) {
@@ -175,14 +193,22 @@ func ParseInterfaceSecureFilter(raw string) (map[string]map[string][]int, error)
 	// Example: ip lan1 secure filter in 100 101 dynamic 10 20
 	securePattern := regexp.MustCompile(`^\s*ip\s+(\S+)\s+secure\s+filter\s+(in|out)\s+(.+)$`)
 
+	currentSelect := ""
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
 
+		// `tunnel select N` / `pp select N` sets the context for the bare
+		// `ip tunnel/pp secure filter` keyword that follows.
+		if m := selectContextPattern.FindStringSubmatch(line); m != nil {
+			currentSelect = m[1] + m[2]
+			continue
+		}
+
 		if matches := securePattern.FindStringSubmatch(line); len(matches) >= 4 {
-			iface := matches[1]
+			iface := resolveSecureFilterIface(matches[1], currentSelect)
 			direction := matches[2]
 			filterPart := matches[3]
 
@@ -220,14 +246,22 @@ func ParseInterfaceSecureFilterWithDynamic(raw string) (map[string]map[string]In
 	// Example: ip lan1 secure filter in 100 101 dynamic 10 20
 	securePattern := regexp.MustCompile(`^\s*ip\s+(\S+)\s+secure\s+filter\s+(in|out)\s+(.+)$`)
 
+	currentSelect := ""
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
 
+		// `tunnel select N` / `pp select N` sets the context for the bare
+		// `ip tunnel/pp secure filter` keyword that follows.
+		if m := selectContextPattern.FindStringSubmatch(line); m != nil {
+			currentSelect = m[1] + m[2]
+			continue
+		}
+
 		if matches := securePattern.FindStringSubmatch(line); len(matches) >= 4 {
-			iface := matches[1]
+			iface := resolveSecureFilterIface(matches[1], currentSelect)
 			direction := matches[2]
 			filterPart := matches[3]
 
@@ -888,14 +922,22 @@ func ParseInterfaceIPv6SecureFilter(raw string) (map[string]map[string][]int, er
 	// Pattern: ipv6 <interface> secure filter <direction> <filter_numbers...> [dynamic <dynamic_numbers...>]
 	securePattern := regexp.MustCompile(`^\s*ipv6\s+(\S+)\s+secure\s+filter\s+(in|out)\s+(.+)$`)
 
+	currentSelect := ""
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
 
+		// `tunnel select N` / `pp select N` sets the context for the bare
+		// `ipv6 tunnel/pp secure filter` keyword that follows.
+		if m := selectContextPattern.FindStringSubmatch(line); m != nil {
+			currentSelect = m[1] + m[2]
+			continue
+		}
+
 		if matches := securePattern.FindStringSubmatch(line); len(matches) >= 4 {
-			iface := matches[1]
+			iface := resolveSecureFilterIface(matches[1], currentSelect)
 			direction := matches[2]
 			filterPart := matches[3]
 
@@ -932,14 +974,22 @@ func ParseInterfaceIPv6SecureFilterWithDynamic(raw string) (map[string]map[strin
 	// Pattern: ipv6 <interface> secure filter <direction> <filter_numbers...> [dynamic <dynamic_numbers...>]
 	securePattern := regexp.MustCompile(`^\s*ipv6\s+(\S+)\s+secure\s+filter\s+(in|out)\s+(.+)$`)
 
+	currentSelect := ""
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
 
+		// `tunnel select N` / `pp select N` sets the context for the bare
+		// `ipv6 tunnel/pp secure filter` keyword that follows.
+		if m := selectContextPattern.FindStringSubmatch(line); m != nil {
+			currentSelect = m[1] + m[2]
+			continue
+		}
+
 		if matches := securePattern.FindStringSubmatch(line); len(matches) >= 4 {
-			iface := matches[1]
+			iface := resolveSecureFilterIface(matches[1], currentSelect)
 			direction := matches[2]
 			filterPart := matches[3]
 
