@@ -23,7 +23,6 @@ import (
 	"github.com/sh1/terraform-provider-rtx/internal/client"
 	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"github.com/sh1/terraform-provider-rtx/internal/provider/fwhelpers"
-	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -252,80 +251,31 @@ func (r *DHCPScopeResource) read(ctx context.Context, data *DHCPScopeModel, diag
 
 	logger.Debug().Str("resource", "rtx_dhcp_scope").Msgf("Reading DHCP scope: %d", scopeID)
 
-	var scope *client.DHCPScope
-	var err error
-
-	// Try to use SFTP cache if enabled
-	if r.client.SFTPEnabled() {
-		parsedConfig, cacheErr := r.client.GetCachedConfig(ctx)
-		if cacheErr == nil && parsedConfig != nil {
-			// Extract DHCP scopes from parsed config
-			scopes := parsedConfig.ExtractDHCPScopes()
-			for i := range scopes {
-				if scopes[i].ScopeID == scopeID {
-					scope = convertParsedDHCPScope(&scopes[i])
-					logger.Debug().Str("resource", "rtx_dhcp_scope").Msg("Found scope in SFTP cache")
-					break
-				}
-			}
-		}
-		if scope == nil {
-			// Scope not found in cache or cache error, fallback to SSH
-			logger.Debug().Str("resource", "rtx_dhcp_scope").Msg("Scope not in cache, falling back to SSH")
-		}
-	}
-
-	// Fallback to SSH if SFTP disabled or scope not found in cache
-	if scope == nil {
-		scope, err = r.client.GetDHCPScope(ctx, scopeID)
-		if err != nil {
-			// Check if scope doesn't exist
-			if strings.Contains(err.Error(), "not found") {
-				logger.Debug().Str("resource", "rtx_dhcp_scope").Msgf("DHCP scope %d not found, removing from state", scopeID)
-				data.ScopeID = types.Int64Null()
-				return
-			}
-			fwhelpers.AppendDiagError(diagnostics, "Failed to read DHCP scope", fmt.Sprintf("Could not read DHCP scope %d: %v", scopeID, err))
+	// DHCP scope options (dns_servers, routers, classless_static_routes) live in
+	// the device's RUNNING config. The SFTP path reads the SAVED config
+	// (config0), which can lag running — e.g. an option present in running but
+	// not yet persisted by `save`. Reading the saved config made post-apply
+	// read-back return pre-change options ("Provider produced inconsistent
+	// result after apply"). Always read via SSH `show config` (running) so state
+	// reflects what writes actually produced — matching rtx_static_route.
+	scope, err := r.client.GetDHCPScope(ctx, scopeID)
+	if err != nil {
+		// Check if scope doesn't exist
+		if strings.Contains(err.Error(), "not found") {
+			logger.Debug().Str("resource", "rtx_dhcp_scope").Msgf("DHCP scope %d not found, removing from state", scopeID)
+			data.ScopeID = types.Int64Null()
 			return
 		}
+		fwhelpers.AppendDiagError(diagnostics, "Failed to read DHCP scope", fmt.Sprintf("Could not read DHCP scope %d: %v", scopeID, err))
+		return
 	}
 
 	// Update data from the scope
 	data.FromClient(ctx, scope, diagnostics)
 }
 
-// convertParsedDHCPScope converts a parser DHCPScope to a client DHCPScope.
-func convertParsedDHCPScope(parsed *parsers.DHCPScope) *client.DHCPScope {
-	classlessRoutes := make([]client.ClasslessRoute, len(parsed.Options.ClasslessStaticRoutes))
-	for i, r := range parsed.Options.ClasslessStaticRoutes {
-		classlessRoutes[i] = client.ClasslessRoute{
-			Destination: r.Destination,
-			Gateway:     r.Gateway,
-		}
-	}
-
-	scope := &client.DHCPScope{
-		ScopeID:    parsed.ScopeID,
-		Network:    parsed.Network,
-		RangeStart: parsed.RangeStart,
-		RangeEnd:   parsed.RangeEnd,
-		LeaseTime:  parsed.LeaseTime,
-		Options: client.DHCPScopeOptions{
-			Routers:               parsed.Options.Routers,
-			DNSServers:            parsed.Options.DNSServers,
-			DomainName:            parsed.Options.DomainName,
-			ClasslessStaticRoutes: classlessRoutes,
-		},
-		ExcludeRanges: make([]client.ExcludeRange, len(parsed.ExcludeRanges)),
-	}
-	for i, r := range parsed.ExcludeRanges {
-		scope.ExcludeRanges[i] = client.ExcludeRange{
-			Start: r.Start,
-			End:   r.End,
-		}
-	}
-	return scope
-}
+// (SFTP-cache read path removed — DHCP scope state is read directly from the
+// running config via SSH; see read() above.)
 
 // Update updates the resource and sets the updated Terraform state on success.
 func (r *DHCPScopeResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
