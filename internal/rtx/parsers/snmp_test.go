@@ -188,6 +188,320 @@ snmp community read-write secure`,
 	}
 }
 
+func TestSNMPParser_ParseHostAccessControl(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		wantV1    []string
+		wantV2c   []string
+		wantHosts []string // trap-host addresses that must remain routed to Hosts
+	}{
+		{
+			name:    "snmp host any -> v1 access control",
+			input:   "snmp host any",
+			wantV1:  []string{"any"},
+			wantV2c: []string{},
+		},
+		{
+			name:    "snmp host none -> v1 access control",
+			input:   "snmp host none",
+			wantV1:  []string{"none"},
+			wantV2c: []string{},
+		},
+		{
+			name:    "snmp host IPv4 range -> v1 access control",
+			input:   "snmp host 192.168.1.1-192.168.1.10",
+			wantV1:  []string{"192.168.1.1-192.168.1.10"},
+			wantV2c: []string{},
+		},
+		{
+			name:    "snmp host lan1 interface token -> v1 access control",
+			input:   "snmp host lan1",
+			wantV1:  []string{"lan1"},
+			wantV2c: []string{},
+		},
+		{
+			name:    "snmp host bridge2 interface token -> v1 access control",
+			input:   "snmp host bridge2",
+			wantV1:  []string{"bridge2"},
+			wantV2c: []string{},
+		},
+		{
+			name:    "snmpv2c host any -> v2c access control",
+			input:   "snmpv2c host any",
+			wantV1:  []string{},
+			wantV2c: []string{"any"},
+		},
+		{
+			name:    "snmpv2c host with communities captures host only",
+			input:   "snmpv2c host 192.168.1.100 public private",
+			wantV1:  []string{},
+			wantV2c: []string{"192.168.1.100"},
+		},
+		{
+			name:    "snmpv2c host IPv4 range -> v2c access control",
+			input:   "snmpv2c host 192.168.1.1-192.168.1.10",
+			wantV1:  []string{},
+			wantV2c: []string{"192.168.1.1-192.168.1.10"},
+		},
+		{
+			name:      "pure IP snmp host stays a trap host (Hosts), not access control",
+			input:     "snmp host 192.168.1.100",
+			wantV1:    []string{},
+			wantV2c:   []string{},
+			wantHosts: []string{"192.168.1.100"},
+		},
+		{
+			name: "mixed: trap host IP + v1 any + v2c any",
+			input: `snmp host 192.168.1.100
+snmp host any
+snmpv2c host any`,
+			wantV1:    []string{"any"},
+			wantV2c:   []string{"any"},
+			wantHosts: []string{"192.168.1.100"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := NewSNMPParser()
+			got, err := p.ParseSNMPConfig(tt.input)
+			if err != nil {
+				t.Fatalf("ParseSNMPConfig() error = %v", err)
+			}
+
+			if !stringSlicesEqualTest(got.HostAccessV1, tt.wantV1) {
+				t.Errorf("HostAccessV1 = %v, want %v", got.HostAccessV1, tt.wantV1)
+			}
+			if !stringSlicesEqualTest(got.HostAccessV2c, tt.wantV2c) {
+				t.Errorf("HostAccessV2c = %v, want %v", got.HostAccessV2c, tt.wantV2c)
+			}
+
+			gotHosts := make([]string, len(got.Hosts))
+			for i, h := range got.Hosts {
+				gotHosts[i] = h.Address
+			}
+			if tt.wantHosts == nil {
+				tt.wantHosts = []string{}
+			}
+			if !stringSlicesEqualTest(gotHosts, tt.wantHosts) {
+				t.Errorf("Hosts addresses = %v, want %v", gotHosts, tt.wantHosts)
+			}
+		})
+	}
+}
+
+func TestBuildSNMPHostAccessCommand(t *testing.T) {
+	// Note: a bare IPv4 is intentionally absent — it is not a valid snmp_host
+	// (SNMPv1 access-control) value (the schema validator + ValidateSNMPConfig
+	// reject it). The IPv4 range form is valid because it carries a hyphen.
+	tests := []struct {
+		v    string
+		want string
+	}{
+		{"any", "snmp host any"},
+		{"none", "snmp host none"},
+		{"192.168.1.1-192.168.1.10", "snmp host 192.168.1.1-192.168.1.10"},
+		{"lan1", "snmp host lan1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.v, func(t *testing.T) {
+			if got := BuildSNMPHostAccessCommand(tt.v); got != tt.want {
+				t.Errorf("BuildSNMPHostAccessCommand(%q) = %q, want %q", tt.v, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBuildSNMPv2cHostCommand(t *testing.T) {
+	tests := []struct {
+		v    string
+		want string
+	}{
+		{"any", "snmpv2c host any"},
+		{"none", "snmpv2c host none"},
+		{"192.168.1.76", "snmpv2c host 192.168.1.76"},
+		{"bridge1", "snmpv2c host bridge1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.v, func(t *testing.T) {
+			if got := BuildSNMPv2cHostCommand(tt.v); got != tt.want {
+				t.Errorf("BuildSNMPv2cHostCommand(%q) = %q, want %q", tt.v, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBuildDeleteSNMPHostAccessCommands(t *testing.T) {
+	t.Run("delete v1 host access", func(t *testing.T) {
+		if got := BuildDeleteSNMPHostAccessCommand("any"); got != "no snmp host any" {
+			t.Errorf("BuildDeleteSNMPHostAccessCommand() = %q, want %q", got, "no snmp host any")
+		}
+	})
+	t.Run("delete v2c host access", func(t *testing.T) {
+		if got := BuildDeleteSNMPv2cHostCommand("any"); got != "no snmpv2c host any" {
+			t.Errorf("BuildDeleteSNMPv2cHostCommand() = %q, want %q", got, "no snmpv2c host any")
+		}
+	})
+}
+
+func TestValidateSNMPConfig_HostAccess(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  SNMPConfig
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name:    "valid v1 any",
+			config:  SNMPConfig{HostAccessV1: []string{"any"}},
+			wantErr: false,
+		},
+		{
+			name:    "valid v1 none + range + lan + bridge (no bare IP)",
+			config:  SNMPConfig{HostAccessV1: []string{"none", "192.168.1.1-192.168.1.10", "lan1", "bridge2"}},
+			wantErr: false,
+		},
+		{
+			name:    "bare IPv4 rejected for snmp_host (must use host block / snmpv2c_host)",
+			config:  SNMPConfig{HostAccessV1: []string{"192.168.1.76"}},
+			wantErr: true,
+			errMsg:  "invalid snmp_host value",
+		},
+		{
+			name:    "valid v2c any",
+			config:  SNMPConfig{HostAccessV2c: []string{"any"}},
+			wantErr: false,
+		},
+		{
+			name:    "valid v2c bare IPv4 accepted",
+			config:  SNMPConfig{HostAccessV2c: []string{"192.168.1.76"}},
+			wantErr: false,
+		},
+		{
+			name:    "valid v2c IPv4 range accepted",
+			config:  SNMPConfig{HostAccessV2c: []string{"192.168.1.1-192.168.1.10"}},
+			wantErr: false,
+		},
+		{
+			name:    "invalid v1 token",
+			config:  SNMPConfig{HostAccessV1: []string{"everyone"}},
+			wantErr: true,
+			errMsg:  "invalid snmp_host value",
+		},
+		{
+			name:    "invalid v2c token",
+			config:  SNMPConfig{HostAccessV2c: []string{"wan0"}},
+			wantErr: true,
+			errMsg:  "invalid snmpv2c_host value",
+		},
+		{
+			name:    "malformed IPv4 octet rejected by tightened regex (v2c)",
+			config:  SNMPConfig{HostAccessV2c: []string{"192.168.1.999"}},
+			wantErr: true,
+			errMsg:  "invalid snmpv2c_host value",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateSNMPConfig(tt.config)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateSNMPConfig() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantErr && err != nil && tt.errMsg != "" && !snmpContains(err.Error(), tt.errMsg) {
+				t.Errorf("ValidateSNMPConfig() error = %v, want error containing %q", err, tt.errMsg)
+			}
+		})
+	}
+}
+
+// TestSNMPParser_DewrapConsoleLine verifies that a long `snmp ...` line that the
+// RTX console wrapped at 80 columns (bare CRLF, no continuation marker) is
+// reassembled before pattern matching, so the field does not silently vanish on
+// read-back (would otherwise produce "Provider produced inconsistent result
+// after apply"). Mirrors the de-wrap coverage in dns/dhcp_scope.
+func TestSNMPParser_DewrapConsoleLine(t *testing.T) {
+	p := NewSNMPParser()
+
+	t.Run("wrapped trap enable line parses as one logical line", func(t *testing.T) {
+		// A `snmp trap enable snmp ...` line, wrapped by the RTX console with a
+		// bare CRLF mid-token ("authenticat" + "ion") and no continuation marker.
+		// dewrapConsoleLines must rejoin the continuation onto the logical line.
+		const head = "snmp trap enable snmp coldstart warmstart linkdown linkup authenticat"
+		const tail = "ion enterprise"
+		raw := head + "\r\n" + tail
+
+		config, err := p.ParseSNMPConfig(raw)
+		if err != nil {
+			t.Fatalf("ParseSNMPConfig error: %v", err)
+		}
+
+		want := []string{"coldstart", "warmstart", "linkdown", "linkup", "authentication", "enterprise"}
+		if !stringSlicesEqualTest(config.TrapEnable, want) {
+			t.Errorf("TrapEnable = %v, want %v (wrapped continuation was dropped?)", config.TrapEnable, want)
+		}
+	})
+
+	t.Run("wrapped community read-only line parses as one logical line", func(t *testing.T) {
+		// `snmp community read-only <name> <acl>` wrapped mid the community name.
+		const head = "snmp community read-only verylongcommunitystringnamethatwraps"
+		const tail = "atconsolewidth 100"
+		raw := head + "\r\n" + tail
+
+		config, err := p.ParseSNMPConfig(raw)
+		if err != nil {
+			t.Fatalf("ParseSNMPConfig error: %v", err)
+		}
+		if len(config.Communities) != 1 {
+			t.Fatalf("Communities count = %d, want 1 (wrapped continuation dropped?)", len(config.Communities))
+		}
+		if config.Communities[0].Name != "verylongcommunitystringnamethatwrapsatconsolewidth" {
+			t.Errorf("Community Name = %q, want reassembled name", config.Communities[0].Name)
+		}
+		if config.Communities[0].ACL != "100" {
+			t.Errorf("Community ACL = %q, want 100", config.Communities[0].ACL)
+		}
+	})
+}
+
+// TestSNMPParser_HostAccessBuildParseRoundTrip verifies that a valid SNMPv1
+// snmp_host value ("any") and a valid SNMPv2c snmpv2c_host value (bare IPv4)
+// survive Build -> Parse unchanged, each into its own access-control list and
+// NOT into the trap Hosts block.
+func TestSNMPParser_HostAccessBuildParseRoundTrip(t *testing.T) {
+	p := NewSNMPParser()
+
+	raw := BuildSNMPHostAccessCommand("any") + "\n" + BuildSNMPv2cHostCommand("192.168.1.76")
+	config, err := p.ParseSNMPConfig(raw)
+	if err != nil {
+		t.Fatalf("ParseSNMPConfig error: %v", err)
+	}
+
+	if !stringSlicesEqualTest(config.HostAccessV1, []string{"any"}) {
+		t.Errorf("HostAccessV1 = %v, want [any]", config.HostAccessV1)
+	}
+	if !stringSlicesEqualTest(config.HostAccessV2c, []string{"192.168.1.76"}) {
+		t.Errorf("HostAccessV2c = %v, want [192.168.1.76]", config.HostAccessV2c)
+	}
+	if len(config.Hosts) != 0 {
+		t.Errorf("Hosts = %v, want empty (access-control values must not land in trap Hosts)", config.Hosts)
+	}
+}
+
+// stringSlicesEqualTest is a local test helper comparing two string slices.
+func stringSlicesEqualTest(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func TestBuildSNMPSysNameCommand(t *testing.T) {
 	tests := []struct {
 		name string

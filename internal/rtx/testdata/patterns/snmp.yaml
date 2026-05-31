@@ -7,6 +7,47 @@ chapter: 21
 parser: snmp.go
 
 commands:
+  # 21.x SNMPv1 host access control
+  - name: snmp host
+    syntax: "snmp host <host>"
+    no_form: "no snmp host [<host>]"
+    chapter: 21
+    section: "21.x"
+    parser: snmp.go
+    description: >
+      Configure hosts allowed to access via SNMPv1. NOTE: a pure IPv4 address
+      passed to `snmp host` is parsed as a trap-receiver host (Hosts), since the
+      two command forms are identical on the wire; only non-IP tokens
+      (any/none/range/lanN/bridgeN) are parsed as SNMPv1 access-control
+      (HostAccessV1). The provider's snmp_host attribute therefore forbids a bare
+      IPv4 (use the host block for SNMPv1 trap receivers, or snmpv2c_host).
+    parameters:
+      - name: host
+        type: string
+        required: true
+        values: [any, none]
+        description: >
+          Host specification: 'any' for all hosts, 'none' to deny all,
+          an IPv4 range with hyphen (e.g., 192.168.1.1-192.168.1.10),
+          a LAN interface name (lanN), or a bridge interface name (bridgeN)
+    examples:
+      - input: "snmp host any"
+        expected:
+          host: "any"
+        description: Allow SNMPv1 access from any host
+      - input: "snmp host none"
+        expected:
+          host: "none"
+        description: Deny SNMPv1 access from all hosts
+      - input: "snmp host 192.168.1.1-192.168.1.10"
+        expected:
+          host: "192.168.1.1-192.168.1.10"
+        description: Allow SNMPv1 access from IP range
+      - input: "snmp host lan1"
+        expected:
+          host: "lan1"
+        description: Allow SNMPv1 access from LAN1 interface
+
   # 21.6 SNMPv2c host access control
   - name: snmpv2c host
     syntax: "snmpv2c host <host> [<ro_community> [<rw_community>]]"

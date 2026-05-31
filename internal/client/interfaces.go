@@ -1543,12 +1543,14 @@ type SyslogHost struct {
 
 // SNMPConfig represents SNMP configuration on an RTX router
 type SNMPConfig struct {
-	SysName     string          `json:"sysname,omitempty"`     // System name
-	SysLocation string          `json:"syslocation,omitempty"` // System location
-	SysContact  string          `json:"syscontact,omitempty"`  // System contact
-	Communities []SNMPCommunity `json:"communities,omitempty"` // SNMP communities
-	Hosts       []SNMPHost      `json:"hosts,omitempty"`       // SNMP trap hosts
-	TrapEnable  []string        `json:"trap_enable,omitempty"` // Enabled trap types
+	SysName       string          `json:"sysname,omitempty"`         // System name
+	SysLocation   string          `json:"syslocation,omitempty"`     // System location
+	SysContact    string          `json:"syscontact,omitempty"`      // System contact
+	Communities   []SNMPCommunity `json:"communities,omitempty"`     // SNMP communities
+	Hosts         []SNMPHost      `json:"hosts,omitempty"`           // SNMP trap hosts
+	TrapEnable    []string        `json:"trap_enable,omitempty"`     // Enabled trap types
+	HostAccessV1  []string        `json:"host_access_v1,omitempty"`  // SNMPv1 host access-control tokens (any|none|IP|range|lanN|bridgeN)
+	HostAccessV2c []string        `json:"host_access_v2c,omitempty"` // SNMPv2c host access-control tokens
 }
 
 // SNMPCommunity represents an SNMP community configuration

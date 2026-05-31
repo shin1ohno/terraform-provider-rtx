@@ -8,7 +8,6 @@ import (
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
 	"github.com/sh1/terraform-provider-rtx/internal/provider/fwhelpers"
-	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 // SNMPServerModel describes the resource data model.
@@ -20,6 +19,8 @@ type SNMPServerModel struct {
 	Communities types.List   `tfsdk:"community"`
 	Hosts       types.List   `tfsdk:"host"`
 	EnableTraps types.List   `tfsdk:"enable_traps"`
+	SNMPHost    types.List   `tfsdk:"snmp_host"`
+	SNMPv2cHost types.List   `tfsdk:"snmpv2c_host"`
 }
 
 // CommunityModel describes a single SNMP community.
@@ -57,12 +58,14 @@ func HostAttrTypes() map[string]attr.Type {
 // ToClient converts the Terraform model to a client.SNMPConfig.
 func (m *SNMPServerModel) ToClient() client.SNMPConfig {
 	config := client.SNMPConfig{
-		SysLocation: fwhelpers.GetStringValue(m.Location),
-		SysContact:  fwhelpers.GetStringValue(m.Contact),
-		SysName:     fwhelpers.GetStringValue(m.ChassisID),
-		Communities: []client.SNMPCommunity{},
-		Hosts:       []client.SNMPHost{},
-		TrapEnable:  []string{},
+		SysLocation:   fwhelpers.GetStringValue(m.Location),
+		SysContact:    fwhelpers.GetStringValue(m.Contact),
+		SysName:       fwhelpers.GetStringValue(m.ChassisID),
+		Communities:   []client.SNMPCommunity{},
+		Hosts:         []client.SNMPHost{},
+		TrapEnable:    []string{},
+		HostAccessV1:  []string{},
+		HostAccessV2c: []string{},
 	}
 
 	// Convert communities
@@ -97,6 +100,24 @@ func (m *SNMPServerModel) ToClient() client.SNMPConfig {
 		m.EnableTraps.ElementsAs(context.TODO(), &traps, false)
 		for _, t := range traps {
 			config.TrapEnable = append(config.TrapEnable, fwhelpers.GetStringValue(t))
+		}
+	}
+
+	// Convert snmp_host (SNMPv1 access-control)
+	if !m.SNMPHost.IsNull() && !m.SNMPHost.IsUnknown() {
+		var hosts []types.String
+		m.SNMPHost.ElementsAs(context.TODO(), &hosts, false)
+		for _, h := range hosts {
+			config.HostAccessV1 = append(config.HostAccessV1, fwhelpers.GetStringValue(h))
+		}
+	}
+
+	// Convert snmpv2c_host (SNMPv2c access-control)
+	if !m.SNMPv2cHost.IsNull() && !m.SNMPv2cHost.IsUnknown() {
+		var hosts []types.String
+		m.SNMPv2cHost.ElementsAs(context.TODO(), &hosts, false)
+		for _, h := range hosts {
+			config.HostAccessV2c = append(config.HostAccessV2c, fwhelpers.GetStringValue(h))
 		}
 	}
 
@@ -163,36 +184,30 @@ func (m *SNMPServerModel) FromClient(config *client.SNMPConfig) {
 	} else {
 		m.EnableTraps = types.ListValueMust(types.StringType, []attr.Value{})
 	}
+
+	// Convert snmp_host (SNMPv1 access-control). Same null-preservation invariant.
+	m.SNMPHost = stringListWithNullPreservation(config.HostAccessV1, m.SNMPHost)
+
+	// Convert snmpv2c_host (SNMPv2c access-control). Same null-preservation invariant.
+	m.SNMPv2cHost = stringListWithNullPreservation(config.HostAccessV2c, m.SNMPv2cHost)
 }
 
-// convertParsedSNMPConfig converts a parser SNMPConfig to a client SNMPConfig.
-func convertParsedSNMPConfig(parsed *parsers.SNMPConfig) *client.SNMPConfig {
-	config := &client.SNMPConfig{
-		SysName:     parsed.SysName,
-		SysLocation: parsed.SysLocation,
-		SysContact:  parsed.SysContact,
-		TrapEnable:  parsed.TrapEnable,
-	}
-
-	// Convert Communities
-	config.Communities = make([]client.SNMPCommunity, len(parsed.Communities))
-	for i, c := range parsed.Communities {
-		config.Communities[i] = client.SNMPCommunity{
-			Name:       c.Name,
-			Permission: c.Permission,
-			ACL:        c.ACL,
+// stringListWithNullPreservation materializes a string list from values while
+// preserving the prior null-vs-empty distinction (mirrors the inline branches
+// used for Communities/Hosts/EnableTraps): a populated config wins; an empty
+// config keeps the prior state null if it was null, otherwise becomes an empty
+// list. This guards against the framework's "was null, but now
+// cty.ListValEmpty(cty.String)" inconsistent-result error on apply.
+func stringListWithNullPreservation(values []string, prior types.List) types.List {
+	if len(values) > 0 {
+		elems := make([]attr.Value, len(values))
+		for i, v := range values {
+			elems[i] = types.StringValue(v)
 		}
+		return types.ListValueMust(types.StringType, elems)
 	}
-
-	// Convert Hosts
-	config.Hosts = make([]client.SNMPHost, len(parsed.Hosts))
-	for i, h := range parsed.Hosts {
-		config.Hosts[i] = client.SNMPHost{
-			Address:   h.Address,
-			Community: h.Community,
-			Version:   h.Version,
-		}
+	if prior.IsNull() {
+		return types.ListNull(types.StringType)
 	}
-
-	return config
+	return types.ListValueMust(types.StringType, []attr.Value{})
 }
