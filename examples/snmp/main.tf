@@ -51,6 +51,19 @@ resource "rtx_snmp_server" "main" {
 
   # Enable specific trap types
   enable_traps = ["coldstart", "warmstart", "linkdown", "linkup", "authentication"]
+
+  # SNMPv1 host access-control. These lines gate whether the RTX SNMP daemon
+  # answers SNMPv1 queries at all. Without them a reboot can leave the daemon
+  # refusing every query (connection refused / ICMP port-unreachable).
+  # Allowed values: "any", "none", an IPv4 range
+  # ("192.168.1.1-192.168.1.10"), or an interface token ("lanN" / "bridgeN").
+  # A bare IPv4 is NOT allowed here — `snmp host <ip>` is the trap-receiver
+  # form; use the `host` block or snmpv2c_host for an IP-specific allowance.
+  snmp_host = ["any"]
+
+  # SNMPv2c host access-control (renders `snmpv2c host <v>`). A bare IPv4 is
+  # valid here because `snmpv2c host <ip>` has no competing trap parse.
+  snmpv2c_host = ["192.168.1.76"]
 }
 
 variable "rtx_host" {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -15,6 +16,7 @@ import (
 	"github.com/sh1/terraform-provider-rtx/internal/client"
 	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"github.com/sh1/terraform-provider-rtx/internal/provider/fwhelpers"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -63,6 +65,32 @@ func (r *SNMPServerResource) Schema(ctx context.Context, req resource.SchemaRequ
 				Description: "List of trap types to enable. Valid values: all, authentication, coldstart, warmstart, linkdown, linkup, enterprise",
 				Optional:    true,
 				ElementType: types.StringType,
+			},
+			"snmp_host": schema.ListAttribute{
+				Description: "SNMPv1 host access-control list (renders one `snmp host <v>` line per element). These lines gate whether the RTX SNMP daemon answers SNMPv1 queries. Each element must be 'any', 'none', an IPv4 range (e.g. '192.168.1.1-192.168.1.10'), or an interface token ('lanN' / 'bridgeN'). A bare IPv4 is NOT allowed here — `snmp host <ip>` is the trap-receiver form (use the `host` block, or `snmpv2c_host` for SNMPv2c).",
+				Optional:    true,
+				ElementType: types.StringType,
+				Validators: []validator.List{
+					listvalidator.ValueStringsAre(
+						stringvalidator.RegexMatches(
+							parsers.SNMPHostAccessV1Pattern,
+							"must be 'any', 'none', an IPv4 range 'A-B', or an interface token (lanN / bridgeN); a bare IPv4 is not allowed (use the host block or snmpv2c_host)",
+						),
+					),
+				},
+			},
+			"snmpv2c_host": schema.ListAttribute{
+				Description: "SNMPv2c host access-control list (renders one `snmpv2c host <v>` line per element). These lines gate whether the RTX SNMP daemon answers SNMPv2c queries. Each element must be 'any', 'none', an IPv4 address (e.g. '192.168.1.76'), an IPv4 range (e.g. '192.168.1.1-192.168.1.10'), or an interface token ('lanN' / 'bridgeN').",
+				Optional:    true,
+				ElementType: types.StringType,
+				Validators: []validator.List{
+					listvalidator.ValueStringsAre(
+						stringvalidator.RegexMatches(
+							parsers.SNMPHostAccessV2cPattern,
+							"must be 'any', 'none', an IPv4 address, an IPv4 range 'A-B', or an interface token (lanN / bridgeN)",
+						),
+					),
+				},
 			},
 		},
 		Blocks: map[string]schema.Block{
@@ -192,31 +220,14 @@ func (r *SNMPServerResource) read(ctx context.Context, data *SNMPServerModel, di
 
 	logger.Debug().Str("resource", "rtx_snmp_server").Msg("Reading SNMP configuration")
 
-	var config *client.SNMPConfig
-
-	// Try to use SFTP cache if enabled
-	if r.client.SFTPEnabled() {
-		parsedConfig, err := r.client.GetCachedConfig(ctx)
-		if err == nil && parsedConfig != nil {
-			parsed := parsedConfig.ExtractSNMPServer()
-			if parsed != nil {
-				config = convertParsedSNMPConfig(parsed)
-				logger.Debug().Str("resource", "rtx_snmp_server").Msg("Found SNMP config in SFTP cache")
-			}
-		}
-		if config == nil {
-			logger.Debug().Str("resource", "rtx_snmp_server").Msg("SNMP config not in cache, falling back to SSH")
-		}
-	}
-
-	// Fallback to SSH if SFTP disabled or config not found in cache
-	if config == nil {
-		var err error
-		config, err = r.client.GetSNMP(ctx)
-		if err != nil {
-			fwhelpers.AppendDiagError(diagnostics, "Failed to read SNMP configuration", fmt.Sprintf("Could not read SNMP configuration: %v", err))
-			return
-		}
+	// SNMP config is written to the device's RUNNING config; the SFTP path reads
+	// the SAVED config (config0), which can lag running and made post-apply
+	// read-back return stale values ("Provider produced inconsistent result
+	// after apply"). Always read via SSH (running) — matching rtx_dns_server.
+	config, err := r.client.GetSNMP(ctx)
+	if err != nil {
+		fwhelpers.AppendDiagError(diagnostics, "Failed to read SNMP configuration", fmt.Sprintf("Could not read SNMP configuration: %v", err))
+		return
 	}
 
 	data.FromClient(config)
@@ -241,6 +252,8 @@ func (r *SNMPServerResource) Update(ctx context.Context, req resource.UpdateRequ
 	plannedCommunities := data.Communities
 	plannedHosts := data.Hosts
 	plannedEnableTraps := data.EnableTraps
+	plannedSNMPHost := data.SNMPHost
+	plannedSNMPv2cHost := data.SNMPv2cHost
 
 	config := data.ToClient()
 	logger.Debug().Str("resource", "rtx_snmp_server").Msgf("Updating SNMP configuration: %+v", config)
@@ -266,6 +279,12 @@ func (r *SNMPServerResource) Update(ctx context.Context, req resource.UpdateRequ
 	}
 	if !plannedEnableTraps.IsUnknown() {
 		data.EnableTraps = plannedEnableTraps
+	}
+	if !plannedSNMPHost.IsUnknown() {
+		data.SNMPHost = plannedSNMPHost
+	}
+	if !plannedSNMPv2cHost.IsUnknown() {
+		data.SNMPv2cHost = plannedSNMPv2cHost
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

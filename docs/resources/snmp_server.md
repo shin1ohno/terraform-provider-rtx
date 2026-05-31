@@ -23,6 +23,8 @@ Manages SNMP configuration on RTX routers. This is a singleton resource - there 
 - `enable_traps` (List of String) List of trap types to enable. Valid values: all, authentication, coldstart, warmstart, linkdown, linkup, enterprise
 - `host` (Block List) SNMP trap host configuration (see [below for nested schema](#nestedblock--host))
 - `location` (String) System location (SNMP sysLocation). Describes the physical location of the device.
+- `snmp_host` (List of String) SNMPv1 host access-control list (renders one `snmp host <v>` line per element). These lines gate whether the RTX SNMP daemon answers SNMPv1 queries. Each element must be 'any', 'none', an IPv4 range (e.g. '192.168.1.1-192.168.1.10'), or an interface token ('lanN' / 'bridgeN'). A bare IPv4 is NOT allowed here — `snmp host <ip>` is the trap-receiver form (use the `host` block, or `snmpv2c_host` for SNMPv2c).
+- `snmpv2c_host` (List of String) SNMPv2c host access-control list (renders one `snmpv2c host <v>` line per element). These lines gate whether the RTX SNMP daemon answers SNMPv2c queries. Each element must be 'any', 'none', an IPv4 address (e.g. '192.168.1.76'), an IPv4 range (e.g. '192.168.1.1-192.168.1.10'), or an interface token ('lanN' / 'bridgeN').
 
 ### Read-Only
 

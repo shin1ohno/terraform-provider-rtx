@@ -65,6 +65,10 @@ func (s *SNMPService) Get(ctx context.Context) (*SNMPConfig, error) {
 
 	copy(config.TrapEnable, parsed.TrapEnable)
 
+	// Copy host access-control tokens (SNMPv1 / SNMPv2c).
+	config.HostAccessV1 = append([]string{}, parsed.HostAccessV1...)
+	config.HostAccessV2c = append([]string{}, parsed.HostAccessV2c...)
+
 	return config, nil
 }
 
@@ -125,7 +129,17 @@ func (s *SNMPService) Create(ctx context.Context, config SNMPConfig) error {
 		commands = append(commands, parsers.BuildSNMPHostCommand(parserHost))
 	}
 
-	// 5. Configure trap enable
+	// 5. Configure SNMPv1 host access-control entries
+	for _, v := range config.HostAccessV1 {
+		commands = append(commands, parsers.BuildSNMPHostAccessCommand(v))
+	}
+
+	// 6. Configure SNMPv2c host access-control entries
+	for _, v := range config.HostAccessV2c {
+		commands = append(commands, parsers.BuildSNMPv2cHostCommand(v))
+	}
+
+	// 7. Configure trap enable
 	if len(config.TrapEnable) > 0 {
 		commands = append(commands, parsers.BuildSNMPTrapEnableCommand(config.TrapEnable))
 	}
@@ -290,6 +304,30 @@ func (s *SNMPService) Update(ctx context.Context, config SNMPConfig) error {
 		}
 	}
 
+	// Diff SNMPv1 host access-control entries
+	for _, oldV := range current.HostAccessV1 {
+		if !stringSliceContains(config.HostAccessV1, oldV) {
+			commands = append(commands, parsers.BuildDeleteSNMPHostAccessCommand(oldV))
+		}
+	}
+	for _, newV := range config.HostAccessV1 {
+		if !stringSliceContains(current.HostAccessV1, newV) {
+			commands = append(commands, parsers.BuildSNMPHostAccessCommand(newV))
+		}
+	}
+
+	// Diff SNMPv2c host access-control entries
+	for _, oldV := range current.HostAccessV2c {
+		if !stringSliceContains(config.HostAccessV2c, oldV) {
+			commands = append(commands, parsers.BuildDeleteSNMPv2cHostCommand(oldV))
+		}
+	}
+	for _, newV := range config.HostAccessV2c {
+		if !stringSliceContains(current.HostAccessV2c, newV) {
+			commands = append(commands, parsers.BuildSNMPv2cHostCommand(newV))
+		}
+	}
+
 	// Update trap enable settings
 	if !stringSlicesEqual(config.TrapEnable, current.TrapEnable) {
 		if len(current.TrapEnable) > 0 {
@@ -419,6 +457,9 @@ func (s *SNMPService) toParserConfig(config SNMPConfig) parsers.SNMPConfig {
 
 	copy(parserConfig.TrapEnable, config.TrapEnable)
 
+	parserConfig.HostAccessV1 = append([]string{}, config.HostAccessV1...)
+	parserConfig.HostAccessV2c = append([]string{}, config.HostAccessV2c...)
+
 	return parserConfig
 }
 
@@ -433,4 +474,14 @@ func stringSlicesEqual(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+// stringSliceContains reports whether s is present in slice.
+func stringSliceContains(slice []string, s string) bool {
+	for _, v := range slice {
+		if v == s {
+			return true
+		}
+	}
+	return false
 }

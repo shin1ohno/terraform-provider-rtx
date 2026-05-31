@@ -298,6 +298,98 @@ func TestSNMPRoundTrip_Build(t *testing.T) {
 	}
 }
 
+// TestSNMPRoundTrip_HostAccessControl tests write -> parse for the SNMPv1
+// (`snmp host <v>`) and SNMPv2c (`snmpv2c host <v>`) access-control lines.
+func TestSNMPRoundTrip_HostAccessControl(t *testing.T) {
+	parser := NewSNMPParser()
+
+	t.Run("snmp_host_any", func(t *testing.T) {
+		built := BuildSNMPHostAccessCommand("any")
+		if built != "snmp host any" {
+			t.Fatalf("build = %q, want %q", built, "snmp host any")
+		}
+		config, err := parser.ParseSNMPConfig(built)
+		if err != nil {
+			t.Fatalf("ParseSNMPConfig error: %v", err)
+		}
+		if len(config.HostAccessV1) != 1 || config.HostAccessV1[0] != "any" {
+			t.Errorf("HostAccessV1 = %v, want [any]", config.HostAccessV1)
+		}
+		if len(config.Hosts) != 0 {
+			t.Errorf("Hosts = %v, want empty (access control must not become a trap host)", config.Hosts)
+		}
+	})
+
+	t.Run("snmpv2c_host_any", func(t *testing.T) {
+		built := BuildSNMPv2cHostCommand("any")
+		if built != "snmpv2c host any" {
+			t.Fatalf("build = %q, want %q", built, "snmpv2c host any")
+		}
+		config, err := parser.ParseSNMPConfig(built)
+		if err != nil {
+			t.Fatalf("ParseSNMPConfig error: %v", err)
+		}
+		if len(config.HostAccessV2c) != 1 || config.HostAccessV2c[0] != "any" {
+			t.Errorf("HostAccessV2c = %v, want [any]", config.HostAccessV2c)
+		}
+	})
+
+	t.Run("snmp_host_ipv4_range", func(t *testing.T) {
+		built := BuildSNMPHostAccessCommand("192.168.1.1-192.168.1.10")
+		config, err := parser.ParseSNMPConfig(built)
+		if err != nil {
+			t.Fatalf("ParseSNMPConfig error: %v", err)
+		}
+		if len(config.HostAccessV1) != 1 || config.HostAccessV1[0] != "192.168.1.1-192.168.1.10" {
+			t.Errorf("HostAccessV1 = %v, want [192.168.1.1-192.168.1.10]", config.HostAccessV1)
+		}
+	})
+
+	t.Run("snmpv2c_host_interface_token", func(t *testing.T) {
+		built := BuildSNMPv2cHostCommand("lan1")
+		config, err := parser.ParseSNMPConfig(built)
+		if err != nil {
+			t.Fatalf("ParseSNMPConfig error: %v", err)
+		}
+		if len(config.HostAccessV2c) != 1 || config.HostAccessV2c[0] != "lan1" {
+			t.Errorf("HostAccessV2c = %v, want [lan1]", config.HostAccessV2c)
+		}
+	})
+
+	// A raw `snmp host <bare-ip>` config line (as it appears in `show config`)
+	// must parse into the trap Hosts block, NOT SNMPv1 access-control. This is
+	// the defect that motivated forbidding a bare IPv4 in snmp_host: the two
+	// command forms are identical on the wire and cannot be disambiguated on
+	// read-back. Parses the raw line directly (not via a builder).
+	t.Run("raw_snmp_host_bare_ip_routes_to_trap_hosts", func(t *testing.T) {
+		config, err := parser.ParseSNMPConfig("snmp host 192.168.1.76")
+		if err != nil {
+			t.Fatalf("ParseSNMPConfig error: %v", err)
+		}
+		if len(config.Hosts) != 1 || config.Hosts[0].Address != "192.168.1.76" {
+			t.Errorf("Hosts = %v, want one trap host 192.168.1.76", config.Hosts)
+		}
+		if len(config.HostAccessV1) != 0 {
+			t.Errorf("HostAccessV1 = %v, want empty (bare IP must route to trap Hosts, not v1 access)", config.HostAccessV1)
+		}
+	})
+
+	// A raw `snmp host any` config line must parse into SNMPv1 access-control,
+	// NOT the trap Hosts block.
+	t.Run("raw_snmp_host_any_routes_to_v1_access", func(t *testing.T) {
+		config, err := parser.ParseSNMPConfig("snmp host any")
+		if err != nil {
+			t.Fatalf("ParseSNMPConfig error: %v", err)
+		}
+		if len(config.HostAccessV1) != 1 || config.HostAccessV1[0] != "any" {
+			t.Errorf("HostAccessV1 = %v, want [any]", config.HostAccessV1)
+		}
+		if len(config.Hosts) != 0 {
+			t.Errorf("Hosts = %v, want empty (access-control token must not become a trap host)", config.Hosts)
+		}
+	})
+}
+
 // TestSNMPRoundTrip_ParseBuildParse tests full round-trip
 func TestSNMPRoundTrip_ParseBuildParse(t *testing.T) {
 	parser := NewSNMPParser()
