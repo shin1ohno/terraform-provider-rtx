@@ -180,7 +180,16 @@ func (r *NATMasqueradeResource) Create(ctx context.Context, req resource.CreateR
 	// Set the ID
 	data.ID = types.StringValue(descriptorID)
 
-	r.read(ctx, &data, &resp.Diagnostics)
+	// Invalidate the SFTP config cache so the read-back below fetches the
+	// freshly-written config. Without this the cache returns the pre-write
+	// snapshot and the just-added static_entry is missing, producing
+	// "Provider produced inconsistent result after apply:
+	// .static_entry: block count changed". Mirrors static_route.
+	r.client.InvalidateCache()
+
+	// skipCache=true: read the running config via SSH so the read-back does not
+	// race the asynchronous `save`-to-flash (see read()).
+	r.read(ctx, &data, &resp.Diagnostics, true)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -197,7 +206,11 @@ func (r *NATMasqueradeResource) Read(ctx context.Context, req resource.ReadReque
 		return
 	}
 
-	r.read(ctx, &data, &resp.Diagnostics)
+	// skipCache=true: read the live running config via SSH. The SFTP-downloaded
+	// /system/config0 lags the running config (the RTX flushes `save` to flash
+	// asynchronously), which otherwise makes every plan show a perpetual
+	// static_entry diff even when the running config already matches.
+	r.read(ctx, &data, &resp.Diagnostics, true)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -212,7 +225,15 @@ func (r *NATMasqueradeResource) Read(ctx context.Context, req resource.ReadReque
 }
 
 // read is a helper function that reads the NAT masquerade from the router.
-func (r *NATMasqueradeResource) read(ctx context.Context, data *NATMasqueradeModel, diagnostics *diag.Diagnostics) {
+// skipCache forces the SSH "show config" path (the live running config) instead
+// of the SFTP-downloaded saved config. Post-write read-backs MUST set
+// skipCache=true: the SFTP path downloads /system/config0, which lags the just-
+// issued `save` (the RTX flushes to flash asynchronously, ~>300ms), so an
+// immediate read-back races the save and parses the pre-write entry set ->
+// "Provider produced inconsistent result after apply: .static_entry: block
+// count changed from 6 to 5". SSH reads the running config, which reflects the
+// write immediately. Plan-time refresh keeps skipCache=false for cache speed.
+func (r *NATMasqueradeResource) read(ctx context.Context, data *NATMasqueradeModel, diagnostics *diag.Diagnostics, skipCache bool) {
 	descriptorID := fwhelpers.GetInt64Value(data.DescriptorID)
 	if descriptorID == 0 {
 		// Try to parse from ID
@@ -233,8 +254,8 @@ func (r *NATMasqueradeResource) read(ctx context.Context, data *NATMasqueradeMod
 	var nat *client.NATMasquerade
 	var err error
 
-	// Try to use SFTP cache if enabled
-	if r.client.SFTPEnabled() {
+	// Try to use SFTP cache if enabled (skipped after writes — see skipCache doc)
+	if !skipCache && r.client.SFTPEnabled() {
 		parsedConfig, cacheErr := r.client.GetCachedConfig(ctx)
 		if cacheErr == nil && parsedConfig != nil {
 			// Extract NAT masquerade from parsed config
@@ -320,7 +341,14 @@ func (r *NATMasqueradeResource) Update(ctx context.Context, req resource.UpdateR
 		return
 	}
 
-	r.read(ctx, &data, &resp.Diagnostics)
+	// Invalidate the SFTP config cache so the read-back below sees the
+	// just-written static entries (see Create for the failure mode this
+	// prevents). Mirrors static_route.
+	r.client.InvalidateCache()
+
+	// skipCache=true: read the running config via SSH so the read-back does not
+	// race the asynchronous `save`-to-flash (see read()).
+	r.read(ctx, &data, &resp.Diagnostics, true)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -353,6 +381,10 @@ func (r *NATMasqueradeResource) Delete(ctx context.Context, req resource.DeleteR
 		)
 		return
 	}
+
+	// Invalidate the SFTP config cache so a subsequent read of any resource
+	// in the same apply does not see the just-deleted descriptor.
+	r.client.InvalidateCache()
 }
 
 // ImportState imports an existing resource into Terraform.
