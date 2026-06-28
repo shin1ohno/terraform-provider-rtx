@@ -28,6 +28,27 @@ type MasqueradeStaticEntry struct {
 
 // ParseNATMasqueradeConfig parses the output of "show config" command
 // for NAT descriptor masquerade lines
+// rtxServicePorts maps RTX well-known service keywords to port numbers. RTX renders
+// well-known ports as keywords in "show config" (e.g. 80 -> www, 443 -> https), so the
+// parser must resolve them back to numbers for the int-typed static port fields.
+var rtxServicePorts = map[string]int{
+	"ftp": 21, "ssh": 22, "telnet": 23, "smtp": 25, "domain": 53, "dns": 53,
+	"tftp": 69, "www": 80, "http": 80, "pop3": 110, "ident": 113, "nntp": 119,
+	"ntp": 123, "imap": 143, "snmp": 161, "https": 443, "smtps": 465, "syslog": 514,
+	"submission": 587, "imaps": 993, "pop3s": 995,
+}
+
+// resolvePort parses a port that may be a number or an RTX service keyword.
+func resolvePort(s string) (int, bool) {
+	if n, err := strconv.Atoi(s); err == nil {
+		return n, true
+	}
+	if p, ok := rtxServicePorts[strings.ToLower(s)]; ok {
+		return p, true
+	}
+	return 0, false
+}
+
 func ParseNATMasqueradeConfig(raw string) ([]NATMasquerade, error) {
 	descriptors := make(map[int]*NATMasquerade)
 	lines := strings.Split(raw, "\n")
@@ -43,10 +64,10 @@ func ParseNATMasqueradeConfig(raw string) ([]NATMasquerade, error) {
 	staticPattern := regexp.MustCompile(`^\s*nat\s+descriptor\s+masquerade\s+static\s+(\d+)\s+(\d+)\s+([^:]+):(\d+)=([^:]+):(\d+)(?:\s+(\S+))?\s*$`)
 	// Alternate static pattern: nat descriptor masquerade static <id> <entry> <inner_ip> <protocol> <port>
 	// Format: nat descriptor masquerade static 1 1 192.168.1.100 tcp 80
-	staticAltPattern := regexp.MustCompile(`^\s*nat\s+descriptor\s+masquerade\s+static\s+(\d+)\s+(\d+)\s+(\d+\.\d+\.\d+\.\d+)\s+(tcp|udp)\s+(\d+)\s*$`)
+	staticAltPattern := regexp.MustCompile(`^\s*nat\s+descriptor\s+masquerade\s+static\s+(\d+)\s+(\d+)\s+(\d+\.\d+\.\d+\.\d+)\s+(tcp|udp)\s+([^\s=]+)\s*$`)
 	// Alternate static pattern with port mapping: nat descriptor masquerade static <id> <entry> <inner_ip> <protocol> <outer_port>=<inner_port>
 	// Format: nat descriptor masquerade static 1 2 192.168.1.100 tcp 8080=80
-	staticAltPortPattern := regexp.MustCompile(`^\s*nat\s+descriptor\s+masquerade\s+static\s+(\d+)\s+(\d+)\s+(\d+\.\d+\.\d+\.\d+)\s+(tcp|udp)\s+(\d+)=(\d+)\s*$`)
+	staticAltPortPattern := regexp.MustCompile(`^\s*nat\s+descriptor\s+masquerade\s+static\s+(\d+)\s+(\d+)\s+(\d+\.\d+\.\d+\.\d+)\s+(tcp|udp)\s+([^\s=]+)=([^\s=]+)\s*$`)
 	// Protocol-only static pattern (no ports): nat descriptor masquerade static <id> <entry> <inner_ip> <protocol>
 	// Format: nat descriptor masquerade static 1000 1 192.168.1.253 esp
 	staticProtocolOnlyPattern := regexp.MustCompile(`^\s*nat\s+descriptor\s+masquerade\s+static\s+(\d+)\s+(\d+)\s+(\d+\.\d+\.\d+\.\d+)\s+(esp|ah|gre|icmp)\s*$`)
@@ -125,8 +146,8 @@ func ParseNATMasqueradeConfig(raw string) ([]NATMasquerade, error) {
 			if err != nil {
 				continue
 			}
-			innerPort, err := strconv.Atoi(matches[6])
-			if err != nil {
+			innerPort, ok := resolvePort(matches[6])
+			if !ok {
 				continue
 			}
 
@@ -164,8 +185,8 @@ func ParseNATMasqueradeConfig(raw string) ([]NATMasquerade, error) {
 			if err != nil {
 				continue
 			}
-			port, err := strconv.Atoi(matches[5])
-			if err != nil {
+			port, ok := resolvePort(matches[5])
+			if !ok {
 				continue
 			}
 
@@ -201,12 +222,12 @@ func ParseNATMasqueradeConfig(raw string) ([]NATMasquerade, error) {
 			if err != nil {
 				continue
 			}
-			outerPort, err := strconv.Atoi(matches[5])
-			if err != nil {
+			outerPort, ok := resolvePort(matches[5])
+			if !ok {
 				continue
 			}
-			innerPort, err := strconv.Atoi(matches[6])
-			if err != nil {
+			innerPort, ok := resolvePort(matches[6])
+			if !ok {
 				continue
 			}
 
