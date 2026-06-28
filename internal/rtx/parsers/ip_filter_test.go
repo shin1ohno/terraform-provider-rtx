@@ -59,6 +59,24 @@ func TestParseIPFilterConfig(t *testing.T) {
 			},
 		},
 		{
+			// RTX shorthand: `established` sits in the protocol slot (implies TCP).
+			// Must normalize to a schema-valid protocol so it round-trips.
+			name:  "established in protocol slot",
+			input: "ip filter 101031 pass * 192.168.0.0/24 established * *",
+			expected: []IPFilter{
+				{
+					Number:        101031,
+					Action:        "pass",
+					SourceAddress: "*",
+					DestAddress:   "192.168.0.0/24",
+					Protocol:      "tcp",
+					SourcePort:    "*",
+					DestPort:      "*",
+					Established:   true,
+				},
+			},
+		},
+		{
 			name:  "minimal filter",
 			input: "ip filter 103 pass * * icmp",
 			expected: []IPFilter{

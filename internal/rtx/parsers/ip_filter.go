@@ -101,6 +101,14 @@ func ParseIPFilterConfig(raw string) ([]IPFilter, error) {
 				filter.Established = true
 			}
 
+			// When `established` occupies the protocol slot (RTX shorthand that implies
+			// TCP), normalize to a schema-valid protocol and let the established flag carry
+			// the semantics. Both `... established * *` and `... tcp * * established` then
+			// map to protocol=tcp, established=true -> consistent, drift-free round-trip.
+			if strings.EqualFold(filter.Protocol, "established") {
+				filter.Protocol = "tcp"
+			}
+
 			// Handle optional ports (skip "established" keyword)
 			if len(matches) > 6 && matches[6] != "" && matches[6] != "established" {
 				filter.SourcePort = matches[6]
