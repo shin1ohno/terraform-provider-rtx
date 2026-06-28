@@ -45,16 +45,33 @@ func (d *sshDialer) Dial(ctx context.Context, host string, config *Config) (Sess
 
 	addr := fmt.Sprintf("%s:%d", config.Host, config.Port)
 
-	// Use DialContext to prevent goroutine leaks
+	// Use DialContext to prevent goroutine leaks.
+	// RTX's legacy SSH server (CBC-only) intermittently corrupts the handshake, surfacing
+	// as "invalid packet length"/"packet too large"/"crypto/rsa: verification error". These
+	// are transient, so retry the dial a few times with a short backoff. Auth failures are
+	// terminal and never retried.
 	logger.Debug().Str("addr", addr).Int("auth_methods_count", len(authMethods)).Msg("Dialing SSH")
-	client, err := DialContext(ctx, "tcp", addr, sshConfig)
-	if err != nil {
-		// Check if it's an authentication error by examining the error message
+	const maxDialAttempts = 5
+	var client *ssh.Client
+	var err error
+	for attempt := 1; attempt <= maxDialAttempts; attempt++ {
+		client, err = DialContext(ctx, "tcp", addr, sshConfig)
+		if err == nil {
+			break
+		}
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "auth") || strings.Contains(errMsg, "permission denied") {
 			return nil, fmt.Errorf("%w: %v", ErrAuthFailed, err)
 		}
-		return nil, err
+		if attempt == maxDialAttempts || !isTransientHandshakeError(errMsg) {
+			return nil, err
+		}
+		logger.Debug().Int("attempt", attempt).Str("error", errMsg).Msg("transient SSH handshake failure, retrying")
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(time.Duration(attempt) * 300 * time.Millisecond):
+		}
 	}
 	logger.Debug().Msg("SSH connection established")
 
@@ -66,6 +83,27 @@ func (d *sshDialer) Dial(ctx context.Context, host string, config *Config) (Sess
 	}
 
 	return session, nil
+}
+
+// isTransientHandshakeError reports whether an SSH dial error is a transient
+// handshake/transport corruption (typical of RTX's legacy CBC SSH) worth retrying,
+// as opposed to a terminal error such as auth failure.
+func isTransientHandshakeError(msg string) bool {
+	for _, s := range []string{
+		"invalid packet length",
+		"packet too large",
+		"verification error",
+		"handshake failed",
+		"connection reset",
+		"broken pipe",
+		"unexpected EOF",
+		"message authentication failed",
+	} {
+		if strings.Contains(msg, s) {
+			return true
+		}
+	}
+	return false
 }
 
 // BuildAuthMethods builds authentication methods in priority order.
