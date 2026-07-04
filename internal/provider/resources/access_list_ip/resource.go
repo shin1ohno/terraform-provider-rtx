@@ -327,6 +327,14 @@ func (r *AccessListIPResource) read(ctx context.Context, data *AccessListIPModel
 	// Set entries
 	data.SetEntriesFromFilters(filters)
 
+	// sequence_step is a TF-only auto-numbering helper (used with sequence_start);
+	// it is not stored on the device. Populate the default on read so an imported
+	// resource matches the schema default instead of showing a spurious in-place
+	// update that would rewrite the entire filter table.
+	if data.SequenceStep.IsNull() || data.SequenceStep.IsUnknown() {
+		data.SequenceStep = types.Int64Value(DefaultSequenceStep)
+	}
+
 	// Read and set apply blocks
 	if err := r.readApplyBlocks(ctx, data); err != nil {
 		logger.Warn().Err(err).Msg("Failed to read apply blocks")

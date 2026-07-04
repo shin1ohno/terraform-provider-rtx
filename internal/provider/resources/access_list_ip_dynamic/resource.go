@@ -240,6 +240,13 @@ func (r *AccessListIPDynamicResource) read(ctx context.Context, data *AccessList
 	}
 
 	data.FromClient(acl, currentSeqs)
+
+	// sequence_step is a TF-only auto-numbering helper not stored on the device.
+	// Populate the default on read so an imported resource matches the schema
+	// default instead of showing a spurious in-place update.
+	if data.SequenceStep.IsNull() || data.SequenceStep.IsUnknown() {
+		data.SequenceStep = types.Int64Value(DefaultSequenceStep)
+	}
 }
 
 // Update updates the resource and sets the updated Terraform state on success.
