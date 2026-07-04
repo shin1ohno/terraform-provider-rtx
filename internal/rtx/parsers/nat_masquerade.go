@@ -26,8 +26,6 @@ type MasqueradeStaticEntry struct {
 	Protocol          string `json:"protocol,omitempty"`            // "tcp", "udp", "esp", "ah", "gre", or empty
 }
 
-// ParseNATMasqueradeConfig parses the output of "show config" command
-// for NAT descriptor masquerade lines
 // rtxServicePorts maps RTX well-known service keywords to port numbers. RTX renders
 // well-known ports as keywords in "show config" (e.g. 80 -> www, 443 -> https), so the
 // parser must resolve them back to numbers for the int-typed static port fields.
@@ -49,6 +47,8 @@ func resolvePort(s string) (int, bool) {
 	return 0, false
 }
 
+// ParseNATMasqueradeConfig parses the output of "show config" command
+// for NAT descriptor masquerade lines
 func ParseNATMasqueradeConfig(raw string) ([]NATMasquerade, error) {
 	descriptors := make(map[int]*NATMasquerade)
 	lines := strings.Split(raw, "\n")
