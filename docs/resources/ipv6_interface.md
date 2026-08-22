@@ -22,11 +22,11 @@ resource "rtx_ipv6_interface" "lan" {
   }
 
   rtadv {
-    enabled   = true
-    prefix_id = 1
-    o_flag    = true
-    m_flag    = false
-    lifetime  = 1800
+    enabled    = true
+    prefix_ids = [1]
+    o_flag     = true
+    m_flag     = false
+    lifetime   = 1800
   }
 
   dhcpv6_service = "server"
@@ -40,8 +40,22 @@ resource "rtx_ipv6_interface" "wan" {
   dhcpv6_service = "client"
 
   rtadv {
-    enabled   = false
-    prefix_id = 2
+    enabled    = false
+    prefix_ids = [2]
+  }
+}
+
+# LAN interface advertising two prefixes at once:
+# a delegated global prefix plus a stable ULA prefix.
+# The router advertises them in the order given.
+resource "rtx_ipv6_interface" "lan_dual_prefix" {
+  interface = "lan3"
+
+  rtadv {
+    enabled    = true
+    prefix_ids = [1, 3]
+    o_flag     = true
+    m_flag     = false
   }
 }
 ```
@@ -75,7 +89,7 @@ Optional:
 
 Required:
 
-- `prefix_id` (Number) IPv6 prefix ID to advertise. Must match an rtx_ipv6_prefix resource.
+- `prefix_ids` (List of Number) IPv6 prefix IDs to advertise, in advertisement order. Each must match an rtx_ipv6_prefix resource. Order is significant — the router emits them in the order given, so reordering the list is a change.
 
 Optional:
 

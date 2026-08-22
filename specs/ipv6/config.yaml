@@ -75,14 +75,14 @@ command:
       terraform:
         interface: "lan1"
         rtadv:
-          prefix_id: 1
+          prefix_ids: [1]
 
     - name: rtadv_with_o_flag
       rtx: "ipv6 lan1 rtadv send 1 o_flag=on"
       terraform:
         interface: "lan1"
         rtadv:
-          prefix_id: 1
+          prefix_ids: [1]
           o_flag: true
 
     - name: rtadv_with_m_flag
@@ -90,7 +90,7 @@ command:
       terraform:
         interface: "lan1"
         rtadv:
-          prefix_id: 1
+          prefix_ids: [1]
           m_flag: true
 
     - name: rtadv_with_lifetime
@@ -98,7 +98,7 @@ command:
       terraform:
         interface: "lan1"
         rtadv:
-          prefix_id: 1
+          prefix_ids: [1]
           router_lifetime: 1800
 
     - name: rtadv_full
@@ -106,10 +106,28 @@ command:
       terraform:
         interface: "lan1"
         rtadv:
-          prefix_id: 1
+          prefix_ids: [1]
           o_flag: true
           m_flag: false
           router_lifetime: 3600
+
+    # Multiple prefixes on one interface: e.g. a DHCPv6-PD GUA plus a static ULA
+    - name: rtadv_multi_prefix
+      rtx: "ipv6 lan1 rtadv send 1 2"
+      terraform:
+        interface: "lan1"
+        rtadv:
+          prefix_ids: [1, 2]
+
+    - name: rtadv_multi_prefix_full
+      rtx: "ipv6 lan1 rtadv send 1 2 o_flag=on m_flag=off lifetime=1800"
+      terraform:
+        interface: "lan1"
+        rtadv:
+          prefix_ids: [1, 2]
+          o_flag: true
+          m_flag: false
+          router_lifetime: 1800
 
     # =============================================================================
     # DHCPv6 Service

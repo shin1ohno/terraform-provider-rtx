@@ -1670,11 +1670,11 @@ type IPv6Address struct {
 
 // RTADVConfig represents Router Advertisement configuration
 type RTADVConfig struct {
-	Enabled  bool `json:"enabled"`            // RTADV enabled
-	PrefixID int  `json:"prefix_id"`          // Prefix ID to advertise
-	OFlag    bool `json:"o_flag"`             // Other Configuration Flag (O flag)
-	MFlag    bool `json:"m_flag"`             // Managed Address Configuration Flag (M flag)
-	Lifetime int  `json:"lifetime,omitempty"` // Router lifetime in seconds
+	Enabled   bool  `json:"enabled"`            // RTADV enabled
+	PrefixIDs []int `json:"prefix_ids"`         // Prefix IDs to advertise, in advertisement order
+	OFlag     bool  `json:"o_flag"`             // Other Configuration Flag (O flag)
+	MFlag     bool  `json:"m_flag"`             // Managed Address Configuration Flag (M flag)
+	Lifetime  int   `json:"lifetime,omitempty"` // Router lifetime in seconds
 }
 
 // AccessListExtended represents an IPv4 extended access list (Cisco-compatible naming)

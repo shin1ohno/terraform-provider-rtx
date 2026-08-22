@@ -28,11 +28,11 @@ type IPv6AddressModel struct {
 
 // RTADVModel describes the Router Advertisement configuration.
 type RTADVModel struct {
-	Enabled  types.Bool  `tfsdk:"enabled"`
-	PrefixID types.Int64 `tfsdk:"prefix_id"`
-	OFlag    types.Bool  `tfsdk:"o_flag"`
-	MFlag    types.Bool  `tfsdk:"m_flag"`
-	Lifetime types.Int64 `tfsdk:"lifetime"`
+	Enabled   types.Bool  `tfsdk:"enabled"`
+	PrefixIDs types.List  `tfsdk:"prefix_ids"`
+	OFlag     types.Bool  `tfsdk:"o_flag"`
+	MFlag     types.Bool  `tfsdk:"m_flag"`
+	Lifetime  types.Int64 `tfsdk:"lifetime"`
 }
 
 // ToClient converts the Terraform model to a client.IPv6InterfaceConfig.
@@ -58,11 +58,11 @@ func (m *IPv6InterfaceModel) ToClient(ctx context.Context, diagnostics *diag.Dia
 	// Handle rtadv block
 	if m.RTADV != nil {
 		config.RTADV = &client.RTADVConfig{
-			Enabled:  fwhelpers.GetBoolValue(m.RTADV.Enabled),
-			PrefixID: fwhelpers.GetInt64Value(m.RTADV.PrefixID),
-			OFlag:    fwhelpers.GetBoolValue(m.RTADV.OFlag),
-			MFlag:    fwhelpers.GetBoolValue(m.RTADV.MFlag),
-			Lifetime: fwhelpers.GetInt64Value(m.RTADV.Lifetime),
+			Enabled:   fwhelpers.GetBoolValue(m.RTADV.Enabled),
+			PrefixIDs: fwhelpers.ListToIntSlice(m.RTADV.PrefixIDs),
+			OFlag:     fwhelpers.GetBoolValue(m.RTADV.OFlag),
+			MFlag:     fwhelpers.GetBoolValue(m.RTADV.MFlag),
+			Lifetime:  fwhelpers.GetInt64Value(m.RTADV.Lifetime),
 		}
 	}
 
@@ -96,15 +96,16 @@ func (m *IPv6InterfaceModel) FromClient(ctx context.Context, config *client.IPv6
 			m.RTADV = &RTADVModel{}
 		}
 		m.RTADV.Enabled = types.BoolValue(config.RTADV.Enabled)
-		// Only update PrefixID if router returned a non-zero value
-		// Router may not return this consistently, so preserve existing if zero
-		if config.RTADV.PrefixID != 0 {
-			m.RTADV.PrefixID = types.Int64Value(int64(config.RTADV.PrefixID))
-		} else if m.RTADV.PrefixID.IsUnknown() {
-			// If existing value is unknown, set to null to avoid unknown after apply
-			m.RTADV.PrefixID = types.Int64Null()
+		// Only update PrefixIDs if the router returned any
+		// Router may not return these consistently, so preserve existing if empty
+		if len(config.RTADV.PrefixIDs) > 0 {
+			m.RTADV.PrefixIDs = fwhelpers.IntSliceToList(config.RTADV.PrefixIDs)
+		} else if m.RTADV.PrefixIDs.IsUnknown() || m.RTADV.PrefixIDs.IsNull() {
+			// Unknown would leak into state as "known after apply"; a bare null
+			// carries no element type, which the framework rejects on Set
+			m.RTADV.PrefixIDs = types.ListNull(types.Int64Type)
 		}
-		// else: preserve existing m.RTADV.PrefixID (known value)
+		// else: preserve existing m.RTADV.PrefixIDs (known value)
 		m.RTADV.OFlag = types.BoolValue(config.RTADV.OFlag)
 		m.RTADV.MFlag = types.BoolValue(config.RTADV.MFlag)
 		// Only update Lifetime if router returned a non-zero value
@@ -121,10 +122,10 @@ func (m *IPv6InterfaceModel) FromClient(ctx context.Context, config *client.IPv6
 		m.RTADV.Enabled = types.BoolValue(false)
 		m.RTADV.OFlag = types.BoolValue(false)
 		m.RTADV.MFlag = types.BoolValue(false)
-		// Preserve PrefixID and Lifetime - don't clear them
+		// Preserve PrefixIDs and Lifetime - don't clear them
 		// But if they're unknown, set to null
-		if m.RTADV.PrefixID.IsUnknown() {
-			m.RTADV.PrefixID = types.Int64Null()
+		if m.RTADV.PrefixIDs.IsUnknown() || m.RTADV.PrefixIDs.IsNull() {
+			m.RTADV.PrefixIDs = types.ListNull(types.Int64Type)
 		}
 		if m.RTADV.Lifetime.IsUnknown() {
 			m.RTADV.Lifetime = types.Int64Null()

@@ -70,7 +70,7 @@ commands:
 
   # 26.x Router Advertisement (RTADV) configuration
   - name: ipv6 rtadv send
-    syntax: "ipv6 <interface> rtadv send <prefix_id> [o_flag=<o_flag>] [m_flag=<m_flag>] [lifetime=<lifetime>]"
+    syntax: "ipv6 <interface> rtadv send <prefix_id>... [o_flag=<o_flag>] [m_flag=<m_flag>] [lifetime=<lifetime>]"
     no_form: "no ipv6 <interface> rtadv send"
     chapter: 26
     parser: ipv6_interface.go
@@ -80,11 +80,11 @@ commands:
         type: interface
         required: true
         description: "Interface name (lan1, lan2, bridge1, etc.)"
-      - name: prefix_id
-        type: int
+      - name: prefix_ids
+        type: list(int)
         required: true
         range: "1-255"
-        description: Prefix ID defined by ipv6 prefix command to advertise
+        description: One or more prefix IDs defined by ipv6 prefix commands, advertised in the order given
       - name: o_flag
         type: enum
         required: false
@@ -108,14 +108,14 @@ commands:
           interface: "lan1"
           rtadv:
             enabled: true
-            prefix_id: 1
+            prefix_ids: [1]
         description: Send Router Advertisement with prefix 1
       - input: "ipv6 lan1 rtadv send 1 o_flag=on"
         expected:
           interface: "lan1"
           rtadv:
             enabled: true
-            prefix_id: 1
+            prefix_ids: [1]
             o_flag: true
         description: Send RA with O flag enabled for stateless DHCPv6
       - input: "ipv6 lan1 rtadv send 1 m_flag=on"
@@ -123,7 +123,7 @@ commands:
           interface: "lan1"
           rtadv:
             enabled: true
-            prefix_id: 1
+            prefix_ids: [1]
             m_flag: true
         description: Send RA with M flag enabled for stateful DHCPv6
       - input: "ipv6 lan1 rtadv send 1 o_flag=on m_flag=off lifetime=1800"
@@ -131,7 +131,7 @@ commands:
           interface: "lan1"
           rtadv:
             enabled: true
-            prefix_id: 1
+            prefix_ids: [1]
             o_flag: true
             m_flag: false
             lifetime: 1800
@@ -141,10 +141,19 @@ commands:
           interface: "lan1"
           rtadv:
             enabled: true
-            prefix_id: 2
+            prefix_ids: [2]
             o_flag: false
             m_flag: false
         description: Send RA with both flags explicitly disabled (SLAAC only)
+      - input: "ipv6 lan1 rtadv send 1 2 o_flag=on m_flag=off"
+        expected:
+          interface: "lan1"
+          rtadv:
+            enabled: true
+            prefix_ids: [1, 2]
+            o_flag: true
+            m_flag: false
+        description: Advertise two prefixes at once (e.g. a DHCPv6-PD GUA plus a static ULA)
 
   # 26.x DHCPv6 service configuration
   - name: ipv6 dhcp service

@@ -59,11 +59,11 @@ resource "rtx_ipv6_interface" "lan" {
   # Router Advertisement configuration
   # Enables SLAAC for clients
   rtadv {
-    enabled   = true
-    prefix_id = rtx_ipv6_prefix.lan_prefix.prefix_id
-    o_flag    = true  # Clients should use DHCPv6 for other config (DNS, etc.)
-    m_flag    = false # Clients use SLAAC for address configuration
-    lifetime  = 1800  # Router lifetime in seconds
+    enabled    = true
+    prefix_ids = [rtx_ipv6_prefix.lan_prefix.prefix_id]
+    o_flag     = true  # Clients should use DHCPv6 for other config (DNS, etc.)
+    m_flag     = false # Clients use SLAAC for address configuration
+    lifetime   = 1800  # Router lifetime in seconds
   }
 
   # DHCPv6 server for providing DNS servers and other options
@@ -91,8 +91,8 @@ resource "rtx_ipv6_interface" "wan" {
   dhcpv6_service = "client"
 
   rtadv {
-    enabled   = false
-    prefix_id = rtx_ipv6_prefix.wan_prefix.prefix_id
+    enabled    = false
+    prefix_ids = [rtx_ipv6_prefix.wan_prefix.prefix_id]
   }
 }
 
@@ -102,6 +102,15 @@ resource "rtx_ipv6_interface" "wan" {
 resource "rtx_ipv6_prefix" "full_prefix" {
   prefix_id     = 3
   prefix        = "2001:db8:100::"
+  prefix_length = 64
+  source        = "static"
+}
+
+# A stable ULA prefix advertised alongside the global one, so hosts keep a
+# usable address even while the global prefix is being renumbered.
+resource "rtx_ipv6_prefix" "full_ula_prefix" {
+  prefix_id     = 4
+  prefix        = "fd00:100::"
   prefix_length = 64
   source        = "static"
 }
@@ -119,13 +128,17 @@ resource "rtx_ipv6_interface" "full_example" {
     address = "fe80::1/10"
   }
 
-  # Router Advertisement with all options
+  # Router Advertisement with all options.
+  # Both prefixes are advertised on the same RA, in the order listed.
   rtadv {
-    enabled   = true
-    prefix_id = rtx_ipv6_prefix.full_prefix.prefix_id
-    o_flag    = true # Use DHCPv6 for other configuration
-    m_flag    = true # Use DHCPv6 for managed addresses
-    lifetime  = 3600 # 1 hour router lifetime
+    enabled = true
+    prefix_ids = [
+      rtx_ipv6_prefix.full_prefix.prefix_id,
+      rtx_ipv6_prefix.full_ula_prefix.prefix_id,
+    ]
+    o_flag   = true # Use DHCPv6 for other configuration
+    m_flag   = true # Use DHCPv6 for managed addresses
+    lifetime = 3600 # 1 hour router lifetime
   }
 
   # DHCPv6 server mode
