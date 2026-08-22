@@ -28,11 +28,11 @@ type IPv6Address struct {
 
 // RTADVConfig represents Router Advertisement configuration
 type RTADVConfig struct {
-	Enabled  bool `json:"enabled"`            // RTADV enabled
-	PrefixID int  `json:"prefix_id"`          // Prefix ID to advertise
-	OFlag    bool `json:"o_flag"`             // Other Configuration Flag (O flag)
-	MFlag    bool `json:"m_flag"`             // Managed Address Configuration Flag (M flag)
-	Lifetime int  `json:"lifetime,omitempty"` // Router lifetime in seconds
+	Enabled   bool  `json:"enabled"`            // RTADV enabled
+	PrefixIDs []int `json:"prefix_ids"`         // Prefix IDs to advertise, in the order the router emits them
+	OFlag     bool  `json:"o_flag"`             // Other Configuration Flag (O flag)
+	MFlag     bool  `json:"m_flag"`             // Managed Address Configuration Flag (M flag)
+	Lifetime  int   `json:"lifetime,omitempty"` // Router lifetime in seconds
 }
 
 // IPv6 interface name patterns for RTX routers
@@ -81,10 +81,13 @@ func ParseIPv6InterfaceConfig(raw string, interfaceName string) (*IPv6InterfaceC
 			continue
 		}
 
-		// Parse RTADV configuration
+		// Parse RTADV configuration.
+		// A failed parse must not clobber an earlier successful one, and a second
+		// rtadv line adds its prefix IDs rather than replacing them.
 		if matches := rtadvPattern.FindStringSubmatch(line); len(matches) >= 2 {
-			rtadv := parseRTADVConfig(matches[1])
-			config.RTADV = rtadv
+			if rtadv := parseRTADVConfig(matches[1]); rtadv != nil {
+				config.RTADV = mergeRTADVConfig(config.RTADV, rtadv)
+			}
 			continue
 		}
 
@@ -158,26 +161,31 @@ func parseIPv6Address(addrStr string) IPv6Address {
 }
 
 // parseRTADVConfig parses RTADV configuration string
-// Format: <prefix_id> [o_flag=on|off] [m_flag=on|off] [lifetime=<seconds>]
+// Format: <prefix_id>... [o_flag=on|off] [m_flag=on|off] [lifetime=<seconds>]
+// One or more prefix IDs may be advertised on a single rtadv line.
 func parseRTADVConfig(rtadvStr string) *RTADVConfig {
 	rtadv := &RTADVConfig{
 		Enabled: true,
 	}
 
 	parts := strings.Fields(rtadvStr)
-	if len(parts) == 0 {
-		return nil
-	}
 
-	// First part is the prefix ID
-	prefixID, err := strconv.Atoi(parts[0])
-	if err != nil {
+	// The leading run of positive integers is the prefix ID list; the first
+	// token that is not a positive integer ends it and starts the options.
+	optionsStart := 0
+	for ; optionsStart < len(parts); optionsStart++ {
+		prefixID, err := strconv.Atoi(parts[optionsStart])
+		if err != nil || prefixID <= 0 {
+			break
+		}
+		rtadv.PrefixIDs = append(rtadv.PrefixIDs, prefixID)
+	}
+	if len(rtadv.PrefixIDs) == 0 {
 		return nil
 	}
-	rtadv.PrefixID = prefixID
 
 	// Parse optional flags
-	for _, part := range parts[1:] {
+	for _, part := range parts[optionsStart:] {
 		if strings.HasPrefix(strings.ToLower(part), "o_flag=") {
 			value := strings.TrimPrefix(strings.ToLower(part), "o_flag=")
 			rtadv.OFlag = value == "on"
@@ -194,6 +202,37 @@ func parseRTADVConfig(rtadvStr string) *RTADVConfig {
 	}
 
 	return rtadv
+}
+
+// mergeRTADVConfig folds a newly parsed rtadv line into the one already parsed
+// for this interface. Prefix IDs are unioned preserving first-seen order, and
+// flags are carried over: an rtadv line that omits a flag is indistinguishable
+// from one that sets it off, so a flag already seen enabled stays enabled.
+func mergeRTADVConfig(existing, next *RTADVConfig) *RTADVConfig {
+	if existing == nil {
+		return next
+	}
+
+	seen := make(map[int]struct{}, len(existing.PrefixIDs))
+	for _, id := range existing.PrefixIDs {
+		seen[id] = struct{}{}
+	}
+	for _, id := range next.PrefixIDs {
+		if _, dup := seen[id]; dup {
+			continue
+		}
+		seen[id] = struct{}{}
+		existing.PrefixIDs = append(existing.PrefixIDs, id)
+	}
+
+	existing.Enabled = existing.Enabled || next.Enabled
+	existing.OFlag = existing.OFlag || next.OFlag
+	existing.MFlag = existing.MFlag || next.MFlag
+	if next.Lifetime != 0 {
+		existing.Lifetime = next.Lifetime
+	}
+
+	return existing
 }
 
 // BuildIPv6AddressCommand builds the command to set IPv6 address
@@ -226,13 +265,20 @@ func BuildDeleteIPv6AddressCommand(iface string, addr *IPv6Address) string {
 }
 
 // BuildIPv6RTADVCommand builds the command to configure Router Advertisement
-// Command format: ipv6 <interface> rtadv send <prefix_id> [o_flag=on|off] [m_flag=on|off] [lifetime=<seconds>]
+// Command format: ipv6 <interface> rtadv send <prefix_id>... [o_flag=on|off] [m_flag=on|off] [lifetime=<seconds>]
+// Returns "" when there is nothing to advertise, so callers never emit a
+// prefix-less "rtadv send" the router would reject.
 func BuildIPv6RTADVCommand(iface string, rtadv RTADVConfig) string {
-	if !rtadv.Enabled {
+	if !rtadv.Enabled || len(rtadv.PrefixIDs) == 0 {
 		return ""
 	}
 
-	cmd := fmt.Sprintf("ipv6 %s rtadv send %d", iface, rtadv.PrefixID)
+	prefixIDs := make([]string, len(rtadv.PrefixIDs))
+	for i, id := range rtadv.PrefixIDs {
+		prefixIDs[i] = strconv.Itoa(id)
+	}
+
+	cmd := fmt.Sprintf("ipv6 %s rtadv send %s", iface, strings.Join(prefixIDs, " "))
 
 	if rtadv.OFlag {
 		cmd += " o_flag=on"
@@ -366,8 +412,13 @@ func ValidateIPv6InterfaceConfig(config IPv6InterfaceConfig) error {
 
 	// Validate RTADV configuration
 	if config.RTADV != nil {
-		if config.RTADV.PrefixID <= 0 {
-			return fmt.Errorf("RTADV prefix_id must be positive")
+		if len(config.RTADV.PrefixIDs) == 0 {
+			return fmt.Errorf("RTADV requires at least one prefix_id")
+		}
+		for _, id := range config.RTADV.PrefixIDs {
+			if id <= 0 {
+				return fmt.Errorf("RTADV prefix_ids must be positive")
+			}
 		}
 	}
 

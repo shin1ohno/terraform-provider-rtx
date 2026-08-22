@@ -246,7 +246,7 @@ ipv6 filter dynamic num src dst protocol
 **Spec内のコマンド構文**:
 ```
 ipv6 <interface> address <address>/<prefix_len>
-ipv6 <interface> rtadv send <prefix_id> [options]
+ipv6 <interface> rtadv send <prefix_id> [prefix_id ...] [options]
 ipv6 <interface> dhcp service <client|server>
 ipv6 <interface> mtu <mtu>
 ipv6 <interface> secure filter <in|out> <filter_list>

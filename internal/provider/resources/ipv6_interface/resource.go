@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -27,8 +28,9 @@ import (
 
 // Ensure provider defined types fully satisfy framework interfaces.
 var (
-	_ resource.Resource                = &IPv6InterfaceResource{}
-	_ resource.ResourceWithImportState = &IPv6InterfaceResource{}
+	_ resource.Resource                 = &IPv6InterfaceResource{}
+	_ resource.ResourceWithImportState  = &IPv6InterfaceResource{}
+	_ resource.ResourceWithUpgradeState = &IPv6InterfaceResource{}
 )
 
 // NewIPv6InterfaceResource creates a new IPv6 interface resource.
@@ -49,6 +51,7 @@ func (r *IPv6InterfaceResource) Metadata(ctx context.Context, req resource.Metad
 // Schema defines the schema for the resource.
 func (r *IPv6InterfaceResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Version:     1,
 		Description: "Manages IPv6 interface configuration on RTX routers. This includes IPv6 addresses, Router Advertisement (RTADV), DHCPv6, MTU, and security filters.",
 		Attributes: map[string]schema.Attribute{
 			"interface": schema.StringAttribute{
@@ -110,11 +113,13 @@ func (r *IPv6InterfaceResource) Schema(ctx context.Context, req resource.SchemaR
 						Computed:    true,
 						Default:     booldefault.StaticBool(false),
 					},
-					"prefix_id": schema.Int64Attribute{
-						Description: "IPv6 prefix ID to advertise. Must match an rtx_ipv6_prefix resource.",
+					"prefix_ids": schema.ListAttribute{
+						Description: "IPv6 prefix IDs to advertise, in advertisement order. Each must match an rtx_ipv6_prefix resource. Order is significant — the router emits them in the order given, so reordering the list is a change.",
+						ElementType: types.Int64Type,
 						Required:    true,
-						Validators: []validator.Int64{
-							int64validator.AtLeast(1),
+						Validators: []validator.List{
+							listvalidator.SizeAtLeast(1),
+							listvalidator.ValueInt64sAre(int64validator.AtLeast(1)),
 						},
 					},
 					"o_flag": schema.BoolAttribute{
@@ -291,11 +296,11 @@ func convertParsedIPv6InterfaceConfig(parsed *parsers.IPv6InterfaceConfig) *clie
 	// Convert RTADV config
 	if parsed.RTADV != nil {
 		config.RTADV = &client.RTADVConfig{
-			Enabled:  parsed.RTADV.Enabled,
-			PrefixID: parsed.RTADV.PrefixID,
-			OFlag:    parsed.RTADV.OFlag,
-			MFlag:    parsed.RTADV.MFlag,
-			Lifetime: parsed.RTADV.Lifetime,
+			Enabled:   parsed.RTADV.Enabled,
+			PrefixIDs: parsed.RTADV.PrefixIDs,
+			OFlag:     parsed.RTADV.OFlag,
+			MFlag:     parsed.RTADV.MFlag,
+			Lifetime:  parsed.RTADV.Lifetime,
 		}
 	}
 
@@ -319,11 +324,11 @@ func (r *IPv6InterfaceResource) Update(ctx context.Context, req resource.UpdateR
 	var plannedRTADV *RTADVModel
 	if data.RTADV != nil {
 		plannedRTADV = &RTADVModel{
-			Enabled:  data.RTADV.Enabled,
-			PrefixID: data.RTADV.PrefixID,
-			OFlag:    data.RTADV.OFlag,
-			MFlag:    data.RTADV.MFlag,
-			Lifetime: data.RTADV.Lifetime,
+			Enabled:   data.RTADV.Enabled,
+			PrefixIDs: data.RTADV.PrefixIDs,
+			OFlag:     data.RTADV.OFlag,
+			MFlag:     data.RTADV.MFlag,
+			Lifetime:  data.RTADV.Lifetime,
 		}
 	}
 
@@ -357,8 +362,8 @@ func (r *IPv6InterfaceResource) Update(ctx context.Context, req resource.UpdateR
 		if !plannedRTADV.Enabled.IsUnknown() {
 			data.RTADV.Enabled = plannedRTADV.Enabled
 		}
-		if !plannedRTADV.PrefixID.IsUnknown() {
-			data.RTADV.PrefixID = plannedRTADV.PrefixID
+		if !plannedRTADV.PrefixIDs.IsUnknown() {
+			data.RTADV.PrefixIDs = plannedRTADV.PrefixIDs
 		}
 		if !plannedRTADV.OFlag.IsUnknown() {
 			data.RTADV.OFlag = plannedRTADV.OFlag
@@ -418,4 +423,118 @@ func (r *IPv6InterfaceResource) ImportState(ctx context.Context, req resource.Im
 	}
 
 	resource.ImportStatePassthroughID(ctx, path.Root("interface"), req, resp)
+}
+
+// ipv6InterfaceModelV0 is the schema version 0 state shape, where rtadv carried
+// a single scalar prefix_id.
+type ipv6InterfaceModelV0 struct {
+	Interface     types.String       `tfsdk:"interface"`
+	Address       []IPv6AddressModel `tfsdk:"address"`
+	RTADV         *rtadvModelV0      `tfsdk:"rtadv"`
+	DHCPv6Service types.String       `tfsdk:"dhcpv6_service"`
+	MTU           types.Int64        `tfsdk:"mtu"`
+}
+
+// rtadvModelV0 is the schema version 0 rtadv block.
+type rtadvModelV0 struct {
+	Enabled  types.Bool  `tfsdk:"enabled"`
+	PrefixID types.Int64 `tfsdk:"prefix_id"`
+	OFlag    types.Bool  `tfsdk:"o_flag"`
+	MFlag    types.Bool  `tfsdk:"m_flag"`
+	Lifetime types.Int64 `tfsdk:"lifetime"`
+}
+
+// UpgradeState handles state upgrades from previous schema versions.
+func (r *IPv6InterfaceResource) UpgradeState(ctx context.Context) map[int64]resource.StateUpgrader {
+	return map[int64]resource.StateUpgrader{
+		// Version 0 -> 1: rtadv.prefix_id (scalar) becomes rtadv.prefix_ids (list)
+		0: {
+			PriorSchema: &schema.Schema{
+				Attributes: map[string]schema.Attribute{
+					"interface": schema.StringAttribute{
+						Required: true,
+					},
+					"dhcpv6_service": schema.StringAttribute{
+						Optional: true,
+						Computed: true,
+					},
+					"mtu": schema.Int64Attribute{
+						Optional: true,
+						Computed: true,
+					},
+				},
+				Blocks: map[string]schema.Block{
+					"address": schema.ListNestedBlock{
+						NestedObject: schema.NestedBlockObject{
+							Attributes: map[string]schema.Attribute{
+								"address": schema.StringAttribute{
+									Optional: true,
+								},
+								"prefix_ref": schema.StringAttribute{
+									Optional: true,
+								},
+								"interface_id": schema.StringAttribute{
+									Optional: true,
+								},
+							},
+						},
+					},
+					"rtadv": schema.SingleNestedBlock{
+						Attributes: map[string]schema.Attribute{
+							"enabled": schema.BoolAttribute{
+								Optional: true,
+								Computed: true,
+							},
+							"prefix_id": schema.Int64Attribute{
+								Required: true,
+							},
+							"o_flag": schema.BoolAttribute{
+								Optional: true,
+								Computed: true,
+							},
+							"m_flag": schema.BoolAttribute{
+								Optional: true,
+								Computed: true,
+							},
+							"lifetime": schema.Int64Attribute{
+								Optional: true,
+								Computed: true,
+							},
+						},
+					},
+				},
+			},
+			StateUpgrader: func(ctx context.Context, req resource.UpgradeStateRequest, resp *resource.UpgradeStateResponse) {
+				var priorState ipv6InterfaceModelV0
+
+				resp.Diagnostics.Append(req.State.Get(ctx, &priorState)...)
+				if resp.Diagnostics.HasError() {
+					return
+				}
+
+				upgraded := IPv6InterfaceModel{
+					Interface:     priorState.Interface,
+					Address:       priorState.Address,
+					DHCPv6Service: priorState.DHCPv6Service,
+					MTU:           priorState.MTU,
+				}
+
+				if priorState.RTADV != nil {
+					upgraded.RTADV = &RTADVModel{
+						Enabled:   priorState.RTADV.Enabled,
+						PrefixIDs: types.ListNull(types.Int64Type),
+						OFlag:     priorState.RTADV.OFlag,
+						MFlag:     priorState.RTADV.MFlag,
+						Lifetime:  priorState.RTADV.Lifetime,
+					}
+					// A known scalar becomes a one-element list; null/unknown stays null
+					if !priorState.RTADV.PrefixID.IsNull() && !priorState.RTADV.PrefixID.IsUnknown() {
+						upgraded.RTADV.PrefixIDs = fwhelpers.IntSliceToList([]int{int(priorState.RTADV.PrefixID.ValueInt64())})
+					}
+				}
+
+				resp.Diagnostics.Append(resp.State.Set(ctx, upgraded)...)
+			},
+		},
+	}
 }

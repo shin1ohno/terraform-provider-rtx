@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -86,10 +87,10 @@ func TestIPv6InterfaceService_Configure(t *testing.T) {
 			config: IPv6InterfaceConfig{
 				Interface: "lan1",
 				RTADV: &RTADVConfig{
-					Enabled:  true,
-					PrefixID: 1,
-					OFlag:    true,
-					MFlag:    false,
+					Enabled:   true,
+					PrefixIDs: []int{1},
+					OFlag:     true,
+					MFlag:     false,
 				},
 			},
 			setupMock: func(m *mockIPv6InterfaceExecutor) {
@@ -118,11 +119,11 @@ func TestIPv6InterfaceService_Configure(t *testing.T) {
 					{Address: "2001:db8::1/64"},
 				},
 				RTADV: &RTADVConfig{
-					Enabled:  true,
-					PrefixID: 1,
-					OFlag:    true,
-					MFlag:    true,
-					Lifetime: 1800,
+					Enabled:   true,
+					PrefixIDs: []int{1},
+					OFlag:     true,
+					MFlag:     true,
+					Lifetime:  1800,
 				},
 				DHCPv6Service:            "server",
 				MTU:                      1500,
@@ -221,6 +222,49 @@ func TestIPv6InterfaceService_Configure(t *testing.T) {
 	}
 }
 
+func TestIPv6InterfaceService_ConfigureRTADVCommand(t *testing.T) {
+	tests := []struct {
+		name    string
+		rtadv   *RTADVConfig
+		wantCmd string // "" means no rtadv command should be issued at all
+	}{
+		{
+			name:    "single prefix",
+			rtadv:   &RTADVConfig{Enabled: true, PrefixIDs: []int{1}, OFlag: true},
+			wantCmd: "ipv6 lan1 rtadv send 1 o_flag=on m_flag=off",
+		},
+		{
+			name:    "multiple prefixes",
+			rtadv:   &RTADVConfig{Enabled: true, PrefixIDs: []int{1, 2}, OFlag: true, MFlag: false, Lifetime: 1800},
+			wantCmd: "ipv6 lan1 rtadv send 1 2 o_flag=on m_flag=off lifetime=1800",
+		},
+		{
+			name:    "prefix order is preserved",
+			rtadv:   &RTADVConfig{Enabled: true, PrefixIDs: []int{3, 1, 2}},
+			wantCmd: "ipv6 lan1 rtadv send 3 1 2 o_flag=off m_flag=off",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &mockIPv6InterfaceExecutor{}
+			service := NewIPv6InterfaceService(mock, nil)
+
+			err := service.Configure(context.Background(), IPv6InterfaceConfig{
+				Interface: "lan1",
+				RTADV:     tt.rtadv,
+			})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if !slices.Contains(mock.cmdLog, tt.wantCmd) {
+				t.Errorf("commands = %v, want one to be %q", mock.cmdLog, tt.wantCmd)
+			}
+		})
+	}
+}
+
 func TestIPv6InterfaceService_Get(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -259,13 +303,31 @@ ipv6 lan1 mtu 1500`)
 					{Address: "2001:db8::1/64"},
 				},
 				RTADV: &RTADVConfig{
-					Enabled:  true,
-					PrefixID: 1,
-					OFlag:    true,
-					MFlag:    false,
+					Enabled:   true,
+					PrefixIDs: []int{1},
+					OFlag:     true,
+					MFlag:     false,
 				},
 				DHCPv6Service: "server",
 				MTU:           1500,
+			},
+		},
+		{
+			name:  "get multi-prefix rtadv config",
+			iface: "lan1",
+			setupMock: func(m *mockIPv6InterfaceExecutor) {
+				m.output = []byte(`ipv6 lan1 rtadv send 1 2 o_flag=on m_flag=off`)
+			},
+			wantErr: false,
+			wantConfig: &IPv6InterfaceConfig{
+				Interface: "lan1",
+				Addresses: []IPv6Address{},
+				RTADV: &RTADVConfig{
+					Enabled:   true,
+					PrefixIDs: []int{1, 2},
+					OFlag:     true,
+					MFlag:     false,
+				},
 			},
 		},
 		{
@@ -336,6 +398,8 @@ ipv6 lan1 mtu 1500`)
 			// Check RTADV
 			if (config.RTADV == nil) != (tt.wantConfig.RTADV == nil) {
 				t.Errorf("RTADV presence mismatch")
+			} else if config.RTADV != nil && !slices.Equal(config.RTADV.PrefixIDs, tt.wantConfig.RTADV.PrefixIDs) {
+				t.Errorf("RTADV.PrefixIDs = %v, want %v", config.RTADV.PrefixIDs, tt.wantConfig.RTADV.PrefixIDs)
 			}
 		})
 	}
@@ -368,10 +432,10 @@ func TestIPv6InterfaceService_Update(t *testing.T) {
 			config: IPv6InterfaceConfig{
 				Interface: "lan1",
 				RTADV: &RTADVConfig{
-					Enabled:  true,
-					PrefixID: 2,
-					OFlag:    true,
-					MFlag:    true,
+					Enabled:   true,
+					PrefixIDs: []int{2},
+					OFlag:     true,
+					MFlag:     true,
 				},
 			},
 			setupMock: func(m *mockIPv6InterfaceExecutor) {
@@ -636,26 +700,50 @@ func TestRTADVConfigsEqual(t *testing.T) {
 		},
 		{
 			name: "one nil",
-			a:    &RTADVConfig{Enabled: true, PrefixID: 1},
+			a:    &RTADVConfig{Enabled: true, PrefixIDs: []int{1}},
 			b:    nil,
 			want: false,
 		},
 		{
 			name: "equal configs",
-			a:    &RTADVConfig{Enabled: true, PrefixID: 1, OFlag: true, MFlag: false, Lifetime: 1800},
-			b:    &RTADVConfig{Enabled: true, PrefixID: 1, OFlag: true, MFlag: false, Lifetime: 1800},
+			a:    &RTADVConfig{Enabled: true, PrefixIDs: []int{1}, OFlag: true, MFlag: false, Lifetime: 1800},
+			b:    &RTADVConfig{Enabled: true, PrefixIDs: []int{1}, OFlag: true, MFlag: false, Lifetime: 1800},
 			want: true,
 		},
 		{
-			name: "different prefix_id",
-			a:    &RTADVConfig{Enabled: true, PrefixID: 1},
-			b:    &RTADVConfig{Enabled: true, PrefixID: 2},
+			name: "different prefix_ids",
+			a:    &RTADVConfig{Enabled: true, PrefixIDs: []int{1}},
+			b:    &RTADVConfig{Enabled: true, PrefixIDs: []int{2}},
 			want: false,
 		},
 		{
+			name: "equal multi prefix_ids",
+			a:    &RTADVConfig{Enabled: true, PrefixIDs: []int{1, 2}},
+			b:    &RTADVConfig{Enabled: true, PrefixIDs: []int{1, 2}},
+			want: true,
+		},
+		{
+			name: "same prefix_ids in a different order",
+			a:    &RTADVConfig{Enabled: true, PrefixIDs: []int{1, 2}},
+			b:    &RTADVConfig{Enabled: true, PrefixIDs: []int{2, 1}},
+			want: false,
+		},
+		{
+			name: "prefix_ids subset",
+			a:    &RTADVConfig{Enabled: true, PrefixIDs: []int{1}},
+			b:    &RTADVConfig{Enabled: true, PrefixIDs: []int{1, 2}},
+			want: false,
+		},
+		{
+			name: "nil vs empty prefix_ids",
+			a:    &RTADVConfig{Enabled: true},
+			b:    &RTADVConfig{Enabled: true, PrefixIDs: []int{}},
+			want: true,
+		},
+		{
 			name: "different flags",
-			a:    &RTADVConfig{Enabled: true, PrefixID: 1, OFlag: true},
-			b:    &RTADVConfig{Enabled: true, PrefixID: 1, OFlag: false},
+			a:    &RTADVConfig{Enabled: true, PrefixIDs: []int{1}, OFlag: true},
+			b:    &RTADVConfig{Enabled: true, PrefixIDs: []int{1}, OFlag: false},
 			want: false,
 		},
 	}

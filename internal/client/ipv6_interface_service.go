@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/sh1/terraform-provider-rtx/internal/logging"
@@ -59,15 +60,17 @@ func (s *IPv6InterfaceService) Configure(ctx context.Context, config IPv6Interfa
 	// Configure RTADV
 	if config.RTADV != nil && config.RTADV.Enabled {
 		rtadvCmd := parsers.BuildIPv6RTADVCommand(config.Interface, parsers.RTADVConfig{
-			Enabled:  config.RTADV.Enabled,
-			PrefixID: config.RTADV.PrefixID,
-			OFlag:    config.RTADV.OFlag,
-			MFlag:    config.RTADV.MFlag,
-			Lifetime: config.RTADV.Lifetime,
+			Enabled:   config.RTADV.Enabled,
+			PrefixIDs: config.RTADV.PrefixIDs,
+			OFlag:     config.RTADV.OFlag,
+			MFlag:     config.RTADV.MFlag,
+			Lifetime:  config.RTADV.Lifetime,
 		})
-		logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Setting RTADV with command: %s", rtadvCmd)
-		if err := runCommand(ctx, s.executor, rtadvCmd); err != nil {
-			return fmt.Errorf("failed to set RTADV: %w", err)
+		if rtadvCmd != "" {
+			logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Setting RTADV with command: %s", rtadvCmd)
+			if err := runCommand(ctx, s.executor, rtadvCmd); err != nil {
+				return fmt.Errorf("failed to set RTADV: %w", err)
+			}
 		}
 	}
 
@@ -189,15 +192,17 @@ func (s *IPv6InterfaceService) Update(ctx context.Context, config IPv6InterfaceC
 		// Set new RTADV
 		if config.RTADV != nil && config.RTADV.Enabled {
 			rtadvCmd := parsers.BuildIPv6RTADVCommand(config.Interface, parsers.RTADVConfig{
-				Enabled:  config.RTADV.Enabled,
-				PrefixID: config.RTADV.PrefixID,
-				OFlag:    config.RTADV.OFlag,
-				MFlag:    config.RTADV.MFlag,
-				Lifetime: config.RTADV.Lifetime,
+				Enabled:   config.RTADV.Enabled,
+				PrefixIDs: config.RTADV.PrefixIDs,
+				OFlag:     config.RTADV.OFlag,
+				MFlag:     config.RTADV.MFlag,
+				Lifetime:  config.RTADV.Lifetime,
 			})
-			logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Setting RTADV with command: %s", rtadvCmd)
-			if err := runCommand(ctx, s.executor, rtadvCmd); err != nil {
-				return fmt.Errorf("failed to set RTADV: %w", err)
+			if rtadvCmd != "" {
+				logging.FromContext(ctx).Debug().Str("service", "ipv6_interface").Msgf("Setting RTADV with command: %s", rtadvCmd)
+				if err := runCommand(ctx, s.executor, rtadvCmd); err != nil {
+					return fmt.Errorf("failed to set RTADV: %w", err)
+				}
 			}
 		}
 	}
@@ -310,11 +315,11 @@ func (s *IPv6InterfaceService) toParserConfig(config IPv6InterfaceConfig) parser
 	// Convert RTADV
 	if config.RTADV != nil {
 		parserConfig.RTADV = &parsers.RTADVConfig{
-			Enabled:  config.RTADV.Enabled,
-			PrefixID: config.RTADV.PrefixID,
-			OFlag:    config.RTADV.OFlag,
-			MFlag:    config.RTADV.MFlag,
-			Lifetime: config.RTADV.Lifetime,
+			Enabled:   config.RTADV.Enabled,
+			PrefixIDs: config.RTADV.PrefixIDs,
+			OFlag:     config.RTADV.OFlag,
+			MFlag:     config.RTADV.MFlag,
+			Lifetime:  config.RTADV.Lifetime,
 		}
 	}
 
@@ -343,11 +348,11 @@ func (s *IPv6InterfaceService) fromParserConfig(pc parsers.IPv6InterfaceConfig) 
 	// Convert RTADV
 	if pc.RTADV != nil {
 		config.RTADV = &RTADVConfig{
-			Enabled:  pc.RTADV.Enabled,
-			PrefixID: pc.RTADV.PrefixID,
-			OFlag:    pc.RTADV.OFlag,
-			MFlag:    pc.RTADV.MFlag,
-			Lifetime: pc.RTADV.Lifetime,
+			Enabled:   pc.RTADV.Enabled,
+			PrefixIDs: pc.RTADV.PrefixIDs,
+			OFlag:     pc.RTADV.OFlag,
+			MFlag:     pc.RTADV.MFlag,
+			Lifetime:  pc.RTADV.Lifetime,
 		}
 	}
 
@@ -375,8 +380,10 @@ func rtadvConfigsEqual(a, b *RTADVConfig) bool {
 	if a == nil || b == nil {
 		return false
 	}
+	// Prefix ID order is significant: the router advertises them in the order
+	// given, so [1 2] and [2 1] are different configurations.
 	return a.Enabled == b.Enabled &&
-		a.PrefixID == b.PrefixID &&
+		slices.Equal(a.PrefixIDs, b.PrefixIDs) &&
 		a.OFlag == b.OFlag &&
 		a.MFlag == b.MFlag &&
 		a.Lifetime == b.Lifetime

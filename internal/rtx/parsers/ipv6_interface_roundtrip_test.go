@@ -5,6 +5,7 @@
 package parsers
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -59,8 +60,28 @@ func TestIPv6InterfaceRoundTrip_Parse(t *testing.T) {
 				if !config.RTADV.Enabled {
 					t.Errorf("RTADV.Enabled = %v, want true", config.RTADV.Enabled)
 				}
-				if config.RTADV.PrefixID != 1 {
-					t.Errorf("RTADV.PrefixID = %v, want 1", config.RTADV.PrefixID)
+				if !reflect.DeepEqual(config.RTADV.PrefixIDs, []int{1}) {
+					t.Errorf("RTADV.PrefixIDs = %v, want [1]", config.RTADV.PrefixIDs)
+				}
+				if !config.RTADV.OFlag {
+					t.Errorf("RTADV.OFlag = %v, want true", config.RTADV.OFlag)
+				}
+				if config.RTADV.MFlag {
+					t.Errorf("RTADV.MFlag = %v, want false", config.RTADV.MFlag)
+				}
+			},
+		},
+		{
+			name:  "rtadv_send_multi_prefix",
+			rtx:   "ipv6 lan1 rtadv send 1 2 o_flag=on m_flag=off",
+			iface: "lan1",
+			checkFunc: func(t *testing.T, config *IPv6InterfaceConfig) {
+				if config.RTADV == nil {
+					t.Errorf("RTADV should not be nil")
+					return
+				}
+				if !reflect.DeepEqual(config.RTADV.PrefixIDs, []int{1, 2}) {
+					t.Errorf("RTADV.PrefixIDs = %v, want [1 2]", config.RTADV.PrefixIDs)
 				}
 				if !config.RTADV.OFlag {
 					t.Errorf("RTADV.OFlag = %v, want true", config.RTADV.OFlag)
@@ -176,23 +197,35 @@ func TestIPv6InterfaceRoundTrip_Build(t *testing.T) {
 			name: "rtadv_send",
 			buildFunc: func() string {
 				return BuildIPv6RTADVCommand("lan1", RTADVConfig{
-					Enabled:  true,
-					PrefixID: 1,
-					OFlag:    true,
-					MFlag:    false,
+					Enabled:   true,
+					PrefixIDs: []int{1},
+					OFlag:     true,
+					MFlag:     false,
 				})
 			},
 			expectedRTX: "ipv6 lan1 rtadv send 1 o_flag=on m_flag=off",
 		},
 		{
+			name: "rtadv_send_multi_prefix",
+			buildFunc: func() string {
+				return BuildIPv6RTADVCommand("lan1", RTADVConfig{
+					Enabled:   true,
+					PrefixIDs: []int{1, 2},
+					OFlag:     true,
+					MFlag:     false,
+				})
+			},
+			expectedRTX: "ipv6 lan1 rtadv send 1 2 o_flag=on m_flag=off",
+		},
+		{
 			name: "rtadv_with_lifetime",
 			buildFunc: func() string {
 				return BuildIPv6RTADVCommand("lan1", RTADVConfig{
-					Enabled:  true,
-					PrefixID: 1,
-					OFlag:    true,
-					MFlag:    true,
-					Lifetime: 1800,
+					Enabled:   true,
+					PrefixIDs: []int{1},
+					OFlag:     true,
+					MFlag:     true,
+					Lifetime:  1800,
 				})
 			},
 			expectedRTX: "ipv6 lan1 rtadv send 1 o_flag=on m_flag=on lifetime=1800",
@@ -303,6 +336,48 @@ func TestIPv6InterfaceRoundTrip_ParseBuildParse(t *testing.T) {
 			t.Errorf("Round-trip failed:\n  Original: %q\n  Rebuilt:  %q", rtx, rebuilt)
 		}
 	})
+
+	t.Run("rtadv_multi_prefix_round_trip", func(t *testing.T) {
+		rtx := "ipv6 lan1 rtadv send 1 2 o_flag=on m_flag=off"
+		iface := "lan1"
+
+		config, err := ParseIPv6InterfaceConfig(rtx, iface)
+		if err != nil {
+			t.Fatalf("ParseIPv6InterfaceConfig error: %v", err)
+		}
+		if config.RTADV == nil {
+			t.Fatalf("Expected RTADV, got nil")
+		}
+
+		rebuilt := BuildIPv6RTADVCommand(iface, *config.RTADV)
+		if rebuilt != rtx {
+			t.Errorf("Round-trip failed:\n  Original: %q\n  Rebuilt:  %q", rtx, rebuilt)
+		}
+	})
+
+	t.Run("rtadv_multi_prefix_parse_build_parse_is_idempotent", func(t *testing.T) {
+		iface := "lan1"
+		want := &RTADVConfig{
+			Enabled:   true,
+			PrefixIDs: []int{2, 1, 3},
+			OFlag:     false,
+			MFlag:     true,
+			Lifetime:  1800,
+		}
+
+		// build(cfg) -> parse -> must equal cfg
+		cmd := BuildIPv6RTADVCommand(iface, *want)
+		config, err := ParseIPv6InterfaceConfig(cmd, iface)
+		if err != nil {
+			t.Fatalf("ParseIPv6InterfaceConfig(%q) error: %v", cmd, err)
+		}
+		if config.RTADV == nil {
+			t.Fatalf("Expected RTADV from %q, got nil", cmd)
+		}
+		if !reflect.DeepEqual(config.RTADV, want) {
+			t.Errorf("parse(build(cfg)) = %+v, want %+v", config.RTADV, want)
+		}
+	})
 }
 
 // TestIPv6InterfaceRoundTrip_Validation tests IPv6 interface config validation functions
@@ -360,15 +435,26 @@ func TestIPv6InterfaceRoundTrip_Validation(t *testing.T) {
 			wantError: true,
 		},
 		{
-			name: "invalid_rtadv_prefix_id",
+			name: "invalid_rtadv_prefix_ids",
 			config: IPv6InterfaceConfig{
 				Interface: "lan1",
 				RTADV: &RTADVConfig{
-					Enabled:  true,
-					PrefixID: 0,
+					Enabled:   true,
+					PrefixIDs: []int{0},
 				},
 			},
 			wantError: true,
+		},
+		{
+			name: "valid_rtadv_multi_prefix_ids",
+			config: IPv6InterfaceConfig{
+				Interface: "lan1",
+				RTADV: &RTADVConfig{
+					Enabled:   true,
+					PrefixIDs: []int{1, 2},
+				},
+			},
+			wantError: false,
 		},
 		{
 			name: "invalid_dhcpv6_service",

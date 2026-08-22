@@ -1,6 +1,7 @@
 package parsers
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -59,10 +60,73 @@ ipv6 lan1 address fe80::1/10
 				Interface: "lan1",
 				Addresses: []IPv6Address{},
 				RTADV: &RTADVConfig{
-					Enabled:  true,
-					PrefixID: 1,
-					OFlag:    true,
-					MFlag:    false,
+					Enabled:   true,
+					PrefixIDs: []int{1},
+					OFlag:     true,
+					MFlag:     false,
+				},
+			},
+		},
+		{
+			name: "RTADV with multiple prefix IDs",
+			raw: `ipv6 lan1 rtadv send 1 2 o_flag=on m_flag=off
+`,
+			interfaceName: "lan1",
+			want: &IPv6InterfaceConfig{
+				Interface: "lan1",
+				Addresses: []IPv6Address{},
+				RTADV: &RTADVConfig{
+					Enabled:   true,
+					PrefixIDs: []int{1, 2},
+					OFlag:     true,
+					MFlag:     false,
+				},
+			},
+		},
+		{
+			name: "RTADV with multiple prefix IDs and no options",
+			raw: `ipv6 lan1 rtadv send 3 1 2
+`,
+			interfaceName: "lan1",
+			want: &IPv6InterfaceConfig{
+				Interface: "lan1",
+				Addresses: []IPv6Address{},
+				RTADV: &RTADVConfig{
+					Enabled:   true,
+					PrefixIDs: []int{3, 1, 2},
+				},
+			},
+		},
+		{
+			name: "RTADV across two lines unions the prefix IDs",
+			raw: `ipv6 lan1 rtadv send 1 o_flag=on
+ipv6 lan1 rtadv send 1 2 m_flag=on
+`,
+			interfaceName: "lan1",
+			want: &IPv6InterfaceConfig{
+				Interface: "lan1",
+				Addresses: []IPv6Address{},
+				RTADV: &RTADVConfig{
+					Enabled:   true,
+					PrefixIDs: []int{1, 2},
+					OFlag:     true,
+					MFlag:     true,
+				},
+			},
+		},
+		{
+			name: "RTADV unparseable line does not clobber an earlier one",
+			raw: `ipv6 lan1 rtadv send 1 o_flag=on
+ipv6 lan1 rtadv send off
+`,
+			interfaceName: "lan1",
+			want: &IPv6InterfaceConfig{
+				Interface: "lan1",
+				Addresses: []IPv6Address{},
+				RTADV: &RTADVConfig{
+					Enabled:   true,
+					PrefixIDs: []int{1},
+					OFlag:     true,
 				},
 			},
 		},
@@ -75,11 +139,11 @@ ipv6 lan1 address fe80::1/10
 				Interface: "lan1",
 				Addresses: []IPv6Address{},
 				RTADV: &RTADVConfig{
-					Enabled:  true,
-					PrefixID: 1,
-					OFlag:    true,
-					MFlag:    true,
-					Lifetime: 1800,
+					Enabled:   true,
+					PrefixIDs: []int{1},
+					OFlag:     true,
+					MFlag:     true,
+					Lifetime:  1800,
 				},
 			},
 		},
@@ -159,10 +223,10 @@ ipv6 lan1 secure filter out 10 20 dynamic 100
 					{Address: "2001:db8::1/64"},
 				},
 				RTADV: &RTADVConfig{
-					Enabled:  true,
-					PrefixID: 1,
-					OFlag:    true,
-					MFlag:    false,
+					Enabled:   true,
+					PrefixIDs: []int{1},
+					OFlag:     true,
+					MFlag:     false,
 				},
 				DHCPv6Service:    "server",
 				MTU:              1500,
@@ -213,7 +277,8 @@ ipv6 lan1 secure filter out 10 20 dynamic 100
 			if (got.RTADV == nil) != (tt.want.RTADV == nil) {
 				t.Errorf("RTADV = %v, want %v", got.RTADV, tt.want.RTADV)
 			} else if got.RTADV != nil {
-				if *got.RTADV != *tt.want.RTADV {
+				// RTADVConfig holds a slice, so it is not comparable with !=
+				if !reflect.DeepEqual(*got.RTADV, *tt.want.RTADV) {
 					t.Errorf("RTADV = %+v, want %+v", *got.RTADV, *tt.want.RTADV)
 				}
 			}
@@ -324,25 +389,43 @@ func TestBuildIPv6RTADVCommand(t *testing.T) {
 		{
 			name:  "basic RTADV",
 			iface: "lan1",
-			rtadv: RTADVConfig{Enabled: true, PrefixID: 1, OFlag: true, MFlag: false},
+			rtadv: RTADVConfig{Enabled: true, PrefixIDs: []int{1}, OFlag: true, MFlag: false},
 			want:  "ipv6 lan1 rtadv send 1 o_flag=on m_flag=off",
 		},
 		{
 			name:  "RTADV with m_flag",
 			iface: "lan1",
-			rtadv: RTADVConfig{Enabled: true, PrefixID: 2, OFlag: false, MFlag: true},
+			rtadv: RTADVConfig{Enabled: true, PrefixIDs: []int{2}, OFlag: false, MFlag: true},
 			want:  "ipv6 lan1 rtadv send 2 o_flag=off m_flag=on",
+		},
+		{
+			name:  "RTADV with multiple prefix IDs",
+			iface: "lan1",
+			rtadv: RTADVConfig{Enabled: true, PrefixIDs: []int{1, 2}, OFlag: true, MFlag: false},
+			want:  "ipv6 lan1 rtadv send 1 2 o_flag=on m_flag=off",
+		},
+		{
+			name:  "RTADV with multiple prefix IDs keeps the given order",
+			iface: "lan1",
+			rtadv: RTADVConfig{Enabled: true, PrefixIDs: []int{2, 1, 3}, OFlag: false, MFlag: false, Lifetime: 1800},
+			want:  "ipv6 lan1 rtadv send 2 1 3 o_flag=off m_flag=off lifetime=1800",
 		},
 		{
 			name:  "RTADV with lifetime",
 			iface: "lan1",
-			rtadv: RTADVConfig{Enabled: true, PrefixID: 1, OFlag: true, MFlag: true, Lifetime: 1800},
+			rtadv: RTADVConfig{Enabled: true, PrefixIDs: []int{1}, OFlag: true, MFlag: true, Lifetime: 1800},
 			want:  "ipv6 lan1 rtadv send 1 o_flag=on m_flag=on lifetime=1800",
 		},
 		{
 			name:  "disabled RTADV",
 			iface: "lan1",
-			rtadv: RTADVConfig{Enabled: false, PrefixID: 1},
+			rtadv: RTADVConfig{Enabled: false, PrefixIDs: []int{1}},
+			want:  "",
+		},
+		{
+			name:  "enabled RTADV with no prefix IDs emits nothing",
+			iface: "lan1",
+			rtadv: RTADVConfig{Enabled: true, OFlag: true},
 			want:  "",
 		},
 	}
@@ -540,7 +623,7 @@ func TestValidateIPv6InterfaceConfig(t *testing.T) {
 			config: IPv6InterfaceConfig{
 				Interface: "lan1",
 				Addresses: []IPv6Address{{Address: "2001:db8::1/64"}},
-				RTADV:     &RTADVConfig{Enabled: true, PrefixID: 1},
+				RTADV:     &RTADVConfig{Enabled: true, PrefixIDs: []int{1}},
 				MTU:       1500,
 			},
 			wantErr: false,
@@ -576,10 +659,26 @@ func TestValidateIPv6InterfaceConfig(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "invalid RTADV prefix_id",
+			name: "valid RTADV with multiple prefix_ids",
 			config: IPv6InterfaceConfig{
 				Interface: "lan1",
-				RTADV:     &RTADVConfig{Enabled: true, PrefixID: 0},
+				RTADV:     &RTADVConfig{Enabled: true, PrefixIDs: []int{1, 2}},
+			},
+			wantErr: false,
+		},
+		{
+			name: "empty RTADV prefix_ids",
+			config: IPv6InterfaceConfig{
+				Interface: "lan1",
+				RTADV:     &RTADVConfig{Enabled: true},
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid RTADV prefix_ids",
+			config: IPv6InterfaceConfig{
+				Interface: "lan1",
+				RTADV:     &RTADVConfig{Enabled: true, PrefixIDs: []int{1, 0}},
 			},
 			wantErr: true,
 		},
