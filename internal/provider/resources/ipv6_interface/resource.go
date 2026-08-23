@@ -182,6 +182,9 @@ func (r *IPv6InterfaceResource) Create(ctx context.Context, req resource.CreateR
 	ctx = logging.WithResource(ctx, "rtx_ipv6_interface", interfaceName)
 	logger := logging.FromContext(ctx)
 
+	// The read-back below replaces data.Address with the router's ordering
+	plannedAddresses := data.Address
+
 	config := data.ToClient(ctx, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
@@ -203,6 +206,9 @@ func (r *IPv6InterfaceResource) Create(ctx context.Context, req resource.CreateR
 		return
 	}
 
+	// Restore the planned address ordering; the router does not preserve it
+	data.reorderAddressesToMatchPlan(plannedAddresses)
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -215,6 +221,11 @@ func (r *IPv6InterfaceResource) Read(ctx context.Context, req resource.ReadReque
 		return
 	}
 
+	// Refresh has no plan, so the prior state carries the ordering to restore.
+	// Skipping this would rewrite state in router order on every refresh and
+	// make the next plan show a reordering diff that never converges.
+	priorAddresses := data.Address
+
 	r.read(ctx, &data, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		// Check if resource was removed (Interface set to null)
@@ -224,6 +235,8 @@ func (r *IPv6InterfaceResource) Read(ctx context.Context, req resource.ReadReque
 		}
 		return
 	}
+
+	data.reorderAddressesToMatchPlan(priorAddresses)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -320,6 +333,9 @@ func (r *IPv6InterfaceResource) Update(ctx context.Context, req resource.UpdateR
 	ctx = logging.WithResource(ctx, "rtx_ipv6_interface", interfaceName)
 	logger := logging.FromContext(ctx)
 
+	// The read-back below replaces data.Address with the router's ordering
+	plannedAddresses := data.Address
+
 	// Deep copy planned RTADV block since router may not return it consistently
 	var plannedRTADV *RTADVModel
 	if data.RTADV != nil {
@@ -352,6 +368,9 @@ func (r *IPv6InterfaceResource) Update(ctx context.Context, req resource.UpdateR
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	// Restore the planned address ordering; the router does not preserve it
+	data.reorderAddressesToMatchPlan(plannedAddresses)
 
 	// Restore planned RTADV values, but only for known (not unknown) attributes
 	// Unknown attributes should get their value from the router

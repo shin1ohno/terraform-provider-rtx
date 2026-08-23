@@ -69,6 +69,81 @@ func (m *IPv6InterfaceModel) ToClient(ctx context.Context, diagnostics *diag.Dia
 	return config
 }
 
+// addressKey identifies an address block by content, so read-back entries can
+// be matched to desired entries without depending on either side's ordering.
+// ValueString() maps a null attribute to "", which is what we want here: an
+// unset optional attribute and an empty one describe the same address.
+type addressKey struct {
+	address     string
+	prefixRef   string
+	interfaceID string
+}
+
+func makeAddressKey(addr IPv6AddressModel) addressKey {
+	return addressKey{
+		address:     addr.Address.ValueString(),
+		prefixRef:   addr.PrefixRef.ValueString(),
+		interfaceID: addr.InterfaceID.ValueString(),
+	}
+}
+
+// reorderAddressesToMatchPlan reorders the read-back address list so that
+// entries also present in desired appear in desired's order.
+//
+// The router does not echo `ipv6 <iface> address` lines in the order they were
+// written, and address is a ListNestedBlock, so order is significant to
+// Terraform: a read-back that merely permutes the configured addresses is
+// reported as "Provider produced inconsistent result after apply". Nothing in
+// the provider reorders (both the SSH and the SFTP read path append in source
+// order), so the normalization has to happen here.
+//
+// desired is the plan on Create/Update and the prior state on Read. Passing the
+// prior state on Read matters: without it a refresh would rewrite state in
+// router order and every subsequent plan would show a spurious reordering diff.
+//
+// This only normalizes ordering. An address the router returned that desired
+// does not mention is kept — it is real drift — and an address in desired that
+// the router did not return is left out rather than fabricated, so genuine
+// differences still surface.
+//
+// Same bug class and remedy as reorderServerSelectToMatchPlan in
+// internal/provider/resources/dns_server/model.go.
+func (m *IPv6InterfaceModel) reorderAddressesToMatchPlan(desired []IPv6AddressModel) {
+	if len(desired) == 0 || len(m.Address) == 0 {
+		return
+	}
+
+	// One index list per key so repeated identical addresses are consumed once each.
+	byKey := make(map[addressKey][]int, len(m.Address))
+	for i, addr := range m.Address {
+		key := makeAddressKey(addr)
+		byKey[key] = append(byKey[key], i)
+	}
+
+	reordered := make([]IPv6AddressModel, 0, len(m.Address))
+	matched := make([]bool, len(m.Address))
+
+	for _, want := range desired {
+		key := makeAddressKey(want)
+		indices := byKey[key]
+		if len(indices) == 0 {
+			continue
+		}
+		idx := indices[0]
+		byKey[key] = indices[1:]
+		matched[idx] = true
+		reordered = append(reordered, m.Address[idx])
+	}
+
+	for i, addr := range m.Address {
+		if !matched[i] {
+			reordered = append(reordered, addr)
+		}
+	}
+
+	m.Address = reordered
+}
+
 // FromClient updates the Terraform model from a client.IPv6InterfaceConfig.
 func (m *IPv6InterfaceModel) FromClient(ctx context.Context, config *client.IPv6InterfaceConfig, diagnostics *diag.Diagnostics) {
 	m.Interface = types.StringValue(config.Interface)
