@@ -564,18 +564,31 @@ func (r *AccessListIPv6Resource) readApplyBlocks(ctx context.Context, data *Acce
 
 		SetApplySequences(apply, sequences)
 
-		// Preserve user-specified dynamic_sequences to avoid state inconsistency.
-		// If user specified dynamic_sequences in config, keep that value.
-		// Otherwise, read from router.
-		if apply.DynamicSequences.IsNull() || apply.DynamicSequences.IsUnknown() {
-			// Not specified, read from router
-			dynamicSequences, err := r.client.GetIPv6InterfaceDynamicFilters(ctx, iface, direction)
-			if err != nil {
-				return fmt.Errorf("failed to get dynamic filters for interface %s %s: %w", iface, direction, err)
-			}
-			SetApplyDynamicSequences(apply, dynamicSequences)
+		// Always read dynamic_sequences from the router, then normalize its order
+		// against what the caller already had.
+		//
+		// This used to skip the read entirely whenever the attribute was non-null,
+		// which meant "non-null in state" — so once a value was written it was
+		// frozen for the life of the resource and a device-side change to the
+		// `dynamic ...` suffix could never surface as drift. Worse, the inverse:
+		// apply would keep rewriting the router from config with nobody told the
+		// two had diverged. That cost a live experiment on the HND RTX1210 on
+		// 2026-08-23, silently reverted by a concurrent apply.
+		//
+		// The "state inconsistency" the skip was guarding against is the ordering
+		// problem: dynamic_sequences is a ListAttribute, the router does not echo
+		// the list in written order, and Terraform rejects a permuted read-back.
+		// ReorderIntsToMatchPlan fixes that without hiding the value, the same way
+		// rtx_ipv6_interface handles its address blocks.
+		//
+		// desired is the prior state here (Read) and the plan on Create/Update;
+		// see the helper's doc comment for why that distinction matters.
+		dynamicSequences, err := r.client.GetIPv6InterfaceDynamicFilters(ctx, iface, direction)
+		if err != nil {
+			return fmt.Errorf("failed to get dynamic filters for interface %s %s: %w", iface, direction, err)
 		}
-		// If user specified dynamic_sequences, preserve it (don't overwrite)
+		desired := data.GetApplyDynamicSequences(apply)
+		SetApplyDynamicSequences(apply, fwhelpers.ReorderIntsToMatchPlan(dynamicSequences, desired))
 	}
 
 	return nil

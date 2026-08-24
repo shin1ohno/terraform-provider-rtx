@@ -66,6 +66,23 @@ func (m *AccessListIPv6DynamicModel) ToClient() client.AccessListIPv6Dynamic {
 // FromClient updates the Terraform model from a client.AccessListIPv6Dynamic.
 // currentSeqs specifies which sequences to include (for filtering during read).
 // When currentSeqs is empty (during import), it includes all entries from the router.
+// FromClient copies the router's view into the model, scoped to the sequences this
+// resource owns.
+//
+// currentSeqs is the ownership boundary and is load-bearing. The RTX has no concept
+// of an ACL name: every `ipv6 filter dynamic <n>` line lives in one global namespace
+// and client.GetAccessListIPv6Dynamic returns all of them regardless of the name it
+// was asked about. Filtering by the sequences already in state is the only thing
+// keeping two rtx_access_list_ipv6_dynamic resources from each adopting the other's
+// entries and never converging.
+//
+// The consequence, which is intended: an entry added on the device at a sequence no
+// resource owns is not reported as drift. It becomes visible once config declares
+// it. Attribute changes to an OWNED sequence are picked up normally — see
+// model_test.go, which pins both halves.
+//
+// currentSeqs empty with no entries in the model means import, where there is no
+// prior state to scope with and every router entry is adopted.
 func (m *AccessListIPv6DynamicModel) FromClient(acl *client.AccessListIPv6Dynamic, currentSeqs map[int]bool) {
 	m.Name = types.StringValue(acl.Name)
 

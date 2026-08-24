@@ -195,7 +195,10 @@ func resolveSecureFilterIface(iface, currentSelect string) string {
 // Returns a map of interface -> direction -> filter numbers
 func ParseInterfaceSecureFilter(raw string) (map[string]map[string][]int, error) {
 	result := make(map[string]map[string][]int)
-	lines := strings.Split(raw, "\n")
+	// RTX wraps a long apply line at ~80 columns and the `dynamic ...` suffix
+	// ends up on the continuation line, so it has to be rejoined before the
+	// line-oriented match below or the dynamic sequences are silently lost.
+	lines := strings.Split(preprocessWrappedLines(raw), "\n")
 
 	// Pattern: ip <interface> secure filter <direction> <filter_numbers...> [dynamic <dynamic_numbers...>]
 	// Example: ip lan1 secure filter in 100 101 dynamic 10 20
@@ -248,7 +251,10 @@ func ParseInterfaceSecureFilter(raw string) (map[string]map[string][]int, error)
 // Returns a map of interface -> direction -> InterfaceSecureFilterResult (static and dynamic IDs)
 func ParseInterfaceSecureFilterWithDynamic(raw string) (map[string]map[string]InterfaceSecureFilterResult, error) {
 	result := make(map[string]map[string]InterfaceSecureFilterResult)
-	lines := strings.Split(raw, "\n")
+	// RTX wraps a long apply line at ~80 columns and the `dynamic ...` suffix
+	// ends up on the continuation line, so it has to be rejoined before the
+	// line-oriented match below or the dynamic sequences are silently lost.
+	lines := strings.Split(preprocessWrappedLines(raw), "\n")
 
 	// Pattern: ip <interface> secure filter <direction> <filter_numbers...> [dynamic <dynamic_numbers...>]
 	// Example: ip lan1 secure filter in 100 101 dynamic 10 20
@@ -805,6 +811,24 @@ func BuildShowIPv6FilterCommand() string {
 	return "show config | grep \"ipv6 filter\""
 }
 
+// BuildShowSecureFilterCommand returns the command that lists the per-interface
+// filter APPLY lines, for both address families:
+//
+//	ip lan2 secure filter in 45 50 ... dynamic 1 6 ...
+//	ipv6 lan2 secure filter out 100 105 ... dynamic 6 31 ...
+//	ip tunnel secure filter in 300 305
+//
+// It exists because BuildShowIPFilterCommand / BuildShowIPv6FilterCommand grep for
+// "ip filter" / "ipv6 filter", which match the filter DEFINITION lines and not
+// these. Feeding their output to ParseInterfaceSecureFilter* yielded an empty map
+// for every interface, so `sequences` and `dynamic_sequences` came back empty on
+// every read and no drift on an apply line could ever be detected. Found 2026-08-23
+// when a device-side change to `ipv6 lan2 secure filter in ... dynamic ...` never
+// appeared in a plan.
+func BuildShowSecureFilterCommand() string {
+	return "show config | grep \"secure filter\""
+}
+
 // ParseIPv6FilterConfig parses the output of "show config" for IPv6 filter lines
 func ParseIPv6FilterConfig(raw string) ([]IPFilter, error) {
 	filters := []IPFilter{}
@@ -925,7 +949,10 @@ func BuildDeleteIPv6FilterDynamicCommand(number int) string {
 // Returns a map of interface -> direction -> filter numbers
 func ParseInterfaceIPv6SecureFilter(raw string) (map[string]map[string][]int, error) {
 	result := make(map[string]map[string][]int)
-	lines := strings.Split(raw, "\n")
+	// RTX wraps a long apply line at ~80 columns and the `dynamic ...` suffix
+	// ends up on the continuation line, so it has to be rejoined before the
+	// line-oriented match below or the dynamic sequences are silently lost.
+	lines := strings.Split(preprocessWrappedLines(raw), "\n")
 
 	// Pattern: ipv6 <interface> secure filter <direction> <filter_numbers...> [dynamic <dynamic_numbers...>]
 	securePattern := regexp.MustCompile(`^\s*ipv6\s+(\S+)\s+secure\s+filter\s+(in|out)\s+(.+)$`)
@@ -977,7 +1004,10 @@ func ParseInterfaceIPv6SecureFilter(raw string) (map[string]map[string][]int, er
 // Returns a map of interface -> direction -> InterfaceSecureFilterResult (static and dynamic IDs)
 func ParseInterfaceIPv6SecureFilterWithDynamic(raw string) (map[string]map[string]InterfaceSecureFilterResult, error) {
 	result := make(map[string]map[string]InterfaceSecureFilterResult)
-	lines := strings.Split(raw, "\n")
+	// RTX wraps a long apply line at ~80 columns and the `dynamic ...` suffix
+	// ends up on the continuation line, so it has to be rejoined before the
+	// line-oriented match below or the dynamic sequences are silently lost.
+	lines := strings.Split(preprocessWrappedLines(raw), "\n")
 
 	// Pattern: ipv6 <interface> secure filter <direction> <filter_numbers...> [dynamic <dynamic_numbers...>]
 	securePattern := regexp.MustCompile(`^\s*ipv6\s+(\S+)\s+secure\s+filter\s+(in|out)\s+(.+)$`)

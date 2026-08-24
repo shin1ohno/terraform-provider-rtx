@@ -181,10 +181,10 @@ func (s *ACLApplyService) GetInterfaceFilters(ctx context.Context, iface, direct
 
 	switch aclType {
 	case ACLTypeIP, ACLTypeExtended, ACLTypeIPDynamic:
-		cmd = parsers.BuildShowIPFilterCommand()
+		cmd = parsers.BuildShowSecureFilterCommand()
 		parseFunc = parsers.ParseInterfaceSecureFilter
 	case ACLTypeIPv6, ACLTypeIPv6Dynamic:
-		cmd = parsers.BuildShowIPv6FilterCommand()
+		cmd = parsers.BuildShowSecureFilterCommand()
 		parseFunc = parsers.ParseInterfaceIPv6SecureFilter
 	case ACLTypeMAC:
 		cmd = parsers.BuildShowInterfaceEthernetFilterCommand()
@@ -401,9 +401,9 @@ func (s *ACLApplyService) GetInterfaceDynamicFilters(ctx context.Context, iface,
 	var cmd string
 	switch aclType {
 	case ACLTypeIP, ACLTypeExtended, ACLTypeIPDynamic:
-		cmd = parsers.BuildShowIPFilterCommand()
+		cmd = parsers.BuildShowSecureFilterCommand()
 	case ACLTypeIPv6, ACLTypeIPv6Dynamic:
-		cmd = parsers.BuildShowIPv6FilterCommand()
+		cmd = parsers.BuildShowSecureFilterCommand()
 	default:
 		return nil, fmt.Errorf("dynamic filters not supported for ACL type: %s", aclType)
 	}
@@ -460,10 +460,10 @@ func (s *ACLApplyService) GetAllInterfaceFiltersForType(ctx context.Context, acl
 
 	switch aclType {
 	case ACLTypeIP, ACLTypeExtended, ACLTypeIPDynamic:
-		cmd = parsers.BuildShowIPFilterCommand()
+		cmd = parsers.BuildShowSecureFilterCommand()
 		parseFunc = parsers.ParseInterfaceSecureFilter
 	case ACLTypeIPv6, ACLTypeIPv6Dynamic:
-		cmd = parsers.BuildShowIPv6FilterCommand()
+		cmd = parsers.BuildShowSecureFilterCommand()
 		parseFunc = parsers.ParseInterfaceIPv6SecureFilter
 	case ACLTypeMAC:
 		cmd = parsers.BuildShowInterfaceEthernetFilterCommand()
