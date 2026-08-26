@@ -21,6 +21,7 @@ import (
 	"github.com/sh1/terraform-provider-rtx/internal/client"
 	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"github.com/sh1/terraform-provider-rtx/internal/provider/fwhelpers"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/validation"
 )
 
 // MaxSequenceValue is the maximum allowed sequence number.
@@ -104,12 +105,18 @@ Note: Unlike IPv4 dynamic filters, IPv6 dynamic filters do NOT support the timeo
 							},
 						},
 						"source": schema.StringAttribute{
-							Description: "Source IPv6 address or '*' for any. Can be an IPv6 address, network in CIDR notation, or '*'.",
+							Description: "Source IPv6 address or '*' for any. An IPv6 address, a network in CIDR notation, an interface-relative prefix reference (ra-prefix@<interface>::/<length> or dhcp-prefix@<interface>::/<length>), or '*'.",
 							Required:    true,
+							Validators: []validator.String{
+								validation.IPv6FilterAddressValidator(),
+							},
 						},
 						"destination": schema.StringAttribute{
-							Description: "Destination IPv6 address or '*' for any. Can be an IPv6 address, network in CIDR notation, or '*'.",
+							Description: "Destination IPv6 address or '*' for any. An IPv6 address, a network in CIDR notation, an interface-relative prefix reference (ra-prefix@<interface>::/<length> or dhcp-prefix@<interface>::/<length>), or '*'.",
 							Required:    true,
+							Validators: []validator.String{
+								validation.IPv6FilterAddressValidator(),
+							},
 						},
 						"protocol": schema.StringAttribute{
 							Description: "Protocol for stateful inspection. Valid values: ftp, www, smtp, pop3, dns, domain, " +

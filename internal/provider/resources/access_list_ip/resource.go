@@ -714,23 +714,22 @@ func (r *AccessListIPResource) readApplyBlocks(ctx context.Context, data *Access
 			filterIDValues[i] = types.Int64Value(int64(id))
 		}
 
-		// Preserve user-specified dynamic_sequences to avoid state inconsistency.
-		// If user specified dynamic_sequences in config, use that value.
-		// Otherwise, read from router.
-		var dynamicSequenceValues []attr.Value
-		if !a.DynamicSequences.IsNull() && !a.DynamicSequences.IsUnknown() {
-			// User specified dynamic_sequences, preserve it
-			dynamicSequenceValues = a.DynamicSequences.Elements()
-		} else {
-			// Not specified, read from router
-			dynamicSequences, err := r.client.GetIPInterfaceDynamicFilters(ctx, iface, direction)
-			if err != nil {
-				return fmt.Errorf("failed to get dynamic filters for interface %s %s: %w", iface, direction, err)
-			}
-			dynamicSequenceValues = make([]attr.Value, len(dynamicSequences))
-			for i, id := range dynamicSequences {
-				dynamicSequenceValues[i] = types.Int64Value(int64(id))
-			}
+		// Always read dynamic_sequences from the router, then normalize its order
+		// against what the caller already had. See the identical block in
+		// access_list_ipv6/resource.go for the full story: skipping the read
+		// whenever the attribute was non-null froze it for the life of the
+		// resource, so a device-side change to the `dynamic ...` suffix could
+		// never surface as drift while apply kept rewriting the router from
+		// config. The ordering problem that motivated the skip is handled by
+		// ReorderIntsToMatchPlan instead.
+		dynamicSequences, err := r.client.GetIPInterfaceDynamicFilters(ctx, iface, direction)
+		if err != nil {
+			return fmt.Errorf("failed to get dynamic filters for interface %s %s: %w", iface, direction, err)
+		}
+		dynamicSequences = fwhelpers.ReorderIntsToMatchPlan(dynamicSequences, fwhelpers.ListToIntSlice(a.DynamicSequences))
+		dynamicSequenceValues := make([]attr.Value, len(dynamicSequences))
+		for i, id := range dynamicSequences {
+			dynamicSequenceValues[i] = types.Int64Value(int64(id))
 		}
 
 		updatedApply := ApplyModel{

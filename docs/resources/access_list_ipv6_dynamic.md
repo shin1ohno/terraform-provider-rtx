@@ -38,9 +38,9 @@ Note: Unlike IPv4 dynamic filters, IPv6 dynamic filters do NOT support the timeo
 
 Required:
 
-- `destination` (String) Destination IPv6 address or '*' for any. Can be an IPv6 address, network in CIDR notation, or '*'.
+- `destination` (String) Destination IPv6 address or '*' for any. An IPv6 address, a network in CIDR notation, an interface-relative prefix reference (ra-prefix@<interface>::/<length> or dhcp-prefix@<interface>::/<length>), or '*'.
 - `protocol` (String) Protocol for stateful inspection. Valid values: ftp, www, smtp, pop3, dns, domain, telnet, ssh, tcp, udp, *, tftp, submission, https, imap, imaps, pop3s, smtps, ldap, ldaps, bgp, sip, ipsec-nat-t, ntp, snmp, rtsp, h323, pptp, l2tp, ike, esp.
-- `source` (String) Source IPv6 address or '*' for any. Can be an IPv6 address, network in CIDR notation, or '*'.
+- `source` (String) Source IPv6 address or '*' for any. An IPv6 address, a network in CIDR notation, an interface-relative prefix reference (ra-prefix@<interface>::/<length> or dhcp-prefix@<interface>::/<length>), or '*'.
 
 Optional:
 
