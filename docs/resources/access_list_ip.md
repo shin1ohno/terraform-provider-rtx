@@ -45,7 +45,7 @@ Optional:
 
 Required:
 
-- `action` (String) Filter action: pass, reject, restrict, or restrict-log
+- `action` (String) Filter action: pass, reject or restrict, each also available as a -log / -nolog variant (pass-log, pass-nolog, reject-log, reject-nolog, restrict-log, restrict-nolog) that forces syslog on or off for packets the entry matches.
 - `destination` (String) Destination IP address/network in CIDR notation (e.g., '192.168.1.0/24') or '*' for any
 - `source` (String) Source IP address/network in CIDR notation (e.g., '10.0.0.0/8') or '*' for any
 

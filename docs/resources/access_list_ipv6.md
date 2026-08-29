@@ -45,7 +45,7 @@ Optional:
 
 Required:
 
-- `action` (String) Filter action: pass, reject, restrict, or restrict-log
+- `action` (String) Filter action: pass, reject or restrict, each also available as a -log / -nolog variant (pass-log, pass-nolog, reject-log, reject-nolog, restrict-log, restrict-nolog) that forces syslog on or off for packets the entry matches.
 - `destination` (String) Destination IPv6 address/prefix (e.g., '2001:db8::1/128') or '*' for any
 - `source` (String) Source IPv6 address/prefix (e.g., '2001:db8::/32') or '*' for any
 

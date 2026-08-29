@@ -139,10 +139,14 @@ func (r *AccessListIPResource) Schema(ctx context.Context, req resource.SchemaRe
 							},
 						},
 						"action": schema.StringAttribute{
-							Description: "Filter action: pass, reject, restrict, or restrict-log",
+							Description: "Filter action: pass, reject or restrict, each also available as a -log / -nolog variant (pass-log, pass-nolog, reject-log, reject-nolog, restrict-log, restrict-nolog) that forces syslog on or off for packets the entry matches.",
 							Required:    true,
 							Validators: []validator.String{
-								stringvalidator.OneOfCaseInsensitive("pass", "reject", "restrict", "restrict-log"),
+								stringvalidator.OneOfCaseInsensitive(
+									"pass", "pass-log", "pass-nolog",
+									"reject", "reject-log", "reject-nolog",
+									"restrict", "restrict-log", "restrict-nolog",
+								),
 							},
 						},
 						"source": schema.StringAttribute{
