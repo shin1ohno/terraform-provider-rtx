@@ -80,3 +80,16 @@
   First step: decide whether these belong on `rtx_kron_schedule` as `timer` / `context`
   attributes or on a separate resource, then add the builder + parser round-trip cases from
   `specs/schedule/config.yaml:279-300`.
+
+- **kron_schedule: `terraform import` lands on the device's spelling, so the first plan proposes a rewrite**
+  Import sets only `schedule_id` and reads the rest off the router, and there is no prior state
+  to reconcile against — so `at_time` lands as the rendered `00:00:00` even when the config the
+  operator is importing into says `0:00`. The first plan then shows an in-place update whose
+  apply runs `no schedule at <id>` + rewrite: a live schedule deleted and recreated purely for
+  formatting. A plan modifier cannot fix it (core rejects a planned value differing from config
+  on a non-Computed attribute). Workaround today: write the imported spelling into config —
+  `at_time = "00:00:00"` validates since 0.16.4.
+  First step: decide between documenting the workaround in `docs/resources/kron_schedule.md`
+  and making `at_time` a custom string type with `StringSemanticEquals` (no such type exists in
+  this provider yet, so it would be a new pattern — weigh it against the reconcile-with-plan
+  convention the rest of the resources follow).

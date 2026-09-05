@@ -1,6 +1,8 @@
 package kron_schedule
 
 import (
+	"strings"
+
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
@@ -105,10 +107,33 @@ func (m *KronScheduleModel) reconcileWithDesired(desired *KronScheduleModel) {
 		m.Date = preferDesired(m.Date, desired.Date)
 	}
 
-	if parsers.NormalizeScheduleDayOfWeek(fwhelpers.GetStringValue(m.DayOfWeek)) ==
-		parsers.NormalizeScheduleDayOfWeek(fwhelpers.GetStringValue(desired.DayOfWeek)) {
+	if parsers.ScheduleDayOfWeekKey(fwhelpers.GetStringValue(m.DayOfWeek)) ==
+		parsers.ScheduleDayOfWeekKey(fwhelpers.GetStringValue(desired.DayOfWeek)) {
 		m.DayOfWeek = preferDesired(m.DayOfWeek, desired.DayOfWeek)
 	}
+
+	// The router's config rendering is trimmed, and so is every line this
+	// package parses, so a command written with surrounding whitespace can
+	// never be read back verbatim. Echo the configured element when it differs
+	// only by that, rather than failing an apply over a space.
+	if !desired.CommandLines.IsUnknown() &&
+		sameCommandsIgnoringSurroundingSpace(
+			fwhelpers.ListToStringSlice(m.CommandLines),
+			fwhelpers.ListToStringSlice(desired.CommandLines)) {
+		m.CommandLines = desired.CommandLines
+	}
+}
+
+func sameCommandsIgnoringSurroundingSpace(actual, desired []string) bool {
+	if len(actual) != len(desired) {
+		return false
+	}
+	for i := range actual {
+		if strings.TrimSpace(actual[i]) != strings.TrimSpace(desired[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 // preferDesired returns the practitioner's value unless it is unknown, which

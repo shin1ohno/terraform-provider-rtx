@@ -120,3 +120,66 @@ func TestCreateScheduleAdoptsIdenticalLine(t *testing.T) {
 		}
 	})
 }
+
+// "The parser found nothing" is not the same answer as "the router has
+// nothing". Writing on that assumption would replace a schedule this provider
+// cannot even display.
+func TestCreateScheduleRefusesToOverwriteAnUnparseableLine(t *testing.T) {
+	exec := &mockExecutor{responses: map[string]string{
+		// A +TIMER schedule: valid RTX syntax the model has no field for.
+		"show config": "schedule at 1 +600 * restart\n",
+	}}
+	svc := NewScheduleService(exec, nil)
+
+	err := svc.CreateSchedule(context.Background(), Schedule{
+		ID: 1, AtTime: "0:00", Recurring: true,
+		Commands: []string{"ntpdate ntp.nict.jp syslog"},
+	})
+	if err == nil || !strings.Contains(err.Error(), "cannot manage") {
+		t.Fatalf("CreateSchedule() error = %v, want a 'cannot manage' conflict", err)
+	}
+	for _, cmd := range exec.executedCmds {
+		if strings.HasPrefix(cmd, "schedule at 1 ") {
+			t.Errorf("wrote %q despite the conflict", cmd)
+		}
+	}
+}
+
+// A refused read is not an absent schedule. Without this check the rejection
+// parses as zero schedules, the resource reports "not found", and Read drops a
+// live schedule out of state — while Create/Update blame the write instead.
+func TestGetScheduleSurfacesARefusedRead(t *testing.T) {
+	exec := &mockExecutor{responses: map[string]string{
+		"show config": "エラー: 管理レベルでのみ使用できます\n",
+	}}
+	svc := NewScheduleService(exec, nil)
+
+	_, err := svc.GetSchedule(context.Background(), 1)
+	if err == nil {
+		t.Fatal("GetSchedule() error = nil, want the router's rejection")
+	}
+	if strings.Contains(err.Error(), "not found") {
+		t.Errorf("GetSchedule() error = %v, want it NOT to look like an absent schedule", err)
+	}
+}
+
+// The console wraps at 80 columns, so an existing long line comes back split.
+// If the parser did not rejoin it, sameSchedule would compare a truncated
+// command against the full one, never match, and the adopt path — the thing
+// that makes a retry recoverable — would refuse forever.
+func TestCreateScheduleAdoptsAWrappedExistingLine(t *testing.T) {
+	command := "ip route 10.33.128.0/18 gateway 192.168.1.60 metric 1"
+	exec := &mockExecutor{responses: map[string]string{
+		"show config": "Searching ...\r\n" +
+			"schedule at 2 */* 04:00:00 * ip route 10.33.128.0/18 gateway 192.168.1.60 metri\r\n" +
+			"c 1\r\n",
+	}}
+	svc := NewScheduleService(exec, nil)
+
+	err := svc.CreateSchedule(context.Background(), Schedule{
+		ID: 2, AtTime: "4:00", Recurring: true, Commands: []string{command},
+	})
+	if err != nil {
+		t.Fatalf("CreateSchedule() error = %v, want the identical wrapped line to be adopted", err)
+	}
+}

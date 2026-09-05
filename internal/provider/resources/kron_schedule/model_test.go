@@ -224,3 +224,39 @@ func TestFromClientThenReconcileMatchesPlan(t *testing.T) {
 		})
 	}
 }
+
+// Every line this package parses is trimmed, and so is the router's own config
+// rendering, so a command written with surrounding whitespace can never come
+// back verbatim. Failing an apply over a space would be absurd; changing the
+// practitioner's string silently would be worse, so the configured element is
+// echoed only when it differs by nothing else.
+func TestReconcileWithDesiredCommandWhitespace(t *testing.T) {
+	t.Run("surrounding whitespace is not drift", func(t *testing.T) {
+		state := KronScheduleModel{
+			CommandLines: fwhelpers.StringSliceToList([]string{"ntpdate ntp.nict.jp syslog"}),
+		}
+		desired := KronScheduleModel{
+			CommandLines: fwhelpers.StringSliceToList([]string{"ntpdate ntp.nict.jp syslog "}),
+		}
+
+		state.reconcileWithDesired(&desired)
+
+		if !state.CommandLines.Equal(desired.CommandLines) {
+			t.Errorf("command_lines = %v, want the configured %v", state.CommandLines, desired.CommandLines)
+		}
+	})
+
+	t.Run("a different command is drift and stays", func(t *testing.T) {
+		fromRouter := fwhelpers.StringSliceToList([]string{"ntpdate ntp.nict.jp"})
+		state := KronScheduleModel{CommandLines: fromRouter}
+		desired := KronScheduleModel{
+			CommandLines: fwhelpers.StringSliceToList([]string{"ntpdate ntp.nict.jp syslog"}),
+		}
+
+		state.reconcileWithDesired(&desired)
+
+		if !state.CommandLines.Equal(fromRouter) {
+			t.Errorf("command_lines = %v, want the router's %v so the drift shows", state.CommandLines, fromRouter)
+		}
+	})
+}

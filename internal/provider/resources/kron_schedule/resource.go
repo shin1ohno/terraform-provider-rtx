@@ -31,6 +31,7 @@ var (
 	_ resource.Resource                   = &KronScheduleResource{}
 	_ resource.ResourceWithImportState    = &KronScheduleResource{}
 	_ resource.ResourceWithValidateConfig = &KronScheduleResource{}
+	_ resource.ResourceWithModifyPlan     = &KronScheduleResource{}
 )
 
 // NewKronScheduleResource creates a new kron schedule resource.
@@ -126,15 +127,19 @@ func (r *KronScheduleResource) Schema(ctx context.Context, req resource.SchemaRe
 				},
 			},
 			"command_lines": schema.ListAttribute{
-				Description: "List of commands to execute. Use this OR policy_list, not both.",
+				// Not capped by a validator on purpose: a hard error would also
+				// fire on `terraform destroy` (config validation runs for every
+				// operation), stranding anyone who already has a longer list in
+				// state — including the provider's own examples/schedule. The
+				// warning in ValidateConfig carries the same message without
+				// wedging them.
+				Description: "List of commands to execute. Use this OR policy_list, not both. " +
+					"An RTX schedule ID holds exactly ONE command: a second `schedule at <id>` line " +
+					"replaces the first rather than adding to it, so only the last element survives " +
+					"on the device.",
 				Optional:    true,
 				ElementType: types.StringType,
 				Validators: []validator.List{
-					// One RTX schedule ID holds exactly ONE command: a second
-					// `schedule at <id>` line replaces the first rather than
-					// adding to it. A longer list silently lost everything but
-					// the last element on the device.
-					listvalidator.SizeAtMost(1),
 					listvalidator.ConflictsWith(path.MatchRoot("policy_list")),
 				},
 			},
@@ -172,6 +177,70 @@ func (r *KronScheduleResource) ValidateConfig(ctx context.Context, req resource.
 			"Invalid Configuration",
 			"Either 'policy_list' or 'command_lines' must be specified.",
 		)
+	}
+
+	// `recurring` has a static default of true, so an omitted value plans as
+	// true even for a schedule that fires once — and the router can only ever
+	// report back what the line's shape says. A contradiction here is a
+	// guaranteed post-apply consistency failure, so name it at plan time.
+	// ModifyPlan derives the value when config leaves it unset; this only
+	// catches an explicit one that disagrees.
+	if !data.Recurring.IsNull() && !data.Recurring.IsUnknown() {
+		oneShot := onStartup || parsers.IsScheduleOneTimeDate(date)
+		switch {
+		case data.Recurring.ValueBool() && oneShot:
+			resp.Diagnostics.AddAttributeError(
+				path.Root("recurring"),
+				"Invalid Configuration",
+				"recurring cannot be true for an on_startup schedule or a YYYY/MM/DD date — both fire once.",
+			)
+		case !data.Recurring.ValueBool() && !oneShot:
+			resp.Diagnostics.AddAttributeError(
+				path.Root("recurring"),
+				"Invalid Configuration",
+				"recurring cannot be false for a plain at_time schedule — the RTX repeats it every day. "+
+					"Add a YYYY/MM/DD date, or on_startup, for a schedule that fires once.",
+			)
+		}
+	}
+
+	if len(data.CommandLines.Elements()) > 1 {
+		resp.Diagnostics.AddAttributeWarning(
+			path.Root("command_lines"),
+			"Only the last command will survive on the router",
+			"An RTX schedule ID holds exactly one command: each `schedule at <id>` line replaces "+
+				"the previous one rather than adding to it. This resource writes one line per "+
+				"element, so the router ends up running only the last, and the read-back will not "+
+				"match the configured list. Split the commands across separate schedule IDs.",
+		)
+	}
+}
+
+// ModifyPlan derives `recurring` from the schedule's shape when config leaves
+// it unset.
+//
+// The attribute carries booldefault.StaticBool(true), which is right for the
+// common daily schedule and wrong for the other two shapes this resource
+// supports: an on_startup schedule and a YYYY/MM/DD date both fire once, and
+// the read path correctly reports Recurring=false for them. A planned true that
+// Read can never return is a post-apply consistency error on every apply, so
+// both of those modes were unusable. Deriving it here rather than dropping the
+// default keeps `recurring` a known value in every existing user's plan instead
+// of turning it into "(known after apply)".
+func (r *KronScheduleResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.Plan.Raw.IsNull() || req.Config.Raw.IsNull() {
+		return // destroy plan
+	}
+
+	var config, plan KronScheduleModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() || !config.Recurring.IsNull() {
+		return
+	}
+
+	if fwhelpers.GetBoolValue(plan.OnStartup) || parsers.IsScheduleOneTimeDate(fwhelpers.GetStringValue(plan.Date)) {
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("recurring"), types.BoolValue(false))...)
 	}
 }
 
@@ -330,6 +399,27 @@ func missingAfterWrite(data, planData *KronScheduleModel, op string, diagnostics
 	return true
 }
 
+// missingAfterUpdate is missingAfterWrite for the update path, which deletes
+// before it re-creates. When the re-create does not land the router is left
+// with NO schedule at that ID while state still holds the old one, so the
+// message has to say that rather than implying the previous schedule survived.
+func missingAfterUpdate(data, planData *KronScheduleModel, diagnostics *diag.Diagnostics) bool {
+	if !data.ScheduleID.IsNull() {
+		return false
+	}
+
+	id := int(planData.ScheduleID.ValueInt64())
+	fwhelpers.AppendDiagError(diagnostics,
+		"Kron schedule not found after update",
+		fmt.Sprintf("Schedule %d could not be re-created. An update removes the old schedule before "+
+			"writing the new one, so the router currently has NO schedule at %d while Terraform state "+
+			"still describes the old one. The router most likely rejected the new command; run %q on "+
+			"the console to confirm, then re-apply.",
+			id, id, parsers.BuildShowScheduleByIDCommand(id)),
+	)
+	return true
+}
+
 // Update updates the resource and sets the updated Terraform state on success.
 func (r *KronScheduleResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var data KronScheduleModel
@@ -365,7 +455,7 @@ func (r *KronScheduleResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
-	if missingAfterWrite(&data, &planData, "update", &resp.Diagnostics) {
+	if missingAfterUpdate(&data, &planData, &resp.Diagnostics) {
 		return
 	}
 

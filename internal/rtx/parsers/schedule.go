@@ -47,7 +47,15 @@ func (p *ScheduleParser) ParseScheduleConfig(raw string) ([]Schedule, error) {
 	// ParseScheduleConfig used to return the map's range order, so ListSchedules
 	// handed back a different order on every call. Track first-seen order.
 	order := make([]int, 0, 8)
-	lines := strings.Split(raw, "\n")
+
+	// The RTX console wraps at 80 columns no matter what PTY width the session
+	// asks for, so a `schedule at` line with a long command arrives split across
+	// two physical lines. Without this the continuation is silently dropped and
+	// the command parses SHORT — the same failure class already fixed for
+	// `dhcp scope option` and `dns server select`.
+	lines := dewrapConsoleLines(raw, func(trimmed string) bool {
+		return strings.HasPrefix(trimmed, "schedule ") || strings.HasPrefix(trimmed, "no schedule ")
+	})
 
 	// The `schedule at` forms are tokenized rather than matched by one regexp —
 	// see parseScheduleAtLine. The two forms below have a fixed shape and stay
@@ -257,7 +265,7 @@ func parseScheduleAtLine(line string) (Schedule, bool) {
 		// trip. `*/*` says nothing Recurring does not, so it is dropped.
 		switch dow := strings.TrimPrefix(toks[i], "*/"); {
 		case toks[i] == scheduleEveryDay:
-		case strings.HasPrefix(toks[i], "*/") && ValidateDayOfWeek(dow) == nil:
+		case strings.HasPrefix(toks[i], "*/") && IsScheduleWeekdaySelector(dow):
 			schedule.DayOfWeek = dow
 		default:
 			schedule.Date = toks[i]
@@ -307,6 +315,20 @@ func parseScheduleAtLine(line string) (Schedule, bool) {
 	schedule.Commands = []string{command}
 
 	return schedule, true
+}
+
+// FindScheduleAtLine returns the raw `schedule at <id>` line present in raw, if
+// there is one — whether or not this package can parse it. "The parser found
+// nothing" and "the router has nothing" are different answers, and only the
+// second one makes it safe to write over the ID.
+func FindScheduleAtLine(raw string, id int) string {
+	prefix := regexp.MustCompile(fmt.Sprintf(`^\s*schedule\s+at\s+%d\s`, id))
+	for _, line := range strings.Split(raw, "\n") {
+		if prefix.MatchString(line) {
+			return strings.TrimSpace(line)
+		}
+	}
+	return ""
 }
 
 // NormalizeScheduleTime renders a schedule clock token in the router's own
@@ -443,15 +465,98 @@ func BuildShowScheduleByIDCommand(id int) string {
 	return fmt.Sprintf("show config | grep \"schedule at %d\"", id)
 }
 
-// NormalizeScheduleDayOfWeek renders a weekday selector in one spelling so
-// `"mon, wed, fri"` from config and `"mon,wed,fri"` from the router compare
-// equal. Ranges pass through unchanged.
+// IsScheduleWeekdaySelector reports whether s names weekdays — `mon`,
+// `mon-fri`, `sat,sun`, or a mix like `mon-wed,fri`.
+func IsScheduleWeekdaySelector(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, part := range strings.Split(strings.ToLower(strings.TrimSpace(s)), ",") {
+		from, to, isRange := strings.Cut(strings.TrimSpace(part), "-")
+		if !isScheduleWeekday(from) {
+			return false
+		}
+		if isRange && !isScheduleWeekday(to) {
+			return false
+		}
+	}
+	return true
+}
+
+func isScheduleWeekday(s string) bool {
+	for _, day := range scheduleWeekdays {
+		if s == day {
+			return true
+		}
+	}
+	return false
+}
+
+// scheduleWeekdays is the RTX's own week order, used to expand a range.
+var scheduleWeekdays = []string{"sun", "mon", "tue", "wed", "thu", "fri", "sat"}
+
+// NormalizeScheduleDayOfWeek renders a weekday selector in the spelling the
+// router is given: lower-case, no spaces, ranges left intact. Use it when
+// building a command, not when comparing two selectors.
 func NormalizeScheduleDayOfWeek(d string) string {
 	parts := strings.Split(strings.ToLower(strings.TrimSpace(d)), ",")
 	for i := range parts {
 		parts[i] = strings.TrimSpace(parts[i])
 	}
 	return strings.Join(parts, ",")
+}
+
+// ScheduleDayOfWeekKey reduces a weekday selector to the set of days it names,
+// in week order, so that two spellings of the same set compare equal.
+//
+// Comparing the strings is not enough: `mon-fri` and `mon,tue,wed,thu,fri`
+// select the same days, and it is not known which of the two an RTX renders
+// back for a range it was given. Treating a re-rendered range as drift would
+// fail the apply on a schedule that is in fact correct. A selector this does
+// not understand is returned normalized-but-unexpanded, so it still only
+// compares equal to itself.
+func ScheduleDayOfWeekKey(d string) string {
+	normalized := NormalizeScheduleDayOfWeek(d)
+	if normalized == "" {
+		return ""
+	}
+
+	index := make(map[string]int, len(scheduleWeekdays))
+	for i, day := range scheduleWeekdays {
+		index[day] = i
+	}
+
+	selected := make(map[int]bool, len(scheduleWeekdays))
+	for _, part := range strings.Split(normalized, ",") {
+		from, to, isRange := strings.Cut(part, "-")
+		start, ok := index[from]
+		if !ok {
+			return normalized
+		}
+		if !isRange {
+			selected[start] = true
+			continue
+		}
+		end, ok := index[to]
+		if !ok {
+			return normalized
+		}
+		// A range may wrap the week end (`fri-mon`).
+		for i := start; ; i = (i + 1) % len(scheduleWeekdays) {
+			selected[i] = true
+			if i == end {
+				break
+			}
+		}
+	}
+
+	days := make([]string, 0, len(selected))
+	for i, day := range scheduleWeekdays {
+		if selected[i] {
+			days = append(days, day)
+		}
+	}
+	return strings.Join(days, ",")
 }
 
 // IsScheduleOneTimeDate reports whether a date token names a single calendar
@@ -569,27 +674,26 @@ func ValidateDayOfWeek(dayStr string) error {
 		"thu": true, "fri": true, "sat": true,
 	}
 
-	// Handle range format (e.g., "mon-fri")
-	if strings.Contains(dayStr, "-") {
-		parts := strings.Split(dayStr, "-")
-		if len(parts) != 2 {
-			return fmt.Errorf("invalid day range format %q", dayStr)
+	// Commas separate, hyphens make a range — so split on the comma FIRST.
+	// Checking for a hyphen up front rejected the mixed form the RTX accepts
+	// ("mon-wed,fri" split into ["mon", "wed,fri"]).
+	for _, part := range strings.Split(dayStr, ",") {
+		part = strings.ToLower(strings.TrimSpace(part))
+		from, to, isRange := strings.Cut(part, "-")
+		if isRange {
+			if strings.Contains(to, "-") {
+				return fmt.Errorf("invalid day range format %q", part)
+			}
+			if !validDays[from] {
+				return fmt.Errorf("invalid day %q in range", from)
+			}
+			if !validDays[to] {
+				return fmt.Errorf("invalid day %q in range", to)
+			}
+			continue
 		}
-		if !validDays[strings.ToLower(parts[0])] {
-			return fmt.Errorf("invalid day %q in range", parts[0])
-		}
-		if !validDays[strings.ToLower(parts[1])] {
-			return fmt.Errorf("invalid day %q in range", parts[1])
-		}
-		return nil
-	}
-
-	// Handle comma-separated format (e.g., "mon,wed,fri")
-	parts := strings.Split(dayStr, ",")
-	for _, part := range parts {
-		day := strings.ToLower(strings.TrimSpace(part))
-		if !validDays[day] {
-			return fmt.Errorf("invalid day %q, must be one of: sun, mon, tue, wed, thu, fri, sat", day)
+		if !validDays[from] {
+			return fmt.Errorf("invalid day %q, must be one of: sun, mon, tue, wed, thu, fri, sat", from)
 		}
 	}
 

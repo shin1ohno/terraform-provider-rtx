@@ -362,3 +362,134 @@ func TestParseScheduleAtPreservesCommandSpacing(t *testing.T) {
 		t.Errorf("Commands[0] = %q, want %q", schedules[0].Commands[0], want)
 	}
 }
+
+// A range and the enumeration of its days select the same days. It is not known
+// which spelling an RTX renders back for a range it was given, so the two have
+// to compare equal or a correct schedule would read as drift.
+func TestScheduleDayOfWeekKey(t *testing.T) {
+	tests := []struct {
+		a    string
+		b    string
+		same bool
+	}{
+		{"mon-fri", "mon,tue,wed,thu,fri", true},
+		{"mon, wed, fri", "mon,wed,fri", true},
+		{"Sat,Sun", "sat-sun", true},
+		{"fri-mon", "fri,sat,sun,mon", true},
+		{"mon-fri", "sat,sun", false},
+		{"mon", "tue", false},
+		{"", "", true},
+	}
+
+	for _, tt := range tests {
+		got := ScheduleDayOfWeekKey(tt.a) == ScheduleDayOfWeekKey(tt.b)
+		if got != tt.same {
+			t.Errorf("ScheduleDayOfWeekKey(%q)=%q vs (%q)=%q: equal=%v, want %v",
+				tt.a, ScheduleDayOfWeekKey(tt.a), tt.b, ScheduleDayOfWeekKey(tt.b), got, tt.same)
+		}
+	}
+
+	// The wire form keeps the range, so the command stays as short as the
+	// operator wrote it.
+	if got := NormalizeScheduleDayOfWeek("Mon-Fri"); got != "mon-fri" {
+		t.Errorf("NormalizeScheduleDayOfWeek(\"Mon-Fri\") = %q, want %q", got, "mon-fri")
+	}
+}
+
+// Two `schedule pp` lines for the same peer are one schedule with two commands,
+// and the ordering bookkeeping must not list it twice.
+func TestParseSchedulePPLinesCollapseToOneSchedule(t *testing.T) {
+	parser := NewScheduleParser()
+
+	schedules, err := parser.ParseScheduleConfig(
+		"schedule pp 1 mon-fri 8:00 connect\nschedule pp 1 mon-fri 18:00 disconnect\n")
+	if err != nil {
+		t.Fatalf("ParseScheduleConfig() error = %v", err)
+	}
+	if len(schedules) != 1 {
+		t.Fatalf("parsed %d schedules, want 1: %+v", len(schedules), schedules)
+	}
+	if len(schedules[0].Commands) != 2 {
+		t.Errorf("Commands = %q, want both connect and disconnect", schedules[0].Commands)
+	}
+}
+
+// ListSchedules used to hand back Go's map range order, which differs per call.
+func TestParseScheduleConfigIsOrderStable(t *testing.T) {
+	parser := NewScheduleParser()
+	raw := "schedule at 7 0:00 * save\nschedule at 3 1:00 * restart\nschedule at 11 2:00 * show config\n"
+
+	want := []int{7, 3, 11}
+	for attempt := 0; attempt < 20; attempt++ {
+		schedules, err := parser.ParseScheduleConfig(raw)
+		if err != nil {
+			t.Fatalf("ParseScheduleConfig() error = %v", err)
+		}
+		for i, id := range want {
+			if schedules[i].ID != id {
+				t.Fatalf("attempt %d: order = %v, want %v", attempt, schedules, want)
+			}
+		}
+	}
+}
+
+// The RTX console wraps at 80 columns whatever PTY width the session asks for,
+// so a long command arrives split across two physical lines. Before the parser
+// de-wrapped, the continuation was silently discarded and the command parsed
+// SHORT — which reads back as drift on command_lines and, worse, makes the
+// adopt-if-identical check permanently false so a retry can never recover.
+func TestParseScheduleConfigDeWrapsConsoleOutput(t *testing.T) {
+	parser := NewScheduleParser()
+
+	// Shaped like the verbatim capture in console_wrap_realbytes_test.go:
+	// command echo, "Searching ...", the wrapped config line, then the prompt.
+	raw := " show config | grep \"schedule at 2\"\r\n" +
+		"Searching ...\r\n" +
+		"schedule at 2 */* 04:00:00 * ip route 10.33.128.0/18 gateway 192.168.1.60 metri\r\n" +
+		"c 1\r\n" +
+		"[RTX1210] >\r\n"
+
+	schedules, err := parser.ParseScheduleConfig(raw)
+	if err != nil {
+		t.Fatalf("ParseScheduleConfig() error = %v", err)
+	}
+	if len(schedules) != 1 {
+		t.Fatalf("parsed %d schedules, want 1: %+v", len(schedules), schedules)
+	}
+
+	want := "ip route 10.33.128.0/18 gateway 192.168.1.60 metric 1"
+	if got := schedules[0].Commands[0]; got != want {
+		t.Errorf("Commands[0] = %q, want %q", got, want)
+	}
+	if schedules[0].AtTime != "04:00:00" {
+		t.Errorf("AtTime = %q, want %q", schedules[0].AtTime, "04:00:00")
+	}
+}
+
+// The RTX accepts a weekday selector that mixes ranges and commas. Checking for
+// a hyphen before splitting on the comma rejected it, and the token then fell
+// through to Date — an attribute whose validator only accepts YYYY/MM/DD, so it
+// could never be written back.
+func TestParseScheduleAtMixedWeekdaySelector(t *testing.T) {
+	parser := NewScheduleParser()
+
+	schedules, err := parser.ParseScheduleConfig("schedule at 1 */mon-wed,fri 8:00 * save")
+	if err != nil {
+		t.Fatalf("ParseScheduleConfig() error = %v", err)
+	}
+	if len(schedules) != 1 {
+		t.Fatalf("parsed %d schedules, want 1", len(schedules))
+	}
+	if schedules[0].DayOfWeek != "mon-wed,fri" {
+		t.Errorf("DayOfWeek = %q, want %q", schedules[0].DayOfWeek, "mon-wed,fri")
+	}
+	if schedules[0].Date != "" {
+		t.Errorf("Date = %q, want \"\"", schedules[0].Date)
+	}
+	if err := ValidateDayOfWeek("mon-wed,fri"); err != nil {
+		t.Errorf("ValidateDayOfWeek(\"mon-wed,fri\") = %v, want nil", err)
+	}
+	if got := ScheduleDayOfWeekKey("mon-wed,fri"); got != "mon,tue,wed,fri" {
+		t.Errorf("ScheduleDayOfWeekKey(\"mon-wed,fri\") = %q, want %q", got, "mon,tue,wed,fri")
+	}
+}
