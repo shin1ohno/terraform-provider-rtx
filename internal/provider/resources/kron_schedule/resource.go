@@ -67,12 +67,16 @@ func (r *KronScheduleResource) Schema(ctx context.Context, req resource.SchemaRe
 				Optional:    true,
 			},
 			"at_time": schema.StringAttribute{
-				Description: "Time to execute the schedule in HH:MM format (24-hour). Required unless on_startup is true.",
+				// HH:MM:SS is accepted as well as HH:MM because that is how the
+				// router renders a schedule back: `0:00` goes in, `show config`
+				// prints `00:00:00`. Rejecting it would make a value read off
+				// the device (or produced by `terraform import`) unwritable.
+				Description: "Time to execute the schedule in HH:MM or HH:MM:SS format (24-hour). Required unless on_startup is true.",
 				Optional:    true,
 				Validators: []validator.String{
 					stringvalidator.RegexMatches(
-						regexp.MustCompile(`^(\d{1,2}):(\d{2})$`),
-						"must be in HH:MM format (e.g., '12:00', '6:30')",
+						regexp.MustCompile(`^(\d{1,2}):(\d{2})(:(\d{2}))?$`),
+						"must be in HH:MM or HH:MM:SS format (e.g., '12:00', '6:30', '00:00:00')",
 					),
 					timeFormatValidator{},
 					stringvalidator.ConflictsWith(path.MatchRoot("on_startup")),
@@ -186,8 +190,17 @@ func (r *KronScheduleResource) Configure(ctx context.Context, req resource.Confi
 // Create creates the resource and sets the initial Terraform state.
 func (r *KronScheduleResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data KronScheduleModel
+	var planData KronScheduleModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Keep a second, untouched copy of the plan: read() mutates data in place
+	// with what the router rendered back, and the Optional non-Computed
+	// attributes have to echo the plan exactly (see reconcileWithDesired).
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &planData)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -212,14 +225,25 @@ func (r *KronScheduleResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
+	data.reconcileWithDesired(&planData)
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
 // Read refreshes the Terraform state with the latest data.
 func (r *KronScheduleResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var data KronScheduleModel
+	var priorData KronScheduleModel
 
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Prior state, not the plan, is what a refresh reconciles against —
+	// otherwise every refresh rewrites at_time into the router's rendering and
+	// the next plan shows a diff that is pure formatting.
+	resp.Diagnostics.Append(req.State.Get(ctx, &priorData)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -234,6 +258,8 @@ func (r *KronScheduleResource) Read(ctx context.Context, req resource.ReadReques
 		resp.State.RemoveResource(ctx)
 		return
 	}
+
+	data.reconcileWithDesired(&priorData)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -264,8 +290,14 @@ func (r *KronScheduleResource) read(ctx context.Context, data *KronScheduleModel
 // Update updates the resource and sets the updated Terraform state on success.
 func (r *KronScheduleResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var data KronScheduleModel
+	var planData KronScheduleModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &planData)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -289,6 +321,8 @@ func (r *KronScheduleResource) Update(ctx context.Context, req resource.UpdateRe
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	data.reconcileWithDesired(&planData)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -344,7 +378,7 @@ func (r *KronScheduleResource) ImportState(ctx context.Context, req resource.Imp
 type timeFormatValidator struct{}
 
 func (v timeFormatValidator) Description(ctx context.Context) string {
-	return "validates time is in valid HH:MM format with valid hour (0-23) and minute (0-59)"
+	return "validates time is in valid HH:MM or HH:MM:SS format with valid hour (0-23), minute (0-59) and second (0-59)"
 }
 
 func (v timeFormatValidator) MarkdownDescription(ctx context.Context) string {
@@ -361,14 +395,24 @@ func (v timeFormatValidator) ValidateString(ctx context.Context, req validator.S
 		return
 	}
 
-	timePattern := regexp.MustCompile(`^(\d{1,2}):(\d{2})$`)
+	timePattern := regexp.MustCompile(`^(\d{1,2}):(\d{2})(?::(\d{2}))?$`)
 	matches := timePattern.FindStringSubmatch(value)
-	if len(matches) != 3 {
+	if len(matches) != 4 {
 		return // Already validated by RegexMatches
 	}
 
 	hour, _ := strconv.Atoi(matches[1])
 	minute, _ := strconv.Atoi(matches[2])
+
+	if matches[3] != "" {
+		if second, _ := strconv.Atoi(matches[3]); second < 0 || second > 59 {
+			resp.Diagnostics.AddAttributeError(
+				req.Path,
+				"Invalid Time",
+				fmt.Sprintf("Second %d is invalid, must be 0-59", second),
+			)
+		}
+	}
 
 	if hour < 0 || hour > 23 {
 		resp.Diagnostics.AddAttributeError(

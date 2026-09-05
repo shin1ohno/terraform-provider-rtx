@@ -41,9 +41,18 @@ func (s *ScheduleService) CreateSchedule(ctx context.Context, schedule Schedule)
 	default:
 	}
 
-	// Check if schedule with same ID already exists
-	existing, _ := s.GetSchedule(ctx, schedule.ID)
-	if existing != nil {
+	// A schedule already on the router under this ID is only a conflict when it
+	// is a DIFFERENT schedule. This branch was unreachable while the read parser
+	// could not match the rendered `schedule at` form; now that it can, treating
+	// any existing line as a conflict would strand the exact case this provider
+	// produces — an apply that wrote the line and then failed Terraform's
+	// post-apply consistency check leaves the line on the device with no
+	// resource in state, and every retry would fail here until someone hand-ran
+	// `no schedule at <id>`. `schedule at` is overwrite-semantics on the RTX, so
+	// re-writing an identical line is a no-op. Overwriting a line that says
+	// something else is not, and stays an error.
+	if existing, err := s.GetSchedule(ctx, schedule.ID); err == nil && existing != nil &&
+		!sameSchedule(*existing, schedule) {
 		return fmt.Errorf("schedule %d already exists", schedule.ID)
 	}
 
@@ -236,6 +245,25 @@ func (s *ScheduleService) ListKronPolicies(ctx context.Context) ([]KronPolicy, e
 	// Since RTX doesn't have native kron policy support,
 	// return empty list (policies are managed at Terraform level)
 	return []KronPolicy{}, nil
+}
+
+// sameSchedule reports whether the schedule already on the router is the one we
+// are about to write. It compares only what a `schedule at` line can carry, and
+// normalizes the clock and date fields because the router re-renders them
+// (`0:00` is written, `00:00:00` is printed back).
+func sameSchedule(a, b Schedule) bool {
+	if a.OnStartup != b.OnStartup ||
+		parsers.NormalizeScheduleTime(a.AtTime) != parsers.NormalizeScheduleTime(b.AtTime) ||
+		parsers.NormalizeScheduleDate(a.Date) != parsers.NormalizeScheduleDate(b.Date) ||
+		len(a.Commands) != len(b.Commands) {
+		return false
+	}
+	for i := range a.Commands {
+		if a.Commands[i] != b.Commands[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // toParserSchedule converts client.Schedule to parsers.Schedule

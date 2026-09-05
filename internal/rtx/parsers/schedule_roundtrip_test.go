@@ -131,21 +131,21 @@ func TestScheduleRoundTrip_Build(t *testing.T) {
 			buildFunc: func() string {
 				return BuildScheduleAtCommand(1, "12:00", "restart")
 			},
-			expectedRTX: "schedule at 1 12:00 restart",
+			expectedRTX: "schedule at 1 12:00 * restart",
 		},
 		{
 			name: "schedule_at_startup",
 			buildFunc: func() string {
 				return BuildScheduleAtStartupCommand(2, "show config")
 			},
-			expectedRTX: "schedule at 2 startup show config",
+			expectedRTX: "schedule at 2 startup * show config",
 		},
 		{
 			name: "schedule_at_date_time",
 			buildFunc: func() string {
 				return BuildScheduleAtDateTimeCommand(3, "2024/01/15", "10:30", "restart")
 			},
-			expectedRTX: "schedule at 3 2024/01/15 10:30 restart",
+			expectedRTX: "schedule at 3 2024/01/15 10:30 * restart",
 		},
 		{
 			name: "schedule_pp",
@@ -185,7 +185,7 @@ func TestScheduleRoundTrip_ParseBuildParse(t *testing.T) {
 	parser := NewScheduleParser()
 
 	t.Run("schedule_at_time_round_trip", func(t *testing.T) {
-		rtx := "schedule at 1 12:00 restart"
+		rtx := "schedule at 1 12:00 * restart"
 
 		// Parse
 		schedules, err := parser.ParseScheduleConfig(rtx)
@@ -208,7 +208,7 @@ func TestScheduleRoundTrip_ParseBuildParse(t *testing.T) {
 	})
 
 	t.Run("schedule_at_startup_round_trip", func(t *testing.T) {
-		rtx := "schedule at 2 startup show config"
+		rtx := "schedule at 2 startup * show config"
 
 		// Parse
 		schedules, err := parser.ParseScheduleConfig(rtx)

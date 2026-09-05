@@ -5,6 +5,7 @@ import (
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
 	"github.com/sh1/terraform-provider-rtx/internal/provider/fwhelpers"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 // KronScheduleModel describes the resource data model.
@@ -64,5 +65,41 @@ func (m *KronScheduleModel) FromClient(schedule *client.Schedule) {
 		m.CommandLines = fwhelpers.StringSliceToList([]string{})
 	} else {
 		m.CommandLines = fwhelpers.StringSliceToList(schedule.Commands)
+	}
+}
+
+// reconcileWithDesired restores the attributes Terraform requires to come back
+// exactly as the practitioner wrote them.
+//
+// name, policy_list, day_of_week, at_time and date are Optional and NOT
+// Computed, so terraform core's post-apply consistency check demands the
+// applied value equal the planned one verbatim — null included. Three of them
+// the RTX cannot store at all: name and policy_list are Terraform-side labels
+// with no place in a `schedule at` line, and that line encodes weekdays inside
+// its date token rather than in a field of its own, so read-back always returns
+// them empty. at_time does come back, but in the router's own rendering: `0:00`
+// is written and `show config` prints `00:00:00`.
+//
+// Only values equal modulo that formatting are replaced. A genuinely different
+// time or date on the device is left in state, so the next plan shows the
+// drift instead of hiding it. Same contract as fwhelpers/reorder.go: desired is
+// the plan on Create/Update and the prior state on Read.
+func (m *KronScheduleModel) reconcileWithDesired(desired *KronScheduleModel) {
+	if desired == nil {
+		return
+	}
+
+	m.Name = desired.Name
+	m.PolicyList = desired.PolicyList
+	m.DayOfWeek = desired.DayOfWeek
+
+	if parsers.NormalizeScheduleTime(fwhelpers.GetStringValue(m.AtTime)) ==
+		parsers.NormalizeScheduleTime(fwhelpers.GetStringValue(desired.AtTime)) {
+		m.AtTime = desired.AtTime
+	}
+
+	if parsers.NormalizeScheduleDate(fwhelpers.GetStringValue(m.Date)) ==
+		parsers.NormalizeScheduleDate(fwhelpers.GetStringValue(desired.Date)) {
+		m.Date = desired.Date
 	}
 }
