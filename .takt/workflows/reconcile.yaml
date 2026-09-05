@@ -113,7 +113,7 @@ steps:
       **手順:**
       1. 差分レポートを読み、修正すべき箇所を確認
       2. `specs/{resource}/config.yaml` を修正
-      3. specgenでテストを再生成: `go run ./cmd/specgen -spec specs/{resource}/config.yaml`
+      3. specgenでテストを再生成: `go run ./tools/specgen -spec specs/{resource}/config.yaml`
       4. テストを実行: `go test ./internal/rtx/parsers/... -v -run "{resource}"`
 
       **重要**: Auditorが指摘した箇所のみ修正。独自判断での変更は禁止。

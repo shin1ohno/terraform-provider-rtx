@@ -41,10 +41,8 @@ func (s *ScheduleService) CreateSchedule(ctx context.Context, schedule Schedule)
 	default:
 	}
 
-	// Check if schedule with same ID already exists
-	existing, _ := s.GetSchedule(ctx, schedule.ID)
-	if existing != nil {
-		return fmt.Errorf("schedule %d already exists", schedule.ID)
+	if err := s.checkExistingSchedule(ctx, schedule); err != nil {
+		return err
 	}
 
 	// Build and execute commands based on schedule type
@@ -57,6 +55,13 @@ func (s *ScheduleService) CreateSchedule(ctx context.Context, schedule Schedule)
 		} else if schedule.DayOfWeek != "" && schedule.PPInterface > 0 {
 			// PP interface schedule
 			cmd = parsers.BuildSchedulePPCommand(schedule.PPInterface, schedule.DayOfWeek, schedule.AtTime, command)
+		} else if schedule.DayOfWeek != "" {
+			// The RTX carries weekdays in the date slot (`*/mon-fri`), not in a
+			// field of its own. Without this branch the day fell through to the
+			// plain time builder and was dropped: state said mon-fri while the
+			// router fired every day.
+			cmd = parsers.BuildScheduleAtDateTimeCommand(
+				schedule.ID, "*/"+parsers.NormalizeScheduleDayOfWeek(schedule.DayOfWeek), schedule.AtTime, command)
 		} else {
 			// Regular time-based schedule
 			cmd = parsers.BuildScheduleAtCommand(schedule.ID, schedule.AtTime, command)
@@ -80,6 +85,14 @@ func (s *ScheduleService) GetSchedule(ctx context.Context, id int) (*Schedule, e
 	output, err := s.executor.Run(ctx, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get schedule: %w", err)
+	}
+
+	// "grep matched nothing" and "the device refused the command" must not
+	// collapse into the same answer. Without this an admin-level rejection or
+	// any error reply parses as zero schedules, the resource reports "not
+	// found", and Read quietly drops a live schedule out of state.
+	if err := checkOutputErrorIgnoringNotFound(output, "failed to get schedule"); err != nil {
+		return nil, err
 	}
 
 	logging.FromContext(ctx).Debug().Str("service", "schedule").Msgf("Schedule raw output: %q", string(output))
@@ -238,6 +251,60 @@ func (s *ScheduleService) ListKronPolicies(ctx context.Context) ([]KronPolicy, e
 	return []KronPolicy{}, nil
 }
 
+// checkExistingSchedule decides whether it is safe to write over the ID.
+//
+// Three answers, not two. An IDENTICAL line is adopted: `schedule at` is
+// overwrite-semantics on the RTX, and an apply that wrote the line and then
+// failed Terraform's post-apply consistency check leaves exactly that state —
+// refusing would strand it until someone hand-ran `no schedule at <id>`. A
+// DIFFERENT line is a conflict. And a line the parser cannot model at all — a
+// `+TIMER` schedule, say — is also a conflict, because "the parser found
+// nothing" is not the same answer as "the router has nothing", and writing on
+// that assumption would silently destroy a schedule nobody can see.
+func (s *ScheduleService) checkExistingSchedule(ctx context.Context, desired Schedule) error {
+	output, err := s.executor.Run(ctx, parsers.BuildShowScheduleByIDCommand(desired.ID))
+	if err != nil {
+		// Nothing to compare against. If the session is genuinely broken the
+		// write that follows fails loudly on its own.
+		return nil
+	}
+
+	raw := string(output)
+	if existing, parseErr := parsers.NewScheduleParser().ParseSingleSchedule(raw, desired.ID); parseErr == nil && existing != nil {
+		if sameSchedule(s.fromParserSchedule(*existing), desired) {
+			return nil
+		}
+		return fmt.Errorf("schedule %d already exists", desired.ID)
+	}
+
+	if line := parsers.FindScheduleAtLine(raw, desired.ID); line != "" {
+		return fmt.Errorf("schedule %d exists on the router in a form this provider cannot manage: %q",
+			desired.ID, line)
+	}
+
+	return nil
+}
+
+// sameSchedule reports whether the schedule already on the router is the one we
+// are about to write. It compares only what a `schedule at` line can carry, and
+// normalizes the clock and date fields because the router re-renders them
+// (`0:00` is written, `00:00:00` is printed back).
+func sameSchedule(a, b Schedule) bool {
+	if a.OnStartup != b.OnStartup ||
+		parsers.NormalizeScheduleTime(a.AtTime) != parsers.NormalizeScheduleTime(b.AtTime) ||
+		parsers.NormalizeScheduleDate(a.Date) != parsers.NormalizeScheduleDate(b.Date) ||
+		parsers.ScheduleDayOfWeekKey(a.DayOfWeek) != parsers.ScheduleDayOfWeekKey(b.DayOfWeek) ||
+		len(a.Commands) != len(b.Commands) {
+		return false
+	}
+	for i := range a.Commands {
+		if a.Commands[i] != b.Commands[i] {
+			return false
+		}
+	}
+	return true
+}
+
 // toParserSchedule converts client.Schedule to parsers.Schedule
 func (s *ScheduleService) toParserSchedule(schedule Schedule) parsers.Schedule {
 	return parsers.Schedule{
@@ -251,6 +318,7 @@ func (s *ScheduleService) toParserSchedule(schedule Schedule) parsers.Schedule {
 		PolicyList: schedule.PolicyList,
 		Commands:   schedule.Commands,
 		Enabled:    schedule.Enabled,
+		Context:    schedule.Context,
 	}
 }
 
@@ -267,6 +335,7 @@ func (s *ScheduleService) fromParserSchedule(ps parsers.Schedule) Schedule {
 		PolicyList: ps.PolicyList,
 		Commands:   ps.Commands,
 		Enabled:    ps.Enabled,
+		Context:    ps.Context,
 	}
 }
 

@@ -226,21 +226,21 @@ func TestBuildScheduleAtCommand(t *testing.T) {
 			id:       1,
 			time:     "12:00",
 			command:  "save",
-			expected: "schedule at 1 12:00 save",
+			expected: "schedule at 1 12:00 * save",
 		},
 		{
 			name:     "early morning schedule",
 			id:       5,
 			time:     "6:30",
 			command:  "show ip route",
-			expected: "schedule at 5 6:30 show ip route",
+			expected: "schedule at 5 6:30 * show ip route",
 		},
 		{
 			name:     "late night schedule",
 			id:       10,
 			time:     "23:59",
 			command:  "pp select 1",
-			expected: "schedule at 10 23:59 pp select 1",
+			expected: "schedule at 10 23:59 * pp select 1",
 		},
 	}
 
@@ -265,13 +265,13 @@ func TestBuildScheduleAtStartupCommand(t *testing.T) {
 			name:     "startup with simple command",
 			id:       1,
 			command:  "dhcp service server",
-			expected: "schedule at 1 startup dhcp service server",
+			expected: "schedule at 1 startup * dhcp service server",
 		},
 		{
 			name:     "startup with pp select",
 			id:       2,
 			command:  "pp select 1",
-			expected: "schedule at 2 startup pp select 1",
+			expected: "schedule at 2 startup * pp select 1",
 		},
 	}
 
@@ -300,7 +300,7 @@ func TestBuildScheduleAtDateTimeCommand(t *testing.T) {
 			date:     "2025/01/15",
 			time:     "09:00",
 			command:  "save",
-			expected: "schedule at 1 2025/01/15 09:00 save",
+			expected: "schedule at 1 2025/01/15 09:00 * save",
 		},
 		{
 			name:     "year-end schedule",
@@ -308,7 +308,7 @@ func TestBuildScheduleAtDateTimeCommand(t *testing.T) {
 			date:     "2025/12/31",
 			time:     "23:59",
 			command:  "restart",
-			expected: "schedule at 10 2025/12/31 23:59 restart",
+			expected: "schedule at 10 2025/12/31 23:59 * restart",
 		},
 	}
 

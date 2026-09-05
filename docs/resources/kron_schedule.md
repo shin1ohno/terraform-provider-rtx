@@ -21,8 +21,8 @@ Manages a kron schedule (scheduled task) on RTX routers. Schedules can be time-b
 
 ### Optional
 
-- `at_time` (String) Time to execute the schedule in HH:MM format (24-hour). Required unless on_startup is true.
-- `command_lines` (List of String) List of commands to execute. Use this OR policy_list, not both.
+- `at_time` (String) Time to execute the schedule in HH:MM or HH:MM:SS format (24-hour). Required unless on_startup is true.
+- `command_lines` (List of String) List of commands to execute. Use this OR policy_list, not both. An RTX schedule ID holds exactly ONE command: a second `schedule at <id>` line replaces the first rather than adding to it, so only the last element survives on the device.
 - `date` (String) Specific date for one-time schedule execution in YYYY/MM/DD format. Cannot be combined with on_startup or day_of_week.
 - `day_of_week` (String) Day(s) of week to execute the schedule. Examples: 'mon', 'mon-fri', 'sat,sun'. If not specified with at_time, schedule runs daily.
 - `name` (String) Optional name/description for the schedule.

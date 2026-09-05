@@ -23,6 +23,7 @@ import (
 	"github.com/sh1/terraform-provider-rtx/internal/client"
 	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"github.com/sh1/terraform-provider-rtx/internal/provider/fwhelpers"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -30,6 +31,7 @@ var (
 	_ resource.Resource                   = &KronScheduleResource{}
 	_ resource.ResourceWithImportState    = &KronScheduleResource{}
 	_ resource.ResourceWithValidateConfig = &KronScheduleResource{}
+	_ resource.ResourceWithModifyPlan     = &KronScheduleResource{}
 )
 
 // NewKronScheduleResource creates a new kron schedule resource.
@@ -67,12 +69,16 @@ func (r *KronScheduleResource) Schema(ctx context.Context, req resource.SchemaRe
 				Optional:    true,
 			},
 			"at_time": schema.StringAttribute{
-				Description: "Time to execute the schedule in HH:MM format (24-hour). Required unless on_startup is true.",
+				// HH:MM:SS is accepted as well as HH:MM because that is how the
+				// router renders a schedule back: `0:00` goes in, `show config`
+				// prints `00:00:00`. Rejecting it would make a value read off
+				// the device (or produced by `terraform import`) unwritable.
+				Description: "Time to execute the schedule in HH:MM or HH:MM:SS format (24-hour). Required unless on_startup is true.",
 				Optional:    true,
 				Validators: []validator.String{
 					stringvalidator.RegexMatches(
-						regexp.MustCompile(`^(\d{1,2}):(\d{2})$`),
-						"must be in HH:MM format (e.g., '12:00', '6:30')",
+						regexp.MustCompile(`^(\d{1,2}):(\d{2})(:(\d{2}))?$`),
+						"must be in HH:MM or HH:MM:SS format (e.g., '12:00', '6:30', '00:00:00')",
 					),
 					timeFormatValidator{},
 					stringvalidator.ConflictsWith(path.MatchRoot("on_startup")),
@@ -121,7 +127,16 @@ func (r *KronScheduleResource) Schema(ctx context.Context, req resource.SchemaRe
 				},
 			},
 			"command_lines": schema.ListAttribute{
-				Description: "List of commands to execute. Use this OR policy_list, not both.",
+				// Not capped by a validator on purpose: a hard error would also
+				// fire on `terraform destroy` (config validation runs for every
+				// operation), stranding anyone who already has a longer list in
+				// state — including the provider's own examples/schedule. The
+				// warning in ValidateConfig carries the same message without
+				// wedging them.
+				Description: "List of commands to execute. Use this OR policy_list, not both. " +
+					"An RTX schedule ID holds exactly ONE command: a second `schedule at <id>` line " +
+					"replaces the first rather than adding to it, so only the last element survives " +
+					"on the device.",
 				Optional:    true,
 				ElementType: types.StringType,
 				Validators: []validator.List{
@@ -163,6 +178,70 @@ func (r *KronScheduleResource) ValidateConfig(ctx context.Context, req resource.
 			"Either 'policy_list' or 'command_lines' must be specified.",
 		)
 	}
+
+	// `recurring` has a static default of true, so an omitted value plans as
+	// true even for a schedule that fires once — and the router can only ever
+	// report back what the line's shape says. A contradiction here is a
+	// guaranteed post-apply consistency failure, so name it at plan time.
+	// ModifyPlan derives the value when config leaves it unset; this only
+	// catches an explicit one that disagrees.
+	if !data.Recurring.IsNull() && !data.Recurring.IsUnknown() {
+		oneShot := onStartup || parsers.IsScheduleOneTimeDate(date)
+		switch {
+		case data.Recurring.ValueBool() && oneShot:
+			resp.Diagnostics.AddAttributeError(
+				path.Root("recurring"),
+				"Invalid Configuration",
+				"recurring cannot be true for an on_startup schedule or a YYYY/MM/DD date — both fire once.",
+			)
+		case !data.Recurring.ValueBool() && !oneShot:
+			resp.Diagnostics.AddAttributeError(
+				path.Root("recurring"),
+				"Invalid Configuration",
+				"recurring cannot be false for a plain at_time schedule — the RTX repeats it every day. "+
+					"Add a YYYY/MM/DD date, or on_startup, for a schedule that fires once.",
+			)
+		}
+	}
+
+	if len(data.CommandLines.Elements()) > 1 {
+		resp.Diagnostics.AddAttributeWarning(
+			path.Root("command_lines"),
+			"Only the last command will survive on the router",
+			"An RTX schedule ID holds exactly one command: each `schedule at <id>` line replaces "+
+				"the previous one rather than adding to it. This resource writes one line per "+
+				"element, so the router ends up running only the last, and the read-back will not "+
+				"match the configured list. Split the commands across separate schedule IDs.",
+		)
+	}
+}
+
+// ModifyPlan derives `recurring` from the schedule's shape when config leaves
+// it unset.
+//
+// The attribute carries booldefault.StaticBool(true), which is right for the
+// common daily schedule and wrong for the other two shapes this resource
+// supports: an on_startup schedule and a YYYY/MM/DD date both fire once, and
+// the read path correctly reports Recurring=false for them. A planned true that
+// Read can never return is a post-apply consistency error on every apply, so
+// both of those modes were unusable. Deriving it here rather than dropping the
+// default keeps `recurring` a known value in every existing user's plan instead
+// of turning it into "(known after apply)".
+func (r *KronScheduleResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.Plan.Raw.IsNull() || req.Config.Raw.IsNull() {
+		return // destroy plan
+	}
+
+	var config, plan KronScheduleModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() || !config.Recurring.IsNull() {
+		return
+	}
+
+	if fwhelpers.GetBoolValue(plan.OnStartup) || parsers.IsScheduleOneTimeDate(fwhelpers.GetStringValue(plan.Date)) {
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("recurring"), types.BoolValue(false))...)
+	}
 }
 
 // Configure adds the provider configured client to the resource.
@@ -186,8 +265,17 @@ func (r *KronScheduleResource) Configure(ctx context.Context, req resource.Confi
 // Create creates the resource and sets the initial Terraform state.
 func (r *KronScheduleResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data KronScheduleModel
+	var planData KronScheduleModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Keep a second, untouched copy of the plan: read() mutates data in place
+	// with what the router rendered back, and the Optional non-Computed
+	// attributes have to echo the plan exactly (see reconcileWithDesired).
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &planData)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -212,14 +300,29 @@ func (r *KronScheduleResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
+	if missingAfterWrite(&data, &planData, "create", &resp.Diagnostics) {
+		return
+	}
+
+	data.reconcileWithDesired(&planData)
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
 // Read refreshes the Terraform state with the latest data.
 func (r *KronScheduleResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var data KronScheduleModel
+	var priorData KronScheduleModel
 
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Prior state, not the plan, is what a refresh reconciles against —
+	// otherwise every refresh rewrites at_time into the router's rendering and
+	// the next plan shows a diff that is pure formatting.
+	resp.Diagnostics.Append(req.State.Get(ctx, &priorData)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -234,6 +337,8 @@ func (r *KronScheduleResource) Read(ctx context.Context, req resource.ReadReques
 		resp.State.RemoveResource(ctx)
 		return
 	}
+
+	data.reconcileWithDesired(&priorData)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -259,13 +364,73 @@ func (r *KronScheduleResource) read(ctx context.Context, data *KronScheduleModel
 	}
 
 	data.FromClient(schedule)
+
+	if schedule.Context != "" && schedule.Context != "*" {
+		diagnostics.AddWarning(
+			"Schedule uses an execution context this resource does not model",
+			fmt.Sprintf("Schedule %d runs in the %q context on the router. rtx_kron_schedule only manages "+
+				"the global (\"*\") context, so the next apply will rewrite the line without it.",
+				scheduleID, schedule.Context),
+		)
+	}
+}
+
+// missingAfterWrite reports the router having no matching line right after a
+// write, and returns true when it did.
+//
+// read() nulls schedule_id when `show config` finds nothing. Straight after a
+// create or update that means the write did not land — the RTX rejects a
+// malformed command with a message none of the write path's error patterns
+// match, so the write can return success having done nothing. Naming it here
+// beats handing Terraform a null id and letting core report the opaque
+// "Provider produced inconsistent result after apply".
+func missingAfterWrite(data, planData *KronScheduleModel, op string, diagnostics *diag.Diagnostics) bool {
+	if !data.ScheduleID.IsNull() {
+		return false
+	}
+
+	id := int(planData.ScheduleID.ValueInt64())
+	fwhelpers.AppendDiagError(diagnostics,
+		fmt.Sprintf("Kron schedule not found after %s", op),
+		fmt.Sprintf("Schedule %d was written to the router but %q returned no matching line. The router "+
+			"most likely rejected the command; run it on the console to see the error.",
+			id, parsers.BuildShowScheduleByIDCommand(id)),
+	)
+	return true
+}
+
+// missingAfterUpdate is missingAfterWrite for the update path, which deletes
+// before it re-creates. When the re-create does not land the router is left
+// with NO schedule at that ID while state still holds the old one, so the
+// message has to say that rather than implying the previous schedule survived.
+func missingAfterUpdate(data, planData *KronScheduleModel, diagnostics *diag.Diagnostics) bool {
+	if !data.ScheduleID.IsNull() {
+		return false
+	}
+
+	id := int(planData.ScheduleID.ValueInt64())
+	fwhelpers.AppendDiagError(diagnostics,
+		"Kron schedule not found after update",
+		fmt.Sprintf("Schedule %d could not be re-created. An update removes the old schedule before "+
+			"writing the new one, so the router currently has NO schedule at %d while Terraform state "+
+			"still describes the old one. The router most likely rejected the new command; run %q on "+
+			"the console to confirm, then re-apply.",
+			id, id, parsers.BuildShowScheduleByIDCommand(id)),
+	)
+	return true
 }
 
 // Update updates the resource and sets the updated Terraform state on success.
 func (r *KronScheduleResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var data KronScheduleModel
+	var planData KronScheduleModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &planData)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -289,6 +454,12 @@ func (r *KronScheduleResource) Update(ctx context.Context, req resource.UpdateRe
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	if missingAfterUpdate(&data, &planData, &resp.Diagnostics) {
+		return
+	}
+
+	data.reconcileWithDesired(&planData)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -344,7 +515,7 @@ func (r *KronScheduleResource) ImportState(ctx context.Context, req resource.Imp
 type timeFormatValidator struct{}
 
 func (v timeFormatValidator) Description(ctx context.Context) string {
-	return "validates time is in valid HH:MM format with valid hour (0-23) and minute (0-59)"
+	return "validates time is in valid HH:MM or HH:MM:SS format with valid hour (0-23), minute (0-59) and second (0-59)"
 }
 
 func (v timeFormatValidator) MarkdownDescription(ctx context.Context) string {
@@ -361,14 +532,24 @@ func (v timeFormatValidator) ValidateString(ctx context.Context, req validator.S
 		return
 	}
 
-	timePattern := regexp.MustCompile(`^(\d{1,2}):(\d{2})$`)
+	timePattern := regexp.MustCompile(`^(\d{1,2}):(\d{2})(?::(\d{2}))?$`)
 	matches := timePattern.FindStringSubmatch(value)
-	if len(matches) != 3 {
+	if len(matches) != 4 {
 		return // Already validated by RegexMatches
 	}
 
 	hour, _ := strconv.Atoi(matches[1])
 	minute, _ := strconv.Atoi(matches[2])
+
+	if matches[3] != "" {
+		if second, _ := strconv.Atoi(matches[3]); second < 0 || second > 59 {
+			resp.Diagnostics.AddAttributeError(
+				req.Path,
+				"Invalid Time",
+				fmt.Sprintf("Second %d is invalid, must be 0-59", second),
+			)
+		}
+	}
 
 	if hour < 0 || hour > 23 {
 		resp.Diagnostics.AddAttributeError(
