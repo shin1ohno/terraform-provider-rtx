@@ -1580,6 +1580,7 @@ type Schedule struct {
 	Commands    []string `json:"commands,omitempty"`     // Commands to execute
 	Enabled     bool     `json:"enabled"`                // Whether schedule is enabled
 	PPInterface int      `json:"pp_interface,omitempty"` // PP interface number for PP schedules
+	Context     string   `json:"context,omitempty"`      // Execution context: "*", "pp N", "tunnel N", "switch X"
 }
 
 // KronPolicy represents a kron policy (command list) on an RTX router

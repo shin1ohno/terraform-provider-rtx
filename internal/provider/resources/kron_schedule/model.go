@@ -72,34 +72,50 @@ func (m *KronScheduleModel) FromClient(schedule *client.Schedule) {
 // exactly as the practitioner wrote them.
 //
 // name, policy_list, day_of_week, at_time and date are Optional and NOT
-// Computed, so terraform core's post-apply consistency check demands the
-// applied value equal the planned one verbatim — null included. Three of them
-// the RTX cannot store at all: name and policy_list are Terraform-side labels
-// with no place in a `schedule at` line, and that line encodes weekdays inside
-// its date token rather than in a field of its own, so read-back always returns
-// them empty. at_time does come back, but in the router's own rendering: `0:00`
-// is written and `show config` prints `00:00:00`.
+// Computed, so terraform core's post-apply consistency check demands the applied
+// value equal the planned one verbatim — null included. name and policy_list the
+// RTX cannot store at all: they are Terraform-side labels with no place in a
+// `schedule at` line, so config is their only source of truth and they are
+// echoed unconditionally. at_time, date and day_of_week DO come back, but in the
+// router's own spelling — `0:00` is written and `show config` prints
+// `00:00:00`, and a weekday is carried as the date token `*/mon-fri`.
 //
-// Only values equal modulo that formatting are replaced. A genuinely different
-// time or date on the device is left in state, so the next plan shows the
-// drift instead of hiding it. Same contract as fwhelpers/reorder.go: desired is
-// the plan on Create/Update and the prior state on Read.
+// Those three are only replaced when they are equal modulo that formatting. A
+// genuinely different time, date or weekday on the device stays in state so the
+// next plan shows the drift instead of hiding it — which matters most for
+// day_of_week, where an unconditional echo would report success for a weekday
+// schedule the router is actually running daily. Same contract as
+// fwhelpers/reorder.go: desired is the plan on Create/Update and the prior
+// state on Read.
 func (m *KronScheduleModel) reconcileWithDesired(desired *KronScheduleModel) {
 	if desired == nil {
 		return
 	}
 
-	m.Name = desired.Name
-	m.PolicyList = desired.PolicyList
-	m.DayOfWeek = desired.DayOfWeek
+	m.Name = preferDesired(m.Name, desired.Name)
+	m.PolicyList = preferDesired(m.PolicyList, desired.PolicyList)
 
 	if parsers.NormalizeScheduleTime(fwhelpers.GetStringValue(m.AtTime)) ==
 		parsers.NormalizeScheduleTime(fwhelpers.GetStringValue(desired.AtTime)) {
-		m.AtTime = desired.AtTime
+		m.AtTime = preferDesired(m.AtTime, desired.AtTime)
 	}
 
 	if parsers.NormalizeScheduleDate(fwhelpers.GetStringValue(m.Date)) ==
 		parsers.NormalizeScheduleDate(fwhelpers.GetStringValue(desired.Date)) {
-		m.Date = desired.Date
+		m.Date = preferDesired(m.Date, desired.Date)
 	}
+
+	if parsers.NormalizeScheduleDayOfWeek(fwhelpers.GetStringValue(m.DayOfWeek)) ==
+		parsers.NormalizeScheduleDayOfWeek(fwhelpers.GetStringValue(desired.DayOfWeek)) {
+		m.DayOfWeek = preferDesired(m.DayOfWeek, desired.DayOfWeek)
+	}
+}
+
+// preferDesired returns the practitioner's value unless it is unknown, which
+// can never be written into state.
+func preferDesired(actual, desired types.String) types.String {
+	if desired.IsUnknown() {
+		return actual
+	}
+	return desired
 }

@@ -19,6 +19,11 @@ type Schedule struct {
 	PolicyList string   `json:"policy_list,omitempty"` // Policy/command list name
 	Commands   []string `json:"commands,omitempty"`    // Commands to execute
 	Enabled    bool     `json:"enabled"`               // Whether schedule is enabled
+	// Context is the execution-context token the line carried: "*" (the router
+	// itself), "pp <n>", "tunnel <n>" or "switch <sw>". rtx_kron_schedule only
+	// models "*"; the field exists so the resource can warn rather than
+	// silently rewrite a pp/tunnel/switch schedule as "*" on the next apply.
+	Context string `json:"context,omitempty"`
 }
 
 // KronPolicy represents a kron policy (command list) on an RTX router
@@ -39,6 +44,9 @@ func NewScheduleParser() *ScheduleParser {
 // and returns a list of Schedules
 func (p *ScheduleParser) ParseScheduleConfig(raw string) ([]Schedule, error) {
 	schedules := make(map[int]*Schedule)
+	// ParseScheduleConfig used to return the map's range order, so ListSchedules
+	// handed back a different order on every call. Track first-seen order.
+	order := make([]int, 0, 8)
 	lines := strings.Split(raw, "\n")
 
 	// The `schedule at` forms are tokenized rather than matched by one regexp —
@@ -66,6 +74,7 @@ func (p *ScheduleParser) ParseScheduleConfig(raw string) ([]Schedule, error) {
 			}
 			s := parsed
 			schedules[parsed.ID] = &s
+			order = append(order, parsed.ID)
 			continue
 		}
 
@@ -89,6 +98,7 @@ func (p *ScheduleParser) ParseScheduleConfig(raw string) ([]Schedule, error) {
 					Enabled:   true,
 				}
 				schedules[id] = schedule
+				order = append(order, id)
 			}
 			schedule.DayOfWeek = day
 			schedule.AtTime = time
@@ -109,10 +119,9 @@ func (p *ScheduleParser) ParseScheduleConfig(raw string) ([]Schedule, error) {
 		}
 	}
 
-	// Convert map to slice
-	result := make([]Schedule, 0, len(schedules))
-	for _, schedule := range schedules {
-		result = append(result, *schedule)
+	result := make([]Schedule, 0, len(order))
+	for _, id := range order {
+		result = append(result, *schedules[id])
 	}
 
 	return result, nil
@@ -230,7 +239,7 @@ func parseScheduleAtLine(line string) (Schedule, bool) {
 		return Schedule{}, false
 	}
 
-	schedule := Schedule{ID: id, Enabled: true}
+	schedule := Schedule{ID: id, Enabled: true, Context: scheduleAnyContext}
 	oneTime := false
 	i := 0
 
@@ -241,7 +250,16 @@ func parseScheduleAtLine(line string) (Schedule, bool) {
 		oneTime = true
 		i++
 	case scheduleRepeatDatePattern.MatchString(toks[i]):
-		if toks[i] != scheduleEveryDay {
+		// The RTX has no day-of-week field of its own: weekdays live in the
+		// date slot as `*/<days>`. Surface those in DayOfWeek so a read-back
+		// lands on the attribute the practitioner actually wrote — `date` only
+		// accepts YYYY/MM/DD, so a `*/mon-fri` left in Date could never round
+		// trip. `*/*` says nothing Recurring does not, so it is dropped.
+		switch dow := strings.TrimPrefix(toks[i], "*/"); {
+		case toks[i] == scheduleEveryDay:
+		case strings.HasPrefix(toks[i], "*/") && ValidateDayOfWeek(dow) == nil:
+			schedule.DayOfWeek = dow
+		default:
 			schedule.Date = toks[i]
 		}
 		i++
@@ -271,8 +289,10 @@ func parseScheduleAtLine(line string) (Schedule, bool) {
 		case toks[i] == scheduleAnyContext:
 			i++
 		case (toks[i] == "pp" || toks[i] == "tunnel") && i+1 < len(toks) && scheduleNumberPattern.MatchString(toks[i+1]):
+			schedule.Context = toks[i] + " " + toks[i+1]
 			i += 2
 		case toks[i] == "switch" && i+1 < len(toks) && strings.Contains(toks[i+1], ":"):
+			schedule.Context = toks[i] + " " + toks[i+1]
 			i += 2
 		}
 	}
@@ -421,6 +441,23 @@ func BuildShowScheduleCommand() string {
 // BuildShowScheduleByIDCommand builds the command to show a specific schedule
 func BuildShowScheduleByIDCommand(id int) string {
 	return fmt.Sprintf("show config | grep \"schedule at %d\"", id)
+}
+
+// NormalizeScheduleDayOfWeek renders a weekday selector in one spelling so
+// `"mon, wed, fri"` from config and `"mon,wed,fri"` from the router compare
+// equal. Ranges pass through unchanged.
+func NormalizeScheduleDayOfWeek(d string) string {
+	parts := strings.Split(strings.ToLower(strings.TrimSpace(d)), ",")
+	for i := range parts {
+		parts[i] = strings.TrimSpace(parts[i])
+	}
+	return strings.Join(parts, ",")
+}
+
+// IsScheduleOneTimeDate reports whether a date token names a single calendar
+// day. `1/1`, `*/mon-fri` and `*/*` all repeat.
+func IsScheduleOneTimeDate(date string) bool {
+	return scheduleFullDatePattern.MatchString(date)
 }
 
 // ValidateSchedule validates a Schedule configuration

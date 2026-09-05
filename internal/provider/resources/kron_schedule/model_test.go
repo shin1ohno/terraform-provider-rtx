@@ -69,21 +69,55 @@ func TestReconcileWithDesired(t *testing.T) {
 			wantDayOfWeek: types.StringNull(),
 		},
 		{
-			name: "labels the router cannot store come back from the config",
+			// name has no field in a `schedule at` line, so config is its only
+			// source of truth and it comes back unconditionally.
+			name: "a label the router cannot store comes back from the config",
 			fromRouter: KronScheduleModel{
-				AtTime:    types.StringValue("0:00"),
-				Name:      types.StringNull(),
-				DayOfWeek: types.StringNull(),
+				AtTime: types.StringValue("0:00"),
+				Name:   types.StringNull(),
 			},
 			desired: &KronScheduleModel{
-				AtTime:    types.StringValue("0:00"),
-				Name:      types.StringValue("nightly ntpdate"),
-				DayOfWeek: types.StringValue("mon-fri"),
+				AtTime: types.StringValue("0:00"),
+				Name:   types.StringValue("nightly ntpdate"),
 			},
 			wantAtTime:    types.StringValue("0:00"),
 			wantDate:      types.StringNull(),
 			wantName:      types.StringValue("nightly ntpdate"),
-			wantDayOfWeek: types.StringValue("mon-fri"),
+			wantDayOfWeek: types.StringNull(),
+		},
+		{
+			name: "weekday spelling differences are not drift",
+			fromRouter: KronScheduleModel{
+				AtTime:    types.StringValue("8:00"),
+				DayOfWeek: types.StringValue("mon,wed,fri"),
+			},
+			desired: &KronScheduleModel{
+				AtTime:    types.StringValue("8:00"),
+				DayOfWeek: types.StringValue("mon, wed, fri"),
+			},
+			wantAtTime:    types.StringValue("8:00"),
+			wantDate:      types.StringNull(),
+			wantName:      types.StringNull(),
+			wantDayOfWeek: types.StringValue("mon, wed, fri"),
+		},
+		{
+			// day_of_week is NOT echoed blindly: the write path emits it as the
+			// `*/<days>` date token, so the router really does report it back,
+			// and echoing would claim success for a weekday schedule the device
+			// is running daily.
+			name: "a weekday the router did not return stays absent so the drift shows",
+			fromRouter: KronScheduleModel{
+				AtTime:    types.StringValue("8:00"),
+				DayOfWeek: types.StringNull(),
+			},
+			desired: &KronScheduleModel{
+				AtTime:    types.StringValue("8:00"),
+				DayOfWeek: types.StringValue("mon-fri"),
+			},
+			wantAtTime:    types.StringValue("8:00"),
+			wantDate:      types.StringNull(),
+			wantName:      types.StringNull(),
+			wantDayOfWeek: types.StringNull(),
 		},
 	}
 

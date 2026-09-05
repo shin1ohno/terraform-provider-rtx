@@ -172,11 +172,14 @@ command:
         enabled: true
         commands: ["restart"]
 
+    # The RTX has no weekday field: `*/<days>` occupies the date slot. The
+    # parser surfaces it as day_of_week, because the Terraform `date` attribute
+    # only accepts YYYY/MM/DD and could never round-trip a weekday selector.
     - name: schedule_at_weekday
       rtx: "schedule at 1 */mon-fri 8:00 * pp auth accept on"
       terraform:
         id: 1
-        date: "*/mon-fri"
+        day_of_week: "mon-fri"
         at_time: "8:00"
         recurring: true
         enabled: true
@@ -186,21 +189,37 @@ command:
       rtx: "schedule at 1 */sat,sun 9:00 * nat masquerade on"
       terraform:
         id: 1
-        date: "*/sat,sun"
+        day_of_week: "sat,sun"
         at_time: "9:00"
         recurring: true
         enabled: true
         commands: ["nat masquerade on"]
 
+    # `*/*` means "every day", which the model already says with recurring, and
+    # it is not a value the Terraform `date` attribute can hold — so it is
+    # dropped rather than surfaced.
     - name: schedule_at_daily
       rtx: "schedule at 1 */* 03:00 * restart"
       terraform:
         id: 1
-        date: "*/*"
         at_time: "03:00"
         recurring: true
         enabled: true
         commands: ["restart"]
+
+    # Captured verbatim from the ITM RTX830 Rev.15.02.31 on 2026-09-05 with
+    # `show config | grep "schedule at 1"`. This is what the router renders a
+    # daily schedule back as: explicit wildcard date, zero-padded seconds, and
+    # the execution-context token.
+    - name: schedule_at_daily_as_rendered_by_the_router
+      rtx: "schedule at 1 */* 00:00:00 * ntpdate ntp.nict.jp syslog"
+      terraform:
+        id: 1
+        at_time: "00:00:00"
+        recurring: true
+        enabled: true
+        commands: ["ntpdate ntp.nict.jp syslog"]
+      parse_only: true
 
     # =============================================================================
     # PP context schedules

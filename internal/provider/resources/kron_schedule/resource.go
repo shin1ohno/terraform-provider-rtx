@@ -23,6 +23,7 @@ import (
 	"github.com/sh1/terraform-provider-rtx/internal/client"
 	"github.com/sh1/terraform-provider-rtx/internal/logging"
 	"github.com/sh1/terraform-provider-rtx/internal/provider/fwhelpers"
+	"github.com/sh1/terraform-provider-rtx/internal/rtx/parsers"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -129,6 +130,11 @@ func (r *KronScheduleResource) Schema(ctx context.Context, req resource.SchemaRe
 				Optional:    true,
 				ElementType: types.StringType,
 				Validators: []validator.List{
+					// One RTX schedule ID holds exactly ONE command: a second
+					// `schedule at <id>` line replaces the first rather than
+					// adding to it. A longer list silently lost everything but
+					// the last element on the device.
+					listvalidator.SizeAtMost(1),
 					listvalidator.ConflictsWith(path.MatchRoot("policy_list")),
 				},
 			},
@@ -225,6 +231,10 @@ func (r *KronScheduleResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
+	if missingAfterWrite(&data, &planData, "create", &resp.Diagnostics) {
+		return
+	}
+
 	data.reconcileWithDesired(&planData)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -285,6 +295,39 @@ func (r *KronScheduleResource) read(ctx context.Context, data *KronScheduleModel
 	}
 
 	data.FromClient(schedule)
+
+	if schedule.Context != "" && schedule.Context != "*" {
+		diagnostics.AddWarning(
+			"Schedule uses an execution context this resource does not model",
+			fmt.Sprintf("Schedule %d runs in the %q context on the router. rtx_kron_schedule only manages "+
+				"the global (\"*\") context, so the next apply will rewrite the line without it.",
+				scheduleID, schedule.Context),
+		)
+	}
+}
+
+// missingAfterWrite reports the router having no matching line right after a
+// write, and returns true when it did.
+//
+// read() nulls schedule_id when `show config` finds nothing. Straight after a
+// create or update that means the write did not land — the RTX rejects a
+// malformed command with a message none of the write path's error patterns
+// match, so the write can return success having done nothing. Naming it here
+// beats handing Terraform a null id and letting core report the opaque
+// "Provider produced inconsistent result after apply".
+func missingAfterWrite(data, planData *KronScheduleModel, op string, diagnostics *diag.Diagnostics) bool {
+	if !data.ScheduleID.IsNull() {
+		return false
+	}
+
+	id := int(planData.ScheduleID.ValueInt64())
+	fwhelpers.AppendDiagError(diagnostics,
+		fmt.Sprintf("Kron schedule not found after %s", op),
+		fmt.Sprintf("Schedule %d was written to the router but %q returned no matching line. The router "+
+			"most likely rejected the command; run it on the console to see the error.",
+			id, parsers.BuildShowScheduleByIDCommand(id)),
+	)
+	return true
 }
 
 // Update updates the resource and sets the updated Terraform state on success.
@@ -319,6 +362,10 @@ func (r *KronScheduleResource) Update(ctx context.Context, req resource.UpdateRe
 
 	r.read(ctx, &data, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if missingAfterWrite(&data, &planData, "update", &resp.Diagnostics) {
 		return
 	}
 

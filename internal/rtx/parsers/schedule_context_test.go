@@ -18,9 +18,11 @@ func TestParseScheduleAtRenderedForms(t *testing.T) {
 		line          string
 		wantID        int
 		wantDate      string
+		wantDayOfWeek string
 		wantAtTime    string
 		wantRecurring bool
 		wantOnStartup bool
+		wantContext   string
 		wantCommand   string
 	}{
 		{
@@ -42,13 +44,43 @@ func TestParseScheduleAtRenderedForms(t *testing.T) {
 			wantCommand:   "ntpdate ntp.nict.jp syslog",
 		},
 		{
-			name:          "weekday selector stays in date and remains recurring",
+			// The RTX has no weekday field: `*/mon-fri` in the date slot IS the
+			// weekday. It has to land on day_of_week, because the `date`
+			// attribute only accepts YYYY/MM/DD and could never round-trip it.
+			name:          "weekday selector lands on day_of_week, not date",
 			line:          "schedule at 1 */mon-fri 8:00 * pp auth accept on",
 			wantID:        1,
-			wantDate:      "*/mon-fri",
+			wantDayOfWeek: "mon-fri",
 			wantAtTime:    "8:00",
 			wantRecurring: true,
 			wantCommand:   "pp auth accept on",
+		},
+		{
+			name:          "comma-separated weekdays",
+			line:          "schedule at 1 */sat,sun 9:00 * nat masquerade on",
+			wantID:        1,
+			wantDayOfWeek: "sat,sun",
+			wantAtTime:    "9:00",
+			wantRecurring: true,
+			wantCommand:   "nat masquerade on",
+		},
+		{
+			// Written by every provider release before this fix. It has to stay
+			// readable or an existing schedule looks like it vanished.
+			name:          "pre-fix line with no context token",
+			line:          "schedule at 1 0:00 ntpdate ntp.nict.jp syslog",
+			wantID:        1,
+			wantAtTime:    "0:00",
+			wantRecurring: true,
+			wantCommand:   "ntpdate ntp.nict.jp syslog",
+		},
+		{
+			name:          "wildcard date with a seconds-less clock",
+			line:          "schedule at 1 */* 00:00 * ntpdate ntp.nict.jp syslog",
+			wantID:        1,
+			wantAtTime:    "00:00",
+			wantRecurring: true,
+			wantCommand:   "ntpdate ntp.nict.jp syslog",
 		},
 		{
 			name:          "month/day repeats every year",
@@ -86,9 +118,10 @@ func TestParseScheduleAtRenderedForms(t *testing.T) {
 			name:          "pp context is consumed, not left in the command",
 			line:          "schedule at 3 */mon-fri 17:00 pp 1 isdn auto connect off",
 			wantID:        3,
-			wantDate:      "*/mon-fri",
+			wantDayOfWeek: "mon-fri",
 			wantAtTime:    "17:00",
 			wantRecurring: true,
+			wantContext:   "pp 1",
 			wantCommand:   "isdn auto connect off",
 		},
 		{
@@ -97,6 +130,7 @@ func TestParseScheduleAtRenderedForms(t *testing.T) {
 			wantID:        1,
 			wantAtTime:    "8:00",
 			wantRecurring: true,
+			wantContext:   "tunnel 1",
 			wantCommand:   "ipsec sa delete 1",
 		},
 		{
@@ -105,6 +139,7 @@ func TestParseScheduleAtRenderedForms(t *testing.T) {
 			wantID:        2,
 			wantAtTime:    "03:00",
 			wantRecurring: true,
+			wantContext:   "switch lan1:4",
 			wantCommand:   "switch control function execute restart",
 		},
 		{
@@ -113,6 +148,7 @@ func TestParseScheduleAtRenderedForms(t *testing.T) {
 			wantID:        1,
 			wantAtTime:    "03:00",
 			wantRecurring: true,
+			wantContext:   "switch 00:a0:de:01:02:03",
 			wantCommand:   "switch control function execute restart",
 		},
 		{
@@ -151,6 +187,16 @@ func TestParseScheduleAtRenderedForms(t *testing.T) {
 			}
 			if s.Date != tt.wantDate {
 				t.Errorf("Date = %q, want %q", s.Date, tt.wantDate)
+			}
+			if s.DayOfWeek != tt.wantDayOfWeek {
+				t.Errorf("DayOfWeek = %q, want %q", s.DayOfWeek, tt.wantDayOfWeek)
+			}
+			wantContext := tt.wantContext
+			if wantContext == "" {
+				wantContext = "*"
+			}
+			if s.Context != wantContext {
+				t.Errorf("Context = %q, want %q", s.Context, wantContext)
 			}
 			if s.AtTime != tt.wantAtTime {
 				t.Errorf("AtTime = %q, want %q", s.AtTime, tt.wantAtTime)

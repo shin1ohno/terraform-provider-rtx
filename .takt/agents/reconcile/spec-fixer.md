@@ -52,7 +52,7 @@ Auditorから渡された差分レポートを確認:
 修正したspecからテストを再生成:
 
 ```bash
-go run ./cmd/specgen -spec specs/{resource}/config.yaml
+go run ./tools/specgen -spec specs/{resource}/config.yaml
 ```
 
 生成されたテストファイルを確認。

@@ -66,6 +66,13 @@ func (s *ScheduleService) CreateSchedule(ctx context.Context, schedule Schedule)
 		} else if schedule.DayOfWeek != "" && schedule.PPInterface > 0 {
 			// PP interface schedule
 			cmd = parsers.BuildSchedulePPCommand(schedule.PPInterface, schedule.DayOfWeek, schedule.AtTime, command)
+		} else if schedule.DayOfWeek != "" {
+			// The RTX carries weekdays in the date slot (`*/mon-fri`), not in a
+			// field of its own. Without this branch the day fell through to the
+			// plain time builder and was dropped: state said mon-fri while the
+			// router fired every day.
+			cmd = parsers.BuildScheduleAtDateTimeCommand(
+				schedule.ID, "*/"+parsers.NormalizeScheduleDayOfWeek(schedule.DayOfWeek), schedule.AtTime, command)
 		} else {
 			// Regular time-based schedule
 			cmd = parsers.BuildScheduleAtCommand(schedule.ID, schedule.AtTime, command)
@@ -255,6 +262,7 @@ func sameSchedule(a, b Schedule) bool {
 	if a.OnStartup != b.OnStartup ||
 		parsers.NormalizeScheduleTime(a.AtTime) != parsers.NormalizeScheduleTime(b.AtTime) ||
 		parsers.NormalizeScheduleDate(a.Date) != parsers.NormalizeScheduleDate(b.Date) ||
+		parsers.NormalizeScheduleDayOfWeek(a.DayOfWeek) != parsers.NormalizeScheduleDayOfWeek(b.DayOfWeek) ||
 		len(a.Commands) != len(b.Commands) {
 		return false
 	}
@@ -279,6 +287,7 @@ func (s *ScheduleService) toParserSchedule(schedule Schedule) parsers.Schedule {
 		PolicyList: schedule.PolicyList,
 		Commands:   schedule.Commands,
 		Enabled:    schedule.Enabled,
+		Context:    schedule.Context,
 	}
 }
 
@@ -295,6 +304,7 @@ func (s *ScheduleService) fromParserSchedule(ps parsers.Schedule) Schedule {
 		PolicyList: ps.PolicyList,
 		Commands:   ps.Commands,
 		Enabled:    ps.Enabled,
+		Context:    ps.Context,
 	}
 }
 
