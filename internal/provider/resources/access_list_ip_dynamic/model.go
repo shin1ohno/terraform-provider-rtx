@@ -1,6 +1,9 @@
 package access_list_ip_dynamic
 
 import (
+	"fmt"
+	"strconv"
+
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
@@ -207,4 +210,44 @@ func (m *AccessListIPDynamicModel) GetFilterNumbers() []int {
 		}
 	}
 	return nums
+}
+
+// entryKey renders one dynamic filter entry in a form that is equal for a planned
+// entry and for the router's copy of the same entry. Timeout is part of the key
+// because it is part of the command; the form-2 lists (`filter <list> [in ..] [out ..]`)
+// are too, so a form-2 row on the router never compares equal to the form-1 rows this
+// resource writes.
+func entryKey(source, destination, protocol string, syslog bool, timeout *int, filterList, inList, outList []int) string {
+	t := "-"
+	if timeout != nil {
+		t = strconv.Itoa(*timeout)
+	}
+	return fmt.Sprintf("%s %s %s syslog=%t timeout=%s filter=%v in=%v out=%v",
+		source, destination, protocol, syslog, t, filterList, inList, outList)
+}
+
+// PlannedEntryKeys returns sequence -> entryKey for every entry this plan will write.
+func (m *AccessListIPDynamicModel) PlannedEntryKeys() map[int]string {
+	acl := m.ToClient()
+	keys := make(map[int]string, len(acl.Entries))
+	for _, e := range acl.Entries {
+		if e.Sequence <= 0 {
+			continue
+		}
+		keys[e.Sequence] = entryKey(e.Source, e.Destination, e.Protocol, e.Syslog, e.Timeout, nil, nil, nil)
+	}
+	return keys
+}
+
+// RouterEntryKeys returns sequence -> entryKey for every dynamic IP filter the
+// router holds, whichever resource (or nobody) owns it.
+func RouterEntryKeys(config *client.IPFilterDynamicConfig) map[int]string {
+	if config == nil {
+		return map[int]string{}
+	}
+	keys := make(map[int]string, len(config.Entries))
+	for _, e := range config.Entries {
+		keys[e.Number] = entryKey(e.Source, e.Dest, e.Protocol, e.Syslog, e.Timeout, e.FilterList, e.InFilterList, e.OutFilterList)
+	}
+	return keys
 }

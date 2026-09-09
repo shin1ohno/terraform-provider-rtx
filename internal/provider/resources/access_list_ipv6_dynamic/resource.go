@@ -344,19 +344,26 @@ func (r *AccessListIPv6DynamicResource) ImportState(ctx context.Context, req res
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-// checkSequenceConflicts checks for sequence conflicts with existing IPv6 dynamic filters on the router.
-// currentState contains sequences that this resource already owns (for update operations).
+// checkSequenceConflicts refuses to overwrite an IPv6 dynamic filter that belongs to
+// somebody else. currentState contains sequences that this resource already owns (for
+// update operations).
+//
+// The comparison is by content, not by sequence number alone. This resource never
+// reads back rows it does not own (FromClient), so a state that is shorter than the
+// router — entries appended to config before a Read, a partial apply, `terraform
+// state rm` — would otherwise make the resource's own rows look foreign and every
+// following apply fail on them. A router row that is identical to what we are about
+// to write is left alone by the write, so it is not a conflict.
 func (r *AccessListIPv6DynamicResource) checkSequenceConflicts(ctx context.Context, data *AccessListIPv6DynamicModel, currentState []int, diagnostics *diag.Diagnostics) {
 	logger := logging.FromContext(ctx)
 
-	// Get planned sequences
-	plannedSequences := data.GetFilterNumbers()
-	if len(plannedSequences) == 0 {
+	planned := data.PlannedEntryKeys()
+	if len(planned) == 0 {
 		return
 	}
 
-	// Get all existing IPv6 dynamic filter sequences from the router
-	existingSequences, err := r.client.GetAllIPv6FilterDynamicSequences(ctx)
+	// Get every IPv6 dynamic filter on the router, with its content
+	config, err := r.client.GetIPv6FilterDynamicConfig(ctx)
 	if err != nil {
 		// Log warning but don't fail - this is a best-effort check
 		logger.Warn().Err(err).Msg("Could not check for sequence conflicts")
@@ -364,7 +371,7 @@ func (r *AccessListIPv6DynamicResource) checkSequenceConflicts(ctx context.Conte
 	}
 
 	// Check for conflicts
-	conflicts := fwhelpers.CheckSequenceConflicts(plannedSequences, existingSequences, currentState)
+	conflicts := fwhelpers.CheckSequenceContentConflicts(planned, RouterEntryKeys(config), currentState)
 	if len(conflicts) > 0 {
 		diagnostics.AddError(
 			"Sequence conflict detected",

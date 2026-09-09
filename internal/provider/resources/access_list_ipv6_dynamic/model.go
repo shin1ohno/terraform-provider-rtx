@@ -1,6 +1,8 @@
 package access_list_ipv6_dynamic
 
 import (
+	"fmt"
+
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
@@ -198,4 +200,37 @@ func (m *AccessListIPv6DynamicModel) GetFilterNumbers() []int {
 		}
 	}
 	return nums
+}
+
+// entryKey renders one dynamic filter entry in a form that is equal for a planned
+// entry and for the router's copy of the same entry. The fields are the ones
+// FromClient reads back, so "same key" means "Read would show no drift".
+func entryKey(source, destination, protocol string, syslog bool) string {
+	return fmt.Sprintf("%s %s %s syslog=%t", source, destination, protocol, syslog)
+}
+
+// PlannedEntryKeys returns sequence -> entryKey for every entry this plan will write.
+func (m *AccessListIPv6DynamicModel) PlannedEntryKeys() map[int]string {
+	acl := m.ToClient()
+	keys := make(map[int]string, len(acl.Entries))
+	for _, e := range acl.Entries {
+		if e.Sequence <= 0 {
+			continue
+		}
+		keys[e.Sequence] = entryKey(e.Source, e.Destination, e.Protocol, e.Syslog)
+	}
+	return keys
+}
+
+// RouterEntryKeys returns sequence -> entryKey for every dynamic IPv6 filter the
+// router holds, whichever resource (or nobody) owns it.
+func RouterEntryKeys(config *client.IPv6FilterDynamicConfig) map[int]string {
+	if config == nil {
+		return map[int]string{}
+	}
+	keys := make(map[int]string, len(config.Entries))
+	for _, e := range config.Entries {
+		keys[e.Number] = entryKey(e.Source, e.Dest, e.Protocol, e.Syslog)
+	}
+	return keys
 }
