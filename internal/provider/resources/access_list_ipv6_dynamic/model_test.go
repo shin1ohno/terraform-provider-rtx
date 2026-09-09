@@ -6,6 +6,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/sh1/terraform-provider-rtx/internal/client"
+	"github.com/sh1/terraform-provider-rtx/internal/provider/fwhelpers"
 )
 
 func modelWithEntries(protocols ...string) *AccessListIPv6DynamicModel {
@@ -131,5 +132,88 @@ func TestFromClient_OwnedSequenceMissingFromRouterIsDropped(t *testing.T) {
 
 	if len(m.Entries) != 2 {
 		t.Fatalf("got %d entries, want 2 — sequence 6 is gone from the router", len(m.Entries))
+	}
+}
+
+// wanOutbound is rtx_access_list_ipv6_dynamic.wan_outbound as home-monitor declares
+// it (rtx-hnd.tf, 11 entries, start 1 step 5) and as the RTX1210 rendered it on
+// 2026-09-08. The fixture is shared by the conflict tests below.
+func wanOutbound() (*AccessListIPv6DynamicModel, *client.IPv6FilterDynamicConfig) {
+	rows := []struct {
+		source, protocol string
+	}{
+		{"*", "ftp"}, {"dhcp-prefix@lan2::/64", "domain"}, {"*", "www"}, {"*", "smtp"},
+		{"*", "pop3"}, {"*", "submission"}, {"dhcp-prefix@lan2::/64", "tcp"},
+		{"dhcp-prefix@lan2::/64", "udp"}, {"ra-prefix@lan2::/64", "domain"},
+		{"ra-prefix@lan2::/64", "tcp"}, {"ra-prefix@lan2::/64", "udp"},
+	}
+	m := &AccessListIPv6DynamicModel{
+		Name:          types.StringValue("wan-outbound-ipv6-dynamic"),
+		SequenceStart: types.Int64Value(1),
+		SequenceStep:  types.Int64Value(5),
+	}
+	router := &client.IPv6FilterDynamicConfig{}
+	for i, r := range rows {
+		m.Entries = append(m.Entries, EntryModel{
+			Source:      types.StringValue(r.source),
+			Destination: types.StringValue("*"),
+			Protocol:    types.StringValue(r.protocol),
+			Syslog:      types.BoolValue(false),
+		})
+		router.Entries = append(router.Entries, client.IPv6FilterDynamicEntry{
+			Number: 1 + 5*i, Source: r.source, Dest: "*", Protocol: r.protocol,
+		})
+	}
+	return m, router
+}
+
+// A planned entry and the router's rendering of the same entry must produce the
+// same key, or the content-aware conflict check degrades to the sequence-only one.
+func TestEntryKeys_PlannedAndRouterAgreeOnIdenticalRows(t *testing.T) {
+	m, router := wanOutbound()
+	planned, onRouter := m.PlannedEntryKeys(), RouterEntryKeys(router)
+	if len(planned) != 11 || len(onRouter) != 11 {
+		t.Fatalf("planned %d rows, router %d rows, want 11 and 11", len(planned), len(onRouter))
+	}
+	for seq, want := range planned {
+		if got := onRouter[seq]; got != want {
+			t.Errorf("seq %d: router key %q != planned key %q", seq, got, want)
+		}
+	}
+}
+
+func TestEntryKeys_SyslogIsPartOfTheKey(t *testing.T) {
+	if entryKey("*", "*", "www", true) == entryKey("*", "*", "www", false) {
+		t.Fatal("syslog=on and syslog=off rendered the same key")
+	}
+}
+
+// 2026-09-08: the state carried 8 of the 11 rows (the last three were added to
+// config after the state was last refreshed), the router already held all 11 from
+// an earlier apply. With CheckSequenceConflicts the update failed on 41 46 51 —
+// the resource's own rows — on every apply until the state was repaired by hand.
+func TestSequenceConflicts_ShortStateOverIdenticalRouterRowsIsNotAConflict(t *testing.T) {
+	m, router := wanOutbound()
+	owned := []int{1, 6, 11, 16, 21, 26, 31, 36}
+
+	if got := fwhelpers.CheckSequenceContentConflicts(m.PlannedEntryKeys(), RouterEntryKeys(router), owned); len(got) != 0 {
+		t.Fatalf("conflicts = %v, want none: rows 41 46 51 are on the router in exactly the planned form", got)
+	}
+	// Create after `terraform state rm` — nothing owned, everything identical.
+	if got := fwhelpers.CheckSequenceContentConflicts(m.PlannedEntryKeys(), RouterEntryKeys(router), nil); len(got) != 0 {
+		t.Fatalf("create-path conflicts = %v, want none", got)
+	}
+}
+
+// The guard still has to stop an overwrite of somebody else's row: same sequence,
+// different content, not in this resource's state.
+func TestSequenceConflicts_UnownedRowWithDifferentContentIsStillAConflict(t *testing.T) {
+	m, router := wanOutbound()
+	router.Entries[8].Source = "*" // seq 41 on the router: `* * domain`, not `ra-prefix@lan2::/64 * domain`
+	owned := []int{1, 6, 11, 16, 21, 26, 31, 36}
+
+	got := fwhelpers.CheckSequenceContentConflicts(m.PlannedEntryKeys(), RouterEntryKeys(router), owned)
+	if len(got) != 1 || got[0] != 41 {
+		t.Fatalf("conflicts = %v, want [41]", got)
 	}
 }

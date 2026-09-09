@@ -348,19 +348,24 @@ func (r *AccessListIPDynamicResource) ImportState(ctx context.Context, req resou
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-// checkSequenceConflicts checks for sequence conflicts with existing dynamic filters on the router.
-// currentState contains sequences that this resource already owns (for update operations).
+// checkSequenceConflicts refuses to overwrite a dynamic filter that belongs to somebody
+// else. currentState contains sequences that this resource already owns (for update
+// operations).
+//
+// The comparison is by content, not by sequence number alone — see the IPv6 sibling
+// (access_list_ipv6_dynamic) for why: this resource does not read back rows it does
+// not own, so a bare-sequence check wedges the resource on its own rows whenever the
+// state is shorter than the router.
 func (r *AccessListIPDynamicResource) checkSequenceConflicts(ctx context.Context, data *AccessListIPDynamicModel, currentState []int, diagnostics *diag.Diagnostics) {
 	logger := logging.FromContext(ctx)
 
-	// Get planned sequences
-	plannedSequences := data.GetFilterNumbers()
-	if len(plannedSequences) == 0 {
+	planned := data.PlannedEntryKeys()
+	if len(planned) == 0 {
 		return
 	}
 
-	// Get all existing dynamic filter sequences from the router
-	existingSequences, err := r.client.GetAllIPFilterDynamicSequences(ctx)
+	// Get every dynamic filter on the router, with its content
+	config, err := r.client.GetIPFilterDynamicConfig(ctx)
 	if err != nil {
 		// Log warning but don't fail - this is a best-effort check
 		logger.Warn().Err(err).Msg("Could not check for sequence conflicts")
@@ -368,7 +373,7 @@ func (r *AccessListIPDynamicResource) checkSequenceConflicts(ctx context.Context
 	}
 
 	// Check for conflicts
-	conflicts := fwhelpers.CheckSequenceConflicts(plannedSequences, existingSequences, currentState)
+	conflicts := fwhelpers.CheckSequenceContentConflicts(planned, RouterEntryKeys(config), currentState)
 	if len(conflicts) > 0 {
 		diagnostics.AddError(
 			"Sequence conflict detected",
