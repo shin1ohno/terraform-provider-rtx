@@ -90,7 +90,7 @@ func (r *DHCPBindingResource) Schema(ctx context.Context, req resource.SchemaReq
 				},
 			},
 			"client_identifier": schema.StringAttribute{
-				Description: "DHCP Client Identifier in hex format (e.g., '01:aa:bb:cc:dd:ee:ff' for MAC-based, '02:12:34:56:78' for custom). Conflicts with mac_address.",
+				Description: "Not supported: the provider cannot read a binding written this way back from the router, so any value is rejected at plan time. For an ethernet-type client identifier ('01:<mac>') set mac_address and use_mac_as_client_id = true instead. Conflicts with mac_address.",
 				Optional:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
@@ -194,43 +194,20 @@ func (r *DHCPBindingResource) ValidateConfig(ctx context.Context, req resource.V
 		return
 	}
 
-	// Validate client_identifier format if specified
+	// client_identifier never round-trips: the write path renders it as
+	// `client-id <id>` and the read path only parses the MAC forms (`<mac>`
+	// and `ethernet <mac>`), so a binding declared this way can never match
+	// its own state. Refuse it here, where the message reaches the plan,
+	// rather than after a write the next refresh would silently drop.
 	if clientIdentifierSet {
-		cid := data.ClientIdentifier.ValueString()
-		normalized := normalizeClientIdentifier(cid)
-		parts := strings.Split(normalized, ":")
-
-		if len(parts) < 2 {
-			resp.Diagnostics.AddAttributeError(
-				path.Root("client_identifier"),
-				"Invalid Client Identifier Format",
-				"Client identifier must be in format 'type:data' (e.g., '01:aa:bb:cc:dd:ee:ff', '02:66:6f:6f').",
-			)
-			return
-		}
-
-		// Validate each part is valid hex
-		for i, part := range parts {
-			if len(part) != 2 {
-				resp.Diagnostics.AddAttributeError(
-					path.Root("client_identifier"),
-					"Invalid Client Identifier Format",
-					fmt.Sprintf("Client identifier must contain 2-character hex octets at position %d, got %q.", i, part),
-				)
-				return
-			}
-
-			for _, c := range part {
-				if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
-					resp.Diagnostics.AddAttributeError(
-						path.Root("client_identifier"),
-						"Invalid Client Identifier Format",
-						fmt.Sprintf("Client identifier contains invalid hex character '%c' at position %d.", c, i),
-					)
-					return
-				}
-			}
-		}
+		resp.Diagnostics.AddAttributeError(
+			path.Root("client_identifier"),
+			"client_identifier Is Not Supported",
+			"The provider cannot read a client_identifier binding back from the router, so the "+
+				"resource would never converge. For an ethernet-type client identifier ('01:<mac>') set "+
+				"mac_address = \"<mac>\" and use_mac_as_client_id = true, which writes `ethernet <mac>`.",
+		)
+		return
 	}
 
 	// Validate MAC address format if specified
@@ -263,6 +240,23 @@ func (r *DHCPBindingResource) Create(ctx context.Context, req resource.CreateReq
 	binding := data.ToClient()
 	logger.Debug().Str("resource", "rtx_dhcp_binding").Msgf("Creating DHCP binding: scope_id=%d, ip=%s", binding.ScopeID, binding.IPAddress)
 
+	// `dhcp scope bind` overwrites an existing row without complaint, so
+	// look before writing: a row already holding this IP or MAC belongs to
+	// another instance (or to nobody in state), and either way this create
+	// must not adopt it silently.
+	existing, err := r.client.GetDHCPBindings(ctx, binding.ScopeID)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Failed to create DHCP binding",
+			fmt.Sprintf("Could not list the bindings of scope %d before creating: %v", binding.ScopeID, err),
+		)
+		return
+	}
+	if hit := findConflictingBinding(binding, existing); hit != nil {
+		conflictDiagnostic(binding, hit, &resp.Diagnostics)
+		return
+	}
+
 	if err := r.client.CreateDHCPBinding(ctx, binding); err != nil {
 		resp.Diagnostics.AddError(
 			"Failed to create DHCP binding",
@@ -284,6 +278,10 @@ func (r *DHCPBindingResource) Create(ctx context.Context, req resource.CreateReq
 	// Read back the created resource
 	r.read(ctx, &data, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if missingAfterCreate(&data, binding, &resp.Diagnostics) {
 		return
 	}
 
