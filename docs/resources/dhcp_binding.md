@@ -22,7 +22,7 @@ Manages DHCP static lease bindings on RTX routers.
 
 ### Optional
 
-- `client_identifier` (String) DHCP Client Identifier in hex format (e.g., '01:aa:bb:cc:dd:ee:ff' for MAC-based, '02:12:34:56:78' for custom). Conflicts with mac_address.
+- `client_identifier` (String) Not supported: the provider cannot read a binding written this way back from the router, so any value is rejected at plan time. For an ethernet-type client identifier ('01:<mac>') set mac_address and use_mac_as_client_id = true instead. Conflicts with mac_address.
 - `description` (String) Description of the DHCP binding (for documentation purposes).
 - `hostname` (String) Hostname for the device (for documentation purposes).
 - `mac_address` (String) The MAC address of the device (e.g., '00:11:22:33:44:55'). Conflicts with client_identifier.
