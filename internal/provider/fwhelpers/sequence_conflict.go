@@ -11,51 +11,17 @@ type SequenceConflict struct {
 	Message  string
 }
 
-// CheckSequenceConflicts checks for conflicts between planned sequences and existing sequences.
-// It returns a list of conflicting sequences.
+// CheckSequenceContentConflicts reports the planned sequences that would overwrite
+// somebody else's filter. Both maps go from sequence number to a canonical rendering
+// of the entry at that sequence: planned is what the resource is about to write,
+// existing is what the router holds now. A planned sequence conflicts only when the
+// router already holds it, this resource does not own it, AND the router's rendering
+// differs from the planned one.
 //
-// Parameters:
-//   - planned: sequences that the resource wants to use
-//   - existing: all sequences currently on the router
-//   - currentState: sequences that the resource currently owns (will be excluded from conflict check)
-//
-// Returns sequences from planned that exist in existing but not in currentState.
-func CheckSequenceConflicts(planned, existing, currentState []int) []int {
-	// Build a set of existing sequences
-	existingSet := make(map[int]bool, len(existing))
-	for _, seq := range existing {
-		existingSet[seq] = true
-	}
-
-	// Build a set of current state sequences (owned by this resource)
-	currentSet := make(map[int]bool, len(currentState))
-	for _, seq := range currentState {
-		currentSet[seq] = true
-	}
-
-	// Find conflicts: sequences that are planned, exist on router, but not owned by this resource
-	var conflicts []int
-	for _, seq := range planned {
-		if existingSet[seq] && !currentSet[seq] {
-			conflicts = append(conflicts, seq)
-		}
-	}
-
-	// Sort for deterministic output
-	sort.Ints(conflicts)
-	return conflicts
-}
-
-// CheckSequenceContentConflicts is CheckSequenceConflicts with the router's content
-// taken into account. Both maps go from sequence number to a canonical rendering of
-// the entry at that sequence: planned is what the resource is about to write, existing
-// is what the router holds now. A planned sequence conflicts only when the router
-// already holds it, this resource does not own it, AND the router's rendering differs
-// from the planned one.
-//
-// The identical-content exemption is the point. The dynamic filter resources do not
-// read back rows they do not own (see access_list_ipv6_dynamic/model.go, FromClient),
-// so any state that carries fewer entries than the router — a state built before
+// The identical-content exemption is the point. The filter resources, static and
+// dynamic alike, do not read back rows they do not own (each Read walks the sequences
+// recorded in state, see access_list_ipv6_dynamic/model.go FromClient and the
+// GetIPFilter loop in access_list_ip/resource.go), so any state that carries fewer entries than the router — a state built before
 // entries were appended to config, a partial apply, a `terraform state rm` — makes the
 // rows this resource wrote last time look like somebody else's. With a bare-sequence
 // check the resource then refuses to write its own output again and stays wedged

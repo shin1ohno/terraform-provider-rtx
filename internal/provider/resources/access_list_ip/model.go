@@ -2,6 +2,7 @@ package access_list_ip
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -236,4 +237,41 @@ func normalizePort(port string) string {
 		return "*"
 	}
 	return port
+}
+
+// filterKey renders a static IP filter the way this resource compares it: the
+// fields SetEntriesFromFilters reads back, with the same "" -> "*" port
+// normalisation, so a planned entry and the router's `show config` row for the
+// same filter produce the same key. Log is left out because the router never
+// reports it, and the non-CIDR masks are left out because the resource neither
+// writes nor reads them.
+func filterKey(f client.IPFilter) string {
+	return fmt.Sprintf("%s %s %s %s %s %s established=%t",
+		f.Action, f.SourceAddress, f.DestAddress,
+		normalizePort(f.Protocol), normalizePort(f.SourcePort), normalizePort(f.DestPort),
+		f.Established)
+}
+
+// PlannedFilterKeys returns the planned filters keyed by sequence number, for
+// the content-aware conflict check.
+func (m *AccessListIPModel) PlannedFilterKeys() map[int]string {
+	filters := m.ToClientFilters()
+	keys := make(map[int]string, len(filters))
+	for _, f := range filters {
+		if f.Number <= 0 {
+			continue
+		}
+		keys[f.Number] = filterKey(f)
+	}
+	return keys
+}
+
+// RouterFilterKeys returns every filter the router reports keyed by sequence
+// number, rendered with the same key as PlannedFilterKeys.
+func RouterFilterKeys(filters []client.IPFilter) map[int]string {
+	keys := make(map[int]string, len(filters))
+	for _, f := range filters {
+		keys[f.Number] = filterKey(f)
+	}
+	return keys
 }

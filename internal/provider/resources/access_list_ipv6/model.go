@@ -2,6 +2,7 @@ package access_list_ipv6
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -235,6 +236,40 @@ func normalizePort(port string) string {
 		return "*"
 	}
 	return port
+}
+
+// filterKey renders a static IPv6 filter the way this resource compares it: the
+// fields FromFilters reads back, with the same "" -> "*" port normalisation, so
+// a planned entry and the router's `show config` row for the same filter
+// produce the same key. Log is left out because the router never reports it.
+func filterKey(f client.IPFilter) string {
+	return fmt.Sprintf("%s %s %s %s %s %s",
+		f.Action, f.SourceAddress, f.DestAddress,
+		normalizePort(f.Protocol), normalizePort(f.SourcePort), normalizePort(f.DestPort))
+}
+
+// PlannedFilterKeys returns the planned filters keyed by sequence number, for
+// the content-aware conflict check.
+func (m *AccessListIPv6Model) PlannedFilterKeys(ctx context.Context, diagnostics *diag.Diagnostics) map[int]string {
+	filters := m.ToFilters(ctx, diagnostics)
+	keys := make(map[int]string, len(filters))
+	for _, f := range filters {
+		if f.Number <= 0 {
+			continue
+		}
+		keys[f.Number] = filterKey(f)
+	}
+	return keys
+}
+
+// RouterFilterKeys returns every filter the router reports keyed by sequence
+// number, rendered with the same key as PlannedFilterKeys.
+func RouterFilterKeys(filters []client.IPFilter) map[int]string {
+	keys := make(map[int]string, len(filters))
+	for _, f := range filters {
+		keys[f.Number] = filterKey(f)
+	}
+	return keys
 }
 
 // entryToObjectValue converts an EntryModel to an attr.Value.
