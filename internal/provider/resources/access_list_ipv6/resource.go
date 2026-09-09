@@ -603,22 +603,23 @@ func (r *AccessListIPv6Resource) readApplyBlocks(ctx context.Context, data *Acce
 func (r *AccessListIPv6Resource) checkSequenceConflicts(ctx context.Context, data *AccessListIPv6Model, currentState []int, diagnostics *diag.Diagnostics) {
 	logger := logging.FromContext(ctx)
 
-	// Get planned sequences
-	plannedSequences := data.GetExpectedSequences()
-	if len(plannedSequences) == 0 {
+	planned := data.PlannedFilterKeys(ctx, diagnostics)
+	if diagnostics.HasError() || len(planned) == 0 {
 		return
 	}
 
-	// Get all existing IPv6 filter sequences from the router
-	existingSequences, err := r.client.GetAllIPv6FilterSequences(ctx)
+	// Read the router's filters with their content, not just their numbers:
+	// a row that already says exactly what we are about to write is not a
+	// conflict, it is our own row seen from a state that has fallen short of
+	// the router (an import that stopped early, a plan that grew).
+	existing, err := r.client.ListIPv6Filters(ctx)
 	if err != nil {
 		// Log warning but don't fail - this is a best-effort check
 		logger.Warn().Err(err).Msg("Could not check for sequence conflicts")
 		return
 	}
 
-	// Check for conflicts
-	conflicts := fwhelpers.CheckSequenceConflicts(plannedSequences, existingSequences, currentState)
+	conflicts := fwhelpers.CheckSequenceContentConflicts(planned, RouterFilterKeys(existing), currentState)
 	if len(conflicts) > 0 {
 		diagnostics.AddError(
 			"Sequence conflict detected",

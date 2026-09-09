@@ -91,17 +91,3 @@ func TestCheckSequenceContentConflicts(t *testing.T) {
 		})
 	}
 }
-
-// The bare-sequence check is what the content-aware one replaces in the dynamic
-// filter resources; pin the behaviour that made the replacement necessary so the
-// difference between the two stays documented by a test.
-func TestCheckSequenceConflicts_FlagsOwnRowsWhenStateIsShort(t *testing.T) {
-	planned := []int{1, 6, 11, 16, 21, 26, 31, 36, 41, 46, 51}
-	got := CheckSequenceConflicts(planned, planned, planned[:8])
-	if want := []int{41, 46, 51}; !reflect.DeepEqual(got, want) {
-		t.Fatalf("conflicts = %v, want %v", got, want)
-	}
-	if got := CheckSequenceConflicts(planned, planned, nil); !reflect.DeepEqual(got, planned) {
-		t.Fatalf("create-path conflicts = %v, want every sequence", got)
-	}
-}
