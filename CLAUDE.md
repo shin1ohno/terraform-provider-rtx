@@ -170,6 +170,20 @@ go generate ./...
 make lint
 make test
 
+# 3b. Plan a real consumer config against the built binary before tagging.
+#     Unit tests miss what only a real config reaches: unknown values from
+#     for_each/variables (#34), state-vs-router read-back gaps. dev_overrides
+#     ignores the lock file, so the consumer needs no version bump yet.
+mkdir -p /tmp/rtx-dev && go build -o /tmp/rtx-dev/terraform-provider-rtx .
+cat > /tmp/rtx-dev/tf.rc <<'RC'
+provider_installation {
+  dev_overrides { "registry.terraform.io/shin1ohno/rtx" = "/tmp/rtx-dev" }
+  direct {}
+}
+RC
+TF_CLI_CONFIG_FILE=/tmp/rtx-dev/tf.rc AWS_PROFILE=sh1admn \
+  terraform -chdir=~/ManagedProjects/home-monitor plan -lock=false -target=<changed resources>
+
 # 4. Commit changes
 git add -A && git commit -m "release: bump version to X.Y.Z"
 
