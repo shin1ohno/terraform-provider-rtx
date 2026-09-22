@@ -156,12 +156,22 @@ func (r *KronScheduleResource) ValidateConfig(ctx context.Context, req resource.
 		return
 	}
 
+	// Any of these can be unknown here: Terraform validates before variables
+	// and for_each values are known, so at_time = format("%d:00", each.value.h)
+	// or command_lines built from a local arrive as unknown. The GetXValue
+	// helpers turn unknown into the zero value, so without these guards every
+	// computed schedule was rejected as if the attribute were missing. A check
+	// runs only when every value it depends on is known; ValidateConfig is
+	// called again at plan time with the real values.
+	timingUnknown := data.AtTime.IsUnknown() || data.OnStartup.IsUnknown() || data.Date.IsUnknown()
+	commandsUnknown := data.PolicyList.IsUnknown() || data.CommandLines.IsUnknown()
+
 	// Validate that either at_time, on_startup, or date is specified
 	atTime := fwhelpers.GetStringValue(data.AtTime)
 	onStartup := fwhelpers.GetBoolValue(data.OnStartup)
 	date := fwhelpers.GetStringValue(data.Date)
 
-	if atTime == "" && !onStartup && date == "" {
+	if !timingUnknown && atTime == "" && !onStartup && date == "" {
 		resp.Diagnostics.AddError(
 			"Invalid Configuration",
 			"One of 'at_time', 'on_startup', or 'date' must be specified.",
@@ -172,7 +182,7 @@ func (r *KronScheduleResource) ValidateConfig(ctx context.Context, req resource.
 	policyList := fwhelpers.GetStringValue(data.PolicyList)
 	hasCommands := !data.CommandLines.IsNull() && !data.CommandLines.IsUnknown() && len(data.CommandLines.Elements()) > 0
 
-	if policyList == "" && !hasCommands {
+	if !commandsUnknown && policyList == "" && !hasCommands {
 		resp.Diagnostics.AddError(
 			"Invalid Configuration",
 			"Either 'policy_list' or 'command_lines' must be specified.",
@@ -185,7 +195,7 @@ func (r *KronScheduleResource) ValidateConfig(ctx context.Context, req resource.
 	// guaranteed post-apply consistency failure, so name it at plan time.
 	// ModifyPlan derives the value when config leaves it unset; this only
 	// catches an explicit one that disagrees.
-	if !data.Recurring.IsNull() && !data.Recurring.IsUnknown() {
+	if !data.Recurring.IsNull() && !data.Recurring.IsUnknown() && !timingUnknown {
 		oneShot := onStartup || parsers.IsScheduleOneTimeDate(date)
 		switch {
 		case data.Recurring.ValueBool() && oneShot:
